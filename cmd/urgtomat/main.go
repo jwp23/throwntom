@@ -1,0 +1,265 @@
+package main
+
+import (
+	"bufio"
+	"context"
+	"flag"
+	"fmt"
+	"os"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"urgtomat/internal/app"
+	"urgtomat/internal/config"
+	"urgtomat/internal/notifier"
+	"urgtomat/internal/reminder"
+	"urgtomat/internal/scheduler"
+)
+
+func main() {
+	flag.Usage = printFlagUsage
+	configPath := flag.String("config", "", "path to config toml")
+	flag.Parse()
+
+	cfg, err := loadConfig(*configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "config error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if flag.NArg() == 0 {
+		printUsage()
+		os.Exit(1)
+	}
+
+	cmd := flag.Arg(0)
+	switch cmd {
+	case "daemon":
+		runDaemon(cfg)
+	default:
+		fmt.Fprintf(os.Stderr, "unsupported command %q\n", cmd)
+		printUsage()
+		os.Exit(1)
+	}
+}
+
+func loadConfig(path string) (config.Config, error) {
+	if path == "" {
+		return config.Default(), nil
+	}
+	return config.LoadFile(path)
+}
+
+func runDaemon(cfg config.Config) {
+	n := notifier.NewMacOSNotifier()
+	cycle := app.New(
+		cfg.WorkMinutes,
+		cfg.ShortBreakMinutes,
+		cfg.LongBreakMinutes,
+		cfg.LongBreakEvery,
+		time.Duration(cfg.RepeatSecs)*time.Second,
+		n,
+	)
+	s := scheduler.New(cfg.Schedule.Days, cfg.Schedule.Time)
+
+	fmt.Printf("urgtomat daemon started (schedule %s %s)\n", strings.Join(cfg.Schedule.Days, ","), cfg.Schedule.Time)
+	fmt.Printf("cycle: work=%dm short=%dm long=%dm every=%d repeat=%ds\n", cfg.WorkMinutes, cfg.ShortBreakMinutes, cfg.LongBreakMinutes, cfg.LongBreakEvery, cfg.RepeatSecs)
+	fmt.Println(daemonCommandsHelp())
+
+	var stateMu sync.Mutex
+	var morningCancel context.CancelFunc
+	var snoozeUntil time.Time
+	lastTriggerDay := ""
+	morningPending := false
+	var inputActive atomic.Bool
+
+	startMorningLoop := func() {
+		var shouldStart bool
+		var cancel context.CancelFunc
+
+		stateMu.Lock()
+		if morningPending {
+			stateMu.Unlock()
+			return
+		}
+		morningPending = true
+		ctx, newCancel := context.WithCancel(context.Background())
+		cancel = newCancel
+		morningCancel = cancel
+		shouldStart = true
+		stateMu.Unlock()
+
+		if !shouldStart {
+			return
+		}
+
+		fmt.Println("\nmorning reminder: start/snooze/skip-today")
+		loop := reminder.New(time.Duration(cfg.RepeatSecs)*time.Second, func() error {
+			return n.PlaySound("morning")
+		})
+		go loop.Run(ctx)
+	}
+
+	stopMorningLoop := func() {
+		stateMu.Lock()
+		cancel := morningCancel
+		morningCancel = nil
+		morningPending = false
+		stateMu.Unlock()
+
+		if cancel != nil {
+			cancel()
+		}
+	}
+
+	go func() {
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+		for now := range ticker.C {
+			shouldStart := false
+			dayKey := now.Format("2006-01-02")
+			stateMu.Lock()
+			if !snoozeUntil.IsZero() && now.Before(snoozeUntil) {
+				stateMu.Unlock()
+				continue
+			}
+			if s.ShouldTrigger(now) && dayKey != lastTriggerDay {
+				lastTriggerDay = dayKey
+				shouldStart = true
+			}
+			stateMu.Unlock()
+
+			if shouldStart {
+				startMorningLoop()
+			}
+		}
+	}()
+
+	go func() {
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			if inputActive.Load() {
+				continue
+			}
+			fmt.Printf("\rstatus: %s", cycle.StatusLine())
+		}
+	}()
+
+	scanner := bufio.NewScanner(os.Stdin)
+	for {
+		inputActive.Store(true)
+		fmt.Print("\ncommand> ")
+		if !scanner.Scan() {
+			inputActive.Store(false)
+			fmt.Println()
+			return
+		}
+		inputActive.Store(false)
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		parts := strings.Fields(line)
+
+		switch parts[0] {
+		case "start":
+			stopMorningLoop()
+			stateMu.Lock()
+			snoozeUntil = time.Time{}
+			stateMu.Unlock()
+			cycle.Start()
+			fmt.Println("pomodoro started")
+		case "pause":
+			cycle.Pause()
+			fmt.Println("paused")
+		case "resume":
+			cycle.Resume()
+			fmt.Println("resumed")
+		case "stop":
+			cycle.Stop()
+			fmt.Println("stopped and returned to idle")
+		case "confirm":
+			cycle.Confirm()
+			fmt.Printf("confirmed, state=%s\n", cycle.Status())
+		case "snooze":
+			if len(parts) < 2 {
+				fmt.Println("usage: snooze <duration>")
+				continue
+			}
+			d, err := time.ParseDuration(parts[1])
+			if err != nil {
+				fmt.Printf("invalid duration: %v\n", err)
+				continue
+			}
+			stateMu.Lock()
+			currentMorningPending := morningPending
+			stateMu.Unlock()
+			if currentMorningPending {
+				stopMorningLoop()
+				stateMu.Lock()
+				snoozeUntil = time.Now().Add(d)
+				stateMu.Unlock()
+				fmt.Printf("morning reminder snoozed for %s\n", d)
+				continue
+			}
+			cycle.Snooze(d)
+			fmt.Printf("cycle reminder snoozed for %s\n", d)
+		case "skip-today":
+			stopMorningLoop()
+			stateMu.Lock()
+			snoozeUntil = time.Time{}
+			lastTriggerDay = time.Now().Format("2006-01-02")
+			stateMu.Unlock()
+			cycle.SkipToday()
+			fmt.Println("skipped reminders for today")
+		case "status":
+			stateMu.Lock()
+			currentMorningPending := morningPending
+			stateMu.Unlock()
+			fmt.Printf("%s morning_pending=%t\n", cycle.StatusLine(), currentMorningPending)
+		case "help":
+			fmt.Println(daemonCommandsHelp())
+		case "quit", "exit":
+			stopMorningLoop()
+			fmt.Println("bye")
+			return
+		default:
+			fmt.Printf("unknown command: %s\n", parts[0])
+		}
+	}
+}
+
+func printUsage() {
+	fmt.Println("usage: urgtomat [--config path] daemon")
+	fmt.Println()
+	fmt.Println(daemonCommandsHelp())
+}
+
+func printFlagUsage() {
+	fmt.Fprintln(os.Stderr, "usage: urgtomat [--config path] daemon")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "options:")
+	fmt.Fprintln(os.Stderr, "  --config string")
+	fmt.Fprintln(os.Stderr, "        path to config toml")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, daemonCommandsHelp())
+}
+
+func daemonCommandsHelp() string {
+	return strings.Join([]string{
+		"daemon commands:",
+		"  start              start a new pomodoro",
+		"  pause              pause the active pomodoro or break timer",
+		"  resume             resume a paused pomodoro or break timer",
+		"  stop               stop active timer and return to idle",
+		"  confirm            acknowledge transition and move to next phase",
+		"  snooze <duration>  delay reminders (example: snooze 10m)",
+		"  skip-today         disable reminders and cycle for the rest of today",
+		"  status             print current status line",
+		"  help               show command descriptions",
+		"  quit               exit daemon",
+	}, "\n")
+}
