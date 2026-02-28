@@ -142,59 +142,65 @@ func parseTOMLInto(cfg *Config, raw string) error {
 	return nil
 }
 
+var configSetters = map[string]func(cfg *Config, val string) error{
+	"work_minutes": func(cfg *Config, val string) error {
+		return setIntField(&cfg.WorkMinutes, val)
+	},
+	"short_break_minutes": func(cfg *Config, val string) error {
+		return setIntField(&cfg.ShortBreakMinutes, val)
+	},
+	"long_break_minutes": func(cfg *Config, val string) error {
+		return setIntField(&cfg.LongBreakMinutes, val)
+	},
+	"long_break_every": func(cfg *Config, val string) error {
+		return setIntField(&cfg.LongBreakEvery, val)
+	},
+	"repeat_secs": func(cfg *Config, val string) error {
+		return setIntField(&cfg.RepeatSecs, val)
+	},
+	"schedule_time": func(cfg *Config, val string) error {
+		return setStringField(&cfg.Schedule.Time, val)
+	},
+	"schedule_days": func(cfg *Config, val string) error {
+		return setStringSliceField(&cfg.Schedule.Days, val)
+	},
+	"sound_command": func(cfg *Config, val string) error {
+		return setStringSliceField(&cfg.SoundCommand, val)
+	},
+}
+
 func applyKV(cfg *Config, key, val string) error {
-	switch key {
-	case "work_minutes":
-		n, err := parseInt(val)
-		if err != nil {
-			return err
-		}
-		cfg.WorkMinutes = n
-	case "short_break_minutes":
-		n, err := parseInt(val)
-		if err != nil {
-			return err
-		}
-		cfg.ShortBreakMinutes = n
-	case "long_break_minutes":
-		n, err := parseInt(val)
-		if err != nil {
-			return err
-		}
-		cfg.LongBreakMinutes = n
-	case "long_break_every":
-		n, err := parseInt(val)
-		if err != nil {
-			return err
-		}
-		cfg.LongBreakEvery = n
-	case "repeat_secs":
-		n, err := parseInt(val)
-		if err != nil {
-			return err
-		}
-		cfg.RepeatSecs = n
-	case "schedule_time":
-		s, err := parseQuotedString(val)
-		if err != nil {
-			return err
-		}
-		cfg.Schedule.Time = s
-	case "schedule_days":
-		days, err := parseStringArray(val)
-		if err != nil {
-			return err
-		}
-		cfg.Schedule.Days = days
-	case "sound_command":
-		cmd, err := parseStringArray(val)
-		if err != nil {
-			return err
-		}
-		cfg.SoundCommand = cmd
-	default:
+	setter, ok := configSetters[key]
+	if !ok {
 		return fmt.Errorf("unknown key %q", key)
 	}
+	return setter(cfg, val)
+}
+
+func setIntField(field *int, val string) error {
+	n, err := parseInt(val)
+	if err != nil {
+		return err
+	}
+	*field = n
+	return nil
+}
+
+func setStringField(field *string, val string) error {
+	s, err := parseQuotedString(val)
+	if err != nil {
+		return err
+	}
+	*field = s
+	return nil
+}
+
+func setStringSliceField(field *[]string, val string) error {
+	items, err := parseStringArray(val)
+	if err != nil {
+		return err
+	}
+	*field = items
 	return nil
 }
 

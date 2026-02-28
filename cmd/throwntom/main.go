@@ -46,120 +46,125 @@ func loadConfig(path string) (config.Config, error) {
 	return config.LoadFile(path)
 }
 
-func runDaemon(cfg config.Config) {
-	if err := requireInteractiveTTY(isTerminal(os.Stdin), isTerminal(os.Stdout)); err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
-		os.Exit(1)
+type daemonState struct {
+	mu             sync.Mutex
+	morningCancel  context.CancelFunc
+	snoozeUntil    time.Time
+	lastTriggerDay string
+	morningPending bool
+}
+
+func (s *daemonState) statusSnapshot(cycle *app.App) (string, bool) {
+	s.mu.Lock()
+	currentMorningPending := s.morningPending
+	s.mu.Unlock()
+	return cycle.StatusLine(), currentMorningPending
+}
+
+func (s *daemonState) beginMorningLoop() (context.Context, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.morningPending {
+		return nil, false
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+	s.morningPending = true
+	s.morningCancel = cancel
+	return ctx, true
+}
 
-	n, err := notifier.NewSystemNotifier(runtime.GOOS, os.Stdout, cfg.SoundCommand)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "notifier error: %v\n", err)
-		os.Exit(1)
+func (s *daemonState) stopMorningLoop() {
+	s.mu.Lock()
+	cancel := s.morningCancel
+	s.morningCancel = nil
+	s.morningPending = false
+	s.mu.Unlock()
+	if cancel != nil {
+		cancel()
 	}
-	cycle := app.New(
-		cfg.WorkMinutes,
-		cfg.ShortBreakMinutes,
-		cfg.LongBreakMinutes,
-		cfg.LongBreakEvery,
-		time.Duration(cfg.RepeatSecs)*time.Second,
-		n,
-	)
-	s := scheduler.New(cfg.Schedule.Days, cfg.Schedule.Time)
+}
 
-	fmt.Printf("throwntom daemon started (schedule %s %s)\n", strings.Join(cfg.Schedule.Days, ","), cfg.Schedule.Time)
-	fmt.Printf("cycle: work=%dm short=%dm long=%dm every=%d repeat=%ds\n", cfg.WorkMinutes, cfg.ShortBreakMinutes, cfg.LongBreakMinutes, cfg.LongBreakEvery, cfg.RepeatSecs)
-	fmt.Println(daemonCommandsHelp())
-
-	ui := newTerminalUI(os.Stdout)
-
-	var stateMu sync.Mutex
-	var morningCancel context.CancelFunc
-	var snoozeUntil time.Time
-	lastTriggerDay := ""
-	morningPending := false
-
-	statusSnapshot := func() (string, bool) {
-		stateMu.Lock()
-		currentMorningPending := morningPending
-		stateMu.Unlock()
-		return cycle.StatusLine(), currentMorningPending
+func (s *daemonState) shouldStartMorning(now time.Time, sched *scheduler.Scheduler) bool {
+	dayKey := now.Format("2006-01-02")
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.snoozeUntil.IsZero() && now.Before(s.snoozeUntil) {
+		return false
 	}
-
-	startMorningLoop := func() {
-		var shouldStart bool
-		var cancel context.CancelFunc
-
-		stateMu.Lock()
-		if morningPending {
-			stateMu.Unlock()
-			return
-		}
-		morningPending = true
-		ctx, newCancel := context.WithCancel(context.Background())
-		cancel = newCancel
-		morningCancel = cancel
-		shouldStart = true
-		stateMu.Unlock()
-
-		if !shouldStart {
-			return
-		}
-
-		ui.Println("morning reminder: start/snooze/skip-today")
-		loop := reminder.New(time.Duration(cfg.RepeatSecs)*time.Second, func() error {
-			return n.PlaySound("morning")
-		})
-		go loop.Run(ctx)
+	if !sched.ShouldTrigger(now) || dayKey == s.lastTriggerDay {
+		return false
 	}
+	s.lastTriggerDay = dayKey
+	return true
+}
 
-	stopMorningLoop := func() {
-		stateMu.Lock()
-		cancel := morningCancel
-		morningCancel = nil
-		morningPending = false
-		stateMu.Unlock()
+func (s *daemonState) clearSnooze() {
+	s.mu.Lock()
+	s.snoozeUntil = time.Time{}
+	s.mu.Unlock()
+}
 
-		if cancel != nil {
-			cancel()
-		}
+func (s *daemonState) setSnoozeUntil(until time.Time) {
+	s.mu.Lock()
+	s.snoozeUntil = until
+	s.mu.Unlock()
+}
+
+func (s *daemonState) markSkippedToday(now time.Time) {
+	s.mu.Lock()
+	s.snoozeUntil = time.Time{}
+	s.lastTriggerDay = now.Format("2006-01-02")
+	s.mu.Unlock()
+}
+
+func (s *daemonState) isMorningPending() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.morningPending
+}
+
+type daemonRuntime struct {
+	cycle    *app.App
+	ui       *terminalUI
+	notifier notifier.Notifier
+	state    *daemonState
+	now      func() time.Time
+}
+
+type daemonCommandHandler func(parts []string) bool
+
+func startMorningLoop(state *daemonState, ui *terminalUI, repeatInterval time.Duration, n notifier.Notifier) {
+	ctx, shouldStart := state.beginMorningLoop()
+	if !shouldStart {
+		return
 	}
+	ui.Println("morning reminder: start/snooze/skip-today")
+	loop := reminder.New(repeatInterval, func() error {
+		return n.PlaySound("morning")
+	})
+	go loop.Run(ctx)
+}
 
+func startMorningScheduler(state *daemonState, sched *scheduler.Scheduler, repeatInterval time.Duration, n notifier.Notifier, ui *terminalUI) {
 	go func() {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
 		for now := range ticker.C {
-			shouldStart := false
-			dayKey := now.Format("2006-01-02")
-			stateMu.Lock()
-			if !snoozeUntil.IsZero() && now.Before(snoozeUntil) {
-				stateMu.Unlock()
+			if !state.shouldStartMorning(now, sched) {
 				continue
 			}
-			if s.ShouldTrigger(now) && dayKey != lastTriggerDay {
-				lastTriggerDay = dayKey
-				shouldStart = true
-			}
-			stateMu.Unlock()
-
-			if shouldStart {
-				startMorningLoop()
-			}
+			startMorningLoop(state, ui, repeatInterval, n)
 		}
 	}()
+}
 
-	statusLine, currentMorningPending := statusSnapshot()
-	ui.ShowFrame(statusLine, currentMorningPending)
-
-	stopStatusUpdates := make(chan struct{})
-	defer close(stopStatusUpdates)
-	var commandProcessing atomic.Bool
+func startStatusUpdater(ui *terminalUI, statusSnapshot func() (string, bool), commandProcessing *atomic.Bool, stop <-chan struct{}) {
 	go func() {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
 		for {
 			select {
-			case <-stopStatusUpdates:
+			case <-stop:
 				return
 			case <-ticker.C:
 				if !shouldRenderStatus(commandProcessing.Load()) {
@@ -170,84 +175,192 @@ func runDaemon(cfg config.Config) {
 			}
 		}
 	}()
+}
+
+func handleStartCommand(rt daemonRuntime) {
+	rt.state.stopMorningLoop()
+	rt.state.clearSnooze()
+	rt.cycle.Start()
+	rt.ui.Println("pomodoro started")
+}
+
+func handlePauseCommand(rt daemonRuntime) {
+	rt.cycle.Pause()
+	rt.ui.Println("paused")
+}
+
+func handleResumeCommand(rt daemonRuntime) {
+	rt.cycle.Resume()
+	rt.ui.Println("resumed")
+}
+
+func handleStopCommand(rt daemonRuntime) {
+	rt.cycle.Stop()
+	rt.ui.Println("stopped and returned to idle")
+}
+
+func handleConfirmCommand(rt daemonRuntime) {
+	rt.cycle.Confirm()
+	rt.ui.Println(fmt.Sprintf("confirmed, state=%s", rt.cycle.Status()))
+}
+
+func parseSnoozeDuration(parts []string) (time.Duration, error) {
+	if len(parts) < 2 {
+		return 0, fmt.Errorf("usage: snooze <duration>")
+	}
+	d, err := time.ParseDuration(parts[1])
+	if err != nil {
+		return 0, fmt.Errorf("invalid duration: %v", err)
+	}
+	return d, nil
+}
+
+func handleSnoozeCommand(rt daemonRuntime, parts []string) {
+	d, err := parseSnoozeDuration(parts)
+	if err != nil {
+		rt.ui.Println(err.Error())
+		return
+	}
+	if rt.state.isMorningPending() {
+		rt.state.stopMorningLoop()
+		rt.state.setSnoozeUntil(rt.now().Add(d))
+		rt.ui.Println(fmt.Sprintf("morning reminder snoozed for %s", d))
+		return
+	}
+	rt.cycle.Snooze(d)
+	rt.ui.Println(fmt.Sprintf("cycle reminder snoozed for %s", d))
+}
+
+func handleSkipTodayCommand(rt daemonRuntime) {
+	rt.state.stopMorningLoop()
+	rt.state.markSkippedToday(rt.now())
+	rt.cycle.SkipToday()
+	rt.ui.Println("skipped reminders for today")
+}
+
+func handleTestSoundCommand(rt daemonRuntime) {
+	if err := rt.notifier.PlaySound("test"); err != nil {
+		rt.ui.Println(fmt.Sprintf("sound test failed: %v", err))
+		return
+	}
+	rt.ui.Println("sound test played")
+}
+
+func handleQuitCommand(rt daemonRuntime) {
+	rt.state.stopMorningLoop()
+	rt.ui.Println("bye")
+}
+
+func buildDaemonCommandHandlers(rt daemonRuntime) map[string]daemonCommandHandler {
+	return map[string]daemonCommandHandler{
+		"start": func(_ []string) bool {
+			handleStartCommand(rt)
+			return false
+		},
+		"pause": func(_ []string) bool {
+			handlePauseCommand(rt)
+			return false
+		},
+		"resume": func(_ []string) bool {
+			handleResumeCommand(rt)
+			return false
+		},
+		"stop": func(_ []string) bool {
+			handleStopCommand(rt)
+			return false
+		},
+		"confirm": func(_ []string) bool {
+			handleConfirmCommand(rt)
+			return false
+		},
+		"snooze": func(parts []string) bool {
+			handleSnoozeCommand(rt, parts)
+			return false
+		},
+		"skip-today": func(_ []string) bool {
+			handleSkipTodayCommand(rt)
+			return false
+		},
+		"test-sound": func(_ []string) bool {
+			handleTestSoundCommand(rt)
+			return false
+		},
+		"quit": func(_ []string) bool {
+			handleQuitCommand(rt)
+			return true
+		},
+		"exit": func(_ []string) bool {
+			handleQuitCommand(rt)
+			return true
+		},
+	}
+}
+
+func executeDaemonCommand(line string, handlers map[string]daemonCommandHandler, ui *terminalUI) bool {
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "" {
+		return false
+	}
+	parts := strings.Fields(trimmed)
+	handler, ok := handlers[parts[0]]
+	if !ok {
+		ui.Println(fmt.Sprintf("unknown command: %s", parts[0]))
+		return false
+	}
+	return handler(parts)
+}
+
+func runDaemon(cfg config.Config) {
+	if err := requireInteractiveTTY(isTerminal(os.Stdin), isTerminal(os.Stdout)); err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+	}
+
+	repeatInterval := time.Duration(cfg.RepeatSecs) * time.Second
+	n, err := notifier.NewSystemNotifier(runtime.GOOS, os.Stdout, cfg.SoundCommand)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "notifier error: %v\n", err)
+		os.Exit(1)
+	}
+	cycle := app.New(
+		cfg.WorkMinutes,
+		cfg.ShortBreakMinutes,
+		cfg.LongBreakMinutes,
+		cfg.LongBreakEvery,
+		repeatInterval,
+		n,
+	)
+	s := scheduler.New(cfg.Schedule.Days, cfg.Schedule.Time)
+
+	fmt.Printf("throwntom daemon started (schedule %s %s)\n", strings.Join(cfg.Schedule.Days, ","), cfg.Schedule.Time)
+	fmt.Printf("cycle: work=%dm short=%dm long=%dm every=%d repeat=%ds\n", cfg.WorkMinutes, cfg.ShortBreakMinutes, cfg.LongBreakMinutes, cfg.LongBreakEvery, cfg.RepeatSecs)
+	fmt.Println(daemonCommandsHelp())
+
+	ui := newTerminalUI(os.Stdout)
+	state := &daemonState{}
+	statusSnapshot := func() (string, bool) { return state.statusSnapshot(cycle) }
+	startMorningScheduler(state, s, repeatInterval, n, ui)
+
+	statusLine, currentMorningPending := statusSnapshot()
+	ui.ShowFrame(statusLine, currentMorningPending)
+
+	stopStatusUpdates := make(chan struct{})
+	defer close(stopStatusUpdates)
+	var commandProcessing atomic.Bool
+	startStatusUpdater(ui, statusSnapshot, &commandProcessing, stopStatusUpdates)
+
+	handlers := buildDaemonCommandHandlers(daemonRuntime{
+		cycle:    cycle,
+		ui:       ui,
+		notifier: n,
+		state:    state,
+		now:      time.Now,
+	})
 
 	scanner := bufio.NewScanner(os.Stdin)
-	shouldQuit := false
 	for scanner.Scan() {
 		commandProcessing.Store(true)
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			statusLine, currentMorningPending := statusSnapshot()
-			ui.ShowFrame(statusLine, currentMorningPending)
-			commandProcessing.Store(false)
-			continue
-		}
-		parts := strings.Fields(line)
-		switch parts[0] {
-		case "start":
-			stopMorningLoop()
-			stateMu.Lock()
-			snoozeUntil = time.Time{}
-			stateMu.Unlock()
-			cycle.Start()
-			ui.Println("pomodoro started")
-		case "pause":
-			cycle.Pause()
-			ui.Println("paused")
-		case "resume":
-			cycle.Resume()
-			ui.Println("resumed")
-		case "stop":
-			cycle.Stop()
-			ui.Println("stopped and returned to idle")
-		case "confirm":
-			cycle.Confirm()
-			ui.Println(fmt.Sprintf("confirmed, state=%s", cycle.Status()))
-		case "snooze":
-			if len(parts) < 2 {
-				ui.Println("usage: snooze <duration>")
-				break
-			}
-			d, err := time.ParseDuration(parts[1])
-			if err != nil {
-				ui.Println(fmt.Sprintf("invalid duration: %v", err))
-				break
-			}
-			stateMu.Lock()
-			currentMorningPending := morningPending
-			stateMu.Unlock()
-			if currentMorningPending {
-				stopMorningLoop()
-				stateMu.Lock()
-				snoozeUntil = time.Now().Add(d)
-				stateMu.Unlock()
-				ui.Println(fmt.Sprintf("morning reminder snoozed for %s", d))
-				break
-			}
-			cycle.Snooze(d)
-			ui.Println(fmt.Sprintf("cycle reminder snoozed for %s", d))
-		case "skip-today":
-			stopMorningLoop()
-			stateMu.Lock()
-			snoozeUntil = time.Time{}
-			lastTriggerDay = time.Now().Format("2006-01-02")
-			stateMu.Unlock()
-			cycle.SkipToday()
-			ui.Println("skipped reminders for today")
-		case "test-sound":
-			if err := n.PlaySound("test"); err != nil {
-				ui.Println(fmt.Sprintf("sound test failed: %v", err))
-				break
-			}
-			ui.Println("sound test played")
-		case "quit", "exit":
-			stopMorningLoop()
-			ui.Println("bye")
-			shouldQuit = true
-		default:
-			ui.Println(fmt.Sprintf("unknown command: %s", parts[0]))
-		}
-		if shouldQuit {
+		if executeDaemonCommand(scanner.Text(), handlers, ui) {
 			commandProcessing.Store(false)
 			return
 		}
