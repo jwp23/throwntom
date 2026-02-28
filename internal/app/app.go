@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"urgtomat/internal/engine"
-	"urgtomat/internal/notifier"
-	"urgtomat/internal/reminder"
+	"throwntom/internal/engine"
+	"throwntom/internal/notifier"
+	"throwntom/internal/reminder"
 )
 
 type App struct {

@@ -7,7 +7,7 @@ import (
 
 func TestDaemonCommandHelpIncludesNewControls(t *testing.T) {
 	help := daemonCommandsHelp()
-	for _, cmd := range []string{"pause", "resume", "stop", "help"} {
+	for _, cmd := range []string{"pause", "resume", "stop", "test-sound", "help"} {
 		if !strings.Contains(help, cmd) {
 			t.Fatalf("expected %q in daemon command help: %s", cmd, help)
 		}

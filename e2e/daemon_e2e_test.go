@@ -15,12 +15,12 @@ func buildBinary(t *testing.T) string {
 	t.Helper()
 
 	tmpDir := t.TempDir()
-	binName := "urgtomat-e2e"
+	binName := "throwntom-e2e"
 	if runtime.GOOS == "windows" {
 		binName += ".exe"
 	}
 	binPath := filepath.Join(tmpDir, binName)
-	cmd := exec.Command("go", "build", "-o", binPath, "../cmd/urgtomat")
+	cmd := exec.Command("go", "build", "-o", binPath, "../cmd/throwntom")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("build binary: %v\n%s", err, out)

@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"urgtomat/internal/app"
-	"urgtomat/internal/config"
-	"urgtomat/internal/scheduler"
+	"throwntom/internal/app"
+	"throwntom/internal/config"
+	"throwntom/internal/scheduler"
 )
 
 type fakeNotifier struct {

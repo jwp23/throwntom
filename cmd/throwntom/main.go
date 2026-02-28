@@ -6,15 +6,16 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
 
-	"urgtomat/internal/app"
-	"urgtomat/internal/config"
-	"urgtomat/internal/notifier"
-	"urgtomat/internal/reminder"
-	"urgtomat/internal/scheduler"
+	"throwntom/internal/app"
+	"throwntom/internal/config"
+	"throwntom/internal/notifier"
+	"throwntom/internal/reminder"
+	"throwntom/internal/scheduler"
 )
 
 func main() {
@@ -50,7 +51,11 @@ func runDaemon(cfg config.Config) {
 		os.Exit(1)
 	}
 
-	n := notifier.NewMacOSNotifier()
+	n, err := notifier.NewSystemNotifier(runtime.GOOS, os.Stdout)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "notifier error: %v\n", err)
+		os.Exit(1)
+	}
 	cycle := app.New(
 		cfg.WorkMinutes,
 		cfg.ShortBreakMinutes,
@@ -61,7 +66,7 @@ func runDaemon(cfg config.Config) {
 	)
 	s := scheduler.New(cfg.Schedule.Days, cfg.Schedule.Time)
 
-	fmt.Printf("urgtomat daemon started (schedule %s %s)\n", strings.Join(cfg.Schedule.Days, ","), cfg.Schedule.Time)
+	fmt.Printf("throwntom daemon started (schedule %s %s)\n", strings.Join(cfg.Schedule.Days, ","), cfg.Schedule.Time)
 	fmt.Printf("cycle: work=%dm short=%dm long=%dm every=%d repeat=%ds\n", cfg.WorkMinutes, cfg.ShortBreakMinutes, cfg.LongBreakMinutes, cfg.LongBreakEvery, cfg.RepeatSecs)
 	fmt.Println(daemonCommandsHelp())
 
@@ -227,6 +232,12 @@ func runDaemon(cfg config.Config) {
 			currentMorningPending := morningPending
 			stateMu.Unlock()
 			ui.Println(fmt.Sprintf("%s morning_pending=%t", cycle.StatusLine(), currentMorningPending))
+		case "test-sound":
+			if err := n.PlaySound("test"); err != nil {
+				ui.Println(fmt.Sprintf("sound test failed: %v", err))
+				break
+			}
+			ui.Println("sound test played")
 		case "help":
 			ui.Println(daemonCommandsHelp())
 		case "quit", "exit":
@@ -267,13 +278,13 @@ func isTerminal(f *os.File) bool {
 }
 
 func printUsage() {
-	fmt.Println("usage: urgtomat [--config path]")
+	fmt.Println("usage: throwntom [--config path]")
 	fmt.Println()
 	fmt.Println(daemonCommandsHelp())
 }
 
 func printFlagUsage() {
-	fmt.Fprintln(os.Stderr, "usage: urgtomat [--config path]")
+	fmt.Fprintln(os.Stderr, "usage: throwntom [--config path]")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "options:")
 	fmt.Fprintln(os.Stderr, "  --config string")
@@ -293,6 +304,7 @@ func daemonCommandsHelp() string {
 		"  snooze <duration>  delay reminders (example: snooze 10m)",
 		"  skip-today         disable reminders and cycle for the rest of today",
 		"  status             print current status line",
+		"  test-sound         play reminder sound now",
 		"  help               show command descriptions",
 		"  quit               exit daemon",
 	}, "\n")
