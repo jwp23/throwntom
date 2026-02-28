@@ -25,7 +25,7 @@
 ## Workflow & Verification
 - Plan: bullet minimal steps; note risks and edge cases.
 - Patch: small, focused diffs with paths; exclude unrelated changes.
-- Test: Run tests with Go native timeout (`go test -timeout 30s ./...` or equivalent); fix failures; add/update minimal tests only to cover new logic.
+- Test: Run tests with Go native timeout (`go test -timeout 30s ./...` or equivalent); fix failures; choose tests using the test pyramid (favor unit tests, then integration, then end-to-end).
 - Decompose: split work into small, reviewable steps/commits.
 - Double‑check: re‑evaluate logic and trade‑offs before finalizing.
 - Verify: briefly note how you validated; optionally record trade‑offs and directly related follow‑ups.
@@ -49,19 +49,32 @@
 - Prefer declarative data manipulation: use set operations and rules; default to consistency; accept eventual consistency only when strictly required.
 - Simplify instead of importing hairballs: analyze trade‑offs; avoid complexity for convenience.
 
+## Testing Strategy (Test Pyramid)
+
+- This is a hard requirement for every code change that affects behavior.
+- Use the test pyramid by default:
+  1. Unit tests: primary layer; cover most logic with fast, deterministic tests.
+  2. Integration tests: secondary layer; verify boundaries and component interaction.
+  3. End-to-end tests: top layer; keep few and focused on critical user paths.
+- Add or update tests at the lowest layer that provides sufficient confidence.
+- Avoid broad or brittle end-to-end coverage when unit/integration tests can validate behavior.
+- For bug fixes, prefer a reproducer at the lowest practical layer; add higher-layer coverage only when it protects a critical workflow.
+- In final responses, report which pyramid layers were tested and why.
+- If no automated test is practical, request an explicit waiver and state the risk.
+
 ## Mandatory TDD (Red/Green)
 
-  - This is a hard requirement for every code change.
-  - Always follow Red/Green TDD:
-    1. RED: write/adjust a test that fails for the intended behavior.
-    2. GREEN: implement the minimal code to make that test pass.
-    3. REFACTOR: only if requested or necessary, while keeping tests green.
-  - Do not implement production code before observing a failing test.
-  - If a failing test cannot be written first, stop and ask for explicit waiver.
-  - In the final response, include:
-    - the RED test command and the failing test name/error summary
-    - the GREEN test command showing pass
-  - Prefer small commits that preserve the sequence:
-    - commit 1: failing test(s)
-    - commit 2: implementation to make tests pass
-  - Any response that skipped RED-first must be treated as non-compliant.
+- This is a hard requirement for every code change that affects behavior.
+- Always follow Red/Green TDD within the test pyramid:
+  1. RED: write/adjust a test that fails for the intended behavior, at the lowest practical pyramid layer.
+  2. GREEN: implement the minimal code to make that test pass.
+  3. REFACTOR: only if requested or necessary, while keeping tests green.
+- Do not implement production code before observing a failing test.
+- If a failing test cannot be written first, stop and ask for explicit waiver.
+- In the final response, include:
+  - the RED test command and the failing test name/error summary
+  - the GREEN test command showing pass
+- Prefer small commits that preserve the sequence:
+  - commit 1: failing test(s)
+  - commit 2: implementation to make tests pass
+- Any response that skipped RED-first must be treated as non-compliant.
