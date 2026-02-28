@@ -13,6 +13,7 @@
 
 # Local build output
 /urgtomat
+/throwntom
 
 # Local git worktrees
 .worktrees/

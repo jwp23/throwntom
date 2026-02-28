@@ -51,7 +51,7 @@ func runDaemon(cfg config.Config) {
 		os.Exit(1)
 	}
 
-	n, err := notifier.NewSystemNotifier(runtime.GOOS, os.Stdout)
+	n, err := notifier.NewSystemNotifier(runtime.GOOS, os.Stdout, cfg.SoundCommand)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "notifier error: %v\n", err)
 		os.Exit(1)

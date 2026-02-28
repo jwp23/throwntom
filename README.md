@@ -1,11 +1,11 @@
-# urgtomat
+# throwntom
 
-CLI-first urgtomat daemon with repeating sound reminders until explicit confirmation.
+CLI-first throwntom daemon with repeating sound reminders until explicit confirmation.
 
 ## Build
 
 ```bash
-go build -o urgtomat ./cmd/urgtomat
+go build -o throwntom ./cmd/throwntom
 ```
 
 ## Run
@@ -13,13 +13,13 @@ go build -o urgtomat ./cmd/urgtomat
 Default config:
 
 ```bash
-./urgtomat
+./throwntom
 ```
 
 With config file:
 
 ```bash
-./urgtomat --config ./urgtomat.toml
+./throwntom --config ./throwntom.toml
 ```
 
 ## Daemon Commands
@@ -31,11 +31,12 @@ Type these commands in the daemon prompt:
 - `snooze <duration>` - snooze current reminder (example: `snooze 10m`)
 - `skip-today` - stop reminders for the current day
 - `status` - print current cycle state and morning reminder status
+- `test-sound` - play the reminder sound immediately to verify terminal audio/bell
 - `quit` - stop daemon
 
 ## Config
 
-Example `urgtomat.toml`:
+Example `throwntom.toml`:
 
 ```toml
 work_minutes = 25
@@ -45,16 +46,18 @@ long_break_every = 4
 repeat_secs = 20
 schedule_time = "09:15"
 schedule_days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+sound_command = ["paplay", "/usr/share/sounds/freedesktop/stereo/bell.oga"]
 ```
 
 ## Verify
 
 ```bash
-go test ./... -v
-go build ./cmd/urgtomat
+go test -timeout 30s ./... -v
+go build ./cmd/throwntom
 ```
 
 ## Notes
 
-- v1 notifier uses macOS `afplay`.
-- Linux support can be added by implementing another notifier adapter behind the `internal/notifier` interface.
+- On macOS, notifier uses `afplay` with system sound `Glass.aiff`.
+- On Linux, notifier first tries `sound_command` (if configured), then `paplay`, `canberra-gtk-play`, `aplay`, and finally terminal bell (`\a`).
+- `sound_command` is optional and must be a TOML string array where the first item is the executable, and remaining items are args.

@@ -36,6 +36,7 @@ long_break_every = 3
 repeat_secs = 15
 schedule_time = "09:45"
 schedule_days = ["Mon","Tue","Wed"]
+sound_command = ["paplay","/tmp/sound.oga"]
 `)
 	cfg, err := LoadBytes(raw)
 	if err != nil {
@@ -43,6 +44,9 @@ schedule_days = ["Mon","Tue","Wed"]
 	}
 	if cfg.LongBreakEvery != 3 || cfg.Schedule.Time != "09:45" {
 		t.Fatalf("unexpected parsed config: %+v", cfg)
+	}
+	if len(cfg.SoundCommand) != 2 || cfg.SoundCommand[0] != "paplay" {
+		t.Fatalf("unexpected sound command: %v", cfg.SoundCommand)
 	}
 }
 
@@ -85,5 +89,12 @@ func TestLoadFile(t *testing.T) {
 	}
 	if cfg.Schedule.Time != "11:45" {
 		t.Fatalf("expected overridden time, got %s", cfg.Schedule.Time)
+	}
+}
+
+func TestLoadRejectsEmptySoundCommandPart(t *testing.T) {
+	_, err := LoadBytes([]byte(`sound_command = ["", "/tmp/sound.oga"]`))
+	if err == nil {
+		t.Fatal("expected empty sound command part error")
 	}
 }

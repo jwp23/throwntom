@@ -20,6 +20,7 @@ type Config struct {
 	LongBreakMinutes  int
 	LongBreakEvery    int
 	RepeatSecs        int
+	SoundCommand      []string
 }
 
 func Default() Config {
@@ -77,6 +78,13 @@ func validate(cfg Config) error {
 	}
 	if len(cfg.Schedule.Days) == 0 {
 		return fmt.Errorf("schedule_days must contain at least one day")
+	}
+	if len(cfg.SoundCommand) > 0 {
+		for i, part := range cfg.SoundCommand {
+			if strings.TrimSpace(part) == "" {
+				return fmt.Errorf("sound_command[%d] must be a non-empty string", i)
+			}
+		}
 	}
 	for _, day := range cfg.Schedule.Days {
 		if !isSupportedWeekday(day) {
@@ -178,6 +186,12 @@ func applyKV(cfg *Config, key, val string) error {
 			return err
 		}
 		cfg.Schedule.Days = days
+	case "sound_command":
+		cmd, err := parseStringArray(val)
+		if err != nil {
+			return err
+		}
+		cfg.SoundCommand = cmd
 	default:
 		return fmt.Errorf("unknown key %q", key)
 	}
