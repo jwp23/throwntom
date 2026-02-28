@@ -8,6 +8,12 @@ CLI-first throwntom daemon with repeating sound reminders until explicit confirm
 go build -o throwntom ./cmd/throwntom
 ```
 
+## Install
+
+```bash
+go install ./cmd/throwntom
+```
+
 ## Run
 
 Default config:
@@ -27,11 +33,15 @@ With config file:
 Type these commands in the daemon prompt:
 
 - `start` - start work period
+- `pause` - pause the active pomodoro or break timer
+- `resume` - resume a paused pomodoro or break timer
+- `stop` - stop active timer and return to idle
 - `confirm` - acknowledge transition and start next phase
 - `snooze <duration>` - snooze current reminder (example: `snooze 10m`)
 - `skip-today` - stop reminders for the current day
 - `test-sound` - play the reminder sound immediately to verify terminal audio/bell
 - `quit` - stop daemon
+- `exit` - alias for `quit`
 
 ## Config
 
