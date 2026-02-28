@@ -1,6 +1,8 @@
 # throwntom
 
-CLI-first throwntom daemon with repeating sound reminders until explicit confirmation.
+thrown tomatos => throwntom
+
+CLI-first pomodoro timer that won't let you forget to start the timers! with repeating sound reminders until explicit confirmation.
 
 ## Build
 
