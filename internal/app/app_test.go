@@ -65,8 +65,16 @@ func TestStatusLineUsesPomodoroLabel(t *testing.T) {
 	a := NewForTest(25, 5, 15, 4, 20*time.Millisecond, n)
 	a.Start()
 	line := a.StatusLine()
-	if !strings.Contains(line, "pomodoro 1/4") {
-		t.Fatalf("expected pomodoro label, got %s", line)
+	if !strings.Contains(line, "pomodoros_done=0/4") {
+		t.Fatalf("expected completed-only pomodoro progress, got %s", line)
+	}
+	if !strings.Contains(line, "today_total=0") {
+		t.Fatalf("expected day total count in status line, got %s", line)
+	}
+	a.CompletePeriod()
+	line = a.StatusLine()
+	if !strings.Contains(line, "pomodoros_done=1/4") {
+		t.Fatalf("expected done pomodoro progress after completion, got %s", line)
 	}
 }
 

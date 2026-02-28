@@ -49,5 +49,5 @@ func renderFrame(statusLine string, morningPending bool, input string) string {
 
 func renderInPlaceStatusLine(statusLine string, morningPending bool) string {
 	// Save cursor on command line, update status line above, then restore.
-	return fmt.Sprintf("\x1b7\r\x1b[1A\x1b[2Kstatus: %s morning_pending=%t\x1b8", statusLine, morningPending)
+	return fmt.Sprintf("\x1b[s\x1b[1A\r\x1b[2Kstatus: %s morning_pending=%t\x1b[u", statusLine, morningPending)
 }

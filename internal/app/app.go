@@ -175,17 +175,17 @@ func (a *App) StatusLine() string {
 	defer a.mu.Unlock()
 
 	state := a.engine.State()
-	completed := a.engine.CompletedToday()
-	workIndex := (a.engine.WorkSessionsInBlock() % a.engine.LongBreakEvery()) + 1
+	completedToday := a.engine.CompletedToday()
+	completedInCycle := a.engine.WorkSessionsInBlock() % a.engine.LongBreakEvery()
 	if state == engine.AwaitingConfirm {
-		return fmt.Sprintf("%s | transition pending | today=%d | pomodoro %d/%d", a.statusLabelLocked(), completed, workIndex, a.engine.LongBreakEvery())
+		return fmt.Sprintf("%s | transition pending | today_total=%d | pomodoros_done=%d/%d", a.statusLabelLocked(), completedToday, completedInCycle, a.engine.LongBreakEvery())
 	}
 
 	remaining := "00:00"
 	if !a.phaseEndAt.IsZero() {
 		remaining = formatRemaining(time.Until(a.phaseEndAt))
 	}
-	return fmt.Sprintf("%s | %s | today=%d | pomodoro %d/%d", a.statusLabelLocked(), remaining, completed, workIndex, a.engine.LongBreakEvery())
+	return fmt.Sprintf("%s | %s | today_total=%d | pomodoros_done=%d/%d", a.statusLabelLocked(), remaining, completedToday, completedInCycle, a.engine.LongBreakEvery())
 }
 
 func formatRemaining(d time.Duration) string {
