@@ -2,7 +2,7 @@
 
 thrown tomatos => throwntom
 
-CLI-first pomodoro timer that won't let you forget to start the timers! with repeating sound reminders until explicit confirmation.
+CLI-first pomodoro timer that won't let you forget to start timers, with repeating reminders until explicit confirmation.
 
 ## Build
 
@@ -16,23 +16,51 @@ go build -o throwntom ./cmd/throwntom
 go install github.com/jwp23/throwntom/cmd/throwntom@latest
 ```
 
-## Run
+## Modes
 
-Default config:
+`throwntom` now supports both local interactive use and background daemon use.
+
+### Local interactive (default)
 
 ```bash
-./throwntom
+throwntom
+```
+
+Equivalent explicit mode:
+
+```bash
+throwntom run
+```
+
+### Background daemon
+
+```bash
+throwntom daemon
+```
+
+Daemon control from CLI:
+
+```bash
+throwntom ctl status
+throwntom ctl start
+throwntom ctl "snooze 10m"
+```
+
+Interactive shell connected to daemon:
+
+```bash
+throwntom shell
 ```
 
 With config file:
 
 ```bash
-./throwntom --config ./throwntom.toml
+throwntom --config ./throwntom.toml daemon
 ```
 
 ## Daemon Commands
 
-Type these commands in the daemon prompt:
+Type these commands in `throwntom shell` or pass them through `throwntom ctl ...`:
 
 - `start` - start work period
 - `pause` - pause the active pomodoro or break timer
@@ -41,6 +69,7 @@ Type these commands in the daemon prompt:
 - `confirm` - acknowledge transition and start next phase
 - `snooze <duration>` - snooze current reminder (example: `snooze 10m`)
 - `skip-today` - stop reminders for the current day
+- `status` - print current status
 - `test-sound` - play the reminder sound immediately to verify terminal audio/bell
 - `quit` - stop daemon
 - `exit` - alias for `quit`
@@ -59,6 +88,27 @@ schedule_time = "09:15"
 schedule_days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
 sound_command = ["paplay", "/usr/share/sounds/freedesktop/stereo/bell.oga"]
 ```
+
+## Service setup (Linux and macOS)
+
+Templates are included for:
+
+- `packaging/systemd/throwntom.service`
+- `packaging/launchd/io.github.jwp23.throwntom.plist`
+
+Installer script:
+
+```bash
+./packaging/install-service.sh
+```
+
+Environment overrides supported by the installer:
+
+- `BINARY_PATH`
+- `CONFIG_PATH`
+- `SOCKET_PATH`
+- `LOG_OUT_PATH` (macOS launchd)
+- `LOG_ERR_PATH` (macOS launchd)
 
 ## Verify
 
@@ -93,3 +143,4 @@ Heavier checks intentionally kept out of pre-commit and run in CI:
 - On macOS, notifier uses `afplay` with system sound `Glass.aiff`.
 - On Linux, notifier first tries `sound_command` (if configured), then `paplay`, `canberra-gtk-play`, `aplay`, and finally terminal bell (`\a`).
 - `sound_command` is optional and must be a TOML string array where the first item is the executable, and remaining items are args.
+- Default daemon socket path is `$XDG_RUNTIME_DIR/throwntom.sock` when available, otherwise `/tmp/throwntom.sock`.

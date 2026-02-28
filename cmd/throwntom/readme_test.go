@@ -16,6 +16,12 @@ func TestREADMEIncludesInstallAndDaemonCommands(t *testing.T) {
 
 	for _, expected := range []string{
 		"go install github.com/jwp23/throwntom/cmd/throwntom@latest",
+		"throwntom daemon",
+		"throwntom shell",
+		"throwntom ctl status",
+		"packaging/systemd/throwntom.service",
+		"packaging/launchd/io.github.jwp23.throwntom.plist",
+		"./packaging/install-service.sh",
 		"go vet ./...",
 		"golangci-lint run ./...",
 		"`start`",
@@ -25,6 +31,7 @@ func TestREADMEIncludesInstallAndDaemonCommands(t *testing.T) {
 		"`confirm`",
 		"`snooze <duration>`",
 		"`skip-today`",
+		"`status`",
 		"`test-sound`",
 		"`quit`",
 		"`exit`",

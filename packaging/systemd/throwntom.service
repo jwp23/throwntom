@@ -1,0 +1,12 @@
+[Unit]
+Description=throwntom daemon
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=@BINARY@ --config @CONFIG@ --socket @SOCKET@ daemon
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target
