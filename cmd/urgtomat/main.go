@@ -73,7 +73,8 @@ func runDaemon(cfg config.Config) {
 	var snoozeUntil time.Time
 	lastTriggerDay := ""
 	morningPending := false
-	var inputActive atomic.Bool
+	var commandProcessing atomic.Bool
+	liveStatusEnabled := shouldStartLiveStatusRenderer(isTerminal(os.Stdin), isTerminal(os.Stdout))
 
 	startMorningLoop := func() {
 		var shouldStart bool
@@ -137,99 +138,122 @@ func runDaemon(cfg config.Config) {
 		}
 	}()
 
-	go func() {
-		ticker := time.NewTicker(time.Second)
-		defer ticker.Stop()
-		for range ticker.C {
-			if inputActive.Load() {
-				continue
+	if liveStatusEnabled {
+		go func() {
+			ticker := time.NewTicker(time.Second)
+			defer ticker.Stop()
+			for range ticker.C {
+				if !shouldRenderStatus(commandProcessing.Load()) {
+					continue
+				}
+				fmt.Printf("\rstatus: %s", cycle.StatusLine())
 			}
-			fmt.Printf("\rstatus: %s", cycle.StatusLine())
-		}
-	}()
+		}()
+	}
 
 	scanner := bufio.NewScanner(os.Stdin)
+	shouldQuit := false
 	for {
-		inputActive.Store(true)
 		fmt.Print("\ncommand> ")
 		if !scanner.Scan() {
-			inputActive.Store(false)
 			fmt.Println()
 			return
 		}
-		inputActive.Store(false)
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
 			continue
 		}
 		parts := strings.Fields(line)
+		func() {
+			commandProcessing.Store(true)
+			defer commandProcessing.Store(false)
 
-		switch parts[0] {
-		case "start":
-			stopMorningLoop()
-			stateMu.Lock()
-			snoozeUntil = time.Time{}
-			stateMu.Unlock()
-			cycle.Start()
-			fmt.Println("pomodoro started")
-		case "pause":
-			cycle.Pause()
-			fmt.Println("paused")
-		case "resume":
-			cycle.Resume()
-			fmt.Println("resumed")
-		case "stop":
-			cycle.Stop()
-			fmt.Println("stopped and returned to idle")
-		case "confirm":
-			cycle.Confirm()
-			fmt.Printf("confirmed, state=%s\n", cycle.Status())
-		case "snooze":
-			if len(parts) < 2 {
-				fmt.Println("usage: snooze <duration>")
-				continue
-			}
-			d, err := time.ParseDuration(parts[1])
-			if err != nil {
-				fmt.Printf("invalid duration: %v\n", err)
-				continue
-			}
-			stateMu.Lock()
-			currentMorningPending := morningPending
-			stateMu.Unlock()
-			if currentMorningPending {
+			switch parts[0] {
+			case "start":
 				stopMorningLoop()
 				stateMu.Lock()
-				snoozeUntil = time.Now().Add(d)
+				snoozeUntil = time.Time{}
 				stateMu.Unlock()
-				fmt.Printf("morning reminder snoozed for %s\n", d)
-				continue
+				cycle.Start()
+				fmt.Println("pomodoro started")
+			case "pause":
+				cycle.Pause()
+				fmt.Println("paused")
+			case "resume":
+				cycle.Resume()
+				fmt.Println("resumed")
+			case "stop":
+				cycle.Stop()
+				fmt.Println("stopped and returned to idle")
+			case "confirm":
+				cycle.Confirm()
+				fmt.Printf("confirmed, state=%s\n", cycle.Status())
+			case "snooze":
+				if len(parts) < 2 {
+					fmt.Println("usage: snooze <duration>")
+					return
+				}
+				d, err := time.ParseDuration(parts[1])
+				if err != nil {
+					fmt.Printf("invalid duration: %v\n", err)
+					return
+				}
+				stateMu.Lock()
+				currentMorningPending := morningPending
+				stateMu.Unlock()
+				if currentMorningPending {
+					stopMorningLoop()
+					stateMu.Lock()
+					snoozeUntil = time.Now().Add(d)
+					stateMu.Unlock()
+					fmt.Printf("morning reminder snoozed for %s\n", d)
+					return
+				}
+				cycle.Snooze(d)
+				fmt.Printf("cycle reminder snoozed for %s\n", d)
+			case "skip-today":
+				stopMorningLoop()
+				stateMu.Lock()
+				snoozeUntil = time.Time{}
+				lastTriggerDay = time.Now().Format("2006-01-02")
+				stateMu.Unlock()
+				cycle.SkipToday()
+				fmt.Println("skipped reminders for today")
+			case "status":
+				stateMu.Lock()
+				currentMorningPending := morningPending
+				stateMu.Unlock()
+				fmt.Printf("%s morning_pending=%t\n", cycle.StatusLine(), currentMorningPending)
+			case "help":
+				fmt.Println(daemonCommandsHelp())
+			case "quit", "exit":
+				stopMorningLoop()
+				fmt.Println("bye")
+				shouldQuit = true
+			default:
+				fmt.Printf("unknown command: %s\n", parts[0])
 			}
-			cycle.Snooze(d)
-			fmt.Printf("cycle reminder snoozed for %s\n", d)
-		case "skip-today":
-			stopMorningLoop()
-			stateMu.Lock()
-			snoozeUntil = time.Time{}
-			lastTriggerDay = time.Now().Format("2006-01-02")
-			stateMu.Unlock()
-			cycle.SkipToday()
-			fmt.Println("skipped reminders for today")
-		case "status":
-			stateMu.Lock()
-			currentMorningPending := morningPending
-			stateMu.Unlock()
-			fmt.Printf("%s morning_pending=%t\n", cycle.StatusLine(), currentMorningPending)
-		case "help":
-			fmt.Println(daemonCommandsHelp())
-		case "quit", "exit":
-			stopMorningLoop()
-			fmt.Println("bye")
+		}()
+		if shouldQuit {
 			return
-		default:
-			fmt.Printf("unknown command: %s\n", parts[0])
 		}
 	}
+}
+
+func shouldRenderStatus(commandProcessing bool) bool {
+	return !commandProcessing
+}
+
+func shouldStartLiveStatusRenderer(stdinTTY, stdoutTTY bool) bool {
+	return !(stdinTTY && stdoutTTY)
+}
+
+func isTerminal(f *os.File) bool {
+	info, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return (info.Mode() & os.ModeCharDevice) != 0
 }
 
 func printUsage() {

@@ -25,7 +25,7 @@
 ## Workflow & Verification
 - Plan: bullet minimal steps; note risks and edge cases.
 - Patch: small, focused diffs with paths; exclude unrelated changes.
-- Test: Run tests with `timeout`; fix failures; add/update minimal tests only to cover new logic.
+- Test: Run tests with Go native timeout (`go test -timeout 30s ./...` or equivalent); fix failures; add/update minimal tests only to cover new logic.
 - Decompose: split work into small, reviewable steps/commits.
 - Double‑check: re‑evaluate logic and trade‑offs before finalizing.
 - Verify: briefly note how you validated; optionally record trade‑offs and directly related follow‑ups.
