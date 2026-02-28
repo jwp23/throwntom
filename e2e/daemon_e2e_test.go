@@ -9,7 +9,6 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-	"time"
 )
 
 func buildBinary(t *testing.T) string {
@@ -29,54 +28,38 @@ func buildBinary(t *testing.T) string {
 	return binPath
 }
 
-func TestUnsupportedCommandExitsNonZero(t *testing.T) {
+func TestUnexpectedPositionalArgExitsNonZero(t *testing.T) {
 	bin := buildBinary(t)
 
-	cmd := exec.Command(bin, "invalid")
+	cmd := exec.Command(bin, "daemon")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err == nil {
-		t.Fatal("expected non-zero exit for unsupported command")
+		t.Fatal("expected non-zero exit for unexpected positional arg")
 	}
 
 	output := stderr.String()
-	if !strings.Contains(output, "unsupported command") {
-		t.Fatalf("expected unsupported command message, got %q", output)
+	if !strings.Contains(output, "unexpected positional arguments") {
+		t.Fatalf("expected positional argument error, got %q", output)
 	}
 }
 
-func TestDaemonStartsAndQuits(t *testing.T) {
+func TestNonInteractiveRejected(t *testing.T) {
 	bin := buildBinary(t)
 
 	cmd := exec.Command(bin)
-	cmd.Stdin = strings.NewReader("quit\n")
+	cmd.Stdin = strings.NewReader("")
 	var stdout bytes.Buffer
-	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
+	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
-
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- cmd.Run()
-	}()
-
-	select {
-	case err := <-errCh:
-		if err != nil {
-			t.Fatalf("daemon run failed: %v\nstderr=%s", err, stderr.String())
-		}
-	case <-time.After(5 * time.Second):
-		_ = cmd.Process.Kill()
-		t.Fatal("daemon did not exit after quit command")
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected non-zero exit when stdin/stdout are not interactive terminals")
 	}
-
-	out := stdout.String()
-	if !strings.Contains(out, "urgtomat daemon started") {
-		t.Fatalf("expected daemon startup output, got %q", out)
-	}
-	if !strings.Contains(out, "bye") {
-		t.Fatalf("expected graceful quit output, got %q", out)
+	if !strings.Contains(stderr.String(), "daemon requires an interactive terminal") {
+		t.Fatalf("expected interactive terminal error, got %q", stderr.String())
 	}
 }
 
@@ -103,22 +86,5 @@ func TestMissingConfigFileFails(t *testing.T) {
 	}
 	if !strings.Contains(output, missingPath) {
 		t.Fatalf("expected missing path in error output, got %q", output)
-	}
-}
-
-func TestUnexpectedPositionalArgExitsNonZero(t *testing.T) {
-	bin := buildBinary(t)
-
-	cmd := exec.Command(bin, "daemon")
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	if err == nil {
-		t.Fatal("expected non-zero exit for unexpected positional arg")
-	}
-
-	output := stderr.String()
-	if !strings.Contains(output, "unexpected positional arguments") {
-		t.Fatalf("expected positional argument error, got %q", output)
 	}
 }
