@@ -49,7 +49,19 @@
 - Prefer declarative data manipulation: use set operations and rules; default to consistency; accept eventual consistency only when strictly required.
 - Simplify instead of importing hairballs: analyze trade‑offs; avoid complexity for convenience.
 
-## Testing
-Use Red/Green TDD
-Write integration tests for user interfaces
-Follow the test pyramid: mostly unit tests, fewer integration tests, and a minimal set of end-to-end CLI tests for critical user flows.
+## Mandatory TDD (Red/Green)
+
+  - This is a hard requirement for every code change.
+  - Always follow Red/Green TDD:
+    1. RED: write/adjust a test that fails for the intended behavior.
+    2. GREEN: implement the minimal code to make that test pass.
+    3. REFACTOR: only if requested or necessary, while keeping tests green.
+  - Do not implement production code before observing a failing test.
+  - If a failing test cannot be written first, stop and ask for explicit waiver.
+  - In the final response, include:
+    - the RED test command and the failing test name/error summary
+    - the GREEN test command showing pass
+  - Prefer small commits that preserve the sequence:
+    - commit 1: failing test(s)
+    - commit 2: implementation to make tests pass
+  - Any response that skipped RED-first must be treated as non-compliant.
