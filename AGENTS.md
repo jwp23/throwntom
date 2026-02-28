@@ -52,3 +52,4 @@
 ## Testing
 Use Red/Green TDD
 Write integration tests for user interfaces
+Follow the test pyramid: mostly unit tests, fewer integration tests, and a minimal set of end-to-end CLI tests for critical user flows.
