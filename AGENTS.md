@@ -31,6 +31,32 @@
 - Verify: briefly note how you validated; optionally record trade‑offs and directly related follow‑ups.
 - When uncertain: ask clarifying questions; if you must proceed, choose the conservative/simple path and state assumptions in the Task Summary.
 
+## Branching & Worktree Workflow (Required)
+- Never develop on `main` or another long-lived branch.
+- Every task must use a dedicated branch.
+- Use Conventional Branch naming: `<type>/<description>`.
+- Allowed `type` values: `feature` (or `feat`), `bugfix` (or `fix`), `hotfix`, `release`, `chore`.
+- `description` must be lowercase alphanumerics and hyphens; for `release` branches, dots are also allowed for versions (for example `release/v1.2.0`).
+- Small changes (for example README updates, typo fixes, and tiny single-purpose edits) must use a branch only, not a worktree.
+- Substantial changes (for example multi-file features, large refactors, or risky cross-cutting edits) must use both a new branch and a dedicated worktree.
+- If uncertain whether work is substantial, default to branch-only and ask for direction if needed.
+- Default base branch is `origin/main`.
+- Before branch/worktree setup, run: `git fetch --all --prune`.
+- Branch-only setup for small changes: `git switch -c <type>/<description> origin/main` (or `git switch <type>/<description>` if it already exists).
+- Worktree setup for substantial changes: `git worktree add ../throwntom-<description> -b <type>/<description> origin/main`.
+- If the worktree branch already exists, use: `git worktree add ../throwntom-<description> <type>/<description>`.
+- Perform edits, tests, and commits only inside the chosen branch context.
+- Never commit directly to `main`.
+- If branch or worktree creation fails, stop and ask for guidance before proceeding.
+
+## Commit Message Workflow (Required)
+- Use Conventional Commits v1.0.0 for every commit message.
+- Commit header format: `<type>[optional scope][!]: <description>`.
+- `type` is required and should be one of: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`.
+- Keep commits header-only by default (no body, no footers).
+- Add a body/footer only for breaking changes.
+- Breaking changes must use `!` in the header or a `BREAKING CHANGE:` footer (uppercase), with a clear explanation of what changed.
+
 ## Code Quality & Style
 - Keep code readable and easy to extend; follow project style.
 - Use clear names; avoid magic values; extract constants when helpful.
