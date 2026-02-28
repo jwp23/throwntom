@@ -234,19 +234,12 @@ func runDaemon(cfg config.Config) {
 			stateMu.Unlock()
 			cycle.SkipToday()
 			ui.Println("skipped reminders for today")
-		case "status":
-			stateMu.Lock()
-			currentMorningPending := morningPending
-			stateMu.Unlock()
-			ui.Println(fmt.Sprintf("%s morning_pending=%t", cycle.StatusLine(), currentMorningPending))
 		case "test-sound":
 			if err := n.PlaySound("test"); err != nil {
 				ui.Println(fmt.Sprintf("sound test failed: %v", err))
 				break
 			}
 			ui.Println("sound test played")
-		case "help":
-			ui.Println(daemonCommandsHelp())
 		case "quit", "exit":
 			stopMorningLoop()
 			ui.Println("bye")
@@ -312,9 +305,7 @@ func daemonCommandsHelp() string {
 		"  confirm            acknowledge transition and move to next phase",
 		"  snooze <duration>  delay reminders (example: snooze 10m)",
 		"  skip-today         disable reminders and cycle for the rest of today",
-		"  status             print current status line",
 		"  test-sound         play reminder sound now",
-		"  help               show command descriptions",
 		"  quit               exit daemon",
 	}, "\n")
 }

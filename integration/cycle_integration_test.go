@@ -72,7 +72,7 @@ func TestStatusIncludesPomodoroProgress(t *testing.T) {
 	cycle.Start()
 
 	status := cycle.StatusLine()
-	if !strings.Contains(status, "pomodoros_done=0/4") {
+	if !strings.Contains(status, "pomodoros=0/4") {
 		t.Fatalf("expected pomodoro progress in status line, got %q", status)
 	}
 }

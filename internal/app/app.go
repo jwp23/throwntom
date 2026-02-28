@@ -183,14 +183,14 @@ func (a *App) StatusLine() string {
 		completedInCycle = longBreakEvery
 	}
 	if state == engine.AwaitingConfirm {
-		return fmt.Sprintf("%s | transition pending | today_total=%d | pomodoros_done=%d/%d", a.statusLabelLocked(), completedToday, completedInCycle, longBreakEvery)
+		return fmt.Sprintf("%s | transition pending | today's pomodoros=%d | pomodoros=%d/%d", a.statusLabelLocked(), completedToday, completedInCycle, longBreakEvery)
 	}
 
 	remaining := "00:00"
 	if !a.phaseEndAt.IsZero() {
 		remaining = formatRemaining(time.Until(a.phaseEndAt))
 	}
-	return fmt.Sprintf("%s | %s | today_total=%d | pomodoros_done=%d/%d", a.statusLabelLocked(), remaining, completedToday, completedInCycle, longBreakEvery)
+	return fmt.Sprintf("%s | %s | today's pomodoros=%d | pomodoros=%d/%d", a.statusLabelLocked(), remaining, completedToday, completedInCycle, longBreakEvery)
 }
 
 func formatRemaining(d time.Duration) string {

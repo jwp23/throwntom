@@ -51,7 +51,7 @@ func (u *terminalUI) Println(msg string) {
 
 func renderFrame(statusLine string, morningPending bool, message string, input string) string {
 	return fmt.Sprintf(
-		"status: %s morning_pending=%t\nmessage: %s\ncommand> %s",
+		"status: %s morning reminder pending=%t\nmessage: %s\ncommand> %s",
 		statusLine,
 		morningPending,
 		message,
@@ -62,7 +62,7 @@ func renderFrame(statusLine string, morningPending bool, message string, input s
 func renderInPlaceStatusLine(statusLine string, morningPending bool, message string) string {
 	// Save cursor on command line, update status and message lines above, then restore.
 	return fmt.Sprintf(
-		"\x1b[s\x1b[2A\r\x1b[2Kstatus: %s morning_pending=%t\n\r\x1b[2Kmessage: %s\x1b[u",
+		"\x1b[s\x1b[2A\r\x1b[2Kstatus: %s morning reminder pending=%t\n\r\x1b[2Kmessage: %s\x1b[u",
 		statusLine,
 		morningPending,
 		message,

@@ -30,7 +30,6 @@ Type these commands in the daemon prompt:
 - `confirm` - acknowledge transition and start next phase
 - `snooze <duration>` - snooze current reminder (example: `snooze 10m`)
 - `skip-today` - stop reminders for the current day
-- `status` - print current cycle state and morning reminder status
 - `test-sound` - play the reminder sound immediately to verify terminal audio/bell
 - `quit` - stop daemon
 

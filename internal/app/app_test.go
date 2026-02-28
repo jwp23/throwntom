@@ -65,15 +65,15 @@ func TestStatusLineUsesPomodoroLabel(t *testing.T) {
 	a := NewForTest(25, 5, 15, 4, 20*time.Millisecond, n)
 	a.Start()
 	line := a.StatusLine()
-	if !strings.Contains(line, "pomodoros_done=0/4") {
+	if !strings.Contains(line, "pomodoros=0/4") {
 		t.Fatalf("expected completed-only pomodoro progress, got %s", line)
 	}
-	if !strings.Contains(line, "today_total=0") {
+	if !strings.Contains(line, "today's pomodoros=0") {
 		t.Fatalf("expected day total count in status line, got %s", line)
 	}
 	a.CompletePeriod()
 	line = a.StatusLine()
-	if !strings.Contains(line, "pomodoros_done=1/4") {
+	if !strings.Contains(line, "pomodoros=1/4") {
 		t.Fatalf("expected done pomodoro progress after completion, got %s", line)
 	}
 }
@@ -95,7 +95,7 @@ func TestStatusLineShowsFullCycleAtLongBreakBoundary(t *testing.T) {
 	if !strings.Contains(awaiting, "awaiting-confirm") {
 		t.Fatalf("expected awaiting-confirm boundary state, got %s", awaiting)
 	}
-	if !strings.Contains(awaiting, "pomodoros_done=4/4") {
+	if !strings.Contains(awaiting, "pomodoros=4/4") {
 		t.Fatalf("expected full-cycle progress at boundary, got %s", awaiting)
 	}
 
@@ -104,7 +104,7 @@ func TestStatusLineShowsFullCycleAtLongBreakBoundary(t *testing.T) {
 	if !strings.Contains(longBreak, "long-break") {
 		t.Fatalf("expected long-break after confirming boundary transition, got %s", longBreak)
 	}
-	if !strings.Contains(longBreak, "pomodoros_done=4/4") {
+	if !strings.Contains(longBreak, "pomodoros=4/4") {
 		t.Fatalf("expected full-cycle progress during long break, got %s", longBreak)
 	}
 }
