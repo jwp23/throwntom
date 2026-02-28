@@ -78,6 +78,37 @@ func TestStatusLineUsesPomodoroLabel(t *testing.T) {
 	}
 }
 
+func TestStatusLineShowsFullCycleAtLongBreakBoundary(t *testing.T) {
+	n := &fakeNotifier{}
+	a := NewForTest(25, 5, 15, 4, 20*time.Millisecond, n)
+	a.Start()
+
+	for i := 0; i < 3; i++ {
+		a.CompletePeriod()
+		a.Confirm()
+		a.CompletePeriod()
+		a.Confirm()
+	}
+
+	a.CompletePeriod()
+	awaiting := a.StatusLine()
+	if !strings.Contains(awaiting, "awaiting-confirm") {
+		t.Fatalf("expected awaiting-confirm boundary state, got %s", awaiting)
+	}
+	if !strings.Contains(awaiting, "pomodoros_done=4/4") {
+		t.Fatalf("expected full-cycle progress at boundary, got %s", awaiting)
+	}
+
+	a.Confirm()
+	longBreak := a.StatusLine()
+	if !strings.Contains(longBreak, "long-break") {
+		t.Fatalf("expected long-break after confirming boundary transition, got %s", longBreak)
+	}
+	if !strings.Contains(longBreak, "pomodoros_done=4/4") {
+		t.Fatalf("expected full-cycle progress during long break, got %s", longBreak)
+	}
+}
+
 func TestPauseAndResume(t *testing.T) {
 	n := &fakeNotifier{}
 	a := NewForTest(25, 5, 15, 4, 20*time.Millisecond, n)

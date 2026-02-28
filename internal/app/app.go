@@ -176,16 +176,21 @@ func (a *App) StatusLine() string {
 
 	state := a.engine.State()
 	completedToday := a.engine.CompletedToday()
-	completedInCycle := a.engine.WorkSessionsInBlock() % a.engine.LongBreakEvery()
+	workSessionsInBlock := a.engine.WorkSessionsInBlock()
+	longBreakEvery := a.engine.LongBreakEvery()
+	completedInCycle := workSessionsInBlock % longBreakEvery
+	if completedInCycle == 0 && workSessionsInBlock > 0 && (state == engine.AwaitingConfirm || state == engine.LongBreak) {
+		completedInCycle = longBreakEvery
+	}
 	if state == engine.AwaitingConfirm {
-		return fmt.Sprintf("%s | transition pending | today_total=%d | pomodoros_done=%d/%d", a.statusLabelLocked(), completedToday, completedInCycle, a.engine.LongBreakEvery())
+		return fmt.Sprintf("%s | transition pending | today_total=%d | pomodoros_done=%d/%d", a.statusLabelLocked(), completedToday, completedInCycle, longBreakEvery)
 	}
 
 	remaining := "00:00"
 	if !a.phaseEndAt.IsZero() {
 		remaining = formatRemaining(time.Until(a.phaseEndAt))
 	}
-	return fmt.Sprintf("%s | %s | today_total=%d | pomodoros_done=%d/%d", a.statusLabelLocked(), remaining, completedToday, completedInCycle, a.engine.LongBreakEvery())
+	return fmt.Sprintf("%s | %s | today_total=%d | pomodoros_done=%d/%d", a.statusLabelLocked(), remaining, completedToday, completedInCycle, longBreakEvery)
 }
 
 func formatRemaining(d time.Duration) string {
