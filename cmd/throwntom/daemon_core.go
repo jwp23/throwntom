@@ -98,11 +98,14 @@ type daemonCore struct {
 	scheduler      *scheduler.Scheduler
 	repeatInterval time.Duration
 	now            func() time.Time
+	handlers       map[string]daemonCommandHandler
 }
+
+type daemonCommandHandler func(parts []string) daemonCommandResult
 
 func newDaemonCore(cfg config.Config, n notifier.Notifier) *daemonCore {
 	repeatInterval := time.Duration(cfg.RepeatSecs) * time.Second
-	return &daemonCore{
+	core := &daemonCore{
 		cycle: app.New(
 			cfg.WorkMinutes,
 			cfg.ShortBreakMinutes,
@@ -117,6 +120,8 @@ func newDaemonCore(cfg config.Config, n notifier.Notifier) *daemonCore {
 		repeatInterval: repeatInterval,
 		now:            time.Now,
 	}
+	core.handlers = core.buildCommandHandlers()
+	return core
 }
 
 func (d *daemonCore) start(ctx context.Context) {
@@ -158,55 +163,91 @@ func (d *daemonCore) execute(line string) daemonCommandResult {
 		return daemonCommandResult{}
 	}
 	parts := strings.Fields(trimmed)
-
-	switch parts[0] {
-	case "start":
-		d.state.stopMorningLoop()
-		d.state.clearSnooze()
-		d.cycle.Start()
-		return daemonCommandResult{message: "pomodoro started"}
-	case "pause":
-		d.cycle.Pause()
-		return daemonCommandResult{message: "paused"}
-	case "resume":
-		d.cycle.Resume()
-		return daemonCommandResult{message: "resumed"}
-	case "stop":
-		d.cycle.Stop()
-		return daemonCommandResult{message: "stopped and returned to idle"}
-	case "confirm":
-		d.cycle.Confirm()
-		return daemonCommandResult{message: fmt.Sprintf("confirmed, state=%s", d.cycle.Status())}
-	case "snooze":
-		parsed, err := parseSnoozeDuration(parts)
-		if err != nil {
-			return daemonCommandResult{err: err}
-		}
-		if d.state.isMorningPending() {
-			d.state.stopMorningLoop()
-			d.state.setSnoozeUntil(d.now().Add(parsed))
-			return daemonCommandResult{message: fmt.Sprintf("morning reminder snoozed for %s", parsed)}
-		}
-		d.cycle.Snooze(parsed)
-		return daemonCommandResult{message: fmt.Sprintf("cycle reminder snoozed for %s", parsed)}
-	case "skip-today":
-		d.state.stopMorningLoop()
-		d.state.markSkippedToday(d.now())
-		d.cycle.SkipToday()
-		return daemonCommandResult{message: "skipped reminders for today"}
-	case "test-sound":
-		if err := d.notifier.PlaySound("test"); err != nil {
-			return daemonCommandResult{message: fmt.Sprintf("sound test failed: %v", err)}
-		}
-		return daemonCommandResult{message: "sound test played"}
-	case "status":
-		return daemonCommandResult{}
-	case "quit", "exit":
-		d.state.stopMorningLoop()
-		return daemonCommandResult{message: "bye", exit: true}
-	default:
+	handler, ok := d.handlers[parts[0]]
+	if !ok {
 		return daemonCommandResult{err: fmt.Errorf("unknown command: %s", parts[0])}
 	}
+	return handler(parts)
+}
+
+func (d *daemonCore) buildCommandHandlers() map[string]daemonCommandHandler {
+	return map[string]daemonCommandHandler{
+		"start":      d.handleStart,
+		"pause":      d.handlePause,
+		"resume":     d.handleResume,
+		"stop":       d.handleStop,
+		"confirm":    d.handleConfirm,
+		"snooze":     d.handleSnooze,
+		"skip-today": d.handleSkipToday,
+		"test-sound": d.handleTestSound,
+		"status":     d.handleStatus,
+		"quit":       d.handleQuit,
+		"exit":       d.handleQuit,
+	}
+}
+
+func (d *daemonCore) handleStart(_ []string) daemonCommandResult {
+	d.state.stopMorningLoop()
+	d.state.clearSnooze()
+	d.cycle.Start()
+	return daemonCommandResult{message: "pomodoro started"}
+}
+
+func (d *daemonCore) handlePause(_ []string) daemonCommandResult {
+	d.cycle.Pause()
+	return daemonCommandResult{message: "paused"}
+}
+
+func (d *daemonCore) handleResume(_ []string) daemonCommandResult {
+	d.cycle.Resume()
+	return daemonCommandResult{message: "resumed"}
+}
+
+func (d *daemonCore) handleStop(_ []string) daemonCommandResult {
+	d.cycle.Stop()
+	return daemonCommandResult{message: "stopped and returned to idle"}
+}
+
+func (d *daemonCore) handleConfirm(_ []string) daemonCommandResult {
+	d.cycle.Confirm()
+	return daemonCommandResult{message: fmt.Sprintf("confirmed, state=%s", d.cycle.Status())}
+}
+
+func (d *daemonCore) handleSnooze(parts []string) daemonCommandResult {
+	parsed, err := parseSnoozeDuration(parts)
+	if err != nil {
+		return daemonCommandResult{err: err}
+	}
+	if d.state.isMorningPending() {
+		d.state.stopMorningLoop()
+		d.state.setSnoozeUntil(d.now().Add(parsed))
+		return daemonCommandResult{message: fmt.Sprintf("morning reminder snoozed for %s", parsed)}
+	}
+	d.cycle.Snooze(parsed)
+	return daemonCommandResult{message: fmt.Sprintf("cycle reminder snoozed for %s", parsed)}
+}
+
+func (d *daemonCore) handleSkipToday(_ []string) daemonCommandResult {
+	d.state.stopMorningLoop()
+	d.state.markSkippedToday(d.now())
+	d.cycle.SkipToday()
+	return daemonCommandResult{message: "skipped reminders for today"}
+}
+
+func (d *daemonCore) handleTestSound(_ []string) daemonCommandResult {
+	if err := d.notifier.PlaySound("test"); err != nil {
+		return daemonCommandResult{message: fmt.Sprintf("sound test failed: %v", err)}
+	}
+	return daemonCommandResult{message: "sound test played"}
+}
+
+func (d *daemonCore) handleStatus(_ []string) daemonCommandResult {
+	return daemonCommandResult{}
+}
+
+func (d *daemonCore) handleQuit(_ []string) daemonCommandResult {
+	d.state.stopMorningLoop()
+	return daemonCommandResult{message: "bye", exit: true}
 }
 
 func parseSnoozeDuration(parts []string) (time.Duration, error) {

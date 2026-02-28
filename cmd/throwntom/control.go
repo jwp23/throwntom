@@ -31,7 +31,11 @@ func sendControlCommand(socketPath string, command string) (daemonControlRespons
 	if err != nil {
 		return daemonControlResponse{}, fmt.Errorf("connect to daemon socket %q: %w", socketPath, err)
 	}
-	defer conn.Close()
+	defer func() {
+		if closeErr := conn.Close(); closeErr != nil {
+			fmt.Fprintf(os.Stderr, "warn: close daemon socket connection: %v\n", closeErr)
+		}
+	}()
 
 	writer := bufio.NewWriter(conn)
 	if _, err := writer.WriteString(strings.TrimSpace(command) + "\n"); err != nil {

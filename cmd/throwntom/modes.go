@@ -240,7 +240,11 @@ func acceptControlConnections(listener net.Listener, core *daemonCore, cancel co
 }
 
 func handleControlConnection(conn net.Conn, core *daemonCore, cancel context.CancelFunc) {
-	defer conn.Close()
+	defer func() {
+		if closeErr := conn.Close(); closeErr != nil {
+			fmt.Fprintf(os.Stderr, "warn: close control connection: %v\n", closeErr)
+		}
+	}()
 
 	reader := bufio.NewReader(conn)
 	line, err := reader.ReadString('\n')
