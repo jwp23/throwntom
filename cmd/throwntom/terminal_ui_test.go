@@ -6,9 +6,12 @@ import (
 )
 
 func TestRenderFrame(t *testing.T) {
-	got := renderFrame("pomodoro | 24:59 | today_total=0 | pomodoros_done=0/4", false, "")
+	got := renderFrame("pomodoro | 24:59 | today_total=0 | pomodoros_done=0/4", false, "pomodoro started", "")
 	if !strings.Contains(got, "status: pomodoro | 24:59 | today_total=0 | pomodoros_done=0/4 morning_pending=false") {
 		t.Fatalf("unexpected status line: %q", got)
+	}
+	if !strings.Contains(got, "\nmessage: pomodoro started\n") {
+		t.Fatalf("expected message line in frame: %q", got)
 	}
 	if !strings.Contains(got, "\ncommand> ") {
 		t.Fatalf("expected command prompt in frame: %q", got)
@@ -16,14 +19,33 @@ func TestRenderFrame(t *testing.T) {
 }
 
 func TestRenderInPlaceStatusUpdateSequence(t *testing.T) {
-	got := renderInPlaceStatusLine("idle | 00:00 | today_total=0 | pomodoros_done=0/4", true)
+	got := renderInPlaceStatusLine("idle | 00:00 | today_total=0 | pomodoros_done=0/4", true, "waiting")
 	if !strings.Contains(got, "\x1b[s") {
 		t.Fatalf("expected save-cursor sequence, got %q", got)
+	}
+	if !strings.Contains(got, "\x1b[2A") {
+		t.Fatalf("expected move-up sequence for status row, got %q", got)
 	}
 	if !strings.Contains(got, "\x1b[u") {
 		t.Fatalf("expected restore-cursor sequence, got %q", got)
 	}
 	if !strings.Contains(got, "status: idle | 00:00 | today_total=0 | pomodoros_done=0/4 morning_pending=true") {
 		t.Fatalf("unexpected status payload: %q", got)
+	}
+	if !strings.Contains(got, "message: waiting") {
+		t.Fatalf("unexpected message payload: %q", got)
+	}
+}
+
+func TestRenderInPlaceFrameRewritesAllRows(t *testing.T) {
+	got := renderInPlaceFrame("idle | 00:00 | today_total=0 | pomodoros_done=0/4", false, "resumed", "")
+	if strings.Count(got, "\x1b[1A") != 3 {
+		t.Fatalf("expected to move up three rows before redraw, got %q", got)
+	}
+	if strings.Count(got, "\x1b[2K") != 3 {
+		t.Fatalf("expected to clear three rows before redraw, got %q", got)
+	}
+	if !strings.Contains(got, "message: resumed") {
+		t.Fatalf("expected message payload in frame redraw, got %q", got)
 	}
 }

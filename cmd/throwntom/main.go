@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"throwntom/internal/app"
@@ -152,6 +153,7 @@ func runDaemon(cfg config.Config) {
 
 	stopStatusUpdates := make(chan struct{})
 	defer close(stopStatusUpdates)
+	var commandProcessing atomic.Bool
 	go func() {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
@@ -160,6 +162,9 @@ func runDaemon(cfg config.Config) {
 			case <-stopStatusUpdates:
 				return
 			case <-ticker.C:
+				if !shouldRenderStatus(commandProcessing.Load()) {
+					continue
+				}
 				statusLine, currentMorningPending := statusSnapshot()
 				ui.UpdateStatus(statusLine, currentMorningPending)
 			}
@@ -169,10 +174,12 @@ func runDaemon(cfg config.Config) {
 	scanner := bufio.NewScanner(os.Stdin)
 	shouldQuit := false
 	for scanner.Scan() {
+		commandProcessing.Store(true)
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
 			statusLine, currentMorningPending := statusSnapshot()
 			ui.ShowFrame(statusLine, currentMorningPending)
+			commandProcessing.Store(false)
 			continue
 		}
 		parts := strings.Fields(line)
@@ -248,10 +255,12 @@ func runDaemon(cfg config.Config) {
 			ui.Println(fmt.Sprintf("unknown command: %s", parts[0]))
 		}
 		if shouldQuit {
+			commandProcessing.Store(false)
 			return
 		}
 		statusLine, currentMorningPending := statusSnapshot()
 		ui.ShowFrame(statusLine, currentMorningPending)
+		commandProcessing.Store(false)
 	}
 	if err := scanner.Err(); err != nil {
 		fmt.Fprintf(os.Stderr, "input error: %v\n", err)
