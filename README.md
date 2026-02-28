@@ -13,13 +13,13 @@ go build -o urgtomat ./cmd/urgtomat
 Default config:
 
 ```bash
-./urgtomat daemon
+./urgtomat
 ```
 
 With config file:
 
 ```bash
-./urgtomat --config ./urgtomat.toml daemon
+./urgtomat --config ./urgtomat.toml
 ```
 
 ## Daemon Commands

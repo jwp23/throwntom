@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"urgtomat/internal/app"
@@ -46,6 +45,11 @@ func loadConfig(path string) (config.Config, error) {
 }
 
 func runDaemon(cfg config.Config) {
+	if err := requireInteractiveTTY(isTerminal(os.Stdin), isTerminal(os.Stdout)); err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+	}
+
 	n := notifier.NewMacOSNotifier()
 	cycle := app.New(
 		cfg.WorkMinutes,
@@ -66,8 +70,6 @@ func runDaemon(cfg config.Config) {
 	var snoozeUntil time.Time
 	lastTriggerDay := ""
 	morningPending := false
-	var commandProcessing atomic.Bool
-	liveStatusEnabled := shouldStartLiveStatusRenderer(isTerminal(os.Stdin), isTerminal(os.Stdout))
 
 	startMorningLoop := func() {
 		var shouldStart bool
@@ -131,19 +133,6 @@ func runDaemon(cfg config.Config) {
 		}
 	}()
 
-	if liveStatusEnabled {
-		go func() {
-			ticker := time.NewTicker(time.Second)
-			defer ticker.Stop()
-			for range ticker.C {
-				if !shouldRenderStatus(commandProcessing.Load()) {
-					continue
-				}
-				fmt.Printf("\rstatus: %s", cycle.StatusLine())
-			}
-		}()
-	}
-
 	scanner := bufio.NewScanner(os.Stdin)
 	shouldQuit := false
 	for {
@@ -158,9 +147,6 @@ func runDaemon(cfg config.Config) {
 		}
 		parts := strings.Fields(line)
 		func() {
-			commandProcessing.Store(true)
-			defer commandProcessing.Store(false)
-
 			switch parts[0] {
 			case "start":
 				stopMorningLoop()
@@ -237,8 +223,11 @@ func shouldRenderStatus(commandProcessing bool) bool {
 	return !commandProcessing
 }
 
-func shouldStartLiveStatusRenderer(stdinTTY, stdoutTTY bool) bool {
-	return !(stdinTTY && stdoutTTY)
+func requireInteractiveTTY(stdinTTY, stdoutTTY bool) error {
+	if !stdinTTY || !stdoutTTY {
+		return fmt.Errorf("daemon requires an interactive terminal")
+	}
+	return nil
 }
 
 func isTerminal(f *os.File) bool {

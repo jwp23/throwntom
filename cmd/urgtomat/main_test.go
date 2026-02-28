@@ -23,14 +23,14 @@ func TestShouldRenderStatus(t *testing.T) {
 	}
 }
 
-func TestShouldStartLiveStatusRenderer(t *testing.T) {
-	if shouldStartLiveStatusRenderer(true, true) {
-		t.Fatalf("expected interactive tty mode to disable live status renderer")
+func TestRequiresInteractiveTTY(t *testing.T) {
+	if err := requireInteractiveTTY(true, true); err != nil {
+		t.Fatalf("expected tty precondition to pass: %v", err)
 	}
-	if !shouldStartLiveStatusRenderer(false, true) {
-		t.Fatalf("expected non-tty stdin to enable live status renderer")
+	if err := requireInteractiveTTY(false, true); err == nil {
+		t.Fatal("expected stdin non-tty to fail precondition")
 	}
-	if !shouldStartLiveStatusRenderer(true, false) {
-		t.Fatalf("expected non-tty stdout to enable live status renderer")
+	if err := requireInteractiveTTY(true, false); err == nil {
+		t.Fatal("expected stdout non-tty to fail precondition")
 	}
 }
