@@ -49,7 +49,7 @@ func TestUnsupportedCommandExitsNonZero(t *testing.T) {
 func TestDaemonStartsAndQuits(t *testing.T) {
 	bin := buildBinary(t)
 
-	cmd := exec.Command(bin, "daemon")
+	cmd := exec.Command(bin)
 	cmd.Stdin = strings.NewReader("quit\n")
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -84,7 +84,7 @@ func TestMissingConfigFileFails(t *testing.T) {
 	bin := buildBinary(t)
 	missingPath := filepath.Join(t.TempDir(), "missing.toml")
 
-	cmd := exec.Command(bin, "--config", missingPath, "daemon")
+	cmd := exec.Command(bin, "--config", missingPath)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	err := cmd.Run()
@@ -103,5 +103,22 @@ func TestMissingConfigFileFails(t *testing.T) {
 	}
 	if !strings.Contains(output, missingPath) {
 		t.Fatalf("expected missing path in error output, got %q", output)
+	}
+}
+
+func TestUnexpectedPositionalArgExitsNonZero(t *testing.T) {
+	bin := buildBinary(t)
+
+	cmd := exec.Command(bin, "daemon")
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected non-zero exit for unexpected positional arg")
+	}
+
+	output := stderr.String()
+	if !strings.Contains(output, "unexpected positional arguments") {
+		t.Fatalf("expected positional argument error, got %q", output)
 	}
 }

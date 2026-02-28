@@ -29,20 +29,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	if flag.NArg() == 0 {
+	if flag.NArg() != 0 {
+		fmt.Fprintln(os.Stderr, "unexpected positional arguments")
 		printUsage()
 		os.Exit(1)
 	}
 
-	cmd := flag.Arg(0)
-	switch cmd {
-	case "daemon":
-		runDaemon(cfg)
-	default:
-		fmt.Fprintf(os.Stderr, "unsupported command %q\n", cmd)
-		printUsage()
-		os.Exit(1)
-	}
+	runDaemon(cfg)
 }
 
 func loadConfig(path string) (config.Config, error) {
@@ -257,13 +250,13 @@ func isTerminal(f *os.File) bool {
 }
 
 func printUsage() {
-	fmt.Println("usage: urgtomat [--config path] daemon")
+	fmt.Println("usage: urgtomat [--config path]")
 	fmt.Println()
 	fmt.Println(daemonCommandsHelp())
 }
 
 func printFlagUsage() {
-	fmt.Fprintln(os.Stderr, "usage: urgtomat [--config path] daemon")
+	fmt.Fprintln(os.Stderr, "usage: urgtomat [--config path]")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "options:")
 	fmt.Fprintln(os.Stderr, "  --config string")
