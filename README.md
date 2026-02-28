@@ -67,6 +67,25 @@ go test -timeout 30s ./... -v
 go build ./cmd/throwntom
 ```
 
+## Pre-commit checks
+
+Install local git hooks:
+
+```bash
+./scripts/install-git-hooks.sh
+```
+
+Commit-time checks in `.githooks/pre-commit` run:
+
+- `gofmt` verification (`gofmt -l .`)
+- fast tests (`go test -timeout 30s ./...`)
+
+Heavier checks intentionally kept out of pre-commit and run in CI:
+
+- integration tests (`go test -timeout 30s -tags=integration ./integration`)
+- e2e tests (`go test -timeout 30s -tags=e2e ./e2e`)
+- security scan (`govulncheck`)
+
 ## Notes
 
 - On macOS, notifier uses `afplay` with system sound `Glass.aiff`.
