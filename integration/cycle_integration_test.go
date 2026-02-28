@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jwp23/urgtomat/internal/app"
-	"github.com/jwp23/urgtomat/internal/config"
-	"github.com/jwp23/urgtomat/internal/scheduler"
+	"github.com/jwp23/throwntom/internal/app"
+	"github.com/jwp23/throwntom/internal/config"
+	"github.com/jwp23/throwntom/internal/scheduler"
 )
 
 type fakeNotifier struct {
