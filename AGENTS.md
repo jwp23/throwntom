@@ -48,3 +48,7 @@
 - Kill order‑dependence: use sets when order/duplication don’t matter; prefer named args/maps over positional tuples.
 - Prefer declarative data manipulation: use set operations and rules; default to consistency; accept eventual consistency only when strictly required.
 - Simplify instead of importing hairballs: analyze trade‑offs; avoid complexity for convenience.
+
+## Testing
+Use Red/Green TDD
+Write integration tests for user interfaces
