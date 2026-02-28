@@ -31,7 +31,7 @@ func buildBinary(t *testing.T) string {
 func TestUnexpectedPositionalArgExitsNonZero(t *testing.T) {
 	bin := buildBinary(t)
 
-	cmd := exec.Command(bin, "daemon")
+	cmd := exec.Command(bin, "daemon", "extra")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	err := cmd.Run()
@@ -40,7 +40,7 @@ func TestUnexpectedPositionalArgExitsNonZero(t *testing.T) {
 	}
 
 	output := stderr.String()
-	if !strings.Contains(output, "unexpected positional arguments") {
+	if !strings.Contains(output, "argument error:") {
 		t.Fatalf("expected positional argument error, got %q", output)
 	}
 }
