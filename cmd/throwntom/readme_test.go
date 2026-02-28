@@ -15,7 +15,7 @@ func TestREADMEIncludesInstallAndDaemonCommands(t *testing.T) {
 	readme := string(content)
 
 	for _, expected := range []string{
-		"go install ./cmd/throwntom",
+		"go install github.com/jwp23/urgtomat/cmd/throwntom@latest",
 		"`start`",
 		"`pause`",
 		"`resume`",
@@ -30,5 +30,15 @@ func TestREADMEIncludesInstallAndDaemonCommands(t *testing.T) {
 		if !strings.Contains(readme, expected) {
 			t.Fatalf("expected README to include %q", expected)
 		}
+	}
+}
+
+func TestGoModulePathIsPublishable(t *testing.T) {
+	content, err := os.ReadFile("../../go.mod")
+	if err != nil {
+		t.Fatalf("read go.mod: %v", err)
+	}
+	if !strings.Contains(string(content), "module github.com/jwp23/urgtomat") {
+		t.Fatalf("expected go.mod module path to be github.com/jwp23/urgtomat")
 	}
 }

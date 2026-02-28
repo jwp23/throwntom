@@ -12,11 +12,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"throwntom/internal/app"
-	"throwntom/internal/config"
-	"throwntom/internal/notifier"
-	"throwntom/internal/reminder"
-	"throwntom/internal/scheduler"
+	"github.com/jwp23/urgtomat/internal/app"
+	"github.com/jwp23/urgtomat/internal/config"
+	"github.com/jwp23/urgtomat/internal/notifier"
+	"github.com/jwp23/urgtomat/internal/reminder"
+	"github.com/jwp23/urgtomat/internal/scheduler"
 )
 
 func main() {

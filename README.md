@@ -11,7 +11,7 @@ go build -o throwntom ./cmd/throwntom
 ## Install
 
 ```bash
-go install ./cmd/throwntom
+go install github.com/jwp23/urgtomat/cmd/throwntom@latest
 ```
 
 ## Run
