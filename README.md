@@ -64,6 +64,7 @@ sound_command = ["paplay", "/usr/share/sounds/freedesktop/stereo/bell.oga"]
 
 ```bash
 go test -timeout 30s ./... -v
+go vet ./...
 go build ./cmd/throwntom
 ```
 
@@ -82,6 +83,7 @@ Commit-time checks in `.githooks/pre-commit` run:
 
 Heavier checks intentionally kept out of pre-commit and run in CI:
 
+- lint + complexity gate (`golangci-lint run ./...`)
 - integration tests (`go test -timeout 30s -tags=integration ./integration`)
 - e2e tests (`go test -timeout 30s -tags=e2e ./e2e`)
 - security scan (`govulncheck`)

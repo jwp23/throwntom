@@ -16,6 +16,8 @@ func TestREADMEIncludesInstallAndDaemonCommands(t *testing.T) {
 
 	for _, expected := range []string{
 		"go install github.com/jwp23/throwntom/cmd/throwntom@latest",
+		"go vet ./...",
+		"golangci-lint run ./...",
 		"`start`",
 		"`pause`",
 		"`resume`",
@@ -40,5 +42,35 @@ func TestGoModulePathIsPublishable(t *testing.T) {
 	}
 	if !strings.Contains(string(content), "module github.com/jwp23/throwntom") {
 		t.Fatalf("expected go.mod module path to be github.com/jwp23/throwntom")
+	}
+}
+
+func TestGolangCILintConfigUsesV2Schema(t *testing.T) {
+	content, err := os.ReadFile("../../.golangci.yml")
+	if err != nil {
+		t.Fatalf("read .golangci.yml: %v", err)
+	}
+	cfg := string(content)
+
+	for _, expected := range []string{
+		`version: "2"`,
+		"default: none",
+		"settings:",
+		"cyclop:",
+		"max-complexity: 15",
+		"package-average: 10.0",
+	} {
+		if !strings.Contains(cfg, expected) {
+			t.Fatalf("expected .golangci.yml to include %q", expected)
+		}
+	}
+
+	for _, deprecated := range []string{
+		"disable-all: true",
+		"linters-settings:",
+	} {
+		if strings.Contains(cfg, deprecated) {
+			t.Fatalf("did not expect .golangci.yml to include %q", deprecated)
+		}
 	}
 }
