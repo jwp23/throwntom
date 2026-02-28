@@ -10,3 +10,6 @@
 
 # Output of the go coverage tool
 *.out
+
+# Local build output
+urgtomat
