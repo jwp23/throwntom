@@ -13,3 +13,6 @@
 
 # Local build output
 urgtomat
+
+# Local git worktrees
+.worktrees/
