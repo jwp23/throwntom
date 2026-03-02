@@ -1,4 +1,4 @@
-//go:build darwin
+//go:build darwin || linux
 
 package main
 
@@ -68,7 +68,7 @@ func getTermios(fd uintptr) (syscall.Termios, error) {
 	_, _, errno := syscall.Syscall6(
 		syscall.SYS_IOCTL,
 		fd,
-		uintptr(syscall.TIOCGETA),
+		uintptr(ioctlReadTermios),
 		uintptr(unsafe.Pointer(&termios)),
 		0,
 		0,
@@ -84,7 +84,7 @@ func setTermios(fd uintptr, termios *syscall.Termios) error {
 	_, _, errno := syscall.Syscall6(
 		syscall.SYS_IOCTL,
 		fd,
-		uintptr(syscall.TIOCSETA),
+		uintptr(ioctlWriteTermios),
 		uintptr(unsafe.Pointer(termios)),
 		0,
 		0,
