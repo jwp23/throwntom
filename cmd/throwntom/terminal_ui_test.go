@@ -37,3 +37,23 @@ func TestRenderFullFrameClearsAndReanchorsCursor(t *testing.T) {
 		t.Fatalf("expected redraw anchor prefix, got %q", got)
 	}
 }
+
+func TestRenderFrameWithWidthClampsEachLineToTerminalWidth(t *testing.T) {
+	got := renderFrameWithWidth(
+		"idle | 00:00 | today's pomodoros=0 | pomodoros=0/4",
+		false,
+		"stopped and returned to idle",
+		"this is a long command input",
+		40,
+	)
+
+	lines := strings.Split(got, "\n")
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 lines, got %d in %q", len(lines), got)
+	}
+	for idx, line := range lines {
+		if len([]rune(line)) > 40 {
+			t.Fatalf("expected line %d to be clamped to width 40, got %d chars: %q", idx, len([]rune(line)), line)
+		}
+	}
+}

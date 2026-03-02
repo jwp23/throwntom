@@ -62,6 +62,10 @@ func runInteractiveLoop(ui *terminalUI, in *os.File, callbacks interactiveCallba
 	}()
 	defer close(stopResize)
 
+	if width, widthErr := terminalWidth(in); widthErr == nil {
+		ui.SetWidth(width)
+	}
+
 	return runInteractiveEventLoop(ui, callbacks, keyEvents, ticker.C, resizeEvents, readErr)
 }
 
@@ -83,6 +87,9 @@ func runInteractiveEventLoop(
 			if !ok {
 				keyEvents = nil
 				continue
+			}
+			if ev.kind == keyInterrupt {
+				return nil
 			}
 			nextPrompt, submitted, handled := applyKey(prompt, ev)
 			if !handled {
@@ -119,6 +126,9 @@ func runInteractiveEventLoop(
 			if !ok {
 				resizes = nil
 				continue
+			}
+			if width, err := terminalWidth(os.Stdin); err == nil {
+				ui.SetWidth(width)
 			}
 			ui.ShowFrameWithInput(statusLine, morningPending, prompt.input)
 		case err, ok := <-readErr:

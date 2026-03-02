@@ -19,6 +19,8 @@ func parseKeyEvent(buf []byte) (keyEvent, bool) {
 	}
 
 	switch buf[0] {
+	case 0x03:
+		return keyEvent{kind: keyInterrupt}, true
 	case '\r', '\n':
 		return keyEvent{kind: keyEnter}, true
 	case 0x08, 0x7f:
@@ -94,4 +96,28 @@ func setTermios(fd uintptr, termios *syscall.Termios) error {
 		return errno
 	}
 	return nil
+}
+
+type windowSize struct {
+	Rows uint16
+	Cols uint16
+	X    uint16
+	Y    uint16
+}
+
+func terminalWidth(file *os.File) (int, error) {
+	var size windowSize
+	_, _, errno := syscall.Syscall6(
+		syscall.SYS_IOCTL,
+		file.Fd(),
+		uintptr(syscall.TIOCGWINSZ),
+		uintptr(unsafe.Pointer(&size)),
+		0,
+		0,
+		0,
+	)
+	if errno != 0 {
+		return 0, errno
+	}
+	return int(size.Cols), nil
 }
