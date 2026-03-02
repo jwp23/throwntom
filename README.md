@@ -63,6 +63,7 @@ throwntom --config ./throwntom.toml daemon
 Type these commands in `throwntom shell` or pass them through `throwntom ctl ...`:
 
 - `start` - start work period
+- `new-cycle` - start a fresh cycle now (reset cycle progress, keep today's total)
 - `pause` - pause the active pomodoro or break timer
 - `resume` - resume a paused pomodoro or break timer
 - `stop` - stop active timer and return to idle
