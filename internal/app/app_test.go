@@ -136,3 +136,25 @@ func TestStopResetsToIdle(t *testing.T) {
 		t.Fatalf("expected idle countdown reset, got %s", line)
 	}
 }
+
+func TestStartNewCycleResetsCycleProgressButPreservesDailyTotal(t *testing.T) {
+	n := &fakeNotifier{}
+	a := NewForTest(25, 5, 15, 4, 20*time.Millisecond, n)
+	a.Start()
+	a.CompletePeriod()
+	if !strings.Contains(a.StatusLine(), "today's pomodoros=1") {
+		t.Fatalf("expected daily total before reset, got %s", a.StatusLine())
+	}
+
+	a.StartNewCycle()
+	line := a.StatusLine()
+	if !strings.Contains(line, "pomodoro") {
+		t.Fatalf("expected pomodoro state after new cycle, got %s", line)
+	}
+	if !strings.Contains(line, "pomodoros=0/4") {
+		t.Fatalf("expected cycle progress reset, got %s", line)
+	}
+	if !strings.Contains(line, "today's pomodoros=1") {
+		t.Fatalf("expected daily total preserved, got %s", line)
+	}
+}
