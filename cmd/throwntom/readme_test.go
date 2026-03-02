@@ -25,6 +25,7 @@ func TestREADMEIncludesInstallAndDaemonCommands(t *testing.T) {
 		"go vet ./...",
 		"golangci-lint run ./...",
 		"`start`",
+		"`new-cycle`",
 		"`pause`",
 		"`resume`",
 		"`stop`",

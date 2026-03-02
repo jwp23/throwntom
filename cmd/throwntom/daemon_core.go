@@ -173,6 +173,7 @@ func (d *daemonCore) execute(line string) daemonCommandResult {
 func (d *daemonCore) buildCommandHandlers() map[string]daemonCommandHandler {
 	return map[string]daemonCommandHandler{
 		"start":      d.handleStart,
+		"new-cycle":  d.handleNewCycle,
 		"pause":      d.handlePause,
 		"resume":     d.handleResume,
 		"stop":       d.handleStop,
@@ -191,6 +192,13 @@ func (d *daemonCore) handleStart(_ []string) daemonCommandResult {
 	d.state.clearSnooze()
 	d.cycle.Start()
 	return daemonCommandResult{message: "pomodoro started"}
+}
+
+func (d *daemonCore) handleNewCycle(_ []string) daemonCommandResult {
+	d.state.stopMorningLoop()
+	d.state.clearSnooze()
+	d.cycle.StartNewCycle()
+	return daemonCommandResult{message: "new pomodoro cycle started"}
 }
 
 func (d *daemonCore) handlePause(_ []string) daemonCommandResult {
@@ -294,6 +302,7 @@ func daemonCommandsHelp() string {
 	return strings.Join([]string{
 		"daemon commands:",
 		"  start              start a new pomodoro",
+		"  new-cycle          start a fresh pomodoro cycle",
 		"  pause              pause the active pomodoro or break timer",
 		"  resume             resume a paused pomodoro or break timer",
 		"  stop               stop active timer and return to idle",

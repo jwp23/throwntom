@@ -48,6 +48,17 @@ func (a *App) Start() {
 	a.startPhaseTimerLocked(a.workDuration)
 }
 
+func (a *App) StartNewCycle() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.stopReminderLocked()
+	a.stopTimerLocked()
+	a.phaseEndAt = time.Time{}
+	a.pausedRemaining = 0
+	a.engine.StartNewCycle()
+	a.startPhaseTimerLocked(a.workDuration)
+}
+
 func (a *App) CompletePeriod() {
 	a.mu.Lock()
 	defer a.mu.Unlock()

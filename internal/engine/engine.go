@@ -52,6 +52,14 @@ func (e *Engine) StartWork() {
 	e.lastPhase = Work
 }
 
+func (e *Engine) StartNewCycle() {
+	e.workDayStarted = true
+	e.workSessionsBlock = 0
+	e.state = Work
+	e.lastPhase = Work
+	e.pausedFrom = Idle
+}
+
 func (e *Engine) MarkPeriodComplete() {
 	if e.state == Work {
 		e.completedToday++
