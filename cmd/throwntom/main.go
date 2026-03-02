@@ -1,9 +1,11 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/jwp23/throwntom/internal/config"
 )
@@ -49,9 +51,28 @@ func main() {
 
 func loadConfig(path string) (config.Config, error) {
 	if path == "" {
-		return config.Default(), nil
+		defaultPath, err := defaultConfigPath()
+		if err != nil {
+			return config.Config{}, err
+		}
+		cfg, err := config.LoadFile(defaultPath)
+		if err == nil {
+			return cfg, nil
+		}
+		if errors.Is(err, os.ErrNotExist) {
+			return config.Default(), nil
+		}
+		return config.Config{}, err
 	}
 	return config.LoadFile(path)
+}
+
+func defaultConfigPath() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve home directory: %w", err)
+	}
+	return filepath.Join(homeDir, ".config", "throwntom", "config.toml"), nil
 }
 
 func printUsage() {

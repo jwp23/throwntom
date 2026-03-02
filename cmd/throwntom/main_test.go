@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -37,5 +39,26 @@ func TestRequiresInteractiveTTY(t *testing.T) {
 	}
 	if err := requireInteractiveTTY(true, false); err == nil {
 		t.Fatal("expected stdout non-tty to fail precondition")
+	}
+}
+
+func TestLoadConfigUsesDefaultHomeConfigFile(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	configPath := filepath.Join(home, ".config", "throwntom", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+		t.Fatalf("mkdir default config dir: %v", err)
+	}
+	if err := os.WriteFile(configPath, []byte(`schedule_time = "10:30"`), 0o644); err != nil {
+		t.Fatalf("write default config file: %v", err)
+	}
+
+	cfg, err := loadConfig("")
+	if err != nil {
+		t.Fatalf("load default config: %v", err)
+	}
+	if cfg.Schedule.Time != "10:30" {
+		t.Fatalf("expected schedule time from default config file, got %q", cfg.Schedule.Time)
 	}
 }
