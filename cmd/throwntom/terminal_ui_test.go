@@ -18,34 +18,22 @@ func TestRenderFrame(t *testing.T) {
 	}
 }
 
-func TestRenderInPlaceStatusUpdateSequence(t *testing.T) {
-	got := renderInPlaceStatusLine("idle | 00:00 | today's pomodoros=0 | pomodoros=0/4", true, "waiting")
-	if !strings.Contains(got, "\x1b[s") {
-		t.Fatalf("expected save-cursor sequence, got %q", got)
+func TestRenderFullFrameIncludesThreeLines(t *testing.T) {
+	got := renderFullFrame("idle | 00:00", false, "waiting", "sta")
+	if !strings.Contains(got, "status: idle | 00:00 morning reminder pending=false") {
+		t.Fatalf("missing status line: %q", got)
 	}
-	if !strings.Contains(got, "\x1b[2A") {
-		t.Fatalf("expected move-up sequence for status row, got %q", got)
+	if !strings.Contains(got, "\nmessage: waiting\n") {
+		t.Fatalf("missing message line: %q", got)
 	}
-	if !strings.Contains(got, "\x1b[u") {
-		t.Fatalf("expected restore-cursor sequence, got %q", got)
-	}
-	if !strings.Contains(got, "status: idle | 00:00 | today's pomodoros=0 | pomodoros=0/4 morning reminder pending=true") {
-		t.Fatalf("unexpected status payload: %q", got)
-	}
-	if !strings.Contains(got, "message: waiting") {
-		t.Fatalf("unexpected message payload: %q", got)
+	if !strings.Contains(got, "\ncommand> sta") {
+		t.Fatalf("missing prompt line: %q", got)
 	}
 }
 
-func TestRenderInPlaceFrameRewritesAllRows(t *testing.T) {
-	got := renderInPlaceFrame("idle | 00:00 | today's pomodoros=0 | pomodoros=0/4", false, "resumed", "")
-	if strings.Count(got, "\x1b[1A") != 3 {
-		t.Fatalf("expected to move up three rows before redraw, got %q", got)
-	}
-	if strings.Count(got, "\x1b[2K") != 3 {
-		t.Fatalf("expected to clear three rows before redraw, got %q", got)
-	}
-	if !strings.Contains(got, "message: resumed") {
-		t.Fatalf("expected message payload in frame redraw, got %q", got)
+func TestRenderFullFrameClearsAndReanchorsCursor(t *testing.T) {
+	got := renderFullFrame("idle | 00:00", false, "", "")
+	if !strings.HasPrefix(got, "\x1b[3F\x1b[J") {
+		t.Fatalf("expected redraw anchor prefix, got %q", got)
 	}
 }
