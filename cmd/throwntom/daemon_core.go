@@ -115,7 +115,7 @@ func newDaemonCore(cfg config.Config, n notifier.Notifier) *daemonCore {
 			n,
 		),
 		notifier:       n,
-		state:          &daemonState{},
+		state:          &daemonState{morningPending: cfg.MorningReminderPending},
 		scheduler:      scheduler.New(cfg.Schedule.Days, cfg.Schedule.Time),
 		repeatInterval: repeatInterval,
 		now:            time.Now,
