@@ -18,24 +18,23 @@ func newTerminalUI(out io.Writer) *terminalUI {
 }
 
 func (u *terminalUI) ShowFrame(statusLine string, morningPending bool) {
+	u.ShowFrameWithInput(statusLine, morningPending, "")
+}
+
+func (u *terminalUI) ShowFrameWithInput(statusLine string, morningPending bool, input string) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	if !u.enabled {
-		_, _ = io.WriteString(u.out, renderFrame(statusLine, morningPending, u.message, ""))
+		_, _ = io.WriteString(u.out, renderFrame(statusLine, morningPending, u.message, input))
 		u.enabled = true
 		return
 	}
-	_, _ = io.WriteString(u.out, renderFullFrame(statusLine, morningPending, u.message, ""))
+	_, _ = io.WriteString(u.out, renderFullFrame(statusLine, morningPending, u.message, input))
 	u.enabled = true
 }
 
 func (u *terminalUI) UpdateStatus(statusLine string, morningPending bool) {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	if !u.enabled {
-		return
-	}
-	_, _ = io.WriteString(u.out, renderFullFrame(statusLine, morningPending, u.message, ""))
+	u.ShowFrameWithInput(statusLine, morningPending, "")
 }
 
 func (u *terminalUI) Println(msg string) {

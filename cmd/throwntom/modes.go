@@ -14,9 +14,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"syscall"
-	"time"
 
 	"github.com/jwp23/throwntom/internal/config"
 	"github.com/jwp23/throwntom/internal/notifier"
@@ -44,26 +42,13 @@ func runLocalMode(cfg config.Config) {
 	defer core.stop()
 
 	ui := newTerminalUI(os.Stdout)
-	initial := core.executeControlCommand("status")
-	ui.ShowFrame(initial.StatusLine, initial.MorningPending)
-
-	stopStatusUpdates := make(chan struct{})
-	defer close(stopStatusUpdates)
-	var commandProcessing atomic.Bool
-	startStatusUpdater(ui, core.snapshot, &commandProcessing, stopStatusUpdates)
-
-	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
-		commandProcessing.Store(true)
-		resp := core.executeControlCommand(scanner.Text())
-		renderResponseMessage(ui, resp)
-		ui.ShowFrame(resp.StatusLine, resp.MorningPending)
-		commandProcessing.Store(false)
-		if resp.Exit {
-			return
-		}
-	}
-	if err := scanner.Err(); err != nil {
+	err = runInteractiveLoop(ui, os.Stdin, interactiveCallbacks{
+		StatusSnapshot: core.snapshot,
+		Execute: func(command string) (daemonControlResponse, error) {
+			return core.executeControlCommand(command), nil
+		},
+	})
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "input error: %v\n", err)
 	}
 }
@@ -109,11 +94,6 @@ func runShellMode(socketPath string) {
 
 	ui := newTerminalUI(os.Stdout)
 	cache := newStatusCache(initial.StatusLine, initial.MorningPending)
-	ui.ShowFrame(initial.StatusLine, initial.MorningPending)
-
-	stopStatusUpdates := make(chan struct{})
-	defer close(stopStatusUpdates)
-	var commandProcessing atomic.Bool
 	statusSnapshot := func() (string, bool) {
 		resp, err := sendControlCommand(socketPath, "status")
 		if err == nil && resp.Error == "" {
@@ -121,28 +101,18 @@ func runShellMode(socketPath string) {
 		}
 		return cache.Get()
 	}
-	startStatusUpdater(ui, statusSnapshot, &commandProcessing, stopStatusUpdates)
-
-	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
-		commandProcessing.Store(true)
-		resp, err := sendControlCommand(socketPath, scanner.Text())
-		if err != nil {
-			ui.Println(fmt.Sprintf("control error: %v", err))
-			statusLine, morningPending := cache.Get()
-			ui.ShowFrame(statusLine, morningPending)
-			commandProcessing.Store(false)
-			continue
-		}
-		cache.Set(resp.StatusLine, resp.MorningPending)
-		renderResponseMessage(ui, resp)
-		ui.ShowFrame(resp.StatusLine, resp.MorningPending)
-		commandProcessing.Store(false)
-		if resp.Exit {
-			return
-		}
-	}
-	if err := scanner.Err(); err != nil {
+	err = runInteractiveLoop(ui, os.Stdin, interactiveCallbacks{
+		StatusSnapshot: statusSnapshot,
+		Execute: func(command string) (daemonControlResponse, error) {
+			resp, execErr := sendControlCommand(socketPath, command)
+			if execErr != nil {
+				return daemonControlResponse{}, fmt.Errorf("control error: %w", execErr)
+			}
+			cache.Set(resp.StatusLine, resp.MorningPending)
+			return resp, nil
+		},
+	})
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "input error: %v\n", err)
 	}
 }
@@ -298,29 +268,6 @@ func (c *statusCache) Set(statusLine string, morningPending bool) {
 	c.statusLine = statusLine
 	c.morningPending = morningPending
 	c.mu.Unlock()
-}
-
-func startStatusUpdater(ui *terminalUI, statusSnapshot func() (string, bool), commandProcessing *atomic.Bool, stop <-chan struct{}) {
-	go func() {
-		ticker := time.NewTicker(time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-stop:
-				return
-			case <-ticker.C:
-				if !shouldRenderStatus(commandProcessing.Load()) {
-					continue
-				}
-				statusLine, currentMorningPending := statusSnapshot()
-				ui.UpdateStatus(statusLine, currentMorningPending)
-			}
-		}
-	}()
-}
-
-func shouldRenderStatus(commandProcessing bool) bool {
-	return !commandProcessing
 }
 
 func requireInteractiveTTY(stdinTTY, stdoutTTY bool) error {

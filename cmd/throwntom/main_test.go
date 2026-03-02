@@ -21,15 +21,6 @@ func TestDaemonCommandHelpIncludesNewControls(t *testing.T) {
 	}
 }
 
-func TestShouldRenderStatus(t *testing.T) {
-	if !shouldRenderStatus(false) {
-		t.Fatalf("expected status render while waiting for input")
-	}
-	if shouldRenderStatus(true) {
-		t.Fatalf("expected status render suppression only while processing command")
-	}
-}
-
 func TestRequiresInteractiveTTY(t *testing.T) {
 	if err := requireInteractiveTTY(true, true); err != nil {
 		t.Fatalf("expected tty precondition to pass: %v", err)
