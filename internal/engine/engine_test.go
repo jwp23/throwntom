@@ -72,3 +72,32 @@ func TestCompletedTodayResetsOnFirstStart(t *testing.T) {
 		t.Fatalf("expected reset on first start, got %d", e.CompletedToday())
 	}
 }
+
+func TestStartNewCycleResetsBlockButPreservesCompletedToday(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartWork()
+	e.MarkPeriodComplete()
+	e.ConfirmNext()
+	e.MarkPeriodComplete()
+	e.ConfirmNext()
+	e.MarkPeriodComplete()
+
+	if e.CompletedToday() != 2 {
+		t.Fatalf("expected completedToday=2 before reset, got %d", e.CompletedToday())
+	}
+	if e.WorkSessionsInBlock() != 2 {
+		t.Fatalf("expected block progress=2 before reset, got %d", e.WorkSessionsInBlock())
+	}
+
+	e.StartNewCycle()
+
+	if e.State() != Work {
+		t.Fatalf("expected Work after new cycle, got %v", e.State())
+	}
+	if e.WorkSessionsInBlock() != 0 {
+		t.Fatalf("expected block progress reset, got %d", e.WorkSessionsInBlock())
+	}
+	if e.CompletedToday() != 2 {
+		t.Fatalf("expected completedToday preserved, got %d", e.CompletedToday())
+	}
+}
