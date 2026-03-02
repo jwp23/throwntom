@@ -25,7 +25,7 @@ func (u *terminalUI) ShowFrame(statusLine string, morningPending bool) {
 		u.enabled = true
 		return
 	}
-	_, _ = io.WriteString(u.out, renderInPlaceFrame(statusLine, morningPending, u.message, ""))
+	_, _ = io.WriteString(u.out, renderFullFrame(statusLine, morningPending, u.message, ""))
 	u.enabled = true
 }
 
@@ -35,7 +35,7 @@ func (u *terminalUI) UpdateStatus(statusLine string, morningPending bool) {
 	if !u.enabled {
 		return
 	}
-	_, _ = io.WriteString(u.out, renderInPlaceStatusLine(statusLine, morningPending, u.message))
+	_, _ = io.WriteString(u.out, renderFullFrame(statusLine, morningPending, u.message, ""))
 }
 
 func (u *terminalUI) Println(msg string) {
@@ -59,17 +59,6 @@ func renderFrame(statusLine string, morningPending bool, message string, input s
 	)
 }
 
-func renderInPlaceStatusLine(statusLine string, morningPending bool, message string) string {
-	// Save cursor on command line, update status and message lines above, then restore.
-	return fmt.Sprintf(
-		"\x1b[s\x1b[2A\r\x1b[2Kstatus: %s morning reminder pending=%t\n\r\x1b[2Kmessage: %s\x1b[u",
-		statusLine,
-		morningPending,
-		message,
-	)
-}
-
-func renderInPlaceFrame(statusLine string, morningPending bool, message string, input string) string {
-	// Called after Enter, when cursor moved below command line.
-	return "\x1b[1A\r\x1b[2K\x1b[1A\r\x1b[2K\x1b[1A\r\x1b[2K" + renderFrame(statusLine, morningPending, message, input)
+func renderFullFrame(statusLine string, morningPending bool, message string, input string) string {
+	return "\x1b[3F\x1b[J" + renderFrame(statusLine, morningPending, message, input)
 }
