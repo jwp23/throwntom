@@ -11,6 +11,9 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.Schedule.Time != "09:15" {
 		t.Fatalf("expected default time 09:15, got %s", cfg.Schedule.Time)
 	}
+	if !cfg.MorningReminderPending {
+		t.Fatal("expected morning reminder pending to default to true")
+	}
 }
 
 func TestDefaultCycleCadence(t *testing.T) {
@@ -37,6 +40,7 @@ repeat_secs = 15
 schedule_time = "09:45"
 schedule_days = ["Mon","Tue","Wed"]
 sound_command = ["paplay","/tmp/sound.oga"]
+morning_reminder_pending = false
 `)
 	cfg, err := LoadBytes(raw)
 	if err != nil {
@@ -47,6 +51,9 @@ sound_command = ["paplay","/tmp/sound.oga"]
 	}
 	if len(cfg.SoundCommand) != 2 || cfg.SoundCommand[0] != "paplay" {
 		t.Fatalf("unexpected sound command: %v", cfg.SoundCommand)
+	}
+	if cfg.MorningReminderPending {
+		t.Fatal("expected morning reminder pending to parse as false")
 	}
 }
 

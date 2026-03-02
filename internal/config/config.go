@@ -15,12 +15,13 @@ type Config struct {
 		Days []string
 		Time string
 	}
-	WorkMinutes       int
-	ShortBreakMinutes int
-	LongBreakMinutes  int
-	LongBreakEvery    int
-	RepeatSecs        int
-	SoundCommand      []string
+	WorkMinutes            int
+	ShortBreakMinutes      int
+	LongBreakMinutes       int
+	LongBreakEvery         int
+	RepeatSecs             int
+	SoundCommand           []string
+	MorningReminderPending bool
 }
 
 func Default() Config {
@@ -32,6 +33,7 @@ func Default() Config {
 	cfg.LongBreakMinutes = 15
 	cfg.LongBreakEvery = 4
 	cfg.RepeatSecs = 20
+	cfg.MorningReminderPending = true
 	return cfg
 }
 
@@ -167,6 +169,9 @@ var configSetters = map[string]func(cfg *Config, val string) error{
 	"sound_command": func(cfg *Config, val string) error {
 		return setStringSliceField(&cfg.SoundCommand, val)
 	},
+	"morning_reminder_pending": func(cfg *Config, val string) error {
+		return setBoolField(&cfg.MorningReminderPending, val)
+	},
 }
 
 func applyKV(cfg *Config, key, val string) error {
@@ -204,6 +209,15 @@ func setStringSliceField(field *[]string, val string) error {
 	return nil
 }
 
+func setBoolField(field *bool, val string) error {
+	b, err := parseBool(val)
+	if err != nil {
+		return err
+	}
+	*field = b
+	return nil
+}
+
 func parseInt(val string) (int, error) {
 	n, err := strconv.Atoi(strings.TrimSpace(val))
 	if err != nil {
@@ -218,6 +232,17 @@ func parseQuotedString(val string) (string, error) {
 		return "", fmt.Errorf("expected quoted string, got %q", val)
 	}
 	return v[1 : len(v)-1], nil
+}
+
+func parseBool(val string) (bool, error) {
+	switch strings.TrimSpace(val) {
+	case "true":
+		return true, nil
+	case "false":
+		return false, nil
+	default:
+		return false, fmt.Errorf("invalid boolean %q", val)
+	}
 }
 
 func parseStringArray(val string) ([]string, error) {
