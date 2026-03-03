@@ -34,16 +34,12 @@ func runLocalMode(cfg config.Config) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("throwntom run mode started (schedule %s %s)\n", strings.Join(cfg.Schedule.Days, ","), cfg.Schedule.Time)
-	fmt.Printf("cycle: work=%dm short=%dm long=%dm every=%d repeat=%ds\n", cfg.WorkMinutes, cfg.ShortBreakMinutes, cfg.LongBreakMinutes, cfg.LongBreakEvery, cfg.RepeatSecs)
-	fmt.Println(daemonCommandsHelp())
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	core.start(ctx)
 	defer core.stop()
 
-	err = runInteractiveCallbacks(localModeCallbacks(core))
+	err = runInteractiveCallbacks(localModeCallbacks(cfg, core))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "input error: %v\n", err)
 	}
@@ -85,9 +81,6 @@ func runShellMode(socketPath string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("throwntom shell connected to daemon at %s\n", socketPath)
-	fmt.Println(daemonCommandsHelp())
-
 	cache := newStatusCache(initial.StatusLine, initial.MorningPending)
 	err = runInteractiveCallbacks(shellModeCallbacks(socketPath, cache))
 	if err != nil {
@@ -99,8 +92,15 @@ func runInteractiveCallbacks(callbacks interactiveCallbacks) error {
 	return runInteractiveUI(os.Stdout, os.Stdin, callbacks)
 }
 
-func localModeCallbacks(core *daemonCore) interactiveCallbacks {
+func localModeCallbacks(cfg config.Config, core *daemonCore) interactiveCallbacks {
+	header := []string{
+		fmt.Sprintf("throwntom run mode started (schedule %s %s)", strings.Join(cfg.Schedule.Days, ","), cfg.Schedule.Time),
+		fmt.Sprintf("cycle: work=%dm short=%dm long=%dm every=%d repeat=%ds", cfg.WorkMinutes, cfg.ShortBreakMinutes, cfg.LongBreakMinutes, cfg.LongBreakEvery, cfg.RepeatSecs),
+	}
+	header = append(header, strings.Split(daemonCommandsHelp(), "\n")...)
+
 	return interactiveCallbacks{
+		HeaderLines:    header,
 		StatusSnapshot: core.snapshot,
 		Execute: func(command string) (daemonControlResponse, error) {
 			return core.executeControlCommand(command), nil
@@ -118,6 +118,10 @@ func shellModeCallbacks(socketPath string, cache *statusCache) interactiveCallba
 	}
 
 	return interactiveCallbacks{
+		HeaderLines: append(
+			[]string{fmt.Sprintf("throwntom shell connected to daemon at %s", socketPath)},
+			strings.Split(daemonCommandsHelp(), "\n")...,
+		),
 		StatusSnapshot: statusSnapshot,
 		Execute: func(command string) (daemonControlResponse, error) {
 			resp, execErr := sendControlCommand(socketPath, command)
