@@ -21,12 +21,16 @@ func clampTerminalLine(line string, width int) string {
 	if width <= 0 {
 		return line
 	}
+	if width == 1 {
+		return ""
+	}
+	max := width - 1
 	runes := []rune(line)
-	if len(runes) <= width {
+	if len(runes) <= max {
 		return line
 	}
-	if width <= 3 {
-		return string(runes[:width])
+	if max <= 3 {
+		return string(runes[:max])
 	}
-	return string(runes[:width-3]) + "..."
+	return string(runes[:max-3]) + "..."
 }

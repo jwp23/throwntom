@@ -57,3 +57,23 @@ func TestRenderFrameWithWidthClampsEachLineToTerminalWidth(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderFrameWithWidthAvoidsTerminalAutoWrap(t *testing.T) {
+	got := renderFrameWithWidth(
+		"pomodoro | 24:59 | today's pomodoros=0 | pomodoros=0/4",
+		false,
+		"this message should be clamped",
+		"this command should be clamped",
+		20,
+	)
+
+	lines := strings.Split(got, "\n")
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 lines, got %d in %q", len(lines), got)
+	}
+	for idx, line := range lines {
+		if len([]rune(line)) >= 20 {
+			t.Fatalf("expected line %d to stay below width 20 to avoid terminal auto-wrap, got %d chars: %q", idx, len([]rune(line)), line)
+		}
+	}
+}
