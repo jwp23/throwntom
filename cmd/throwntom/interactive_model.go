@@ -10,6 +10,7 @@ const (
 	keyPrintable keyKind = iota
 	keyBackspace
 	keyEnter
+	keyInterrupt
 )
 
 type keyEvent struct {

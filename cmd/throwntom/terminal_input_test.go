@@ -38,3 +38,13 @@ func TestParseKeyEventEnter(t *testing.T) {
 		}
 	}
 }
+
+func TestParseKeyEventCtrlC(t *testing.T) {
+	ev, ok := parseKeyEvent([]byte{0x03})
+	if !ok {
+		t.Fatal("expected ctrl-c byte to parse")
+	}
+	if ev.kind != keyInterrupt {
+		t.Fatalf("expected key kind %v for ctrl-c, got %v", keyInterrupt, ev.kind)
+	}
+}

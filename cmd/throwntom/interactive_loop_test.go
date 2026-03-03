@@ -166,3 +166,44 @@ func TestInteractiveLoopEnterExecutesCommandAndClearsInput(t *testing.T) {
 		t.Fatalf("expected prompt to clear after enter, got output %q", out.String())
 	}
 }
+
+func TestInteractiveLoopCtrlCExitsWithoutExecutingCommand(t *testing.T) {
+	var out bytes.Buffer
+	ui := newTerminalUI(&out)
+
+	keys := make(chan keyEvent, 4)
+	ticks := make(chan time.Time, 1)
+	resizes := make(chan struct{}, 1)
+	readErr := make(chan error, 1)
+
+	executed := false
+	cb := interactiveCallbacks{
+		StatusSnapshot: func() (string, bool) {
+			return "idle | 00:00", false
+		},
+		Execute: func(command string) (daemonControlResponse, error) {
+			executed = true
+			return daemonControlResponse{}, nil
+		},
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- runInteractiveEventLoop(ui, cb, keys, ticks, resizes, readErr)
+	}()
+
+	keys <- keyEvent{kind: keyInterrupt}
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("loop returned error: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for interactive loop to exit")
+	}
+
+	if executed {
+		t.Fatal("expected ctrl-c exit to avoid executing command callback")
+	}
+}
