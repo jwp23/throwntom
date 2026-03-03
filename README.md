@@ -38,6 +38,7 @@ throwntom run
 ```
 
 ### Background daemon
+***NOTE*** This is experimental
 
 ```bash
 throwntom daemon
