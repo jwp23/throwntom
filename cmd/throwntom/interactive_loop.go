@@ -15,6 +15,19 @@ type interactiveCallbacks struct {
 	Execute        func(command string) (daemonControlResponse, error)
 }
 
+type interactiveLoopState struct {
+	statusLine     string
+	morningPending bool
+	prompt         promptState
+}
+
+type loopAction int
+
+const (
+	loopContinue loopAction = iota
+	loopExit
+)
+
 func runInteractiveLoop(ui *terminalUI, in *os.File, callbacks interactiveCallbacks) (err error) {
 	if callbacks.StatusSnapshot == nil || callbacks.Execute == nil {
 		return fmt.Errorf("interactive callbacks must provide status snapshot and execute handlers")
@@ -78,8 +91,12 @@ func runInteractiveEventLoop(
 	readErr <-chan error,
 ) error {
 	statusLine, morningPending := callbacks.StatusSnapshot()
-	prompt := promptState{}
-	ui.ShowFrameWithInput(statusLine, morningPending, prompt.input)
+	state := interactiveLoopState{
+		statusLine:     statusLine,
+		morningPending: morningPending,
+		prompt:         promptState{},
+	}
+	ui.ShowFrameWithInput(state.statusLine, state.morningPending, state.prompt.input)
 
 	for {
 		select {
@@ -88,31 +105,11 @@ func runInteractiveEventLoop(
 				keyEvents = nil
 				continue
 			}
-			if ev.kind == keyInterrupt {
-				return nil
-			}
-			nextPrompt, submitted, handled := applyKey(prompt, ev)
-			if !handled {
-				continue
-			}
-			prompt = nextPrompt
-			if submitted == "" {
-				ui.ShowFrameWithInput(statusLine, morningPending, prompt.input)
-				continue
-			}
-
-			resp, err := callbacks.Execute(submitted)
+			action, err := handleInteractiveKeyEvent(ui, callbacks, &state, ev)
 			if err != nil {
-				ui.Println(err.Error())
-				statusLine, morningPending = callbacks.StatusSnapshot()
-				ui.ShowFrameWithInput(statusLine, morningPending, prompt.input)
-				continue
+				return err
 			}
-
-			statusLine, morningPending = resp.StatusLine, resp.MorningPending
-			renderResponseMessage(ui, resp)
-			ui.ShowFrameWithInput(statusLine, morningPending, prompt.input)
-			if resp.Exit {
+			if action == loopExit {
 				return nil
 			}
 		case _, ok := <-ticks:
@@ -120,28 +117,79 @@ func runInteractiveEventLoop(
 				ticks = nil
 				continue
 			}
-			statusLine, morningPending = callbacks.StatusSnapshot()
-			ui.ShowFrameWithInput(statusLine, morningPending, prompt.input)
+			handleInteractiveTick(ui, callbacks, &state)
 		case _, ok := <-resizes:
 			if !ok {
 				resizes = nil
 				continue
 			}
-			if width, err := terminalWidth(os.Stdin); err == nil {
-				ui.SetWidth(width)
-			}
-			ui.ShowFrameWithInput(statusLine, morningPending, prompt.input)
+			handleInteractiveResize(ui, &state)
 		case err, ok := <-readErr:
 			if !ok {
 				readErr = nil
 				continue
 			}
-			if errors.Is(err, io.EOF) {
+			action, loopErr := handleInteractiveReadErr(err)
+			if loopErr != nil {
+				return loopErr
+			}
+			if action == loopExit {
 				return nil
 			}
-			return fmt.Errorf("read input: %w", err)
 		}
 	}
+}
+
+func handleInteractiveKeyEvent(ui *terminalUI, callbacks interactiveCallbacks, state *interactiveLoopState, ev keyEvent) (loopAction, error) {
+	if ev.kind == keyInterrupt {
+		return loopExit, nil
+	}
+
+	nextPrompt, submitted, handled := applyKey(state.prompt, ev)
+	if !handled {
+		return loopContinue, nil
+	}
+
+	state.prompt = nextPrompt
+	if submitted == "" {
+		ui.ShowFrameWithInput(state.statusLine, state.morningPending, state.prompt.input)
+		return loopContinue, nil
+	}
+
+	resp, err := callbacks.Execute(submitted)
+	if err != nil {
+		ui.Println(err.Error())
+		state.statusLine, state.morningPending = callbacks.StatusSnapshot()
+		ui.ShowFrameWithInput(state.statusLine, state.morningPending, state.prompt.input)
+		return loopContinue, nil
+	}
+
+	state.statusLine, state.morningPending = resp.StatusLine, resp.MorningPending
+	renderResponseMessage(ui, resp)
+	ui.ShowFrameWithInput(state.statusLine, state.morningPending, state.prompt.input)
+	if resp.Exit {
+		return loopExit, nil
+	}
+	return loopContinue, nil
+}
+
+func handleInteractiveTick(ui *terminalUI, callbacks interactiveCallbacks, state *interactiveLoopState) {
+	state.statusLine, state.morningPending = callbacks.StatusSnapshot()
+	ui.ShowFrameWithInput(state.statusLine, state.morningPending, state.prompt.input)
+}
+
+func handleInteractiveResize(ui *terminalUI, state *interactiveLoopState) {
+	if width, err := terminalWidth(os.Stdin); err == nil {
+		ui.SetWidth(width)
+	}
+	ui.ShowFrameWithInput(state.statusLine, state.morningPending, state.prompt.input)
+}
+
+func handleInteractiveReadErr(err error) (loopAction, error) {
+	if errors.Is(err, io.EOF) {
+		return loopExit, nil
+	}
+	return loopContinue, fmt.Errorf("read input: %w", err)
 }
 
 func readKeyEvents(in *os.File, out chan<- keyEvent, errs chan<- error) {
