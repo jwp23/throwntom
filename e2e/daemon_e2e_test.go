@@ -4,11 +4,13 @@ package e2e_test
 
 import (
 	"bytes"
+	"context"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func buildBinary(t *testing.T) string {
@@ -86,5 +88,56 @@ func TestMissingConfigFileFails(t *testing.T) {
 	}
 	if !strings.Contains(output, missingPath) {
 		t.Fatalf("expected missing path in error output, got %q", output)
+	}
+}
+
+func TestInteractiveResizeSmokeNoLineClobber(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("script-based tty smoke test is not supported on windows")
+	}
+	if _, err := exec.LookPath("script"); err != nil {
+		t.Skip("script command not available")
+	}
+
+	bin := buildBinary(t)
+	scriptCmd := `(sleep 0.25; stty cols 40 >/dev/null 2>&1 || true; sleep 0.25; stty cols 120 >/dev/null 2>&1 || true) &
+exec "$1"`
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "script", "-q", "/dev/null", "sh", "-c", scriptCmd, "sh", bin)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		t.Fatalf("stdin pipe: %v", err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start script command: %v", err)
+	}
+
+	go func() {
+		time.Sleep(800 * time.Millisecond)
+		_, _ = stdin.Write([]byte{0x03})
+		_ = stdin.Close()
+	}()
+
+	err = cmd.Wait()
+	if err != nil {
+		t.Fatalf("interactive resize smoke failed: %v\n%s", err, out.String())
+	}
+
+	output := out.String()
+	if strings.Contains(output, "\x1b[3F\x1b[J") {
+		t.Fatalf("expected no legacy cursor reanchor sequence, got %q", output)
+	}
+	if !strings.Contains(output, "command> ") {
+		t.Fatalf("expected prompt in interactive output, got %q", output)
+	}
+	if !strings.Contains(output, "status:") {
+		t.Fatalf("expected status line in interactive output, got %q", output)
 	}
 }
