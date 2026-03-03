@@ -87,6 +87,17 @@ func (m interactiveTeaModel) updateKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	if key.Type == tea.KeySpace {
+		var handled bool
+		m.prompt, _, handled = applyKey(m.prompt, keyEvent{
+			kind: keyPrintable,
+			r:    ' ',
+		})
+		if !handled {
+			return m, nil
+		}
+		return m, nil
+	}
 	if key.Type == tea.KeyBackspace || key.Type == tea.KeyCtrlH {
 		var handled bool
 		m.prompt, _, handled = applyKey(m.prompt, keyEvent{kind: keyBackspace})
