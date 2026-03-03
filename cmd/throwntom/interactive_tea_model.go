@@ -44,11 +44,10 @@ func (m interactiveTeaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.statusLine, m.morningPending = m.callbacks.StatusSnapshot()
 		return m, interactiveTickCmd()
 	case tea.WindowSizeMsg:
-		if msg.Width < 0 {
-			msg.Width = 0
+		if msg.Width > 0 {
+			m.width = msg.Width
 		}
-		m.width = msg.Width
-		return m, nil
+		return m, tea.ClearScreen
 	default:
 		return m, nil
 	}

@@ -91,6 +91,27 @@ func TestInteractiveTeaModelResizeClampsViewWidth(t *testing.T) {
 	}
 }
 
+func TestInteractiveTeaModelResizeZeroWidthKeepsPreviousClamp(t *testing.T) {
+	model := newInteractiveTeaModel(interactiveCallbacks{
+		StatusSnapshot: func() (string, bool) {
+			return "idle | 00:00 | today's pomodoros=0 | pomodoros=0/4", false
+		},
+		Execute: func(string) (daemonControlResponse, error) {
+			return daemonControlResponse{}, nil
+		},
+	})
+
+	next, _ := model.Update(tea.WindowSizeMsg{Width: 24, Height: 10})
+	next, _ = next.(interactiveTeaModel).Update(tea.WindowSizeMsg{Width: 0, Height: 10})
+	view := next.(interactiveTeaModel).View()
+
+	for idx, line := range strings.Split(view, "\n") {
+		if len([]rune(line)) > 23 {
+			t.Fatalf("expected line %d to retain prior width clamp after zero-width resize, got %d chars in %q", idx, len([]rune(line)), line)
+		}
+	}
+}
+
 func hasLineWithPrefix(view string, prefix string) bool {
 	for _, line := range strings.Split(view, "\n") {
 		if strings.HasPrefix(line, prefix) {
