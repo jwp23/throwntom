@@ -18,8 +18,8 @@ func TestRenderFrame(t *testing.T) {
 	}
 }
 
-func TestRenderFullFrameIncludesThreeLines(t *testing.T) {
-	got := renderFullFrame("idle | 00:00", false, "waiting", "sta")
+func TestRenderFrameWithWidthIncludesThreeLines(t *testing.T) {
+	got := renderFrameWithWidth("idle | 00:00", false, "waiting", "sta", 0)
 	if !strings.Contains(got, "status: idle | 00:00 morning reminder pending=false") {
 		t.Fatalf("missing status line: %q", got)
 	}
@@ -31,10 +31,10 @@ func TestRenderFullFrameIncludesThreeLines(t *testing.T) {
 	}
 }
 
-func TestRenderFullFrameClearsAndReanchorsCursor(t *testing.T) {
-	got := renderFullFrame("idle | 00:00", false, "", "")
-	if !strings.HasPrefix(got, "\x1b[3F\x1b[J") {
-		t.Fatalf("expected redraw anchor prefix, got %q", got)
+func TestRenderFrameWithWidthDoesNotUseLegacyCursorEscape(t *testing.T) {
+	got := renderFrameWithWidth("idle | 00:00", false, "", "", 0)
+	if strings.Contains(got, "\x1b[3F\x1b[J") {
+		t.Fatalf("expected no legacy cursor reanchor escape, got %q", got)
 	}
 }
 

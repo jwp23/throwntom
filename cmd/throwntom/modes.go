@@ -247,16 +247,6 @@ func handleControlConnection(conn net.Conn, core *daemonCore, cancel context.Can
 	}
 }
 
-func renderResponseMessage(ui *terminalUI, resp daemonControlResponse) {
-	if resp.Error != "" {
-		ui.Println(resp.Error)
-		return
-	}
-	if resp.Message != "" {
-		ui.Println(resp.Message)
-	}
-}
-
 type statusCache struct {
 	mu             sync.Mutex
 	statusLine     string
