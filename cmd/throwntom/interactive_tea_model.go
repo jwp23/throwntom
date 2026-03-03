@@ -74,46 +74,28 @@ func (m interactiveTeaModel) updateKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if key.Type == tea.KeyCtrlC {
 		return m, tea.Quit
 	}
-	if key.Type == tea.KeyRunes {
-		for _, r := range key.Runes {
-			var handled bool
-			m.prompt, _, handled = applyKey(m.prompt, keyEvent{
+	if key.Type == tea.KeyRunes || key.Type == tea.KeySpace {
+		runes := key.Runes
+		if key.Type == tea.KeySpace {
+			runes = []rune{' '}
+		}
+		for _, r := range runes {
+			m.prompt, _, _ = applyKey(m.prompt, keyEvent{
 				kind: keyPrintable,
 				r:    r,
 			})
-			if !handled {
-				return m, nil
-			}
-		}
-		return m, nil
-	}
-	if key.Type == tea.KeySpace {
-		var handled bool
-		m.prompt, _, handled = applyKey(m.prompt, keyEvent{
-			kind: keyPrintable,
-			r:    ' ',
-		})
-		if !handled {
-			return m, nil
 		}
 		return m, nil
 	}
 	if key.Type == tea.KeyBackspace || key.Type == tea.KeyCtrlH {
-		var handled bool
-		m.prompt, _, handled = applyKey(m.prompt, keyEvent{kind: keyBackspace})
-		if !handled {
-			return m, nil
-		}
+		m.prompt, _, _ = applyKey(m.prompt, keyEvent{kind: keyBackspace})
 		return m, nil
 	}
 	if key.Type != tea.KeyEnter {
 		return m, nil
 	}
 
-	nextPrompt, submitted, handled := applyKey(m.prompt, keyEvent{kind: keyEnter})
-	if !handled {
-		return m, nil
-	}
+	nextPrompt, submitted, _ := applyKey(m.prompt, keyEvent{kind: keyEnter})
 	m.prompt = nextPrompt
 	if submitted == "" {
 		return m, nil
