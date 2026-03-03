@@ -26,6 +26,11 @@ go install github.com/jwp23/throwntom/cmd/throwntom@latest
 throwntom
 ```
 
+Interactive terminal rendering/input is managed by Bubble Tea with a fixed 3-line layout:
+- `status: ...`
+- `message: ...`
+- `command> ...`
+
 Equivalent explicit mode:
 
 ```bash
