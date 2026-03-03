@@ -5,6 +5,7 @@ package e2e_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -28,6 +29,30 @@ func buildBinary(t *testing.T) string {
 		t.Fatalf("build binary: %v\n%s", err, out)
 	}
 	return binPath
+}
+
+func TestScriptCommandInvocationLinuxUsesDashC(t *testing.T) {
+	args := scriptCommandInvocation("linux", "echo hi", "/tmp/fake-bin")
+	got := strings.Join(args, " ")
+	if !strings.Contains(got, " -c ") {
+		t.Fatalf("expected linux invocation to include -c form, got %q", got)
+	}
+	if !strings.Contains(got, "/dev/null") {
+		t.Fatalf("expected linux invocation to include output file path, got %q", got)
+	}
+}
+
+func TestScriptCommandInvocationDarwinUsesBsdPositionalCommand(t *testing.T) {
+	args := scriptCommandInvocation("darwin", "echo hi", "/tmp/fake-bin")
+	if len(args) < 7 {
+		t.Fatalf("expected bsd invocation args, got %v", args)
+	}
+	if args[1] == "-c" {
+		t.Fatalf("did not expect script -c option for darwin invocation, got %v", args)
+	}
+	if args[2] != "sh" || args[3] != "-c" {
+		t.Fatalf("expected positional sh -c command after script output file, got %v", args)
+	}
 }
 
 func TestUnexpectedPositionalArgExitsNonZero(t *testing.T) {
@@ -106,7 +131,8 @@ exec "$1"`
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "script", "-q", "/dev/null", "sh", "-c", scriptCmd, "sh", bin)
+	args := scriptCommandInvocation(runtime.GOOS, scriptCmd, bin)
+	cmd := exec.CommandContext(ctx, "script", args...)
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out
@@ -145,5 +171,25 @@ exec "$1"`
 	}
 	if !strings.Contains(output, "daemon commands:") {
 		t.Fatalf("expected daemon command help header in interactive output, got %q", output)
+	}
+}
+
+func scriptCommandInvocation(goos string, scriptCmd string, bin string) []string {
+	if goos == "linux" {
+		return []string{
+			"-q",
+			"-c",
+			fmt.Sprintf("sh -c '%s' sh %q", scriptCmd, bin),
+			"/dev/null",
+		}
+	}
+	return []string{
+		"-q",
+		"/dev/null",
+		"sh",
+		"-c",
+		scriptCmd,
+		"sh",
+		bin,
 	}
 }
