@@ -18,8 +18,8 @@ func TestRenderFrame(t *testing.T) {
 	}
 }
 
-func TestRenderFullFrameIncludesThreeLines(t *testing.T) {
-	got := renderFullFrame("idle | 00:00", false, "waiting", "sta")
+func TestRenderFrameWithWidthIncludesThreeLines(t *testing.T) {
+	got := renderFrameWithWidth("idle | 00:00", false, "waiting", "sta", 0)
 	if !strings.Contains(got, "status: idle | 00:00 morning reminder pending=false") {
 		t.Fatalf("missing status line: %q", got)
 	}
@@ -31,10 +31,10 @@ func TestRenderFullFrameIncludesThreeLines(t *testing.T) {
 	}
 }
 
-func TestRenderFullFrameClearsAndReanchorsCursor(t *testing.T) {
-	got := renderFullFrame("idle | 00:00", false, "", "")
-	if !strings.HasPrefix(got, "\x1b[3F\x1b[J") {
-		t.Fatalf("expected redraw anchor prefix, got %q", got)
+func TestRenderFrameWithWidthDoesNotUseLegacyCursorEscape(t *testing.T) {
+	got := renderFrameWithWidth("idle | 00:00", false, "", "", 0)
+	if strings.Contains(got, "\x1b[3F\x1b[J") {
+		t.Fatalf("expected no legacy cursor reanchor escape, got %q", got)
 	}
 }
 
@@ -54,6 +54,26 @@ func TestRenderFrameWithWidthClampsEachLineToTerminalWidth(t *testing.T) {
 	for idx, line := range lines {
 		if len([]rune(line)) > 40 {
 			t.Fatalf("expected line %d to be clamped to width 40, got %d chars: %q", idx, len([]rune(line)), line)
+		}
+	}
+}
+
+func TestRenderFrameWithWidthAvoidsTerminalAutoWrap(t *testing.T) {
+	got := renderFrameWithWidth(
+		"pomodoro | 24:59 | today's pomodoros=0 | pomodoros=0/4",
+		false,
+		"this message should be clamped",
+		"this command should be clamped",
+		20,
+	)
+
+	lines := strings.Split(got, "\n")
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 lines, got %d in %q", len(lines), got)
+	}
+	for idx, line := range lines {
+		if len([]rune(line)) >= 20 {
+			t.Fatalf("expected line %d to stay below width 20 to avoid terminal auto-wrap, got %d chars: %q", idx, len([]rune(line)), line)
 		}
 	}
 }

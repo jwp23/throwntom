@@ -20,6 +20,8 @@ import (
 	"github.com/jwp23/throwntom/internal/notifier"
 )
 
+var runInteractiveUI = runInteractiveTea
+
 func runLocalMode(cfg config.Config) {
 	if err := requireInteractiveTTY(isTerminal(os.Stdin), isTerminal(os.Stdout)); err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
@@ -32,22 +34,12 @@ func runLocalMode(cfg config.Config) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("throwntom run mode started (schedule %s %s)\n", strings.Join(cfg.Schedule.Days, ","), cfg.Schedule.Time)
-	fmt.Printf("cycle: work=%dm short=%dm long=%dm every=%d repeat=%ds\n", cfg.WorkMinutes, cfg.ShortBreakMinutes, cfg.LongBreakMinutes, cfg.LongBreakEvery, cfg.RepeatSecs)
-	fmt.Println(daemonCommandsHelp())
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	core.start(ctx)
 	defer core.stop()
 
-	ui := newTerminalUI(os.Stdout)
-	err = runInteractiveLoop(ui, os.Stdin, interactiveCallbacks{
-		StatusSnapshot: core.snapshot,
-		Execute: func(command string) (daemonControlResponse, error) {
-			return core.executeControlCommand(command), nil
-		},
-	})
+	err = runInteractiveCallbacks(localModeCallbacks(cfg, core))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "input error: %v\n", err)
 	}
@@ -89,11 +81,34 @@ func runShellMode(socketPath string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("throwntom shell connected to daemon at %s\n", socketPath)
-	fmt.Println(daemonCommandsHelp())
-
-	ui := newTerminalUI(os.Stdout)
 	cache := newStatusCache(initial.StatusLine, initial.MorningPending)
+	err = runInteractiveCallbacks(shellModeCallbacks(socketPath, cache))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "input error: %v\n", err)
+	}
+}
+
+func runInteractiveCallbacks(callbacks interactiveCallbacks) error {
+	return runInteractiveUI(os.Stdout, os.Stdin, callbacks)
+}
+
+func localModeCallbacks(cfg config.Config, core *daemonCore) interactiveCallbacks {
+	header := []string{
+		fmt.Sprintf("throwntom run mode started (schedule %s %s)", strings.Join(cfg.Schedule.Days, ","), cfg.Schedule.Time),
+		fmt.Sprintf("cycle: work=%dm short=%dm long=%dm every=%d repeat=%ds", cfg.WorkMinutes, cfg.ShortBreakMinutes, cfg.LongBreakMinutes, cfg.LongBreakEvery, cfg.RepeatSecs),
+	}
+	header = append(header, strings.Split(daemonCommandsHelp(), "\n")...)
+
+	return interactiveCallbacks{
+		HeaderLines:    header,
+		StatusSnapshot: core.snapshot,
+		Execute: func(command string) (daemonControlResponse, error) {
+			return core.executeControlCommand(command), nil
+		},
+	}
+}
+
+func shellModeCallbacks(socketPath string, cache *statusCache) interactiveCallbacks {
 	statusSnapshot := func() (string, bool) {
 		resp, err := sendControlCommand(socketPath, "status")
 		if err == nil && resp.Error == "" {
@@ -101,7 +116,12 @@ func runShellMode(socketPath string) {
 		}
 		return cache.Get()
 	}
-	err = runInteractiveLoop(ui, os.Stdin, interactiveCallbacks{
+
+	return interactiveCallbacks{
+		HeaderLines: append(
+			[]string{fmt.Sprintf("throwntom shell connected to daemon at %s", socketPath)},
+			strings.Split(daemonCommandsHelp(), "\n")...,
+		),
 		StatusSnapshot: statusSnapshot,
 		Execute: func(command string) (daemonControlResponse, error) {
 			resp, execErr := sendControlCommand(socketPath, command)
@@ -111,9 +131,6 @@ func runShellMode(socketPath string) {
 			cache.Set(resp.StatusLine, resp.MorningPending)
 			return resp, nil
 		},
-	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "input error: %v\n", err)
 	}
 }
 
@@ -231,16 +248,6 @@ func handleControlConnection(conn net.Conn, core *daemonCore, cancel context.Can
 	}
 	if resp.Exit {
 		cancel()
-	}
-}
-
-func renderResponseMessage(ui *terminalUI, resp daemonControlResponse) {
-	if resp.Error != "" {
-		ui.Println(resp.Error)
-		return
-	}
-	if resp.Message != "" {
-		ui.Println(resp.Message)
 	}
 }
 
