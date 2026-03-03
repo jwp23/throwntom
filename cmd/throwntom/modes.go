@@ -20,6 +20,8 @@ import (
 	"github.com/jwp23/throwntom/internal/notifier"
 )
 
+var runInteractiveUI = runInteractiveTea
+
 func runLocalMode(cfg config.Config) {
 	if err := requireInteractiveTTY(isTerminal(os.Stdin), isTerminal(os.Stdout)); err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
@@ -41,13 +43,7 @@ func runLocalMode(cfg config.Config) {
 	core.start(ctx)
 	defer core.stop()
 
-	ui := newTerminalUI(os.Stdout)
-	err = runInteractiveLoop(ui, os.Stdin, interactiveCallbacks{
-		StatusSnapshot: core.snapshot,
-		Execute: func(command string) (daemonControlResponse, error) {
-			return core.executeControlCommand(command), nil
-		},
-	})
+	err = runInteractiveCallbacks(localModeCallbacks(core))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "input error: %v\n", err)
 	}
@@ -92,8 +88,27 @@ func runShellMode(socketPath string) {
 	fmt.Printf("throwntom shell connected to daemon at %s\n", socketPath)
 	fmt.Println(daemonCommandsHelp())
 
-	ui := newTerminalUI(os.Stdout)
 	cache := newStatusCache(initial.StatusLine, initial.MorningPending)
+	err = runInteractiveCallbacks(shellModeCallbacks(socketPath, cache))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "input error: %v\n", err)
+	}
+}
+
+func runInteractiveCallbacks(callbacks interactiveCallbacks) error {
+	return runInteractiveUI(os.Stdout, os.Stdin, callbacks)
+}
+
+func localModeCallbacks(core *daemonCore) interactiveCallbacks {
+	return interactiveCallbacks{
+		StatusSnapshot: core.snapshot,
+		Execute: func(command string) (daemonControlResponse, error) {
+			return core.executeControlCommand(command), nil
+		},
+	}
+}
+
+func shellModeCallbacks(socketPath string, cache *statusCache) interactiveCallbacks {
 	statusSnapshot := func() (string, bool) {
 		resp, err := sendControlCommand(socketPath, "status")
 		if err == nil && resp.Error == "" {
@@ -101,7 +116,8 @@ func runShellMode(socketPath string) {
 		}
 		return cache.Get()
 	}
-	err = runInteractiveLoop(ui, os.Stdin, interactiveCallbacks{
+
+	return interactiveCallbacks{
 		StatusSnapshot: statusSnapshot,
 		Execute: func(command string) (daemonControlResponse, error) {
 			resp, execErr := sendControlCommand(socketPath, command)
@@ -111,9 +127,6 @@ func runShellMode(socketPath string) {
 			cache.Set(resp.StatusLine, resp.MorningPending)
 			return resp, nil
 		},
-	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "input error: %v\n", err)
 	}
 }
 
