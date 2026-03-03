@@ -43,6 +43,39 @@ func TestInteractiveTeaModelEnterExecutesAndClearsPrompt(t *testing.T) {
 	}
 }
 
+func TestInteractiveTeaModelSpaceKeyIncludedInSubmittedCommand(t *testing.T) {
+	var submitted string
+	model := newInteractiveTeaModel(interactiveCallbacks{
+		StatusSnapshot: func() (string, bool) {
+			return "idle | 00:00", false
+		},
+		Execute: func(command string) (daemonControlResponse, error) {
+			submitted = command
+			return daemonControlResponse{
+				StatusLine:     "idle | 00:00",
+				MorningPending: false,
+				Message:        "ok",
+			}, nil
+		},
+	})
+
+	input := []tea.KeyMsg{
+		{Type: tea.KeyRunes, Runes: []rune("snooze")},
+		{Type: tea.KeySpace},
+		{Type: tea.KeyRunes, Runes: []rune("10m")},
+		{Type: tea.KeyEnter},
+	}
+
+	next := tea.Model(model)
+	for _, key := range input {
+		next, _ = next.Update(key)
+	}
+
+	if submitted != "snooze 10m" {
+		t.Fatalf("expected submitted command %q, got %q", "snooze 10m", submitted)
+	}
+}
+
 func TestInteractiveTeaModelTickRefreshesStatusAndKeepsPrompt(t *testing.T) {
 	statusLine := "idle | 00:00"
 	model := newInteractiveTeaModel(interactiveCallbacks{
