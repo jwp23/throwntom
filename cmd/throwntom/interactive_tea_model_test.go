@@ -112,6 +112,39 @@ func TestInteractiveTeaModelResizeZeroWidthKeepsPreviousClamp(t *testing.T) {
 	}
 }
 
+func TestInteractiveTeaModelViewIncludesPersistentHeaderLines(t *testing.T) {
+	model := newInteractiveTeaModel(interactiveCallbacks{
+		HeaderLines: []string{
+			"throwntom run mode started (schedule Mon,Tue,Wed,Thu,Fri 09:00)",
+			"daemon commands:",
+		},
+		StatusSnapshot: func() (string, bool) {
+			return "idle | 00:00 | today's pomodoros=0 | pomodoros=0/4", false
+		},
+		Execute: func(string) (daemonControlResponse, error) {
+			return daemonControlResponse{}, nil
+		},
+	})
+
+	next, _ := model.Update(tea.WindowSizeMsg{Width: 32, Height: 10})
+	view := next.(interactiveTeaModel).View()
+	lines := strings.Split(view, "\n")
+	if len(lines) != 5 {
+		t.Fatalf("expected header + 3 frame lines, got %d lines in %q", len(lines), view)
+	}
+	if !strings.HasPrefix(lines[0], "throwntom run mode started") {
+		t.Fatalf("expected first header line, got %q", lines[0])
+	}
+	if !strings.HasPrefix(lines[1], "daemon commands:") {
+		t.Fatalf("expected second header line, got %q", lines[1])
+	}
+	for idx, line := range lines {
+		if len([]rune(line)) > 31 {
+			t.Fatalf("expected line %d to clamp under width to avoid wrap, got %d chars in %q", idx, len([]rune(line)), line)
+		}
+	}
+}
+
 func hasLineWithPrefix(view string, prefix string) bool {
 	for _, line := range strings.Split(view, "\n") {
 		if strings.HasPrefix(line, prefix) {

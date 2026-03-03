@@ -140,4 +140,10 @@ exec "$1"`
 	if !strings.Contains(output, "status:") {
 		t.Fatalf("expected status line in interactive output, got %q", output)
 	}
+	if !strings.Contains(output, "throwntom run mode started") {
+		t.Fatalf("expected persistent run header in interactive output, got %q", output)
+	}
+	if !strings.Contains(output, "daemon commands:") {
+		t.Fatalf("expected daemon command help header in interactive output, got %q", output)
+	}
 }

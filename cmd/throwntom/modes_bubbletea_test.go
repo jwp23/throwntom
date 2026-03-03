@@ -46,12 +46,15 @@ func TestLocalModeCallbacksExecuteDelegatesToCore(t *testing.T) {
 		return fmt.Errorf("unused")
 	}))
 
-	callbacks := localModeCallbacks(core)
+	callbacks := localModeCallbacks(cfg, core)
 	if callbacks.StatusSnapshot == nil {
 		t.Fatal("expected status snapshot callback")
 	}
 	if callbacks.Execute == nil {
 		t.Fatal("expected execute callback")
+	}
+	if len(callbacks.HeaderLines) == 0 {
+		t.Fatal("expected local mode callbacks to include persistent header lines")
 	}
 
 	resp, err := callbacks.Execute("start")
