@@ -100,8 +100,8 @@ type daemonCore struct {
 	repeatInterval time.Duration
 	now            func() time.Time
 	handlers       map[string]daemonCommandHandler
-	tasks   *task.FileStore
-	focused []task.Task
+	tasks          *task.FileStore
+	focused        []task.Task
 }
 
 type daemonCommandHandler func(parts []string) daemonCommandResult
@@ -217,6 +217,7 @@ func (d *daemonCore) handleResume(_ []string) daemonCommandResult {
 
 func (d *daemonCore) handleStop(_ []string) daemonCommandResult {
 	d.cycle.Stop()
+	d.focused = nil
 	return daemonCommandResult{message: "stopped and returned to idle"}
 }
 
