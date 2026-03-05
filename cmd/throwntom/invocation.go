@@ -1,20 +1,11 @@
 package main
 
-import (
-	"fmt"
-	"strings"
-)
+import "fmt"
 
-const (
-	modeRun     = "run"
-	modeDaemon  = "daemon"
-	modeShell   = "shell"
-	modeControl = "ctl"
-)
+const modeRun = "run"
 
 type invocation struct {
-	mode           string
-	controlCommand string
+	mode string
 }
 
 func parseInvocation(args []string) (invocation, error) {
@@ -26,19 +17,11 @@ func parseInvocation(args []string) (invocation, error) {
 	rest := args[1:]
 
 	switch mode {
-	case modeRun, modeDaemon, modeShell:
+	case modeRun:
 		if len(rest) != 0 {
 			return invocation{}, fmt.Errorf("mode %q does not accept positional args: %v", mode, rest)
 		}
-		return invocation{mode: mode}, nil
-	case modeControl:
-		if len(rest) == 0 {
-			return invocation{}, fmt.Errorf("mode %q requires a command", modeControl)
-		}
-		return invocation{
-			mode:           modeControl,
-			controlCommand: strings.Join(rest, " "),
-		}, nil
+		return invocation{mode: modeRun}, nil
 	default:
 		return invocation{}, fmt.Errorf("unknown mode %q", mode)
 	}

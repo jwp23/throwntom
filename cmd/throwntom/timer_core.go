@@ -15,7 +15,7 @@ import (
 	"github.com/jwp23/throwntom/internal/task"
 )
 
-type daemonState struct {
+type reminderState struct {
 	mu             sync.Mutex
 	morningCancel  context.CancelFunc
 	snoozeUntil    time.Time
@@ -23,14 +23,14 @@ type daemonState struct {
 	morningPending bool
 }
 
-func (s *daemonState) statusSnapshot(cycle *app.App) (string, bool) {
+func (s *reminderState) statusSnapshot(cycle *app.App) (string, bool) {
 	s.mu.Lock()
 	currentMorningPending := s.morningPending
 	s.mu.Unlock()
 	return cycle.StatusLine(), currentMorningPending
 }
 
-func (s *daemonState) beginMorningLoop() (context.Context, bool) {
+func (s *reminderState) beginMorningLoop() (context.Context, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.morningCancel != nil {
@@ -42,7 +42,7 @@ func (s *daemonState) beginMorningLoop() (context.Context, bool) {
 	return ctx, true
 }
 
-func (s *daemonState) stopMorningLoop() {
+func (s *reminderState) stopMorningLoop() {
 	s.mu.Lock()
 	cancel := s.morningCancel
 	s.morningCancel = nil
@@ -53,7 +53,7 @@ func (s *daemonState) stopMorningLoop() {
 	}
 }
 
-func (s *daemonState) shouldStartMorning(now time.Time, sched *scheduler.Scheduler) bool {
+func (s *reminderState) shouldStartMorning(now time.Time, sched *scheduler.Scheduler) bool {
 	dayKey := now.Format("2006-01-02")
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -67,39 +67,39 @@ func (s *daemonState) shouldStartMorning(now time.Time, sched *scheduler.Schedul
 	return true
 }
 
-func (s *daemonState) clearSnooze() {
+func (s *reminderState) clearSnooze() {
 	s.mu.Lock()
 	s.snoozeUntil = time.Time{}
 	s.mu.Unlock()
 }
 
-func (s *daemonState) setSnoozeUntil(until time.Time) {
+func (s *reminderState) setSnoozeUntil(until time.Time) {
 	s.mu.Lock()
 	s.snoozeUntil = until
 	s.mu.Unlock()
 }
 
-func (s *daemonState) markSkippedToday(now time.Time) {
+func (s *reminderState) markSkippedToday(now time.Time) {
 	s.mu.Lock()
 	s.snoozeUntil = time.Time{}
 	s.lastTriggerDay = now.Format("2006-01-02")
 	s.mu.Unlock()
 }
 
-func (s *daemonState) isMorningPending() bool {
+func (s *reminderState) isMorningPending() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.morningPending
 }
 
-type daemonCore struct {
+type timerCore struct {
 	cycle               *app.App
 	notifier            notifier.Notifier
-	state               *daemonState
+	state               *reminderState
 	scheduler           *scheduler.Scheduler
 	repeatInterval      time.Duration
 	now                 func() time.Time
-	handlers            map[string]daemonCommandHandler
+	handlers            map[string]commandHandler
 	tasks               *task.FileStore
 	focused             []task.Task
 	pendingFocusPrompt  bool
@@ -107,11 +107,11 @@ type daemonCore struct {
 	pendingFocusAction  string
 }
 
-type daemonCommandHandler func(parts []string) daemonCommandResult
+type commandHandler func(parts []string) commandResult
 
-func newDaemonCore(cfg config.Config, n notifier.Notifier) *daemonCore {
+func newTimerCore(cfg config.Config, n notifier.Notifier) *timerCore {
 	repeatInterval := time.Duration(cfg.RepeatSecs) * time.Second
-	core := &daemonCore{
+	core := &timerCore{
 		cycle: app.New(
 			cfg.WorkMinutes,
 			cfg.ShortBreakMinutes,
@@ -121,7 +121,7 @@ func newDaemonCore(cfg config.Config, n notifier.Notifier) *daemonCore {
 			n,
 		),
 		notifier:       n,
-		state:          &daemonState{morningPending: cfg.MorningReminderPending},
+		state:          &reminderState{morningPending: cfg.MorningReminderPending},
 		scheduler:      scheduler.New(cfg.Schedule.Days, cfg.Schedule.Time),
 		repeatInterval: repeatInterval,
 		now:            time.Now,
@@ -130,22 +130,22 @@ func newDaemonCore(cfg config.Config, n notifier.Notifier) *daemonCore {
 	return core
 }
 
-func (d *daemonCore) start(ctx context.Context) {
+func (d *timerCore) start(ctx context.Context) {
 	startMorningScheduler(ctx, d.state, d.scheduler, d.repeatInterval, d.notifier)
 }
 
-func (d *daemonCore) stop() {
+func (d *timerCore) stop() {
 	d.state.stopMorningLoop()
 }
 
-func (d *daemonCore) snapshot() (string, bool) {
+func (d *timerCore) snapshot() (string, bool) {
 	return d.state.statusSnapshot(d.cycle)
 }
 
-func (d *daemonCore) executeControlCommand(line string) daemonControlResponse {
+func (d *timerCore) executeCommand(line string) commandResponse {
 	result := d.execute(line)
 	statusLine, morningPending := d.snapshot()
-	resp := daemonControlResponse{
+	resp := commandResponse{
 		StatusLine:     statusLine,
 		MorningPending: morningPending,
 		Message:        result.message,
@@ -161,13 +161,13 @@ func (d *daemonCore) executeControlCommand(line string) daemonControlResponse {
 	return resp
 }
 
-type daemonCommandResult struct {
+type commandResult struct {
 	message string
 	exit    bool
 	err     error
 }
 
-func (d *daemonCore) execute(line string) daemonCommandResult {
+func (d *timerCore) execute(line string) commandResult {
 	trimmed := strings.TrimSpace(line)
 	if trimmed == "_cancel_focus" && d.pendingFocusPrompt {
 		return d.cancelFocusPrompt()
@@ -176,18 +176,18 @@ func (d *daemonCore) execute(line string) daemonCommandResult {
 		return d.handleFocusPromptInput(trimmed)
 	}
 	if trimmed == "" {
-		return daemonCommandResult{}
+		return commandResult{}
 	}
 	parts := strings.Fields(trimmed)
 	handler, ok := d.handlers[parts[0]]
 	if !ok {
-		return daemonCommandResult{err: fmt.Errorf("unknown command: %s", parts[0])}
+		return commandResult{err: fmt.Errorf("unknown command: %s", parts[0])}
 	}
 	return handler(parts)
 }
 
-func (d *daemonCore) buildCommandHandlers() map[string]daemonCommandHandler {
-	return map[string]daemonCommandHandler{
+func (d *timerCore) buildCommandHandlers() map[string]commandHandler {
+	return map[string]commandHandler{
 		"start":      d.handleStart,
 		"new-cycle":  d.handleNewCycle,
 		"pause":      d.handlePause,
@@ -204,83 +204,83 @@ func (d *daemonCore) buildCommandHandlers() map[string]daemonCommandHandler {
 	}
 }
 
-func (d *daemonCore) handleStart(_ []string) daemonCommandResult {
+func (d *timerCore) handleStart(_ []string) commandResult {
 	d.state.stopMorningLoop()
 	d.state.clearSnooze()
 	if d.tasks != nil {
 		return d.enterFocusPrompt("start")
 	}
 	d.cycle.Start()
-	return daemonCommandResult{message: "pomodoro started"}
+	return commandResult{message: "pomodoro started"}
 }
 
-func (d *daemonCore) handleNewCycle(_ []string) daemonCommandResult {
+func (d *timerCore) handleNewCycle(_ []string) commandResult {
 	d.state.stopMorningLoop()
 	d.state.clearSnooze()
 	d.cycle.StartNewCycle()
-	return daemonCommandResult{message: "new pomodoro cycle started"}
+	return commandResult{message: "new pomodoro cycle started"}
 }
 
-func (d *daemonCore) handlePause(_ []string) daemonCommandResult {
+func (d *timerCore) handlePause(_ []string) commandResult {
 	d.cycle.Pause()
-	return daemonCommandResult{message: "paused"}
+	return commandResult{message: "paused"}
 }
 
-func (d *daemonCore) handleResume(_ []string) daemonCommandResult {
+func (d *timerCore) handleResume(_ []string) commandResult {
 	d.cycle.Resume()
-	return daemonCommandResult{message: "resumed"}
+	return commandResult{message: "resumed"}
 }
 
-func (d *daemonCore) handleStop(_ []string) daemonCommandResult {
+func (d *timerCore) handleStop(_ []string) commandResult {
 	d.cycle.Stop()
 	d.focused = nil
-	return daemonCommandResult{message: "stopped and returned to idle"}
+	return commandResult{message: "stopped and returned to idle"}
 }
 
-func (d *daemonCore) handleConfirm(_ []string) daemonCommandResult {
+func (d *timerCore) handleConfirm(_ []string) commandResult {
 	d.cycle.Confirm()
 	status := d.cycle.Status()
 	if status == "pomodoro" && d.tasks != nil {
 		return d.enterFocusPrompt("confirm")
 	}
-	return daemonCommandResult{message: fmt.Sprintf("confirmed, state=%s", status)}
+	return commandResult{message: fmt.Sprintf("confirmed, state=%s", status)}
 }
 
-func (d *daemonCore) handleSnooze(parts []string) daemonCommandResult {
+func (d *timerCore) handleSnooze(parts []string) commandResult {
 	parsed, err := parseSnoozeDuration(parts)
 	if err != nil {
-		return daemonCommandResult{err: err}
+		return commandResult{err: err}
 	}
 	if d.state.isMorningPending() {
 		d.state.stopMorningLoop()
 		d.state.setSnoozeUntil(d.now().Add(parsed))
-		return daemonCommandResult{message: fmt.Sprintf("morning reminder snoozed for %s", parsed)}
+		return commandResult{message: fmt.Sprintf("morning reminder snoozed for %s", parsed)}
 	}
 	d.cycle.Snooze(parsed)
-	return daemonCommandResult{message: fmt.Sprintf("cycle reminder snoozed for %s", parsed)}
+	return commandResult{message: fmt.Sprintf("cycle reminder snoozed for %s", parsed)}
 }
 
-func (d *daemonCore) handleSkipToday(_ []string) daemonCommandResult {
+func (d *timerCore) handleSkipToday(_ []string) commandResult {
 	d.state.stopMorningLoop()
 	d.state.markSkippedToday(d.now())
 	d.cycle.SkipToday()
-	return daemonCommandResult{message: "skipped reminders for today"}
+	return commandResult{message: "skipped reminders for today"}
 }
 
-func (d *daemonCore) handleTestSound(_ []string) daemonCommandResult {
+func (d *timerCore) handleTestSound(_ []string) commandResult {
 	if err := d.notifier.PlaySound("test"); err != nil {
-		return daemonCommandResult{message: fmt.Sprintf("sound test failed: %v", err)}
+		return commandResult{message: fmt.Sprintf("sound test failed: %v", err)}
 	}
-	return daemonCommandResult{message: "sound test played"}
+	return commandResult{message: "sound test played"}
 }
 
-func (d *daemonCore) handleStatus(_ []string) daemonCommandResult {
-	return daemonCommandResult{}
+func (d *timerCore) handleStatus(_ []string) commandResult {
+	return commandResult{}
 }
 
-func (d *daemonCore) handleQuit(_ []string) daemonCommandResult {
+func (d *timerCore) handleQuit(_ []string) commandResult {
 	d.state.stopMorningLoop()
-	return daemonCommandResult{message: "bye", exit: true}
+	return commandResult{message: "bye", exit: true}
 }
 
 func parseSnoozeDuration(parts []string) (time.Duration, error) {
@@ -294,7 +294,7 @@ func parseSnoozeDuration(parts []string) (time.Duration, error) {
 	return d, nil
 }
 
-func startMorningLoop(state *daemonState, repeatInterval time.Duration, n notifier.Notifier) {
+func startMorningLoop(state *reminderState, repeatInterval time.Duration, n notifier.Notifier) {
 	ctx, shouldStart := state.beginMorningLoop()
 	if !shouldStart {
 		return
@@ -305,7 +305,7 @@ func startMorningLoop(state *daemonState, repeatInterval time.Duration, n notifi
 	go loop.Run(ctx)
 }
 
-func startMorningScheduler(ctx context.Context, state *daemonState, sched *scheduler.Scheduler, repeatInterval time.Duration, n notifier.Notifier) {
+func startMorningScheduler(ctx context.Context, state *reminderState, sched *scheduler.Scheduler, repeatInterval time.Duration, n notifier.Notifier) {
 	go func() {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
@@ -323,9 +323,9 @@ func startMorningScheduler(ctx context.Context, state *daemonState, sched *sched
 	}()
 }
 
-func daemonCommandsHelp() string {
+func commandsHelp() string {
 	return strings.Join([]string{
-		"daemon commands:",
+		"commands:",
 		"  start              start a new pomodoro",
 		"  new-cycle          start a fresh pomodoro cycle",
 		"  pause              pause the active pomodoro or break timer",
@@ -336,7 +336,7 @@ func daemonCommandsHelp() string {
 		"  skip-today         disable reminders and cycle for the rest of today",
 		"  status             print current cycle status",
 		"  test-sound         play reminder sound now",
-		"  quit               stop daemon",
+		"  quit               exit throwntom",
 		"  exit               alias for quit",
 		"",
 		"task commands:",

@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestREADMEIncludesInstallAndDaemonCommands(t *testing.T) {
+func TestREADMEIncludesInstallAndCommands(t *testing.T) {
 	content, err := os.ReadFile("../../README.md")
 	if err != nil {
 		t.Fatalf("read README.md: %v", err)
@@ -16,12 +16,6 @@ func TestREADMEIncludesInstallAndDaemonCommands(t *testing.T) {
 
 	for _, expected := range []string{
 		"go install github.com/jwp23/throwntom/cmd/throwntom@latest",
-		"throwntom daemon",
-		"throwntom shell",
-		"throwntom ctl status",
-		"packaging/systemd/throwntom.service",
-		"packaging/launchd/io.github.jwp23.throwntom.plist",
-		"./packaging/install-service.sh",
 		"go vet ./...",
 		"golangci-lint run ./...",
 		"`start`",

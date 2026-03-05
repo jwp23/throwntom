@@ -58,7 +58,7 @@ func TestScriptCommandInvocationDarwinUsesBsdPositionalCommand(t *testing.T) {
 func TestUnexpectedPositionalArgExitsNonZero(t *testing.T) {
 	bin := buildBinary(t)
 
-	cmd := exec.Command(bin, "daemon", "extra")
+	cmd := exec.Command(bin, "bogus")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	err := cmd.Run()
@@ -85,7 +85,7 @@ func TestNonInteractiveRejected(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected non-zero exit when stdin/stdout are not interactive terminals")
 	}
-	if !strings.Contains(stderr.String(), "daemon requires an interactive terminal") {
+	if !strings.Contains(stderr.String(), "throwntom requires an interactive terminal") {
 		t.Fatalf("expected interactive terminal error, got %q", stderr.String())
 	}
 }

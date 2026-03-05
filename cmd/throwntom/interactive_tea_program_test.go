@@ -29,9 +29,9 @@ func TestRunInteractiveTeaCtrlCExitsWithoutExecute(t *testing.T) {
 			StatusSnapshot: func() (string, bool) {
 				return "idle | 00:00", false
 			},
-			Execute: func(string) (daemonControlResponse, error) {
+			Execute: func(string) (commandResponse, error) {
 				executed = true
-				return daemonControlResponse{}, nil
+				return commandResponse{}, nil
 			},
 		},
 	)

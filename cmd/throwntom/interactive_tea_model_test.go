@@ -13,9 +13,9 @@ func TestInteractiveTeaModelEnterExecutesAndClearsPrompt(t *testing.T) {
 		StatusSnapshot: func() (string, bool) {
 			return "idle | 00:00", false
 		},
-		Execute: func(command string) (daemonControlResponse, error) {
+		Execute: func(command string) (commandResponse, error) {
 			submitted = command
-			return daemonControlResponse{
+			return commandResponse{
 				StatusLine:     "idle | 00:00",
 				MorningPending: false,
 				Message:        "ok",
@@ -49,9 +49,9 @@ func TestInteractiveTeaModelSpaceKeyIncludedInSubmittedCommand(t *testing.T) {
 		StatusSnapshot: func() (string, bool) {
 			return "idle | 00:00", false
 		},
-		Execute: func(command string) (daemonControlResponse, error) {
+		Execute: func(command string) (commandResponse, error) {
 			submitted = command
-			return daemonControlResponse{
+			return commandResponse{
 				StatusLine:     "idle | 00:00",
 				MorningPending: false,
 				Message:        "ok",
@@ -82,8 +82,8 @@ func TestInteractiveTeaModelTickRefreshesStatusAndKeepsPrompt(t *testing.T) {
 		StatusSnapshot: func() (string, bool) {
 			return statusLine, false
 		},
-		Execute: func(string) (daemonControlResponse, error) {
-			return daemonControlResponse{}, nil
+		Execute: func(string) (commandResponse, error) {
+			return commandResponse{}, nil
 		},
 	})
 
@@ -105,8 +105,8 @@ func TestInteractiveTeaModelResizeClampsViewWidth(t *testing.T) {
 		StatusSnapshot: func() (string, bool) {
 			return "idle | 00:00 | today's pomodoros=0 | pomodoros=0/4", false
 		},
-		Execute: func(string) (daemonControlResponse, error) {
-			return daemonControlResponse{}, nil
+		Execute: func(string) (commandResponse, error) {
+			return commandResponse{}, nil
 		},
 	})
 
@@ -129,8 +129,8 @@ func TestInteractiveTeaModelResizeZeroWidthKeepsPreviousClamp(t *testing.T) {
 		StatusSnapshot: func() (string, bool) {
 			return "idle | 00:00 | today's pomodoros=0 | pomodoros=0/4", false
 		},
-		Execute: func(string) (daemonControlResponse, error) {
-			return daemonControlResponse{}, nil
+		Execute: func(string) (commandResponse, error) {
+			return commandResponse{}, nil
 		},
 	})
 
@@ -149,13 +149,13 @@ func TestInteractiveTeaModelViewIncludesPersistentHeaderLines(t *testing.T) {
 	model := newInteractiveTeaModel(interactiveCallbacks{
 		HeaderLines: []string{
 			"throwntom run mode started (schedule Mon,Tue,Wed,Thu,Fri 09:00)",
-			"daemon commands:",
+			"commands:",
 		},
 		StatusSnapshot: func() (string, bool) {
 			return "idle | 00:00 | today's pomodoros=0 | pomodoros=0/4", false
 		},
-		Execute: func(string) (daemonControlResponse, error) {
-			return daemonControlResponse{}, nil
+		Execute: func(string) (commandResponse, error) {
+			return commandResponse{}, nil
 		},
 	})
 
@@ -168,7 +168,7 @@ func TestInteractiveTeaModelViewIncludesPersistentHeaderLines(t *testing.T) {
 	if !strings.HasPrefix(lines[0], "throwntom run mode started") {
 		t.Fatalf("expected first header line, got %q", lines[0])
 	}
-	if !strings.HasPrefix(lines[1], "daemon commands:") {
+	if !strings.HasPrefix(lines[1], "commands:") {
 		t.Fatalf("expected second header line, got %q", lines[1])
 	}
 	for idx, line := range lines {
@@ -181,12 +181,12 @@ func TestInteractiveTeaModelViewIncludesPersistentHeaderLines(t *testing.T) {
 func TestInteractiveTeaModelHelpHiddenByDefault(t *testing.T) {
 	model := newInteractiveTeaModel(interactiveCallbacks{
 		HeaderLines: []string{"throwntom run mode started"},
-		HelpLines:   strings.Split(daemonCommandsHelp(), "\n"),
+		HelpLines:   strings.Split(commandsHelp(), "\n"),
 		StatusSnapshot: func() (string, bool) {
 			return "idle | 00:00", false
 		},
-		Execute: func(string) (daemonControlResponse, error) {
-			return daemonControlResponse{}, nil
+		Execute: func(string) (commandResponse, error) {
+			return commandResponse{}, nil
 		},
 	})
 
@@ -194,32 +194,32 @@ func TestInteractiveTeaModelHelpHiddenByDefault(t *testing.T) {
 	if !strings.Contains(view, "?: help") {
 		t.Fatalf("expected hint line '?: help' when help is hidden, got %q", view)
 	}
-	if strings.Contains(view, "daemon commands:") {
-		t.Fatalf("expected help to be hidden by default, but found 'daemon commands:' in %q", view)
+	if strings.Contains(view, "commands:") {
+		t.Fatalf("expected help to be hidden by default, but found 'commands:' in %q", view)
 	}
 }
 
 func TestInteractiveTeaModelQuestionMarkTogglesHelp(t *testing.T) {
 	model := newInteractiveTeaModel(interactiveCallbacks{
-		HelpLines: strings.Split(daemonCommandsHelp(), "\n"),
+		HelpLines: strings.Split(commandsHelp(), "\n"),
 		StatusSnapshot: func() (string, bool) {
 			return "idle | 00:00", false
 		},
-		Execute: func(string) (daemonControlResponse, error) {
-			return daemonControlResponse{}, nil
+		Execute: func(string) (commandResponse, error) {
+			return commandResponse{}, nil
 		},
 	})
 
 	// Initially hidden
 	view := model.View()
-	if strings.Contains(view, "daemon commands:") {
+	if strings.Contains(view, "commands:") {
 		t.Fatalf("expected help hidden initially, got %q", view)
 	}
 
 	// Press ? to show
 	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}})
 	view = next.(interactiveTeaModel).View()
-	if !strings.Contains(view, "daemon commands:") {
+	if !strings.Contains(view, "commands:") {
 		t.Fatalf("expected help visible after ?, got %q", view)
 	}
 	if strings.Contains(view, "?: help") {
@@ -229,7 +229,7 @@ func TestInteractiveTeaModelQuestionMarkTogglesHelp(t *testing.T) {
 	// Press ? again to hide
 	next, _ = next.(interactiveTeaModel).Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}})
 	view = next.(interactiveTeaModel).View()
-	if strings.Contains(view, "daemon commands:") {
+	if strings.Contains(view, "commands:") {
 		t.Fatalf("expected help hidden after second ?, got %q", view)
 	}
 	if !strings.Contains(view, "?: help") {
@@ -239,12 +239,12 @@ func TestInteractiveTeaModelQuestionMarkTogglesHelp(t *testing.T) {
 
 func TestInteractiveTeaModelQuestionMarkTypedWhenInputNonEmpty(t *testing.T) {
 	model := newInteractiveTeaModel(interactiveCallbacks{
-		HelpLines: strings.Split(daemonCommandsHelp(), "\n"),
+		HelpLines: strings.Split(commandsHelp(), "\n"),
 		StatusSnapshot: func() (string, bool) {
 			return "idle | 00:00", false
 		},
-		Execute: func(string) (daemonControlResponse, error) {
-			return daemonControlResponse{}, nil
+		Execute: func(string) (commandResponse, error) {
+			return commandResponse{}, nil
 		},
 	})
 
@@ -256,7 +256,7 @@ func TestInteractiveTeaModelQuestionMarkTypedWhenInputNonEmpty(t *testing.T) {
 	if !strings.Contains(view, "command> a?") {
 		t.Fatalf("expected '?' typed as normal input when buffer non-empty, got %q", view)
 	}
-	if strings.Contains(view, "daemon commands:") {
+	if strings.Contains(view, "commands:") {
 		t.Fatalf("expected help to stay hidden when '?' typed with non-empty input, got %q", view)
 	}
 }
@@ -314,9 +314,9 @@ func TestEnterInFocusPromptCallsExecuteWithEmptyString(t *testing.T) {
 		StatusSnapshot: func() (string, bool) {
 			return "idle | 00:00", false
 		},
-		Execute: func(command string) (daemonControlResponse, error) {
+		Execute: func(command string) (commandResponse, error) {
 			executedCommand = &command
-			return daemonControlResponse{
+			return commandResponse{
 				StatusLine: "pomodoro | 25:00",
 				Message:    "pomodoro started",
 			}, nil
@@ -347,12 +347,12 @@ func TestEscCancelsFocusPrompt(t *testing.T) {
 		StatusSnapshot: func() (string, bool) {
 			return "idle | 00:00", false
 		},
-		Execute: func(string) (daemonControlResponse, error) {
-			return daemonControlResponse{}, nil
+		Execute: func(string) (commandResponse, error) {
+			return commandResponse{}, nil
 		},
-		CancelFocus: func() daemonControlResponse {
+		CancelFocus: func() commandResponse {
 			cancelCalled = true
-			return daemonControlResponse{
+			return commandResponse{
 				StatusLine: "idle | 00:00",
 				Message:    "task selection cancelled",
 			}
@@ -378,12 +378,12 @@ func TestEscDoesNothingWhenNoFocusPrompt(t *testing.T) {
 		StatusSnapshot: func() (string, bool) {
 			return "idle | 00:00", false
 		},
-		Execute: func(string) (daemonControlResponse, error) {
-			return daemonControlResponse{}, nil
+		Execute: func(string) (commandResponse, error) {
+			return commandResponse{}, nil
 		},
-		CancelFocus: func() daemonControlResponse {
+		CancelFocus: func() commandResponse {
 			cancelCalled = true
-			return daemonControlResponse{}
+			return commandResponse{}
 		},
 	})
 
