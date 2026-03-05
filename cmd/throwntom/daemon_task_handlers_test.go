@@ -290,17 +290,53 @@ func TestStartEntersFocusPromptWhenTasksExist(t *testing.T) {
 	}
 }
 
-func TestStartSkipsPromptWhenNoTasks(t *testing.T) {
+func TestStartShowsPromptWhenNoTasks(t *testing.T) {
 	core := newTestCoreWithTasks(t)
 	result := core.execute("start")
-	if core.isFocusPromptPending() {
-		t.Fatal("expected no prompt when no tasks")
+	if !core.isFocusPromptPending() {
+		t.Fatal("expected focus prompt even when no tasks exist")
 	}
-	if result.message != "pomodoro started" {
-		t.Fatalf("expected immediate start, got %q", result.message)
+	if !strings.Contains(result.message, "Select tasks") {
+		t.Fatalf("expected prompt message, got %q", result.message)
+	}
+	if core.cycle.Status() != "idle" {
+		t.Fatalf("expected idle during prompt, got %s", core.cycle.Status())
+	}
+}
+
+func TestStartPromptEmptyListAllowsAddAndStart(t *testing.T) {
+	core := newTestCoreWithTasks(t)
+	core.execute("start") // enters prompt even with no tasks
+	core.execute("a new task from prompt")
+	result := core.execute("") // confirm
+	if core.isFocusPromptPending() {
+		t.Fatal("expected prompt cleared")
 	}
 	if core.cycle.Status() != "pomodoro" {
 		t.Fatalf("expected pomodoro, got %s", core.cycle.Status())
+	}
+	focused := core.focusedTasks()
+	if len(focused) != 1 {
+		t.Fatalf("expected 1 focused, got %d", len(focused))
+	}
+	if focused[0].Description != "new task from prompt" {
+		t.Fatalf("expected 'new task from prompt', got %q", focused[0].Description)
+	}
+	_ = result
+}
+
+func TestStartPromptEmptyListSkipStarts(t *testing.T) {
+	core := newTestCoreWithTasks(t)
+	core.execute("start") // enters prompt even with no tasks
+	core.execute("")      // skip with no tasks
+	if core.isFocusPromptPending() {
+		t.Fatal("expected prompt cleared")
+	}
+	if core.cycle.Status() != "pomodoro" {
+		t.Fatalf("expected pomodoro, got %s", core.cycle.Status())
+	}
+	if len(core.focusedTasks()) != 0 {
+		t.Fatal("expected no focused tasks after skip")
 	}
 }
 
@@ -426,10 +462,51 @@ func TestControlResponseIncludesFocusPrompt(t *testing.T) {
 
 func TestControlResponseNoFocusLinesWhenEmpty(t *testing.T) {
 	core := newTestCoreWithTasks(t)
-	core.execute("start") // no tasks, starts immediately
+	core.execute("start") // enters prompt even with no tasks
+	core.execute("")      // skip prompt, start pomodoro
 	resp := core.executeControlCommand("status")
 	if len(resp.FocusLines) != 0 {
 		t.Fatalf("expected no focus lines, got %v", resp.FocusLines)
+	}
+}
+
+func TestCancelFocusPromptDoesNotStart(t *testing.T) {
+	core := newTestCoreWithTasks(t)
+	core.execute("task add something")
+	core.execute("start") // enters focus prompt
+	result := core.cancelFocusPrompt()
+	if core.isFocusPromptPending() {
+		t.Fatal("expected prompt to be cancelled")
+	}
+	if core.cycle.Status() != "idle" {
+		t.Fatalf("expected idle after cancel, got %s", core.cycle.Status())
+	}
+	if !strings.Contains(result.message, "cancelled") {
+		t.Fatalf("expected cancelled message, got %q", result.message)
+	}
+}
+
+func TestCancelFocusPromptClearsPendingState(t *testing.T) {
+	core := newTestCoreWithTasks(t)
+	core.execute("task add something")
+	core.execute("start") // enters prompt
+	core.execute("1")     // toggle a task
+	core.cancelFocusPrompt()
+	if core.pendingFocusToggled != nil {
+		t.Fatal("expected toggled state cleared")
+	}
+	if core.pendingFocusAction != "" {
+		t.Fatal("expected action cleared")
+	}
+}
+
+func TestFocusPromptHintMentionsEsc(t *testing.T) {
+	core := newTestCoreWithTasks(t)
+	core.execute("task add check hint")
+	core.execute("start")
+	prompt := core.formatFocusPrompt()
+	if !strings.Contains(prompt, "esc") {
+		t.Fatalf("expected 'esc' in prompt hint, got %q", prompt)
 	}
 }
 

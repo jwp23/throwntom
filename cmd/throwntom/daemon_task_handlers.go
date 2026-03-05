@@ -286,8 +286,15 @@ func (d *daemonCore) formatFocusPrompt() string {
 	if len(selected) > 0 {
 		lines = append(lines, "", fmt.Sprintf("Focused: %s", strings.Join(selected, ", ")))
 	}
-	lines = append(lines, "", "(numbers to toggle, a <desc> to add, enter to start)")
+	lines = append(lines, "", "(numbers to toggle, a <desc> to add, enter to start, esc to cancel)")
 	return strings.Join(lines, "\n")
+}
+
+func (d *daemonCore) cancelFocusPrompt() daemonCommandResult {
+	d.pendingFocusPrompt = false
+	d.pendingFocusToggled = nil
+	d.pendingFocusAction = ""
+	return daemonCommandResult{message: "task selection cancelled"}
 }
 
 func (d *daemonCore) focusedTasks() []task.Task {

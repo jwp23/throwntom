@@ -6,4 +6,5 @@ type interactiveCallbacks struct {
 	StatusSnapshot func() (string, bool)
 	FocusSnapshot  func() ([]string, string)
 	Execute        func(command string) (daemonControlResponse, error)
+	CancelFocus    func() daemonControlResponse
 }

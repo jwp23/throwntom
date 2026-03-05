@@ -308,6 +308,92 @@ func TestViewHidesFocusLinesWhenEmpty(t *testing.T) {
 	}
 }
 
+func TestEnterInFocusPromptCallsExecuteWithEmptyString(t *testing.T) {
+	var executedCommand *string
+	model := newInteractiveTeaModel(interactiveCallbacks{
+		StatusSnapshot: func() (string, bool) {
+			return "idle | 00:00", false
+		},
+		Execute: func(command string) (daemonControlResponse, error) {
+			executedCommand = &command
+			return daemonControlResponse{
+				StatusLine: "pomodoro | 25:00",
+				Message:    "pomodoro started",
+			}, nil
+		},
+	})
+
+	// Simulate being in focus prompt mode
+	model.focusPrompt = "Select tasks for this pomodoro:\n\n(numbers to toggle, a <desc> to add, enter to start, esc to cancel)"
+
+	// Press Enter with empty input
+	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	if executedCommand == nil {
+		t.Fatal("expected Execute to be called with empty string, but it was not called")
+	}
+	if *executedCommand != "" {
+		t.Fatalf("expected empty string command, got %q", *executedCommand)
+	}
+	m := next.(interactiveTeaModel)
+	if m.message != "pomodoro started" {
+		t.Fatalf("expected message 'pomodoro started', got %q", m.message)
+	}
+}
+
+func TestEscCancelsFocusPrompt(t *testing.T) {
+	var cancelCalled bool
+	model := newInteractiveTeaModel(interactiveCallbacks{
+		StatusSnapshot: func() (string, bool) {
+			return "idle | 00:00", false
+		},
+		Execute: func(string) (daemonControlResponse, error) {
+			return daemonControlResponse{}, nil
+		},
+		CancelFocus: func() daemonControlResponse {
+			cancelCalled = true
+			return daemonControlResponse{
+				StatusLine: "idle | 00:00",
+				Message:    "task selection cancelled",
+			}
+		},
+	})
+
+	// Simulate being in focus prompt mode
+	model.focusPrompt = "Select tasks for this pomodoro:\n 1) do thing\n\n(numbers to toggle, a <desc> to add, enter to start, esc to cancel)"
+	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyEsc})
+
+	if !cancelCalled {
+		t.Fatal("expected CancelFocus callback to be called")
+	}
+	m := next.(interactiveTeaModel)
+	if m.focusPrompt != "" {
+		t.Fatalf("expected focus prompt cleared, got %q", m.focusPrompt)
+	}
+}
+
+func TestEscDoesNothingWhenNoFocusPrompt(t *testing.T) {
+	var cancelCalled bool
+	model := newInteractiveTeaModel(interactiveCallbacks{
+		StatusSnapshot: func() (string, bool) {
+			return "idle | 00:00", false
+		},
+		Execute: func(string) (daemonControlResponse, error) {
+			return daemonControlResponse{}, nil
+		},
+		CancelFocus: func() daemonControlResponse {
+			cancelCalled = true
+			return daemonControlResponse{}
+		},
+	})
+
+	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if cancelCalled {
+		t.Fatal("CancelFocus should not be called when no focus prompt is active")
+	}
+	_ = next
+}
+
 func hasLineWithPrefix(view string, prefix string) bool {
 	for _, line := range strings.Split(view, "\n") {
 		if strings.HasPrefix(line, prefix) {

@@ -113,6 +113,16 @@ func localModeCallbacks(cfg config.Config, core *daemonCore) interactiveCallback
 		Execute: func(command string) (daemonControlResponse, error) {
 			return core.executeControlCommand(command), nil
 		},
+		CancelFocus: func() daemonControlResponse {
+			result := core.cancelFocusPrompt()
+			statusLine, morningPending := core.snapshot()
+			return daemonControlResponse{
+				StatusLine:     statusLine,
+				MorningPending: morningPending,
+				Message:        result.message,
+				FocusLines:     core.formatFocusLines(),
+			}
+		},
 	}
 }
 
@@ -139,6 +149,15 @@ func shellModeCallbacks(socketPath string, cache *statusCache) interactiveCallba
 			cache.Set(resp.StatusLine, resp.MorningPending)
 			cache.SetFocus(resp.FocusLines, resp.FocusPrompt)
 			return resp, nil
+		},
+		CancelFocus: func() daemonControlResponse {
+			resp, err := sendControlCommand(socketPath, "_cancel_focus")
+			if err != nil {
+				return daemonControlResponse{Message: "cancel failed: " + err.Error()}
+			}
+			cache.Set(resp.StatusLine, resp.MorningPending)
+			cache.SetFocus(resp.FocusLines, resp.FocusPrompt)
+			return resp
 		},
 	}
 }

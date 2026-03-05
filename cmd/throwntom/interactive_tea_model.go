@@ -101,6 +101,9 @@ func (m interactiveTeaModel) updateKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if key.Type == tea.KeyCtrlC {
 		return m, tea.Quit
 	}
+	if key.Type == tea.KeyEsc {
+		return m.handleEsc()
+	}
 	if key.Type == tea.KeyRunes || key.Type == tea.KeySpace {
 		runes := key.Runes
 		if key.Type == tea.KeySpace {
@@ -128,10 +131,25 @@ func (m interactiveTeaModel) updateKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m.submitCommand()
 }
 
+func (m interactiveTeaModel) handleEsc() (tea.Model, tea.Cmd) {
+	if m.focusPrompt != "" && m.callbacks.CancelFocus != nil {
+		resp := m.callbacks.CancelFocus()
+		m.focusPrompt = ""
+		m.focusLines = resp.FocusLines
+		m.statusLine = resp.StatusLine
+		m.morningPending = resp.MorningPending
+		if resp.Message != "" {
+			m.message = resp.Message
+		}
+		m.prompt = promptState{}
+	}
+	return m, nil
+}
+
 func (m interactiveTeaModel) submitCommand() (tea.Model, tea.Cmd) {
 	nextPrompt, submitted, _ := applyKey(m.prompt, keyEvent{kind: keyEnter})
 	m.prompt = nextPrompt
-	if submitted == "" {
+	if submitted == "" && m.focusPrompt == "" {
 		return m, nil
 	}
 

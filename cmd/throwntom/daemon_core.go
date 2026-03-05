@@ -169,6 +169,9 @@ type daemonCommandResult struct {
 
 func (d *daemonCore) execute(line string) daemonCommandResult {
 	trimmed := strings.TrimSpace(line)
+	if trimmed == "_cancel_focus" && d.pendingFocusPrompt {
+		return d.cancelFocusPrompt()
+	}
 	if d.pendingFocusPrompt {
 		return d.handleFocusPromptInput(trimmed)
 	}
@@ -204,7 +207,7 @@ func (d *daemonCore) buildCommandHandlers() map[string]daemonCommandHandler {
 func (d *daemonCore) handleStart(_ []string) daemonCommandResult {
 	d.state.stopMorningLoop()
 	d.state.clearSnooze()
-	if d.tasks != nil && len(d.tasks.Active()) > 0 {
+	if d.tasks != nil {
 		return d.enterFocusPrompt("start")
 	}
 	d.cycle.Start()
@@ -237,7 +240,7 @@ func (d *daemonCore) handleStop(_ []string) daemonCommandResult {
 func (d *daemonCore) handleConfirm(_ []string) daemonCommandResult {
 	d.cycle.Confirm()
 	status := d.cycle.Status()
-	if status == "pomodoro" && d.tasks != nil && len(d.tasks.Active()) > 0 {
+	if status == "pomodoro" && d.tasks != nil {
 		return d.enterFocusPrompt("confirm")
 	}
 	return daemonCommandResult{message: fmt.Sprintf("confirmed, state=%s", status)}
