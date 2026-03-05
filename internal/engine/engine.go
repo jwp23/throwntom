@@ -1,6 +1,9 @@
 package engine
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type State int
 
@@ -12,6 +15,51 @@ const (
 	AwaitingConfirm
 	Paused
 )
+
+var stateNames = [...]string{
+	Idle:            "idle",
+	Work:            "work",
+	ShortBreak:      "short_break",
+	LongBreak:       "long_break",
+	AwaitingConfirm: "awaiting_confirm",
+	Paused:          "paused",
+}
+
+var stateFromName = func() map[string]State {
+	m := make(map[string]State, len(stateNames))
+	for i, name := range stateNames {
+		m[name] = State(i)
+	}
+	return m
+}()
+
+func (s State) String() string {
+	if int(s) < len(stateNames) {
+		return stateNames[s]
+	}
+	return fmt.Sprintf("State(%d)", s)
+}
+
+func StateFromString(name string) (State, bool) {
+	s, ok := stateFromName[name]
+	if !ok {
+		return Idle, false
+	}
+	return s, true
+}
+
+func (s State) MarshalText() ([]byte, error) {
+	return []byte(s.String()), nil
+}
+
+func (s *State) UnmarshalText(data []byte) error {
+	parsed, ok := StateFromString(string(data))
+	if !ok {
+		return fmt.Errorf("unknown engine state: %q", data)
+	}
+	*s = parsed
+	return nil
+}
 
 type Engine struct {
 	workMinutes       int
