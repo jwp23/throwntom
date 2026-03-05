@@ -13,7 +13,7 @@ go build -o throwntom ./cmd/throwntom
 ## Install
 
 ```bash
-go install github.com/jwp23/throwntom/cmd/throwntom@latest
+go install github.com/jwp23/throwntom/v2/cmd/throwntom@latest
 ```
 
 ## Modes

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jwp23/throwntom/internal/config"
-	"github.com/jwp23/throwntom/internal/task"
+	"github.com/jwp23/throwntom/v2/internal/config"
+	"github.com/jwp23/throwntom/v2/internal/task"
 )
 
 func newTestCoreWithTasks(t *testing.T) *timerCore {

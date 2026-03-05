@@ -15,7 +15,7 @@ func TestREADMEIncludesInstallAndCommands(t *testing.T) {
 	readme := string(content)
 
 	for _, expected := range []string{
-		"go install github.com/jwp23/throwntom/cmd/throwntom@latest",
+		"go install github.com/jwp23/throwntom/v2/cmd/throwntom@latest",
 		"go vet ./...",
 		"golangci-lint run ./...",
 		"`start`",
@@ -42,8 +42,8 @@ func TestGoModulePathIsPublishable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read go.mod: %v", err)
 	}
-	if !strings.Contains(string(content), "module github.com/jwp23/throwntom") {
-		t.Fatalf("expected go.mod module path to be github.com/jwp23/throwntom")
+	if !strings.Contains(string(content), "module github.com/jwp23/throwntom/v2") {
+		t.Fatalf("expected go.mod module path to be github.com/jwp23/throwntom/v2")
 	}
 }
 

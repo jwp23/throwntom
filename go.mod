@@ -1,4 +1,4 @@
-module github.com/jwp23/throwntom
+module github.com/jwp23/throwntom/v2
 
 go 1.25.0
 
