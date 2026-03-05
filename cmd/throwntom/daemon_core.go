@@ -32,7 +32,7 @@ func (s *daemonState) statusSnapshot(cycle *app.App) (string, bool) {
 func (s *daemonState) beginMorningLoop() (context.Context, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.morningPending {
+	if s.morningCancel != nil {
 		return nil, false
 	}
 	ctx, cancel := context.WithCancel(context.Background())
