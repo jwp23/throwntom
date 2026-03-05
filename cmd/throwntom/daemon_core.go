@@ -100,8 +100,11 @@ type daemonCore struct {
 	repeatInterval time.Duration
 	now            func() time.Time
 	handlers       map[string]daemonCommandHandler
-	tasks          *task.FileStore
-	focused        []task.Task
+	tasks               *task.FileStore
+	focused             []task.Task
+	pendingFocusPrompt  bool
+	pendingFocusToggled map[int]bool
+	pendingFocusAction  string
 }
 
 type daemonCommandHandler func(parts []string) daemonCommandResult

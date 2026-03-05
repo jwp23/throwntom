@@ -268,6 +268,121 @@ func TestTaskDoneDuringWorkSessionRemovesFromFocus(t *testing.T) {
 	}
 }
 
+// --- Task 10: Focus prompt state tests ---
+
+func TestStartEntersFocusPromptWhenTasksExist(t *testing.T) {
+	core := newTestCoreWithTasks(t)
+	core.execute("task add something to do")
+	result := core.execute("start")
+	if !core.isFocusPromptPending() {
+		t.Fatal("expected focus prompt to be pending")
+	}
+	if !strings.Contains(result.message, "Select tasks") {
+		t.Fatalf("expected prompt message, got %q", result.message)
+	}
+	if core.cycle.Status() != "idle" {
+		t.Fatalf("expected idle during prompt, got %s", core.cycle.Status())
+	}
+}
+
+func TestStartSkipsPromptWhenNoTasks(t *testing.T) {
+	core := newTestCoreWithTasks(t)
+	result := core.execute("start")
+	if core.isFocusPromptPending() {
+		t.Fatal("expected no prompt when no tasks")
+	}
+	if result.message != "pomodoro started" {
+		t.Fatalf("expected immediate start, got %q", result.message)
+	}
+	if core.cycle.Status() != "pomodoro" {
+		t.Fatalf("expected pomodoro, got %s", core.cycle.Status())
+	}
+}
+
+func TestFocusPromptToggleAndStart(t *testing.T) {
+	core := newTestCoreWithTasks(t)
+	core.execute("task add first task")
+	core.execute("task add second task")
+	core.execute("start") // enters prompt
+	result := core.execute("1") // toggle task 1
+	if !strings.Contains(result.message, "Focused") {
+		t.Fatalf("expected focused info, got %q", result.message)
+	}
+	result = core.execute("") // empty enter = confirm and start
+	if core.isFocusPromptPending() {
+		t.Fatal("expected prompt cleared")
+	}
+	if core.cycle.Status() != "pomodoro" {
+		t.Fatalf("expected pomodoro, got %s", core.cycle.Status())
+	}
+	focused := core.focusedTasks()
+	if len(focused) != 1 {
+		t.Fatalf("expected 1 focused, got %d", len(focused))
+	}
+	if focused[0].Description != "first task" {
+		t.Fatalf("expected 'first task', got %q", focused[0].Description)
+	}
+}
+
+func TestFocusPromptSkip(t *testing.T) {
+	core := newTestCoreWithTasks(t)
+	core.execute("task add something")
+	core.execute("start") // enters prompt
+	core.execute("")       // skip (empty with no toggles)
+	if core.isFocusPromptPending() {
+		t.Fatal("expected prompt cleared")
+	}
+	if core.cycle.Status() != "pomodoro" {
+		t.Fatalf("expected pomodoro, got %s", core.cycle.Status())
+	}
+	if len(core.focusedTasks()) != 0 {
+		t.Fatal("expected no focused tasks after skip")
+	}
+}
+
+func TestFocusPromptAddNewTask(t *testing.T) {
+	core := newTestCoreWithTasks(t)
+	core.execute("task add existing")
+	core.execute("start") // enters prompt
+	result := core.execute("a brand new task")
+	if !strings.Contains(result.message, "brand new task") {
+		t.Fatalf("expected task in prompt, got %q", result.message)
+	}
+	active := core.tasks.Active()
+	if len(active) != 2 {
+		t.Fatalf("expected 2 active tasks, got %d", len(active))
+	}
+}
+
+func TestConfirmToWorkTriggersFocusPrompt(t *testing.T) {
+	core := newTestCoreWithTasks(t)
+	core.execute("task add keep working")
+	core.execute("start") // prompt
+	core.execute("")       // skip prompt, start pomodoro
+	core.cycle.CompletePeriod() // work done -> awaiting confirm
+	core.execute("confirm")     // -> short break (no prompt for breaks)
+	if core.isFocusPromptPending() {
+		t.Fatal("should not prompt for break")
+	}
+	core.cycle.CompletePeriod() // break done -> awaiting confirm
+	core.execute("confirm")     // -> work (should trigger prompt)
+	if !core.isFocusPromptPending() {
+		t.Fatal("expected focus prompt when confirming into work phase")
+	}
+}
+
+func TestFocusPromptToggleOff(t *testing.T) {
+	core := newTestCoreWithTasks(t)
+	core.execute("task add toggleable")
+	core.execute("start") // enters prompt
+	core.execute("1") // toggle on
+	core.execute("1") // toggle off
+	core.execute("")  // start with no focus
+	if len(core.focusedTasks()) != 0 {
+		t.Fatal("expected no focused tasks after toggle off")
+	}
+}
+
 func TestHelpIncludesTaskCommands(t *testing.T) {
 	help := daemonCommandsHelp()
 	subcommands := []string{

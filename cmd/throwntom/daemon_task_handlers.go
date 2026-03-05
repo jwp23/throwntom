@@ -214,6 +214,10 @@ func (d *daemonCore) focusedTasks() []task.Task {
 	return append([]task.Task(nil), d.focused...)
 }
 
+func (d *daemonCore) isFocusPromptPending() bool {
+	return d.pendingFocusPrompt
+}
+
 func (d *daemonCore) isWorkSession() bool {
 	return d.cycle.Status() == "pomodoro"
 }
