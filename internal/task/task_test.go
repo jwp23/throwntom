@@ -254,3 +254,71 @@ func TestFileStoreClearCompletedRemovesDoneTasks(t *testing.T) {
 		t.Errorf("expected 0 completed tasks, got %d", len(completed))
 	}
 }
+
+func TestFileStorePersistsAcrossLoads(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "tasks.json")
+	store, err := NewFileStore(path)
+	if err != nil {
+		t.Fatalf("NewFileStore: %v", err)
+	}
+
+	if _, err := store.Add("task one"); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	if _, err := store.Add("task two"); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	if err := store.Complete(1); err != nil {
+		t.Fatalf("Complete: %v", err)
+	}
+
+	reloaded, err := NewFileStore(path)
+	if err != nil {
+		t.Fatalf("NewFileStore reload: %v", err)
+	}
+
+	active := reloaded.Active()
+	if len(active) != 1 {
+		t.Fatalf("expected 1 active task after reload, got %d", len(active))
+	}
+	if active[0].Description != "task two" {
+		t.Errorf("expected active task 'task two', got %q", active[0].Description)
+	}
+
+	completed := reloaded.Completed()
+	if len(completed) != 1 {
+		t.Fatalf("expected 1 completed task after reload, got %d", len(completed))
+	}
+	if completed[0].Description != "task one" {
+		t.Errorf("expected completed task 'task one', got %q", completed[0].Description)
+	}
+}
+
+func TestFileStoreNextIDSurvivesReload(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "tasks.json")
+	store, err := NewFileStore(path)
+	if err != nil {
+		t.Fatalf("NewFileStore: %v", err)
+	}
+
+	t1, err := store.Add("first")
+	if err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	if t1.ID != 1 {
+		t.Errorf("expected first task ID 1, got %d", t1.ID)
+	}
+
+	reloaded, err := NewFileStore(path)
+	if err != nil {
+		t.Fatalf("NewFileStore reload: %v", err)
+	}
+
+	t2, err := reloaded.Add("second")
+	if err != nil {
+		t.Fatalf("Add after reload: %v", err)
+	}
+	if t2.ID != 2 {
+		t.Errorf("expected second task ID 2, got %d", t2.ID)
+	}
+}
