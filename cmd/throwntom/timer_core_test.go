@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jwp23/throwntom/internal/config"
+	"github.com/jwp23/throwntom/v2/internal/config"
 )
 
 type noopNotifier struct{}

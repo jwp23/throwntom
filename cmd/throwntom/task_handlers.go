@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jwp23/throwntom/internal/task"
+	"github.com/jwp23/throwntom/v2/internal/task"
 )
 
 func (d *timerCore) handleTask(parts []string) commandResult {
