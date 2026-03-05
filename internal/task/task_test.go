@@ -322,3 +322,57 @@ func TestFileStoreNextIDSurvivesReload(t *testing.T) {
 		t.Errorf("expected second task ID 2, got %d", t2.ID)
 	}
 }
+
+func TestFileStoreActiveTaskID(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "tasks.json")
+	store, err := NewFileStore(path)
+	if err != nil {
+		t.Fatalf("NewFileStore: %v", err)
+	}
+
+	// Add 3 tasks: IDs 1, 2, 3
+	if _, err := store.Add("first"); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	if _, err := store.Add("second"); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	if _, err := store.Add("third"); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+
+	// Complete the middle one (ID=2), so active list is [ID=1, ID=3]
+	if err := store.Complete(2); err != nil {
+		t.Fatalf("Complete: %v", err)
+	}
+
+	// Position 1 should map to ID 1
+	id, err := store.ActiveTaskID(1)
+	if err != nil {
+		t.Fatalf("ActiveTaskID(1): %v", err)
+	}
+	if id != 1 {
+		t.Errorf("expected position 1 -> ID 1, got %d", id)
+	}
+
+	// Position 2 should map to ID 3
+	id, err = store.ActiveTaskID(2)
+	if err != nil {
+		t.Fatalf("ActiveTaskID(2): %v", err)
+	}
+	if id != 3 {
+		t.Errorf("expected position 2 -> ID 3, got %d", id)
+	}
+
+	// Position 3 should error (only 2 active tasks)
+	_, err = store.ActiveTaskID(3)
+	if err == nil {
+		t.Error("expected error for out-of-range position 3, got nil")
+	}
+
+	// Position 0 should error (1-based)
+	_, err = store.ActiveTaskID(0)
+	if err == nil {
+		t.Error("expected error for position 0, got nil")
+	}
+}

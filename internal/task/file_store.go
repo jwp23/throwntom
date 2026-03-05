@@ -106,6 +106,15 @@ func (fs *FileStore) ClearCompleted() error {
 	return fs.save()
 }
 
+// ActiveTaskID maps a 1-based position in the active task list to a task ID.
+func (fs *FileStore) ActiveTaskID(position int) (int, error) {
+	active := fs.Active()
+	if position < 1 || position > len(active) {
+		return 0, fmt.Errorf("position %d out of range (1-%d)", position, len(active))
+	}
+	return active[position-1].ID, nil
+}
+
 func (fs *FileStore) load() error {
 	raw, err := os.ReadFile(fs.path)
 	if err != nil {
