@@ -108,7 +108,10 @@ func (m interactiveTeaModel) updateKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if key.Type != tea.KeyEnter {
 		return m, nil
 	}
+	return m.submitCommand()
+}
 
+func (m interactiveTeaModel) submitCommand() (tea.Model, tea.Cmd) {
 	nextPrompt, submitted, _ := applyKey(m.prompt, keyEvent{kind: keyEnter})
 	m.prompt = nextPrompt
 	if submitted == "" {
