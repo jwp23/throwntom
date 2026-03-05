@@ -60,8 +60,8 @@
 - Never develop on `main` or another long-lived branch.
 - Every task must use a dedicated branch.
 - Use Conventional Branch naming: `<type>/<description>`.
-- Allowed `type` values: `feature` (or `feat`), `fix`, `hotfix`, `release`, `chore`.
-- `description` must be lowercase alphanumerics and hyphens; for `release` branches, dots are also allowed for versions (for example `release/v1.2.0`).
+- Allowed `type` values: `feature` (or `feat`), `fix`, `hotfix`, `chore`.
+- `description` must be lowercase alphanumerics and hyphens.
 - Small changes (for example README updates, typo fixes, and tiny single-purpose edits) must use a branch only, not a worktree.
 - Substantial changes (for example multi-file features, large refactors, or risky cross-cutting edits) must use both a new branch and a dedicated worktree.
 - If uncertain whether work is substantial, default to branch-only and ask for direction if needed.
@@ -73,6 +73,13 @@
 - Perform edits, tests, and commits only inside the chosen branch context.
 - Never commit directly to `main`.
 - If branch or worktree creation fails, stop and ask for guidance before proceeding.
+
+## Release Workflow
+- Releases are tag-only — no release branches.
+- Tag on `main` with an annotated tag: `git tag -a v<version> -m "<message>"`.
+- Push the tag: `git push origin v<version>`.
+- Create a GitHub release from the tag: `gh release create v<version>`.
+- Follow semver: breaking changes bump major, new features bump minor, fixes bump patch.
 
 ## Commit Message Workflow (Required)
 - Use Conventional Commits v1.0.0 for every commit message.
