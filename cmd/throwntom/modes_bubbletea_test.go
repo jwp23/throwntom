@@ -40,6 +40,27 @@ func TestRunInteractiveCallbacksUsesRunInteractiveUI(t *testing.T) {
 	}
 }
 
+func TestLocalModeCallbacksHelpLinesContainCommandsHelp(t *testing.T) {
+	cfg := config.Default()
+	core := newDaemonCore(cfg, notifier.NewTestNotifier(func(string, ...string) error {
+		return fmt.Errorf("unused")
+	}))
+
+	callbacks := localModeCallbacks(cfg, core)
+	if len(callbacks.HelpLines) == 0 {
+		t.Fatal("expected local mode callbacks to include help lines")
+	}
+	foundCommandsHeader := false
+	for _, line := range callbacks.HelpLines {
+		if line == "daemon commands:" {
+			foundCommandsHeader = true
+		}
+	}
+	if !foundCommandsHeader {
+		t.Fatal("expected help lines to contain 'daemon commands:' header")
+	}
+}
+
 func TestLocalModeCallbacksExecuteDelegatesToCore(t *testing.T) {
 	cfg := config.Default()
 	core := newDaemonCore(cfg, notifier.NewTestNotifier(func(string, ...string) error {

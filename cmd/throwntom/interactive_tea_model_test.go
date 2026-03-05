@@ -178,6 +178,89 @@ func TestInteractiveTeaModelViewIncludesPersistentHeaderLines(t *testing.T) {
 	}
 }
 
+func TestInteractiveTeaModelHelpHiddenByDefault(t *testing.T) {
+	model := newInteractiveTeaModel(interactiveCallbacks{
+		HeaderLines: []string{"throwntom run mode started"},
+		HelpLines:   strings.Split(daemonCommandsHelp(), "\n"),
+		StatusSnapshot: func() (string, bool) {
+			return "idle | 00:00", false
+		},
+		Execute: func(string) (daemonControlResponse, error) {
+			return daemonControlResponse{}, nil
+		},
+	})
+
+	view := model.View()
+	if !strings.Contains(view, "?: help") {
+		t.Fatalf("expected hint line '?: help' when help is hidden, got %q", view)
+	}
+	if strings.Contains(view, "daemon commands:") {
+		t.Fatalf("expected help to be hidden by default, but found 'daemon commands:' in %q", view)
+	}
+}
+
+func TestInteractiveTeaModelQuestionMarkTogglesHelp(t *testing.T) {
+	model := newInteractiveTeaModel(interactiveCallbacks{
+		HelpLines: strings.Split(daemonCommandsHelp(), "\n"),
+		StatusSnapshot: func() (string, bool) {
+			return "idle | 00:00", false
+		},
+		Execute: func(string) (daemonControlResponse, error) {
+			return daemonControlResponse{}, nil
+		},
+	})
+
+	// Initially hidden
+	view := model.View()
+	if strings.Contains(view, "daemon commands:") {
+		t.Fatalf("expected help hidden initially, got %q", view)
+	}
+
+	// Press ? to show
+	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}})
+	view = next.(interactiveTeaModel).View()
+	if !strings.Contains(view, "daemon commands:") {
+		t.Fatalf("expected help visible after ?, got %q", view)
+	}
+	if strings.Contains(view, "?: help") {
+		t.Fatalf("expected hint hidden when help is shown, got %q", view)
+	}
+
+	// Press ? again to hide
+	next, _ = next.(interactiveTeaModel).Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}})
+	view = next.(interactiveTeaModel).View()
+	if strings.Contains(view, "daemon commands:") {
+		t.Fatalf("expected help hidden after second ?, got %q", view)
+	}
+	if !strings.Contains(view, "?: help") {
+		t.Fatalf("expected hint visible after hiding help, got %q", view)
+	}
+}
+
+func TestInteractiveTeaModelQuestionMarkTypedWhenInputNonEmpty(t *testing.T) {
+	model := newInteractiveTeaModel(interactiveCallbacks{
+		HelpLines: strings.Split(daemonCommandsHelp(), "\n"),
+		StatusSnapshot: func() (string, bool) {
+			return "idle | 00:00", false
+		},
+		Execute: func(string) (daemonControlResponse, error) {
+			return daemonControlResponse{}, nil
+		},
+	})
+
+	// Type 'a' then '?'
+	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	next, _ = next.(interactiveTeaModel).Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}})
+
+	view := next.(interactiveTeaModel).View()
+	if !strings.Contains(view, "command> a?") {
+		t.Fatalf("expected '?' typed as normal input when buffer non-empty, got %q", view)
+	}
+	if strings.Contains(view, "daemon commands:") {
+		t.Fatalf("expected help to stay hidden when '?' typed with non-empty input, got %q", view)
+	}
+}
+
 func hasLineWithPrefix(view string, prefix string) bool {
 	for _, line := range strings.Split(view, "\n") {
 		if strings.HasPrefix(line, prefix) {

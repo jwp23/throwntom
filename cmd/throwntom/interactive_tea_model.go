@@ -12,6 +12,8 @@ type interactiveTickMsg struct{}
 type interactiveTeaModel struct {
 	callbacks      interactiveCallbacks
 	headerLines    []string
+	helpLines      []string
+	showHelp       bool
 	statusLine     string
 	morningPending bool
 	message        string
@@ -24,6 +26,7 @@ func newInteractiveTeaModel(callbacks interactiveCallbacks) interactiveTeaModel 
 	return interactiveTeaModel{
 		callbacks:      callbacks,
 		headerLines:    append([]string(nil), callbacks.HeaderLines...),
+		helpLines:      append([]string(nil), callbacks.HelpLines...),
 		statusLine:     statusLine,
 		morningPending: morningPending,
 	}
@@ -58,16 +61,23 @@ func (m interactiveTeaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m interactiveTeaModel) View() string {
 	frame := renderFrameWithWidth(m.statusLine, m.morningPending, m.message, m.prompt.input, m.width)
-	if len(m.headerLines) == 0 {
-		return frame
+
+	var header []string
+	for _, line := range m.headerLines {
+		header = append(header, clampTerminalLine(line, m.width))
+	}
+	if m.showHelp {
+		for _, line := range m.helpLines {
+			header = append(header, clampTerminalLine(line, m.width))
+		}
+	} else if len(m.helpLines) > 0 {
+		header = append(header, clampTerminalLine("?: help", m.width))
 	}
 
-	lines := make([]string, 0, len(m.headerLines)+1)
-	for _, line := range m.headerLines {
-		lines = append(lines, clampTerminalLine(line, m.width))
+	if len(header) == 0 {
+		return frame
 	}
-	lines = append(lines, frame)
-	return strings.Join(lines, "\n")
+	return strings.Join(append(header, frame), "\n")
 }
 
 func (m interactiveTeaModel) updateKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -78,6 +88,10 @@ func (m interactiveTeaModel) updateKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		runes := key.Runes
 		if key.Type == tea.KeySpace {
 			runes = []rune{' '}
+		}
+		if len(runes) == 1 && runes[0] == '?' && m.prompt.input == "" {
+			m.showHelp = !m.showHelp
+			return m, nil
 		}
 		for _, r := range runes {
 			m.prompt, _, _ = applyKey(m.prompt, keyEvent{
@@ -94,7 +108,10 @@ func (m interactiveTeaModel) updateKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if key.Type != tea.KeyEnter {
 		return m, nil
 	}
+	return m.submitCommand()
+}
 
+func (m interactiveTeaModel) submitCommand() (tea.Model, tea.Cmd) {
 	nextPrompt, submitted, _ := applyKey(m.prompt, keyEvent{kind: keyEnter})
 	m.prompt = nextPrompt
 	if submitted == "" {
