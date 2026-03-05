@@ -102,8 +102,26 @@ func localModeCallbacks(cfg config.Config, core *daemonCore) interactiveCallback
 		HeaderLines:    header,
 		HelpLines:      strings.Split(daemonCommandsHelp(), "\n"),
 		StatusSnapshot: core.snapshot,
+		FocusSnapshot: func() ([]string, string) {
+			focusLines := core.formatFocusLines()
+			focusPrompt := ""
+			if core.isFocusPromptPending() {
+				focusPrompt = core.formatFocusPrompt()
+			}
+			return focusLines, focusPrompt
+		},
 		Execute: func(command string) (daemonControlResponse, error) {
 			return core.executeControlCommand(command), nil
+		},
+		CancelFocus: func() daemonControlResponse {
+			result := core.cancelFocusPrompt()
+			statusLine, morningPending := core.snapshot()
+			return daemonControlResponse{
+				StatusLine:     statusLine,
+				MorningPending: morningPending,
+				Message:        result.message,
+				FocusLines:     core.formatFocusLines(),
+			}
 		},
 	}
 }
@@ -113,6 +131,7 @@ func shellModeCallbacks(socketPath string, cache *statusCache) interactiveCallba
 		resp, err := sendControlCommand(socketPath, "status")
 		if err == nil && resp.Error == "" {
 			cache.Set(resp.StatusLine, resp.MorningPending)
+			cache.SetFocus(resp.FocusLines, resp.FocusPrompt)
 		}
 		return cache.Get()
 	}
@@ -121,13 +140,24 @@ func shellModeCallbacks(socketPath string, cache *statusCache) interactiveCallba
 		HeaderLines:    []string{fmt.Sprintf("throwntom shell connected to daemon at %s", socketPath)},
 		HelpLines:      strings.Split(daemonCommandsHelp(), "\n"),
 		StatusSnapshot: statusSnapshot,
+		FocusSnapshot:  cache.GetFocus,
 		Execute: func(command string) (daemonControlResponse, error) {
 			resp, execErr := sendControlCommand(socketPath, command)
 			if execErr != nil {
 				return daemonControlResponse{}, fmt.Errorf("control error: %w", execErr)
 			}
 			cache.Set(resp.StatusLine, resp.MorningPending)
+			cache.SetFocus(resp.FocusLines, resp.FocusPrompt)
 			return resp, nil
+		},
+		CancelFocus: func() daemonControlResponse {
+			resp, err := sendControlCommand(socketPath, "_cancel_focus")
+			if err != nil {
+				return daemonControlResponse{Message: "cancel failed: " + err.Error()}
+			}
+			cache.Set(resp.StatusLine, resp.MorningPending)
+			cache.SetFocus(resp.FocusLines, resp.FocusPrompt)
+			return resp
 		},
 	}
 }
@@ -159,7 +189,15 @@ func buildDaemonCore(cfg config.Config) (*daemonCore, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newDaemonCore(cfg, n), nil
+	core := newDaemonCore(cfg, n)
+	tasksPath, err := defaultTasksPath()
+	if err != nil {
+		return nil, err
+	}
+	if err := core.initTasks(tasksPath); err != nil {
+		return nil, err
+	}
+	return core, nil
 }
 
 func serveDaemonSocket(ctx context.Context, cancel context.CancelFunc, core *daemonCore, socketPath string) error {
@@ -253,6 +291,8 @@ type statusCache struct {
 	mu             sync.Mutex
 	statusLine     string
 	morningPending bool
+	focusLines     []string
+	focusPrompt    string
 }
 
 func newStatusCache(statusLine string, morningPending bool) *statusCache {
@@ -268,10 +308,23 @@ func (c *statusCache) Get() (string, bool) {
 	return c.statusLine, c.morningPending
 }
 
+func (c *statusCache) GetFocus() ([]string, string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.focusLines, c.focusPrompt
+}
+
 func (c *statusCache) Set(statusLine string, morningPending bool) {
 	c.mu.Lock()
 	c.statusLine = statusLine
 	c.morningPending = morningPending
+	c.mu.Unlock()
+}
+
+func (c *statusCache) SetFocus(focusLines []string, focusPrompt string) {
+	c.mu.Lock()
+	c.focusLines = focusLines
+	c.focusPrompt = focusPrompt
 	c.mu.Unlock()
 }
 

@@ -12,6 +12,7 @@ import (
 	"github.com/jwp23/throwntom/internal/notifier"
 	"github.com/jwp23/throwntom/internal/reminder"
 	"github.com/jwp23/throwntom/internal/scheduler"
+	"github.com/jwp23/throwntom/internal/task"
 )
 
 type daemonState struct {
@@ -92,13 +93,18 @@ func (s *daemonState) isMorningPending() bool {
 }
 
 type daemonCore struct {
-	cycle          *app.App
-	notifier       notifier.Notifier
-	state          *daemonState
-	scheduler      *scheduler.Scheduler
-	repeatInterval time.Duration
-	now            func() time.Time
-	handlers       map[string]daemonCommandHandler
+	cycle               *app.App
+	notifier            notifier.Notifier
+	state               *daemonState
+	scheduler           *scheduler.Scheduler
+	repeatInterval      time.Duration
+	now                 func() time.Time
+	handlers            map[string]daemonCommandHandler
+	tasks               *task.FileStore
+	focused             []task.Task
+	pendingFocusPrompt  bool
+	pendingFocusToggled map[int]bool
+	pendingFocusAction  string
 }
 
 type daemonCommandHandler func(parts []string) daemonCommandResult
@@ -144,6 +150,10 @@ func (d *daemonCore) executeControlCommand(line string) daemonControlResponse {
 		MorningPending: morningPending,
 		Message:        result.message,
 		Exit:           result.exit,
+		FocusLines:     d.formatFocusLines(),
+	}
+	if d.pendingFocusPrompt {
+		resp.FocusPrompt = d.formatFocusPrompt()
 	}
 	if result.err != nil {
 		resp.Error = result.err.Error()
@@ -159,6 +169,12 @@ type daemonCommandResult struct {
 
 func (d *daemonCore) execute(line string) daemonCommandResult {
 	trimmed := strings.TrimSpace(line)
+	if trimmed == "_cancel_focus" && d.pendingFocusPrompt {
+		return d.cancelFocusPrompt()
+	}
+	if d.pendingFocusPrompt {
+		return d.handleFocusPromptInput(trimmed)
+	}
 	if trimmed == "" {
 		return daemonCommandResult{}
 	}
@@ -184,12 +200,16 @@ func (d *daemonCore) buildCommandHandlers() map[string]daemonCommandHandler {
 		"status":     d.handleStatus,
 		"quit":       d.handleQuit,
 		"exit":       d.handleQuit,
+		"task":       d.handleTask,
 	}
 }
 
 func (d *daemonCore) handleStart(_ []string) daemonCommandResult {
 	d.state.stopMorningLoop()
 	d.state.clearSnooze()
+	if d.tasks != nil {
+		return d.enterFocusPrompt("start")
+	}
 	d.cycle.Start()
 	return daemonCommandResult{message: "pomodoro started"}
 }
@@ -213,12 +233,17 @@ func (d *daemonCore) handleResume(_ []string) daemonCommandResult {
 
 func (d *daemonCore) handleStop(_ []string) daemonCommandResult {
 	d.cycle.Stop()
+	d.focused = nil
 	return daemonCommandResult{message: "stopped and returned to idle"}
 }
 
 func (d *daemonCore) handleConfirm(_ []string) daemonCommandResult {
 	d.cycle.Confirm()
-	return daemonCommandResult{message: fmt.Sprintf("confirmed, state=%s", d.cycle.Status())}
+	status := d.cycle.Status()
+	if status == "pomodoro" && d.tasks != nil {
+		return d.enterFocusPrompt("confirm")
+	}
+	return daemonCommandResult{message: fmt.Sprintf("confirmed, state=%s", status)}
 }
 
 func (d *daemonCore) handleSnooze(parts []string) daemonCommandResult {
@@ -313,5 +338,17 @@ func daemonCommandsHelp() string {
 		"  test-sound         play reminder sound now",
 		"  quit               stop daemon",
 		"  exit               alias for quit",
+		"",
+		"task commands:",
+		"  task add <desc>     add a task",
+		"  task done <n>       complete a task",
+		"  task remove <n>     delete a task",
+		"  task list           show active tasks",
+		"  task completed      show completed tasks",
+		"  task clear          clear completed tasks",
+		"  task focus <n>      focus on a task (work session)",
+		"  task unfocus <n>    remove focus (work session)",
+		"  task up <n>         move focused task up",
+		"  task down <n>       move focused task down",
 	}, "\n")
 }

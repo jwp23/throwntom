@@ -19,6 +19,8 @@ type interactiveTeaModel struct {
 	message        string
 	prompt         promptState
 	width          int
+	focusLines     []string
+	focusPrompt    string
 }
 
 func newInteractiveTeaModel(callbacks interactiveCallbacks) interactiveTeaModel {
@@ -48,6 +50,9 @@ func (m interactiveTeaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateKey(msg)
 	case interactiveTickMsg:
 		m.statusLine, m.morningPending = m.callbacks.StatusSnapshot()
+		if m.callbacks.FocusSnapshot != nil {
+			m.focusLines, m.focusPrompt = m.callbacks.FocusSnapshot()
+		}
 		return m, interactiveTickCmd()
 	case tea.WindowSizeMsg:
 		if msg.Width > 0 {
@@ -60,10 +65,22 @@ func (m interactiveTeaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m interactiveTeaModel) View() string {
+	if m.focusPrompt != "" {
+		var lines []string
+		for _, line := range strings.Split(m.focusPrompt, "\n") {
+			lines = append(lines, clampTerminalLine(line, m.width))
+		}
+		lines = append(lines, clampTerminalLine("command> "+m.prompt.input, m.width))
+		return strings.Join(lines, "\n")
+	}
+
 	frame := renderFrameWithWidth(m.statusLine, m.morningPending, m.message, m.prompt.input, m.width)
 
 	var header []string
 	for _, line := range m.headerLines {
+		header = append(header, clampTerminalLine(line, m.width))
+	}
+	for _, line := range m.focusLines {
 		header = append(header, clampTerminalLine(line, m.width))
 	}
 	if m.showHelp {
@@ -83,6 +100,9 @@ func (m interactiveTeaModel) View() string {
 func (m interactiveTeaModel) updateKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if key.Type == tea.KeyCtrlC {
 		return m, tea.Quit
+	}
+	if key.Type == tea.KeyEsc {
+		return m.handleEsc()
 	}
 	if key.Type == tea.KeyRunes || key.Type == tea.KeySpace {
 		runes := key.Runes
@@ -111,10 +131,25 @@ func (m interactiveTeaModel) updateKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m.submitCommand()
 }
 
+func (m interactiveTeaModel) handleEsc() (tea.Model, tea.Cmd) {
+	if m.focusPrompt != "" && m.callbacks.CancelFocus != nil {
+		resp := m.callbacks.CancelFocus()
+		m.focusPrompt = ""
+		m.focusLines = resp.FocusLines
+		m.statusLine = resp.StatusLine
+		m.morningPending = resp.MorningPending
+		if resp.Message != "" {
+			m.message = resp.Message
+		}
+		m.prompt = promptState{}
+	}
+	return m, nil
+}
+
 func (m interactiveTeaModel) submitCommand() (tea.Model, tea.Cmd) {
 	nextPrompt, submitted, _ := applyKey(m.prompt, keyEvent{kind: keyEnter})
 	m.prompt = nextPrompt
-	if submitted == "" {
+	if submitted == "" && m.focusPrompt == "" {
 		return m, nil
 	}
 
@@ -127,6 +162,8 @@ func (m interactiveTeaModel) submitCommand() (tea.Model, tea.Cmd) {
 
 	m.statusLine = resp.StatusLine
 	m.morningPending = resp.MorningPending
+	m.focusLines = resp.FocusLines
+	m.focusPrompt = resp.FocusPrompt
 	if resp.Error != "" {
 		m.message = resp.Error
 	} else if resp.Message != "" {
