@@ -159,7 +159,15 @@ func buildDaemonCore(cfg config.Config) (*daemonCore, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newDaemonCore(cfg, n), nil
+	core := newDaemonCore(cfg, n)
+	tasksPath, err := defaultTasksPath()
+	if err != nil {
+		return nil, err
+	}
+	if err := core.initTasks(tasksPath); err != nil {
+		return nil, err
+	}
+	return core, nil
 }
 
 func serveDaemonSocket(ctx context.Context, cancel context.CancelFunc, core *daemonCore, socketPath string) error {
