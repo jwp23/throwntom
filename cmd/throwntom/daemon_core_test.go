@@ -30,6 +30,37 @@ func TestNewDaemonCoreRespectsMorningReminderPendingFalse(t *testing.T) {
 	}
 }
 
+func TestBeginMorningLoopStartsWhenPendingTrue(t *testing.T) {
+	state := &daemonState{morningPending: true}
+	ctx, started := state.beginMorningLoop()
+	if !started {
+		t.Fatal("expected beginMorningLoop to start when morningPending is true but no loop running")
+	}
+	if ctx == nil {
+		t.Fatal("expected non-nil context")
+	}
+	// Clean up
+	state.stopMorningLoop()
+}
+
+func TestBeginMorningLoopRejectsDuplicateLoop(t *testing.T) {
+	state := &daemonState{}
+	ctx, started := state.beginMorningLoop()
+	if !started {
+		t.Fatal("expected first beginMorningLoop to start")
+	}
+	if ctx == nil {
+		t.Fatal("expected non-nil context from first call")
+	}
+
+	_, startedAgain := state.beginMorningLoop()
+	if startedAgain {
+		t.Fatal("expected second beginMorningLoop to be rejected (duplicate prevention)")
+	}
+	// Clean up
+	state.stopMorningLoop()
+}
+
 func TestNewCycleCommandResetsCycleProgressButKeepsDailyTotal(t *testing.T) {
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
