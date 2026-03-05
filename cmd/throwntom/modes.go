@@ -19,7 +19,7 @@ func runLocalMode(cfg config.Config) {
 		os.Exit(1)
 	}
 
-	core, err := buildDaemonCore(cfg)
+	core, err := buildTimerCore(cfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "notifier error: %v\n", err)
 		os.Exit(1)
@@ -40,7 +40,7 @@ func runInteractiveCallbacks(callbacks interactiveCallbacks) error {
 	return runInteractiveUI(os.Stdout, os.Stdin, callbacks)
 }
 
-func localModeCallbacks(cfg config.Config, core *daemonCore) interactiveCallbacks {
+func localModeCallbacks(cfg config.Config, core *timerCore) interactiveCallbacks {
 	header := []string{
 		fmt.Sprintf("throwntom run mode started (schedule %s %s)", strings.Join(cfg.Schedule.Days, ","), cfg.Schedule.Time),
 		fmt.Sprintf("cycle: work=%dm short=%dm long=%dm every=%d repeat=%ds", cfg.WorkMinutes, cfg.ShortBreakMinutes, cfg.LongBreakMinutes, cfg.LongBreakEvery, cfg.RepeatSecs),
@@ -48,7 +48,7 @@ func localModeCallbacks(cfg config.Config, core *daemonCore) interactiveCallback
 
 	return interactiveCallbacks{
 		HeaderLines:    header,
-		HelpLines:      strings.Split(daemonCommandsHelp(), "\n"),
+		HelpLines:      strings.Split(commandsHelp(), "\n"),
 		StatusSnapshot: core.snapshot,
 		FocusSnapshot: func() ([]string, string) {
 			focusLines := core.formatFocusLines()
@@ -58,13 +58,13 @@ func localModeCallbacks(cfg config.Config, core *daemonCore) interactiveCallback
 			}
 			return focusLines, focusPrompt
 		},
-		Execute: func(command string) (daemonControlResponse, error) {
-			return core.executeControlCommand(command), nil
+		Execute: func(command string) (commandResponse, error) {
+			return core.executeCommand(command), nil
 		},
-		CancelFocus: func() daemonControlResponse {
+		CancelFocus: func() commandResponse {
 			result := core.cancelFocusPrompt()
 			statusLine, morningPending := core.snapshot()
-			return daemonControlResponse{
+			return commandResponse{
 				StatusLine:     statusLine,
 				MorningPending: morningPending,
 				Message:        result.message,
@@ -74,12 +74,12 @@ func localModeCallbacks(cfg config.Config, core *daemonCore) interactiveCallback
 	}
 }
 
-func buildDaemonCore(cfg config.Config) (*daemonCore, error) {
+func buildTimerCore(cfg config.Config) (*timerCore, error) {
 	n, err := notifier.NewSystemNotifier(runtime.GOOS, os.Stdout, cfg.SoundCommand)
 	if err != nil {
 		return nil, err
 	}
-	core := newDaemonCore(cfg, n)
+	core := newTimerCore(cfg, n)
 	tasksPath, err := defaultTasksPath()
 	if err != nil {
 		return nil, err

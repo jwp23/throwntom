@@ -1,6 +1,6 @@
 package main
 
-type daemonControlResponse struct {
+type commandResponse struct {
 	StatusLine     string
 	MorningPending bool
 	Message        string
@@ -15,6 +15,6 @@ type interactiveCallbacks struct {
 	HelpLines      []string
 	StatusSnapshot func() (string, bool)
 	FocusSnapshot  func() ([]string, string)
-	Execute        func(command string) (daemonControlResponse, error)
-	CancelFocus    func() daemonControlResponse
+	Execute        func(command string) (commandResponse, error)
+	CancelFocus    func() commandResponse
 }

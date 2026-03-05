@@ -9,11 +9,11 @@ import (
 	"github.com/jwp23/throwntom/internal/task"
 )
 
-func newTestCoreWithTasks(t *testing.T) *daemonCore {
+func newTestCoreWithTasks(t *testing.T) *timerCore {
 	t.Helper()
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
-	core := newDaemonCore(cfg, noopNotifier{})
+	core := newTimerCore(cfg, noopNotifier{})
 	dir := t.TempDir()
 	store, err := task.NewFileStore(filepath.Join(dir, "tasks.json"))
 	if err != nil {
@@ -149,7 +149,7 @@ func TestTaskClearCommand(t *testing.T) {
 func TestTaskCommandWithoutStore(t *testing.T) {
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
-	core := newDaemonCore(cfg, noopNotifier{})
+	core := newTimerCore(cfg, noopNotifier{})
 	result := core.execute("task list")
 	if result.err == nil {
 		t.Fatal("expected error when task store is nil")
@@ -170,7 +170,7 @@ func TestTaskUnknownSubcommand(t *testing.T) {
 func TestInitTasksCreatesStore(t *testing.T) {
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
-	core := newDaemonCore(cfg, noopNotifier{})
+	core := newTimerCore(cfg, noopNotifier{})
 	dir := t.TempDir()
 	if err := core.initTasks(filepath.Join(dir, "tasks.json")); err != nil {
 		t.Fatalf("initTasks: %v", err)
@@ -424,7 +424,7 @@ func TestFocusPromptToggleOff(t *testing.T) {
 	}
 }
 
-// --- Task 11: Focus display in daemonControlResponse tests ---
+// --- Task 11: Focus display in commandResponse tests ---
 
 func TestControlResponseIncludesFocusLines(t *testing.T) {
 	core := newTestCoreWithTasks(t)
@@ -432,7 +432,7 @@ func TestControlResponseIncludesFocusLines(t *testing.T) {
 	core.execute("start")
 	core.execute("") // skip prompt
 	core.execute("task focus 1")
-	resp := core.executeControlCommand("status")
+	resp := core.executeCommand("status")
 	if len(resp.FocusLines) == 0 {
 		t.Fatal("expected focus lines in response")
 	}
@@ -451,7 +451,7 @@ func TestControlResponseIncludesFocusLines(t *testing.T) {
 func TestControlResponseIncludesFocusPrompt(t *testing.T) {
 	core := newTestCoreWithTasks(t)
 	core.execute("task add pick me")
-	resp := core.executeControlCommand("start")
+	resp := core.executeCommand("start")
 	if resp.FocusPrompt == "" {
 		t.Fatal("expected focus prompt in response")
 	}
@@ -464,7 +464,7 @@ func TestControlResponseNoFocusLinesWhenEmpty(t *testing.T) {
 	core := newTestCoreWithTasks(t)
 	core.execute("start") // enters prompt even with no tasks
 	core.execute("")      // skip prompt, start pomodoro
-	resp := core.executeControlCommand("status")
+	resp := core.executeCommand("status")
 	if len(resp.FocusLines) != 0 {
 		t.Fatalf("expected no focus lines, got %v", resp.FocusLines)
 	}
@@ -511,7 +511,7 @@ func TestFocusPromptHintMentionsEsc(t *testing.T) {
 }
 
 func TestHelpIncludesTaskCommands(t *testing.T) {
-	help := daemonCommandsHelp()
+	help := commandsHelp()
 	subcommands := []string{
 		"task add",
 		"task done",

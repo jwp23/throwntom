@@ -13,25 +13,25 @@ func (noopNotifier) PlaySound(string) error {
 	return nil
 }
 
-func TestNewDaemonCoreDefaultsMorningPendingTrue(t *testing.T) {
-	core := newDaemonCore(config.Default(), noopNotifier{})
+func TestNewTimerCoreDefaultsMorningPendingTrue(t *testing.T) {
+	core := newTimerCore(config.Default(), noopNotifier{})
 	if !core.state.isMorningPending() {
 		t.Fatal("expected morning reminder pending by default")
 	}
 }
 
-func TestNewDaemonCoreRespectsMorningReminderPendingFalse(t *testing.T) {
+func TestNewTimerCoreRespectsMorningReminderPendingFalse(t *testing.T) {
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
 
-	core := newDaemonCore(cfg, noopNotifier{})
+	core := newTimerCore(cfg, noopNotifier{})
 	if core.state.isMorningPending() {
 		t.Fatal("expected morning reminder pending to be false")
 	}
 }
 
 func TestBeginMorningLoopStartsWhenPendingTrue(t *testing.T) {
-	state := &daemonState{morningPending: true}
+	state := &reminderState{morningPending: true}
 	ctx, started := state.beginMorningLoop()
 	if !started {
 		t.Fatal("expected beginMorningLoop to start when morningPending is true but no loop running")
@@ -44,7 +44,7 @@ func TestBeginMorningLoopStartsWhenPendingTrue(t *testing.T) {
 }
 
 func TestBeginMorningLoopRejectsDuplicateLoop(t *testing.T) {
-	state := &daemonState{}
+	state := &reminderState{}
 	ctx, started := state.beginMorningLoop()
 	if !started {
 		t.Fatal("expected first beginMorningLoop to start")
@@ -64,7 +64,7 @@ func TestBeginMorningLoopRejectsDuplicateLoop(t *testing.T) {
 func TestNewCycleCommandResetsCycleProgressButKeepsDailyTotal(t *testing.T) {
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
-	core := newDaemonCore(cfg, noopNotifier{})
+	core := newTimerCore(cfg, noopNotifier{})
 
 	core.execute("start")
 	core.cycle.CompletePeriod()

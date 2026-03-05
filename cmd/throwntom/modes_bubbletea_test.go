@@ -28,8 +28,8 @@ func TestRunInteractiveCallbacksUsesRunInteractiveUI(t *testing.T) {
 		StatusSnapshot: func() (string, bool) {
 			return "idle | 00:00", false
 		},
-		Execute: func(string) (daemonControlResponse, error) {
-			return daemonControlResponse{}, nil
+		Execute: func(string) (commandResponse, error) {
+			return commandResponse{}, nil
 		},
 	})
 	if err != nil {
@@ -42,7 +42,7 @@ func TestRunInteractiveCallbacksUsesRunInteractiveUI(t *testing.T) {
 
 func TestLocalModeCallbacksHelpLinesContainCommandsHelp(t *testing.T) {
 	cfg := config.Default()
-	core := newDaemonCore(cfg, notifier.NewTestNotifier(func(string, ...string) error {
+	core := newTimerCore(cfg, notifier.NewTestNotifier(func(string, ...string) error {
 		return fmt.Errorf("unused")
 	}))
 
@@ -52,18 +52,18 @@ func TestLocalModeCallbacksHelpLinesContainCommandsHelp(t *testing.T) {
 	}
 	foundCommandsHeader := false
 	for _, line := range callbacks.HelpLines {
-		if line == "daemon commands:" {
+		if line == "commands:" {
 			foundCommandsHeader = true
 		}
 	}
 	if !foundCommandsHeader {
-		t.Fatal("expected help lines to contain 'daemon commands:' header")
+		t.Fatal("expected help lines to contain 'commands:' header")
 	}
 }
 
 func TestLocalModeCallbacksExecuteDelegatesToCore(t *testing.T) {
 	cfg := config.Default()
-	core := newDaemonCore(cfg, notifier.NewTestNotifier(func(string, ...string) error {
+	core := newTimerCore(cfg, notifier.NewTestNotifier(func(string, ...string) error {
 		return fmt.Errorf("unused")
 	}))
 

@@ -77,7 +77,7 @@ func printUsage() {
 	fmt.Println("modes:")
 	fmt.Println("  run     run interactive pomodoro timer (default)")
 	fmt.Println()
-	fmt.Println(daemonCommandsHelp())
+	fmt.Println(commandsHelp())
 }
 
 func printFlagUsage() {
@@ -87,5 +87,5 @@ func printFlagUsage() {
 	fmt.Fprintln(os.Stderr, "  --config string")
 	fmt.Fprintln(os.Stderr, "        path to config toml")
 	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, daemonCommandsHelp())
+	fmt.Fprintln(os.Stderr, commandsHelp())
 }
