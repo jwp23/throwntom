@@ -1,4 +1,30 @@
-# AGENTS.md
+# CLAUDE.md
+
+## Project Overview
+- **throwntom** is a pomodoro timer CLI written in Go
+- Interactive terminal UI built with [Bubble Tea v1.3.10](https://github.com/charmbracelet/bubbletea) (approved third-party dep)
+- Runs in three modes: local (in-process daemon), shell (connects to running daemon via Unix socket), control (single command)
+
+## Project Structure
+- `cmd/throwntom/` — main binary: CLI entry point, Bubble Tea model, daemon core, modes
+- `internal/app/` — application logic
+- `internal/config/` — TOML config parsing
+- `internal/engine/` — pomodoro state machine
+- `internal/notifier/` — desktop notifications and sound
+- `internal/reminder/` — reminder scheduling
+- `internal/scheduler/` — work schedule (days/times)
+- `e2e/` — end-to-end tests (build tag: `e2e`)
+- `integration/` — integration tests
+- `docs/plans/` — design and implementation plans
+- `packaging/` — systemd/launchd service templates
+
+## Build & Test Commands
+- Build: `go build ./cmd/throwntom/`
+- Unit tests: `go test ./...`
+- E2E tests: `go test -timeout 30s -tags=e2e ./e2e`
+- Lint: `golangci-lint run`
+- Lint config: `.golangci.yml` (cyclop max-complexity: 15)
+- Pre-commit hook runs `gofmt` check and full unit test suite
 
 ## Project-Specific
 - Never consider backwards-compatibility, legacy or similar concerns, I'm the only user, and it's a new greenfield project, we can freely make any changes we want.
@@ -8,17 +34,17 @@
 - Flag missing info and unsupported assumptions.
 - Default to skepticism; state uncertainty explicitly.
 - Widen scope when useful: consider unconventional options, risks, patterns.
-- Red‑team before “done”; verify it actually works.
+- Red-team before "done"; verify it actually works.
 - Prefer simple over easy: one concern, untangled, objective.
-- Practice simplicity: invest upfront; process won’t rescue complex designs.
+- Practice simplicity: invest upfront; process won't rescue complex designs.
 - Design for human limits: keep components small and independent.
 
 ## Role, Scope & Constraints
-- General‑purpose coding assistant; human‑in‑the‑loop.
-- Make only explicitly requested changes; no drive‑by refactors or formatting.
+- General-purpose coding assistant; human-in-the-loop.
+- Make only explicitly requested changes; no drive-by refactors or formatting.
 - Do not narrate your actions in source comments.
 - Greenfield: refactor freely to simplify; ignore legacy/migrations/compat.
-- Use standard library only; third‑party deps only with explicit approval.
+- Use standard library only; third-party deps only with explicit approval.
 - Preserve public APIs/behavior unless requested to change.
 - No secrets in code; use config/env.
 
@@ -27,15 +53,15 @@
 - Patch: small, focused diffs with paths; exclude unrelated changes.
 - Test: Run tests with Go native timeout (`go test -timeout 30s ./...` or equivalent); fix failures; choose tests using the test pyramid (favor unit tests, then integration, then end-to-end).
 - Decompose: split work into small, reviewable steps/commits.
-- Double‑check: re‑evaluate logic and trade‑offs before finalizing.
-- Verify: briefly note how you validated; optionally record trade‑offs and directly related follow‑ups.
+- Double-check: re-evaluate logic and trade-offs before finalizing.
+- Verify: briefly note how you validated; optionally record trade-offs and directly related follow-ups.
 - When uncertain: ask clarifying questions; if you must proceed, choose the conservative/simple path and state assumptions in the Task Summary.
 
 ## Branching & Worktree Workflow (Required)
 - Never develop on `main` or another long-lived branch.
 - Every task must use a dedicated branch.
 - Use Conventional Branch naming: `<type>/<description>`.
-- Allowed `type` values: `feature` (or `feat`), `bugfix` (or `fix`), `hotfix`, `release`, `chore`.
+- Allowed `type` values: `feature` (or `feat`), `fix`, `hotfix`, `release`, `chore`.
 - `description` must be lowercase alphanumerics and hyphens; for `release` branches, dots are also allowed for versions (for example `release/v1.2.0`).
 - Small changes (for example README updates, typo fixes, and tiny single-purpose edits) must use a branch only, not a worktree.
 - Substantial changes (for example multi-file features, large refactors, or risky cross-cutting edits) must use both a new branch and a dedicated worktree.
@@ -60,20 +86,20 @@
 ## Code Quality & Style
 - Keep code readable and easy to extend; follow project style.
 - Use clear names; avoid magic values; extract constants when helpful.
-- Keep functions small and single‑purpose.
+- Keep functions small and single-purpose.
 - Prefer the simplest working solution over cleverness.
 - Add abstractions only when necessary.
-- Fail fast; don’t swallow errors; return/raise explicit, contextual errors.
+- Fail fast; don't swallow errors; return/raise explicit, contextual errors.
 - Handle errors and edge cases; no TODOs, dead code, or partial fixes.
 
 ## Design & Data
-- Un‑complect: separate concerns; minimize interleaving.
+- Un-complect: separate concerns; minimize interleaving.
 - Architect for change: clear boundaries/verbs; pass plain data; handle errors generically; parts easy to repurpose, substitute, move (process/language/thread), combine, and extend.
 - Values + functions first: favor pure functions and namespaces; minimize mutation with managed refs; use small, explicit polymorphism over inheritance/switch/matching.
-- Represent info as data: use maps/records with literal syntax and symbolic keys; avoid DSLs/micro‑languages and “data classes”; prefer generic composition over wrappers.
-- Kill order‑dependence: use sets when order/duplication don’t matter; prefer named args/maps over positional tuples.
+- Represent info as data: use maps/records with literal syntax and symbolic keys; avoid DSLs/micro-languages and "data classes"; prefer generic composition over wrappers.
+- Kill order-dependence: use sets when order/duplication don't matter; prefer named args/maps over positional tuples.
 - Prefer declarative data manipulation: use set operations and rules; default to consistency; accept eventual consistency only when strictly required.
-- Simplify instead of importing hairballs: analyze trade‑offs; avoid complexity for convenience.
+- Simplify instead of importing hairballs: analyze trade-offs; avoid complexity for convenience.
 
 ## Testing Strategy (Test Pyramid)
 
@@ -104,3 +130,14 @@
   - commit 1: failing test(s)
   - commit 2: implementation to make tests pass
 - Any response that skipped RED-first must be treated as non-compliant.
+
+## Requirements
+- Minimal 3rd party libraries are used
+- It's ok to use system libraries, granted they're common and ubiquitous
+- You can use OS/desktop/compositor-available APIs, but you have to write the glue code yourself
+- All code is relevant to requirements of the project
+- Focus on quality, stability and correctness
+- No source code file should be larger than 500 lines of code, refactor as needed (use cloc --by-file src to verify)
+- Modularize your code like a professional software developer
+- When applicable, our implementation should conform with idiomatic use of the language we use
+- Write small/short developer/debugging tools/binaries as needed, document them, and leave them for future use
