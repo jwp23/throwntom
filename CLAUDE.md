@@ -133,6 +133,7 @@
 
 ## Requirements
 - Minimal 3rd party libraries are used
+- Use 3rd party libraries if they'll be more stable but get confirmation before using them
 - It's ok to use system libraries, granted they're common and ubiquitous
 - You can use OS/desktop/compositor-available APIs, but you have to write the glue code yourself
 - All code is relevant to requirements of the project
