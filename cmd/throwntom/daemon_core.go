@@ -93,13 +93,13 @@ func (s *daemonState) isMorningPending() bool {
 }
 
 type daemonCore struct {
-	cycle          *app.App
-	notifier       notifier.Notifier
-	state          *daemonState
-	scheduler      *scheduler.Scheduler
-	repeatInterval time.Duration
-	now            func() time.Time
-	handlers       map[string]daemonCommandHandler
+	cycle               *app.App
+	notifier            notifier.Notifier
+	state               *daemonState
+	scheduler           *scheduler.Scheduler
+	repeatInterval      time.Duration
+	now                 func() time.Time
+	handlers            map[string]daemonCommandHandler
 	tasks               *task.FileStore
 	focused             []task.Task
 	pendingFocusPrompt  bool
@@ -165,6 +165,9 @@ type daemonCommandResult struct {
 
 func (d *daemonCore) execute(line string) daemonCommandResult {
 	trimmed := strings.TrimSpace(line)
+	if d.pendingFocusPrompt {
+		return d.handleFocusPromptInput(trimmed)
+	}
 	if trimmed == "" {
 		return daemonCommandResult{}
 	}
@@ -197,6 +200,9 @@ func (d *daemonCore) buildCommandHandlers() map[string]daemonCommandHandler {
 func (d *daemonCore) handleStart(_ []string) daemonCommandResult {
 	d.state.stopMorningLoop()
 	d.state.clearSnooze()
+	if d.tasks != nil && len(d.tasks.Active()) > 0 {
+		return d.enterFocusPrompt("start")
+	}
 	d.cycle.Start()
 	return daemonCommandResult{message: "pomodoro started"}
 }
@@ -226,7 +232,11 @@ func (d *daemonCore) handleStop(_ []string) daemonCommandResult {
 
 func (d *daemonCore) handleConfirm(_ []string) daemonCommandResult {
 	d.cycle.Confirm()
-	return daemonCommandResult{message: fmt.Sprintf("confirmed, state=%s", d.cycle.Status())}
+	status := d.cycle.Status()
+	if status == "pomodoro" && d.tasks != nil && len(d.tasks.Active()) > 0 {
+		return d.enterFocusPrompt("confirm")
+	}
+	return daemonCommandResult{message: fmt.Sprintf("confirmed, state=%s", status)}
 }
 
 func (d *daemonCore) handleSnooze(parts []string) daemonCommandResult {

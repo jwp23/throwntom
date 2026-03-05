@@ -189,7 +189,8 @@ func TestInitTasksCreatesStore(t *testing.T) {
 func TestTaskFocusDuringWorkSession(t *testing.T) {
 	core := newTestCoreWithTasks(t)
 	core.execute("task add important work")
-	core.execute("start")
+	core.execute("start") // enters focus prompt
+	core.execute("")      // skip prompt, start pomodoro
 	result := core.execute("task focus 1")
 	if result.err != nil {
 		t.Fatalf("focus failed: %v", result.err)
@@ -215,7 +216,8 @@ func TestTaskFocusRejectsOutsideWorkSession(t *testing.T) {
 func TestTaskUnfocus(t *testing.T) {
 	core := newTestCoreWithTasks(t)
 	core.execute("task add important work")
-	core.execute("start")
+	core.execute("start") // enters focus prompt
+	core.execute("")      // skip prompt, start pomodoro
 	core.execute("task focus 1")
 	result := core.execute("task unfocus 1")
 	if result.err != nil {
@@ -230,7 +232,8 @@ func TestTaskUpDown(t *testing.T) {
 	core := newTestCoreWithTasks(t)
 	core.execute("task add first")
 	core.execute("task add second")
-	core.execute("start")
+	core.execute("start") // enters focus prompt
+	core.execute("")      // skip prompt, start pomodoro
 	core.execute("task focus 1")
 	core.execute("task focus 2")
 	core.execute("task up 2")
@@ -249,7 +252,8 @@ func TestTaskUpDown(t *testing.T) {
 func TestFocusClearedOnStop(t *testing.T) {
 	core := newTestCoreWithTasks(t)
 	core.execute("task add work item")
-	core.execute("start")
+	core.execute("start") // enters focus prompt
+	core.execute("")      // skip prompt, start pomodoro
 	core.execute("task focus 1")
 	core.execute("stop")
 	if len(core.focusedTasks()) != 0 {
@@ -260,7 +264,8 @@ func TestFocusClearedOnStop(t *testing.T) {
 func TestTaskDoneDuringWorkSessionRemovesFromFocus(t *testing.T) {
 	core := newTestCoreWithTasks(t)
 	core.execute("task add finish this")
-	core.execute("start")
+	core.execute("start") // enters focus prompt
+	core.execute("")      // skip prompt, start pomodoro
 	core.execute("task focus 1")
 	core.execute("task done 1")
 	if len(core.focusedTasks()) != 0 {
@@ -303,7 +308,7 @@ func TestFocusPromptToggleAndStart(t *testing.T) {
 	core := newTestCoreWithTasks(t)
 	core.execute("task add first task")
 	core.execute("task add second task")
-	core.execute("start") // enters prompt
+	core.execute("start")       // enters prompt
 	result := core.execute("1") // toggle task 1
 	if !strings.Contains(result.message, "Focused") {
 		t.Fatalf("expected focused info, got %q", result.message)
@@ -328,7 +333,7 @@ func TestFocusPromptSkip(t *testing.T) {
 	core := newTestCoreWithTasks(t)
 	core.execute("task add something")
 	core.execute("start") // enters prompt
-	core.execute("")       // skip (empty with no toggles)
+	core.execute("")      // skip (empty with no toggles)
 	if core.isFocusPromptPending() {
 		t.Fatal("expected prompt cleared")
 	}
@@ -357,8 +362,8 @@ func TestFocusPromptAddNewTask(t *testing.T) {
 func TestConfirmToWorkTriggersFocusPrompt(t *testing.T) {
 	core := newTestCoreWithTasks(t)
 	core.execute("task add keep working")
-	core.execute("start") // prompt
-	core.execute("")       // skip prompt, start pomodoro
+	core.execute("start")       // prompt
+	core.execute("")            // skip prompt, start pomodoro
 	core.cycle.CompletePeriod() // work done -> awaiting confirm
 	core.execute("confirm")     // -> short break (no prompt for breaks)
 	if core.isFocusPromptPending() {
@@ -375,9 +380,9 @@ func TestFocusPromptToggleOff(t *testing.T) {
 	core := newTestCoreWithTasks(t)
 	core.execute("task add toggleable")
 	core.execute("start") // enters prompt
-	core.execute("1") // toggle on
-	core.execute("1") // toggle off
-	core.execute("")  // start with no focus
+	core.execute("1")     // toggle on
+	core.execute("1")     // toggle off
+	core.execute("")      // start with no focus
 	if len(core.focusedTasks()) != 0 {
 		t.Fatal("expected no focused tasks after toggle off")
 	}

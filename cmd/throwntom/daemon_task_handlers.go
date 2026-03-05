@@ -210,6 +210,86 @@ func (d *daemonCore) handleTaskDown(parts []string) daemonCommandResult {
 	return daemonCommandResult{message: fmt.Sprintf("moved task down to position %d", pos+1)}
 }
 
+func (d *daemonCore) enterFocusPrompt(action string) daemonCommandResult {
+	d.pendingFocusPrompt = true
+	d.pendingFocusToggled = make(map[int]bool)
+	d.pendingFocusAction = action
+	return daemonCommandResult{message: d.formatFocusPrompt()}
+}
+
+func (d *daemonCore) handleFocusPromptInput(input string) daemonCommandResult {
+	if input == "" {
+		return d.finalizeFocusPrompt()
+	}
+	if strings.HasPrefix(input, "a ") {
+		desc := strings.TrimPrefix(input, "a ")
+		t, err := d.tasks.Add(desc)
+		if err != nil {
+			return daemonCommandResult{err: fmt.Errorf("add task: %w", err)}
+		}
+		d.pendingFocusToggled[t.ID] = true
+		return daemonCommandResult{message: d.formatFocusPrompt()}
+	}
+	pos, err := strconv.Atoi(input)
+	if err != nil {
+		return daemonCommandResult{err: fmt.Errorf("invalid input during task selection")}
+	}
+	active := d.tasks.Active()
+	if pos < 1 || pos > len(active) {
+		return daemonCommandResult{err: fmt.Errorf("position %d out of range (1-%d)", pos, len(active))}
+	}
+	id := active[pos-1].ID
+	if d.pendingFocusToggled[id] {
+		delete(d.pendingFocusToggled, id)
+	} else {
+		d.pendingFocusToggled[id] = true
+	}
+	return daemonCommandResult{message: d.formatFocusPrompt()}
+}
+
+func (d *daemonCore) finalizeFocusPrompt() daemonCommandResult {
+	active := d.tasks.Active()
+	var focused []task.Task
+	for _, t := range active {
+		if d.pendingFocusToggled[t.ID] {
+			focused = append(focused, t)
+		}
+	}
+	d.focused = focused
+	d.pendingFocusPrompt = false
+	d.pendingFocusToggled = nil
+	action := d.pendingFocusAction
+	d.pendingFocusAction = ""
+	if action == "start" {
+		d.cycle.Start()
+	}
+	return daemonCommandResult{message: "pomodoro started"}
+}
+
+func (d *daemonCore) formatFocusPrompt() string {
+	active := d.tasks.Active()
+	var lines []string
+	lines = append(lines, "Select tasks for this pomodoro:")
+	for i, tk := range active {
+		marker := " "
+		if d.pendingFocusToggled[tk.ID] {
+			marker = "*"
+		}
+		lines = append(lines, fmt.Sprintf(" %s%d) %s", marker, i+1, tk.Description))
+	}
+	var selected []string
+	for i, tk := range active {
+		if d.pendingFocusToggled[tk.ID] {
+			selected = append(selected, fmt.Sprintf("%d", i+1))
+		}
+	}
+	if len(selected) > 0 {
+		lines = append(lines, "", fmt.Sprintf("Focused: %s", strings.Join(selected, ", ")))
+	}
+	lines = append(lines, "", "(numbers to toggle, a <desc> to add, enter to start)")
+	return strings.Join(lines, "\n")
+}
+
 func (d *daemonCore) focusedTasks() []task.Task {
 	return append([]task.Task(nil), d.focused...)
 }
