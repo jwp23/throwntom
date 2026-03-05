@@ -155,6 +155,54 @@ func TestStateMarshalTextRoundTrip(t *testing.T) {
 	}
 }
 
+func TestSnapshotRestoreRoundTrip(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartWork()
+	e.MarkPeriodComplete()
+	e.ConfirmNext()
+	e.MarkPeriodComplete()
+	e.ConfirmNext()
+	e.Pause()
+
+	snap := e.Snapshot()
+
+	e2 := New(25, 5, 15, 4)
+	e2.Restore(snap)
+
+	if e2.State() != Paused {
+		t.Fatalf("expected Paused, got %v", e2.State())
+	}
+	if e2.CompletedToday() != 1 {
+		t.Fatalf("expected completedToday=1, got %d", e2.CompletedToday())
+	}
+	if e2.WorkSessionsInBlock() != 1 {
+		t.Fatalf("expected workSessionsBlock=1, got %d", e2.WorkSessionsInBlock())
+	}
+}
+
+func TestSnapshotRestorePreservesAllFields(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartWork()
+	e.MarkPeriodComplete()
+
+	snap := e.Snapshot()
+	if snap.State != AwaitingConfirm {
+		t.Fatalf("snapshot state: expected AwaitingConfirm, got %v", snap.State)
+	}
+	if snap.LastPhase != Work {
+		t.Fatalf("snapshot lastPhase: expected Work, got %v", snap.LastPhase)
+	}
+	if snap.CompletedToday != 1 {
+		t.Fatalf("snapshot completedToday: expected 1, got %d", snap.CompletedToday)
+	}
+	if snap.WorkSessions != 1 {
+		t.Fatalf("snapshot workSessions: expected 1, got %d", snap.WorkSessions)
+	}
+	if !snap.WorkDayStarted {
+		t.Fatal("snapshot workDayStarted: expected true")
+	}
+}
+
 func TestStateJSONRoundTrip(t *testing.T) {
 	type wrapper struct {
 		S State `json:"s"`

@@ -188,6 +188,35 @@ func (e *Engine) Resume() bool {
 	return true
 }
 
+type Snapshot struct {
+	State          State `json:"state"`
+	LastPhase      State `json:"last_phase"`
+	PausedFrom     State `json:"paused_from"`
+	WorkSessions   int   `json:"work_sessions"`
+	CompletedToday int   `json:"completed_today"`
+	WorkDayStarted bool  `json:"work_day_started"`
+}
+
+func (e *Engine) Snapshot() Snapshot {
+	return Snapshot{
+		State:          e.state,
+		LastPhase:      e.lastPhase,
+		PausedFrom:     e.pausedFrom,
+		WorkSessions:   e.workSessionsBlock,
+		CompletedToday: e.completedToday,
+		WorkDayStarted: e.workDayStarted,
+	}
+}
+
+func (e *Engine) Restore(s Snapshot) {
+	e.state = s.State
+	e.lastPhase = s.LastPhase
+	e.pausedFrom = s.PausedFrom
+	e.workSessionsBlock = s.WorkSessions
+	e.completedToday = s.CompletedToday
+	e.workDayStarted = s.WorkDayStarted
+}
+
 func (e *Engine) Stop() {
 	e.state = Idle
 	e.lastPhase = Idle
