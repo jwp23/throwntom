@@ -89,6 +89,10 @@ func (m interactiveTeaModel) updateKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if key.Type == tea.KeySpace {
 			runes = []rune{' '}
 		}
+		if len(runes) == 1 && runes[0] == '?' && m.prompt.input == "" {
+			m.showHelp = !m.showHelp
+			return m, nil
+		}
 		for _, r := range runes {
 			m.prompt, _, _ = applyKey(m.prompt, keyEvent{
 				kind: keyPrintable,
