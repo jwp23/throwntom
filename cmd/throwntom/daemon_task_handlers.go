@@ -112,6 +112,14 @@ func (d *daemonCore) handleTaskClear() daemonCommandResult {
 	return daemonCommandResult{message: "completed tasks cleared"}
 }
 
+func (d *daemonCore) focusedTasks() []task.Task {
+	return append([]task.Task(nil), d.focused...)
+}
+
+func (d *daemonCore) isWorkSession() bool {
+	return d.cycle.Status() == "pomodoro"
+}
+
 func (d *daemonCore) initTasks(path string) error {
 	store, err := task.NewFileStore(path)
 	if err != nil {

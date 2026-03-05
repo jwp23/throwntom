@@ -184,6 +184,90 @@ func TestInitTasksCreatesStore(t *testing.T) {
 	}
 }
 
+// --- Task 9: Focus state tests ---
+
+func TestTaskFocusDuringWorkSession(t *testing.T) {
+	core := newTestCoreWithTasks(t)
+	core.execute("task add important work")
+	core.execute("start")
+	result := core.execute("task focus 1")
+	if result.err != nil {
+		t.Fatalf("focus failed: %v", result.err)
+	}
+	focused := core.focusedTasks()
+	if len(focused) != 1 {
+		t.Fatalf("expected 1 focused, got %d", len(focused))
+	}
+	if focused[0].Description != "important work" {
+		t.Fatalf("expected 'important work', got %q", focused[0].Description)
+	}
+}
+
+func TestTaskFocusRejectsOutsideWorkSession(t *testing.T) {
+	core := newTestCoreWithTasks(t)
+	core.execute("task add important work")
+	result := core.execute("task focus 1")
+	if result.err == nil {
+		t.Fatal("expected error when not in work session")
+	}
+}
+
+func TestTaskUnfocus(t *testing.T) {
+	core := newTestCoreWithTasks(t)
+	core.execute("task add important work")
+	core.execute("start")
+	core.execute("task focus 1")
+	result := core.execute("task unfocus 1")
+	if result.err != nil {
+		t.Fatal(result.err)
+	}
+	if len(core.focusedTasks()) != 0 {
+		t.Fatal("expected empty focused list after unfocus")
+	}
+}
+
+func TestTaskUpDown(t *testing.T) {
+	core := newTestCoreWithTasks(t)
+	core.execute("task add first")
+	core.execute("task add second")
+	core.execute("start")
+	core.execute("task focus 1")
+	core.execute("task focus 2")
+	core.execute("task up 2")
+	focused := core.focusedTasks()
+	if len(focused) != 2 {
+		t.Fatalf("expected 2 focused, got %d", len(focused))
+	}
+	if focused[0].Description != "second" {
+		t.Fatalf("expected 'second' at top, got %q", focused[0].Description)
+	}
+	if focused[1].Description != "first" {
+		t.Fatalf("expected 'first' at bottom, got %q", focused[1].Description)
+	}
+}
+
+func TestFocusClearedOnStop(t *testing.T) {
+	core := newTestCoreWithTasks(t)
+	core.execute("task add work item")
+	core.execute("start")
+	core.execute("task focus 1")
+	core.execute("stop")
+	if len(core.focusedTasks()) != 0 {
+		t.Fatal("expected focus cleared on stop")
+	}
+}
+
+func TestTaskDoneDuringWorkSessionRemovesFromFocus(t *testing.T) {
+	core := newTestCoreWithTasks(t)
+	core.execute("task add finish this")
+	core.execute("start")
+	core.execute("task focus 1")
+	core.execute("task done 1")
+	if len(core.focusedTasks()) != 0 {
+		t.Fatal("expected task removed from focus after done")
+	}
+}
+
 func TestHelpIncludesTaskCommands(t *testing.T) {
 	help := daemonCommandsHelp()
 	subcommands := []string{
