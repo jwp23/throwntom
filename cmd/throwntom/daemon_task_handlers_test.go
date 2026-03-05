@@ -388,6 +388,51 @@ func TestFocusPromptToggleOff(t *testing.T) {
 	}
 }
 
+// --- Task 11: Focus display in daemonControlResponse tests ---
+
+func TestControlResponseIncludesFocusLines(t *testing.T) {
+	core := newTestCoreWithTasks(t)
+	core.execute("task add important")
+	core.execute("start")
+	core.execute("") // skip prompt
+	core.execute("task focus 1")
+	resp := core.executeControlCommand("status")
+	if len(resp.FocusLines) == 0 {
+		t.Fatal("expected focus lines in response")
+	}
+	found := false
+	for _, line := range resp.FocusLines {
+		if strings.Contains(line, "important") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected task description in focus lines, got %v", resp.FocusLines)
+	}
+}
+
+func TestControlResponseIncludesFocusPrompt(t *testing.T) {
+	core := newTestCoreWithTasks(t)
+	core.execute("task add pick me")
+	resp := core.executeControlCommand("start")
+	if resp.FocusPrompt == "" {
+		t.Fatal("expected focus prompt in response")
+	}
+	if !strings.Contains(resp.FocusPrompt, "pick me") {
+		t.Fatalf("expected task in prompt, got %q", resp.FocusPrompt)
+	}
+}
+
+func TestControlResponseNoFocusLinesWhenEmpty(t *testing.T) {
+	core := newTestCoreWithTasks(t)
+	core.execute("start") // no tasks, starts immediately
+	resp := core.executeControlCommand("status")
+	if len(resp.FocusLines) != 0 {
+		t.Fatalf("expected no focus lines, got %v", resp.FocusLines)
+	}
+}
+
 func TestHelpIncludesTaskCommands(t *testing.T) {
 	help := daemonCommandsHelp()
 	subcommands := []string{

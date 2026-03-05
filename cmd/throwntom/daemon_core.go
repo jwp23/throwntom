@@ -150,6 +150,10 @@ func (d *daemonCore) executeControlCommand(line string) daemonControlResponse {
 		MorningPending: morningPending,
 		Message:        result.message,
 		Exit:           result.exit,
+		FocusLines:     d.formatFocusLines(),
+	}
+	if d.pendingFocusPrompt {
+		resp.FocusPrompt = d.formatFocusPrompt()
 	}
 	if result.err != nil {
 		resp.Error = result.err.Error()

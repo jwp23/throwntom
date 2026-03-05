@@ -11,11 +11,13 @@ import (
 )
 
 type daemonControlResponse struct {
-	StatusLine     string `json:"status_line"`
-	MorningPending bool   `json:"morning_pending"`
-	Message        string `json:"message"`
-	Error          string `json:"error"`
-	Exit           bool   `json:"exit"`
+	StatusLine     string   `json:"status_line"`
+	MorningPending bool     `json:"morning_pending"`
+	Message        string   `json:"message"`
+	Error          string   `json:"error"`
+	Exit           bool     `json:"exit"`
+	FocusLines     []string `json:"focus_lines,omitempty"`
+	FocusPrompt    string   `json:"focus_prompt,omitempty"`
 }
 
 func defaultSocketPath() string {

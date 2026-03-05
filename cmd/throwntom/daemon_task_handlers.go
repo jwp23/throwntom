@@ -298,6 +298,17 @@ func (d *daemonCore) isFocusPromptPending() bool {
 	return d.pendingFocusPrompt
 }
 
+func (d *daemonCore) formatFocusLines() []string {
+	if len(d.focused) == 0 {
+		return nil
+	}
+	lines := []string{"Focus:"}
+	for i, tk := range d.focused {
+		lines = append(lines, fmt.Sprintf("  %d. %s", i+1, tk.Description))
+	}
+	return lines
+}
+
 func (d *daemonCore) isWorkSession() bool {
 	return d.cycle.Status() == "pomodoro"
 }
