@@ -178,6 +178,27 @@ func TestInteractiveTeaModelViewIncludesPersistentHeaderLines(t *testing.T) {
 	}
 }
 
+func TestInteractiveTeaModelHelpHiddenByDefault(t *testing.T) {
+	model := newInteractiveTeaModel(interactiveCallbacks{
+		HeaderLines: []string{"throwntom run mode started"},
+		HelpLines:   strings.Split(daemonCommandsHelp(), "\n"),
+		StatusSnapshot: func() (string, bool) {
+			return "idle | 00:00", false
+		},
+		Execute: func(string) (daemonControlResponse, error) {
+			return daemonControlResponse{}, nil
+		},
+	})
+
+	view := model.View()
+	if !strings.Contains(view, "?: help") {
+		t.Fatalf("expected hint line '?: help' when help is hidden, got %q", view)
+	}
+	if strings.Contains(view, "daemon commands:") {
+		t.Fatalf("expected help to be hidden by default, but found 'daemon commands:' in %q", view)
+	}
+}
+
 func hasLineWithPrefix(view string, prefix string) bool {
 	for _, line := range strings.Split(view, "\n") {
 		if strings.HasPrefix(line, prefix) {
