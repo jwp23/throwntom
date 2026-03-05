@@ -3,10 +3,10 @@
 ## Project Overview
 - **throwntom** is a pomodoro timer CLI written in Go
 - Interactive terminal UI built with [Bubble Tea v1.3.10](https://github.com/charmbracelet/bubbletea) (approved third-party dep)
-- Runs in three modes: local (in-process daemon), shell (connects to running daemon via Unix socket), control (single command)
+- Runs as an interactive terminal UI built with Bubble Tea
 
 ## Project Structure
-- `cmd/throwntom/` — main binary: CLI entry point, Bubble Tea model, daemon core, modes
+- `cmd/throwntom/` — main binary: CLI entry point, Bubble Tea model, timer core
 - `internal/app/` — application logic
 - `internal/config/` — TOML config parsing
 - `internal/engine/` — pomodoro state machine
@@ -16,7 +16,6 @@
 - `e2e/` — end-to-end tests (build tag: `e2e`)
 - `integration/` — integration tests
 - `docs/plans/` — design and implementation plans
-- `packaging/` — systemd/launchd service templates
 
 ## Build & Test Commands
 - Build: `go build ./cmd/throwntom/`

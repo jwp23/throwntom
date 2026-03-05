@@ -10,9 +10,6 @@ func TestParseInvocationDefaultsToRunMode(t *testing.T) {
 	if inv.mode != modeRun {
 		t.Fatalf("expected %q mode, got %q", modeRun, inv.mode)
 	}
-	if inv.controlCommand != "" {
-		t.Fatalf("expected empty control command in run mode, got %q", inv.controlCommand)
-	}
 }
 
 func TestParseInvocationModes(t *testing.T) {
@@ -20,13 +17,8 @@ func TestParseInvocationModes(t *testing.T) {
 		name string
 		args []string
 		mode string
-		cmd  string
 	}{
 		{name: "run explicit", args: []string{"run"}, mode: modeRun},
-		{name: "daemon", args: []string{"daemon"}, mode: modeDaemon},
-		{name: "shell", args: []string{"shell"}, mode: modeShell},
-		{name: "ctl", args: []string{"ctl", "start"}, mode: modeControl, cmd: "start"},
-		{name: "ctl with multiple words", args: []string{"ctl", "snooze", "10m"}, mode: modeControl, cmd: "snooze 10m"},
 	}
 	for _, tc := range tests {
 		tc := tc
@@ -38,9 +30,6 @@ func TestParseInvocationModes(t *testing.T) {
 			if inv.mode != tc.mode {
 				t.Fatalf("expected %q mode, got %q", tc.mode, inv.mode)
 			}
-			if inv.controlCommand != tc.cmd {
-				t.Fatalf("expected command %q, got %q", tc.cmd, inv.controlCommand)
-			}
 		})
 	}
 }
@@ -50,9 +39,8 @@ func TestParseInvocationErrors(t *testing.T) {
 		name string
 		args []string
 	}{
-		{name: "ctl without command", args: []string{"ctl"}},
 		{name: "unknown mode", args: []string{"wat"}},
-		{name: "daemon with extra args", args: []string{"daemon", "extra"}},
+		{name: "run with extra args", args: []string{"run", "extra"}},
 	}
 	for _, tc := range tests {
 		tc := tc

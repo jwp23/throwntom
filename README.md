@@ -18,9 +18,7 @@ go install github.com/jwp23/throwntom/cmd/throwntom@latest
 
 ## Modes
 
-`throwntom` now supports both local interactive use and background daemon use.
-
-### Local interactive (default)
+### Interactive (default)
 
 ```bash
 throwntom
@@ -37,36 +35,9 @@ Equivalent explicit mode:
 throwntom run
 ```
 
-### Background daemon
-***NOTE*** This is experimental
+## Commands
 
-```bash
-throwntom daemon
-```
-
-Daemon control from CLI:
-
-```bash
-throwntom ctl status
-throwntom ctl start
-throwntom ctl "snooze 10m"
-```
-
-Interactive shell connected to daemon:
-
-```bash
-throwntom shell
-```
-
-With config file:
-
-```bash
-throwntom --config ./throwntom.toml daemon
-```
-
-## Daemon Commands
-
-Type these commands in `throwntom shell` or pass them through `throwntom ctl ...`:
+Type these commands in the interactive prompt:
 
 - `start` - start work period
 - `new-cycle` - start a fresh cycle now (reset cycle progress, keep today's total)
@@ -78,7 +49,7 @@ Type these commands in `throwntom shell` or pass them through `throwntom ctl ...
 - `skip-today` - stop reminders for the current day
 - `status` - print current status
 - `test-sound` - play the reminder sound immediately to verify terminal audio/bell
-- `quit` - stop daemon
+- `quit` - exit throwntom
 - `exit` - alias for `quit`
 
 ## Config
@@ -95,27 +66,6 @@ schedule_time = "09:15"
 schedule_days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
 sound_command = ["paplay", "/usr/share/sounds/freedesktop/stereo/bell.oga"]
 ```
-
-## Service setup (Linux and macOS)
-
-Templates are included for:
-
-- `packaging/systemd/throwntom.service`
-- `packaging/launchd/io.github.jwp23.throwntom.plist`
-
-Installer script:
-
-```bash
-./packaging/install-service.sh
-```
-
-Environment overrides supported by the installer:
-
-- `BINARY_PATH`
-- `CONFIG_PATH`
-- `SOCKET_PATH`
-- `LOG_OUT_PATH` (macOS launchd)
-- `LOG_ERR_PATH` (macOS launchd)
 
 ## Verify
 
@@ -150,4 +100,3 @@ Heavier checks intentionally kept out of pre-commit and run in CI:
 - On macOS, notifier uses `afplay` with system sound `Glass.aiff`.
 - On Linux, notifier first tries `sound_command` (if configured), then `paplay`, `canberra-gtk-play`, `aplay`, and finally terminal bell (`\a`).
 - `sound_command` is optional and must be a TOML string array where the first item is the executable, and remaining items are args.
-- Default daemon socket path is `$XDG_RUNTIME_DIR/throwntom.sock` when available, otherwise `/tmp/throwntom.sock`.

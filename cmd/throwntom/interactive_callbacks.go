@@ -1,5 +1,15 @@
 package main
 
+type daemonControlResponse struct {
+	StatusLine     string
+	MorningPending bool
+	Message        string
+	Error          string
+	Exit           bool
+	FocusLines     []string
+	FocusPrompt    string
+}
+
 type interactiveCallbacks struct {
 	HeaderLines    []string
 	HelpLines      []string
