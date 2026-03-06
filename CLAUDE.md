@@ -80,6 +80,7 @@
 - Push the tag: `git push origin v<version>`.
 - Create a GitHub release from the tag: `gh release create v<version>`.
 - Follow semver: breaking changes bump major, new features bump minor, fixes bump patch.
+- When PRs are created, watch the checks on the pull request. If there are failures, fix them.
 
 ## Commit Message Workflow (Required)
 - Use Conventional Commits v1.0.0 for every commit message.
