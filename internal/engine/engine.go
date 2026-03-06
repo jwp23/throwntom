@@ -73,6 +73,7 @@ type Engine struct {
 	workSessionsBlock int
 	completedToday    int
 	workDayStarted    bool
+	workDate          time.Time
 }
 
 func New(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery int) *Engine {
@@ -189,12 +190,13 @@ func (e *Engine) Resume() bool {
 }
 
 type Snapshot struct {
-	State          State `json:"state"`
-	LastPhase      State `json:"last_phase"`
-	PausedFrom     State `json:"paused_from"`
-	WorkSessions   int   `json:"work_sessions"`
-	CompletedToday int   `json:"completed_today"`
-	WorkDayStarted bool  `json:"work_day_started"`
+	State          State     `json:"state"`
+	LastPhase      State     `json:"last_phase"`
+	PausedFrom     State     `json:"paused_from"`
+	WorkSessions   int       `json:"work_sessions"`
+	CompletedToday int       `json:"completed_today"`
+	WorkDayStarted bool      `json:"work_day_started"`
+	WorkDate       time.Time `json:"work_date"`
 }
 
 func (e *Engine) Snapshot() Snapshot {
@@ -205,6 +207,7 @@ func (e *Engine) Snapshot() Snapshot {
 		WorkSessions:   e.workSessionsBlock,
 		CompletedToday: e.completedToday,
 		WorkDayStarted: e.workDayStarted,
+		WorkDate:       e.workDate,
 	}
 }
 
@@ -215,6 +218,23 @@ func (e *Engine) Restore(s Snapshot) {
 	e.workSessionsBlock = s.WorkSessions
 	e.completedToday = s.CompletedToday
 	e.workDayStarted = s.WorkDayStarted
+	e.workDate = s.WorkDate
+}
+
+func (e *Engine) AdvanceDay(now time.Time) {
+	if e.workDate.IsZero() {
+		e.workDate = now
+		return
+	}
+	y1, m1, d1 := e.workDate.Date()
+	y2, m2, d2 := now.Date()
+	if y1 == y2 && m1 == m2 && d1 == d2 {
+		return
+	}
+	e.completedToday = 0
+	e.workSessionsBlock = 0
+	e.workDayStarted = false
+	e.workDate = now
 }
 
 func (e *Engine) Stop() {

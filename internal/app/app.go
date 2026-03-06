@@ -78,6 +78,12 @@ func (a *App) Restore(s Snapshot) error {
 	return nil
 }
 
+func (a *App) AdvanceDay(now time.Time) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.engine.AdvanceDay(now)
+}
+
 func (a *App) Start() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
