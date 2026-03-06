@@ -510,6 +510,53 @@ func TestFocusPromptHintMentionsEsc(t *testing.T) {
 	}
 }
 
+func TestConfirmToWorkSkipsFocusPromptWhenFocusedTasksExist(t *testing.T) {
+	core := newTestCoreWithTasks(t)
+	core.execute("task add task A")
+	core.execute("task add task B")
+
+	// Start pomodoro, select tasks 1 and 2 via focus prompt
+	core.execute("start") // enters focus prompt
+	core.execute("1")     // toggle task A
+	core.execute("2")     // toggle task B
+	core.execute("")      // confirm and start pomodoro
+
+	// Complete task A (position 1 in active list)
+	core.execute("task done 1")
+
+	// focused should still have task B
+	if len(core.focusedTasks()) != 1 {
+		t.Fatalf("expected 1 focused task, got %d", len(core.focusedTasks()))
+	}
+
+	// Complete work period, confirm into break
+	core.cycle.CompletePeriod()
+	core.execute("confirm")
+
+	// Complete break, confirm into work
+	core.cycle.CompletePeriod()
+	core.execute("confirm")
+
+	// Should NOT show focus prompt — incomplete focused tasks carry over
+	if core.isFocusPromptPending() {
+		t.Fatal("should skip focus prompt when incomplete focused tasks exist")
+	}
+
+	// Should be in pomodoro state
+	if core.cycle.Status() != "pomodoro" {
+		t.Fatalf("expected pomodoro, got %s", core.cycle.Status())
+	}
+
+	// Focused tasks should still contain task B
+	focused := core.focusedTasks()
+	if len(focused) != 1 {
+		t.Fatalf("expected 1 focused task carried over, got %d", len(focused))
+	}
+	if focused[0].Description != "task B" {
+		t.Fatalf("expected 'task B', got %q", focused[0].Description)
+	}
+}
+
 func TestHelpIncludesTaskCommands(t *testing.T) {
 	help := commandsHelp()
 	subcommands := []string{

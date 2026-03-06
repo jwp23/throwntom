@@ -245,7 +245,7 @@ func (d *timerCore) handleStop(_ []string) commandResult {
 func (d *timerCore) handleConfirm(_ []string) commandResult {
 	d.cycle.Confirm()
 	status := d.cycle.Status()
-	if status == "pomodoro" && d.tasks != nil {
+	if status == "pomodoro" && d.tasks != nil && len(d.focused) == 0 {
 		return d.enterFocusPrompt("confirm")
 	}
 	return commandResult{message: fmt.Sprintf("confirmed, state=%s", status)}
