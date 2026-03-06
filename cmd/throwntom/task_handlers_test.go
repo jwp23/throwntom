@@ -510,6 +510,49 @@ func TestFocusPromptHintMentionsEsc(t *testing.T) {
 	}
 }
 
+func TestConfirmToWorkPreSelectsIncompleteFocusedTasks(t *testing.T) {
+	core := newTestCoreWithTasks(t)
+	core.execute("task add task A")
+	core.execute("task add task B")
+	core.execute("task add task C")
+
+	// Grab IDs before any completions
+	active := core.tasks.Active()
+	idB := active[1].ID
+
+	// Start pomodoro, select tasks 1 and 2 via focus prompt
+	core.execute("start") // enters focus prompt
+	core.execute("1")     // toggle task A
+	core.execute("2")     // toggle task B
+	core.execute("")      // confirm and start pomodoro
+
+	// Complete task A (position 1 in active list)
+	core.execute("task done 1")
+
+	// Complete work period, confirm into break
+	core.cycle.CompletePeriod()
+	core.execute("confirm")
+
+	// Complete break, confirm into work (triggers focus prompt)
+	core.cycle.CompletePeriod()
+	core.execute("confirm")
+
+	if !core.isFocusPromptPending() {
+		t.Fatal("expected focus prompt when confirming into work phase")
+	}
+
+	// Task B (incomplete, was focused) should be pre-selected
+	if !core.pendingFocusToggled[idB] {
+		t.Fatalf("expected incomplete focused task B (id=%d) to be pre-selected", idB)
+	}
+
+	// Task A (completed) should NOT be pre-selected
+	idA := active[0].ID
+	if core.pendingFocusToggled[idA] {
+		t.Fatalf("completed task A (id=%d) should not be pre-selected", idA)
+	}
+}
+
 func TestHelpIncludesTaskCommands(t *testing.T) {
 	help := commandsHelp()
 	subcommands := []string{
