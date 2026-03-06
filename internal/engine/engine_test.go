@@ -203,6 +203,91 @@ func TestSnapshotRestorePreservesAllFields(t *testing.T) {
 	}
 }
 
+func TestAdvanceDayResetsOnNewDay(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	yesterday := time.Date(2026, 3, 5, 17, 0, 0, 0, time.Local)
+	e.AdvanceDay(yesterday)
+	e.StartWork()
+	e.MarkPeriodComplete()
+	e.ConfirmNext()
+	e.MarkPeriodComplete()
+	e.ConfirmNext()
+	e.MarkPeriodComplete()
+
+	if e.CompletedToday() != 2 {
+		t.Fatalf("expected completedToday=2, got %d", e.CompletedToday())
+	}
+
+	today := time.Date(2026, 3, 6, 9, 0, 0, 0, time.Local)
+	e.AdvanceDay(today)
+
+	if e.CompletedToday() != 0 {
+		t.Fatalf("expected completedToday=0 after day rollover, got %d", e.CompletedToday())
+	}
+	if e.WorkSessionsInBlock() != 0 {
+		t.Fatalf("expected workSessionsBlock=0 after day rollover, got %d", e.WorkSessionsInBlock())
+	}
+}
+
+func TestAdvanceDaySameDayIsNoop(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	now := time.Date(2026, 3, 6, 9, 0, 0, 0, time.Local)
+	e.AdvanceDay(now)
+	e.StartWork()
+	e.MarkPeriodComplete()
+
+	later := time.Date(2026, 3, 6, 17, 0, 0, 0, time.Local)
+	e.AdvanceDay(later)
+
+	if e.CompletedToday() != 1 {
+		t.Fatalf("expected completedToday=1 on same day, got %d", e.CompletedToday())
+	}
+}
+
+func TestAdvanceDayZeroDateRecordsWithoutReset(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartWork()
+	e.MarkPeriodComplete()
+
+	if e.CompletedToday() != 1 {
+		t.Fatalf("expected completedToday=1, got %d", e.CompletedToday())
+	}
+
+	now := time.Date(2026, 3, 6, 9, 0, 0, 0, time.Local)
+	e.AdvanceDay(now)
+
+	if e.CompletedToday() != 1 {
+		t.Fatalf("expected completedToday=1 preserved on first AdvanceDay, got %d", e.CompletedToday())
+	}
+
+	tomorrow := time.Date(2026, 3, 7, 9, 0, 0, 0, time.Local)
+	e.AdvanceDay(tomorrow)
+
+	if e.CompletedToday() != 0 {
+		t.Fatalf("expected completedToday=0 after day rollover, got %d", e.CompletedToday())
+	}
+}
+
+func TestAdvanceDaySnapshotIncludesWorkDate(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	now := time.Date(2026, 3, 6, 9, 0, 0, 0, time.Local)
+	e.AdvanceDay(now)
+
+	snap := e.Snapshot()
+	if snap.WorkDate.IsZero() {
+		t.Fatal("expected WorkDate to be set in snapshot")
+	}
+
+	e2 := New(25, 5, 15, 4)
+	e2.Restore(snap)
+
+	later := time.Date(2026, 3, 6, 17, 0, 0, 0, time.Local)
+	e2.AdvanceDay(later)
+	if e2.CompletedToday() != 0 {
+		t.Fatalf("expected completedToday=0 after restore, got %d", e2.CompletedToday())
+	}
+}
+
 func TestStateJSONRoundTrip(t *testing.T) {
 	type wrapper struct {
 		S State `json:"s"`
