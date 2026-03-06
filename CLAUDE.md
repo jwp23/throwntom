@@ -85,6 +85,9 @@
 - Use Conventional Commits v1.0.0 for every commit message.
 - Commit header format: `<type>[optional scope][!]: <description>`.
 - `type` is required and should be one of: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`.
+- If a commit message is one line, use `git commit -m "message"`.
+- Do not use `cat` or heredocs (`<<EOF`) for single-line messages.
+- Keep the subject line under 50 characters.
 - Keep commits header-only by default (no body, no footers).
 - Add a body/footer only for breaking changes.
 - Breaking changes must use `!` in the header or a `BREAKING CHANGE:` footer (uppercase), with a clear explanation of what changed.
