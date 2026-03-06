@@ -213,9 +213,6 @@ func (d *timerCore) handleTaskDown(parts []string) commandResult {
 func (d *timerCore) enterFocusPrompt(action string) commandResult {
 	d.pendingFocusPrompt = true
 	d.pendingFocusToggled = make(map[int]bool)
-	for _, t := range d.focused {
-		d.pendingFocusToggled[t.ID] = true
-	}
 	d.pendingFocusAction = action
 	return commandResult{message: d.formatFocusPrompt()}
 }

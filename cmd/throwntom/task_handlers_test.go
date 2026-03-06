@@ -510,15 +510,10 @@ func TestFocusPromptHintMentionsEsc(t *testing.T) {
 	}
 }
 
-func TestConfirmToWorkPreSelectsIncompleteFocusedTasks(t *testing.T) {
+func TestConfirmToWorkSkipsFocusPromptWhenFocusedTasksExist(t *testing.T) {
 	core := newTestCoreWithTasks(t)
 	core.execute("task add task A")
 	core.execute("task add task B")
-	core.execute("task add task C")
-
-	// Grab IDs before any completions
-	active := core.tasks.Active()
-	idB := active[1].ID
 
 	// Start pomodoro, select tasks 1 and 2 via focus prompt
 	core.execute("start") // enters focus prompt
@@ -529,27 +524,36 @@ func TestConfirmToWorkPreSelectsIncompleteFocusedTasks(t *testing.T) {
 	// Complete task A (position 1 in active list)
 	core.execute("task done 1")
 
+	// focused should still have task B
+	if len(core.focusedTasks()) != 1 {
+		t.Fatalf("expected 1 focused task, got %d", len(core.focusedTasks()))
+	}
+
 	// Complete work period, confirm into break
 	core.cycle.CompletePeriod()
 	core.execute("confirm")
 
-	// Complete break, confirm into work (triggers focus prompt)
+	// Complete break, confirm into work
 	core.cycle.CompletePeriod()
 	core.execute("confirm")
 
-	if !core.isFocusPromptPending() {
-		t.Fatal("expected focus prompt when confirming into work phase")
+	// Should NOT show focus prompt — incomplete focused tasks carry over
+	if core.isFocusPromptPending() {
+		t.Fatal("should skip focus prompt when incomplete focused tasks exist")
 	}
 
-	// Task B (incomplete, was focused) should be pre-selected
-	if !core.pendingFocusToggled[idB] {
-		t.Fatalf("expected incomplete focused task B (id=%d) to be pre-selected", idB)
+	// Should be in pomodoro state
+	if core.cycle.Status() != "pomodoro" {
+		t.Fatalf("expected pomodoro, got %s", core.cycle.Status())
 	}
 
-	// Task A (completed) should NOT be pre-selected
-	idA := active[0].ID
-	if core.pendingFocusToggled[idA] {
-		t.Fatalf("completed task A (id=%d) should not be pre-selected", idA)
+	// Focused tasks should still contain task B
+	focused := core.focusedTasks()
+	if len(focused) != 1 {
+		t.Fatalf("expected 1 focused task carried over, got %d", len(focused))
+	}
+	if focused[0].Description != "task B" {
+		t.Fatalf("expected 'task B', got %q", focused[0].Description)
 	}
 }
 
