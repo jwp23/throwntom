@@ -87,6 +87,14 @@ func buildTimerCore(cfg config.Config) (*timerCore, error) {
 	if err := core.initTasks(tasksPath); err != nil {
 		return nil, err
 	}
+	sessPath, err := defaultSessionPath()
+	if err != nil {
+		return nil, err
+	}
+	core.sessionPath = sessPath
+	if err := core.loadSession(); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not load session: %v\n", err)
+	}
 	return core, nil
 }
 

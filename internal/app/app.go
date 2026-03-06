@@ -41,6 +41,43 @@ func NewForTest(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery
 	return New(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery, repeatInterval, n)
 }
 
+type Snapshot struct {
+	Engine          engine.Snapshot `json:"engine"`
+	PhaseEndAt      time.Time       `json:"phase_end_at"`
+	PausedRemaining time.Duration   `json:"paused_remaining"`
+}
+
+func (a *App) Snapshot() Snapshot {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return Snapshot{
+		Engine:          a.engine.Snapshot(),
+		PhaseEndAt:      a.phaseEndAt,
+		PausedRemaining: a.pausedRemaining,
+	}
+}
+
+func (a *App) Restore(s Snapshot) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.engine.Restore(s.Engine)
+
+	switch s.Engine.State {
+	case engine.Work, engine.ShortBreak, engine.LongBreak:
+		remaining := time.Until(s.PhaseEndAt)
+		if remaining > 0 {
+			a.startPhaseTimerLocked(remaining)
+		} else {
+			a.completePeriodLocked()
+		}
+	case engine.Paused:
+		a.pausedRemaining = s.PausedRemaining
+	case engine.AwaitingConfirm:
+		a.startReminderLocked()
+	}
+	return nil
+}
+
 func (a *App) Start() {
 	a.mu.Lock()
 	defer a.mu.Unlock()

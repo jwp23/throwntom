@@ -71,6 +71,14 @@ func defaultTasksPath() (string, error) {
 	return filepath.Join(homeDir, ".config", "throwntom", "tasks.json"), nil
 }
 
+func defaultSessionPath() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve home directory: %w", err)
+	}
+	return filepath.Join(homeDir, ".config", "throwntom", "session.json"), nil
+}
+
 func printUsage() {
 	fmt.Println("usage: throwntom [--config path] [run]")
 	fmt.Println()

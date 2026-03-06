@@ -52,6 +52,34 @@ Type these commands in the interactive prompt:
 - `quit` - exit throwntom
 - `exit` - alias for `quit`
 
+### Task Commands
+
+Manage focused tasks for your pomodoro sessions. Tasks are persisted to `~/.config/throwntom/tasks.json`.
+
+- `task add <desc>` - add a new task
+- `task done <n>` - mark task number `n` as completed
+- `task remove <n>` - delete task number `n`
+- `task list` - show active tasks
+- `task completed` - show completed tasks
+- `task clear` - clear completed tasks
+- `task focus <n>` - focus on task `n` during a work session
+- `task unfocus <n>` - remove focus from task at position `n`
+- `task up <n>` - move focused task up in priority
+- `task down <n>` - move focused task down in priority
+
+When starting a pomodoro or confirming a transition to work, you'll be prompted to select which tasks to focus on for that session.
+
+## Session Persistence
+
+throwntom automatically saves session state to `~/.config/throwntom/session.json` after every command and on shutdown. When you restart, it restores:
+
+- Timer position (adjusted for wall-clock time elapsed while closed)
+- Engine state (work, break, paused, awaiting confirmation)
+- Completed pomodoro counts for the day
+- Focused task selections
+
+If the saved session is from a different day, it is discarded and throwntom starts fresh. If the timer expired while closed, it transitions to awaiting confirmation. Paused timers remain paused with their remaining duration preserved.
+
 ## Config
 
 Example `throwntom.toml`:
