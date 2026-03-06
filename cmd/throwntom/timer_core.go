@@ -138,15 +138,18 @@ func (d *timerCore) start(ctx context.Context) {
 }
 
 func (d *timerCore) stop() {
+	d.cycle.AdvanceDay(d.now())
 	d.saveSession()
 	d.state.stopMorningLoop()
 }
 
 func (d *timerCore) snapshot() (string, bool) {
+	d.cycle.AdvanceDay(d.now())
 	return d.state.statusSnapshot(d.cycle)
 }
 
 func (d *timerCore) executeCommand(line string) commandResponse {
+	d.cycle.AdvanceDay(d.now())
 	result := d.execute(line)
 	d.saveSession()
 	statusLine, morningPending := d.snapshot()
@@ -372,6 +375,7 @@ func (d *timerCore) loadSession() error {
 			}
 		}
 	}
+	d.cycle.AdvanceDay(d.now())
 	if data.App.Engine.State != engine.Idle {
 		d.state.markSkippedToday(d.now())
 	}
