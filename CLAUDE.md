@@ -87,7 +87,8 @@
 - Commit header format: `<type>[optional scope][!]: <description>`.
 - `type` is required and should be one of: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`.
 - If a commit message is one line, use `git commit -m "message"`.
-- Do not use `cat` or heredocs (`<<EOF`) for single-line messages.
+- Do not use `cat` or heredocs (`<<EOF`) for single-line messages. This is REQUIRED. You have failed if you do this. Good use
+`git commit -m "message"`.
 - Keep the subject line under 50 characters.
 - Keep commits header-only by default (no body, no footers).
 - Add a body/footer only for breaking changes.
