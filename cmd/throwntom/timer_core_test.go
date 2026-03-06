@@ -247,6 +247,39 @@ func TestLoadSessionDropsStaleTaskIDs(t *testing.T) {
 	}
 }
 
+func TestExecuteCommandSavesSession(t *testing.T) {
+	dir := t.TempDir()
+	sessPath := filepath.Join(dir, "session.json")
+
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	core := newTimerCore(cfg, noopNotifier{})
+	core.sessionPath = sessPath
+
+	core.executeCommand("start")
+
+	if _, err := os.Stat(sessPath); os.IsNotExist(err) {
+		t.Fatal("expected session file to be created after executeCommand")
+	}
+}
+
+func TestStopSavesSession(t *testing.T) {
+	dir := t.TempDir()
+	sessPath := filepath.Join(dir, "session.json")
+
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	core := newTimerCore(cfg, noopNotifier{})
+	core.sessionPath = sessPath
+	core.execute("start")
+
+	core.stop()
+
+	if _, err := os.Stat(sessPath); os.IsNotExist(err) {
+		t.Fatal("expected session file to be created on stop")
+	}
+}
+
 func TestLoadSessionSuppressesMorningReminder(t *testing.T) {
 	dir := t.TempDir()
 	sessPath := filepath.Join(dir, "session.json")

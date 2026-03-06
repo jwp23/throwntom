@@ -138,6 +138,7 @@ func (d *timerCore) start(ctx context.Context) {
 }
 
 func (d *timerCore) stop() {
+	d.saveSession()
 	d.state.stopMorningLoop()
 }
 
@@ -147,6 +148,7 @@ func (d *timerCore) snapshot() (string, bool) {
 
 func (d *timerCore) executeCommand(line string) commandResponse {
 	result := d.execute(line)
+	d.saveSession()
 	statusLine, morningPending := d.snapshot()
 	resp := commandResponse{
 		StatusLine:     statusLine,
