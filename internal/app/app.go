@@ -37,10 +37,6 @@ func New(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery int, r
 	}
 }
 
-func NewForTest(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery int, repeatInterval time.Duration, n notifier.Notifier) *App {
-	return New(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery, repeatInterval, n)
-}
-
 type Snapshot struct {
 	Engine          engine.Snapshot `json:"engine"`
 	PhaseEndAt      time.Time       `json:"phase_end_at"`
@@ -203,25 +199,10 @@ func (a *App) Stop() {
 	a.engine.Stop()
 }
 
-func (a *App) Status() string {
+func (a *App) State() engine.State {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	switch a.engine.State() {
-	case engine.Idle:
-		return "idle"
-	case engine.Work:
-		return "pomodoro"
-	case engine.ShortBreak:
-		return "short-break"
-	case engine.LongBreak:
-		return "long-break"
-	case engine.AwaitingConfirm:
-		return "awaiting confirmation"
-	case engine.Paused:
-		return "paused"
-	default:
-		return "unknown"
-	}
+	return a.engine.State()
 }
 
 func (a *App) StatusLine() string {

@@ -42,14 +42,6 @@ func Load(path string) (Data, error) {
 	return d, nil
 }
 
-func Remove(path string) error {
-	err := os.Remove(path)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("remove session: %w", err)
-	}
-	return nil
-}
-
 func IsSameDay(a, b time.Time) bool {
 	y1, m1, d1 := a.Date()
 	y2, m2, d2 := b.Date()

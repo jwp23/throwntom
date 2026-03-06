@@ -20,10 +20,6 @@ func (l *Loop) Ack() {
 	l.acked.Store(true)
 }
 
-func (l *Loop) Reset() {
-	l.acked.Store(false)
-}
-
 func (l *Loop) Run(ctx context.Context) {
 	if l.acked.Load() {
 		return

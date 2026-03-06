@@ -4,10 +4,6 @@ import (
 	"fmt"
 )
 
-func renderFrame(statusLine string, morningPending bool, message string, input string) string {
-	return renderFrameWithWidth(statusLine, morningPending, message, input, 0)
-}
-
 func renderFrameWithWidth(statusLine string, morningPending bool, message string, input string, width int) string {
 	return fmt.Sprintf(
 		"%s\n%s\n%s",

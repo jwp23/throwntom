@@ -19,20 +19,19 @@ func (f *fakeNotifier) PlaySound(string) error {
 	return f.err
 }
 
-func TestStatusShowsAwaitingConfirm(t *testing.T) {
+func TestStateShowsAwaitingConfirm(t *testing.T) {
 	n := &fakeNotifier{}
-	a := NewForTest(25, 5, 15, 4, 20*time.Millisecond, n)
+	a := New(25, 5, 15, 4, 20*time.Millisecond, n)
 	a.Start()
 	a.CompletePeriod()
-	status := a.Status()
-	if !strings.Contains(status, "awaiting confirmation") {
-		t.Fatalf("unexpected status: %s", status)
+	if got := a.State(); got != engine.AwaitingConfirm {
+		t.Fatalf("expected AwaitingConfirm, got %s", got)
 	}
 }
 
 func TestConfirmStopsReminderLoop(t *testing.T) {
 	n := &fakeNotifier{}
-	a := NewForTest(25, 5, 15, 4, 20*time.Millisecond, n)
+	a := New(25, 5, 15, 4, 20*time.Millisecond, n)
 	a.Start()
 	a.CompletePeriod()
 	time.Sleep(70 * time.Millisecond)
@@ -53,7 +52,7 @@ func TestCountdownFormatMMSS(t *testing.T) {
 
 func TestStatusLineShowsPendingWhenAwaitingConfirm(t *testing.T) {
 	n := &fakeNotifier{}
-	a := NewForTest(25, 5, 15, 4, 20*time.Millisecond, n)
+	a := New(25, 5, 15, 4, 20*time.Millisecond, n)
 	a.Start()
 	a.CompletePeriod()
 	line := a.StatusLine()
@@ -64,7 +63,7 @@ func TestStatusLineShowsPendingWhenAwaitingConfirm(t *testing.T) {
 
 func TestStatusLineUsesPomodoroLabel(t *testing.T) {
 	n := &fakeNotifier{}
-	a := NewForTest(25, 5, 15, 4, 20*time.Millisecond, n)
+	a := New(25, 5, 15, 4, 20*time.Millisecond, n)
 	a.Start()
 	line := a.StatusLine()
 	if !strings.Contains(line, "pomodoros=0/4") {
@@ -82,7 +81,7 @@ func TestStatusLineUsesPomodoroLabel(t *testing.T) {
 
 func TestStatusLineShowsFullCycleAtLongBreakBoundary(t *testing.T) {
 	n := &fakeNotifier{}
-	a := NewForTest(25, 5, 15, 4, 20*time.Millisecond, n)
+	a := New(25, 5, 15, 4, 20*time.Millisecond, n)
 	a.Start()
 
 	for i := 0; i < 3; i++ {
@@ -113,25 +112,25 @@ func TestStatusLineShowsFullCycleAtLongBreakBoundary(t *testing.T) {
 
 func TestPauseAndResume(t *testing.T) {
 	n := &fakeNotifier{}
-	a := NewForTest(25, 5, 15, 4, 20*time.Millisecond, n)
+	a := New(25, 5, 15, 4, 20*time.Millisecond, n)
 	a.Start()
 	a.Pause()
-	if got := a.Status(); got != "paused" {
-		t.Fatalf("expected paused, got %s", got)
+	if got := a.State(); got != engine.Paused {
+		t.Fatalf("expected Paused, got %s", got)
 	}
 	a.Resume()
-	if got := a.Status(); got != "pomodoro" {
-		t.Fatalf("expected pomodoro after resume, got %s", got)
+	if got := a.State(); got != engine.Work {
+		t.Fatalf("expected Work after resume, got %s", got)
 	}
 }
 
 func TestStopResetsToIdle(t *testing.T) {
 	n := &fakeNotifier{}
-	a := NewForTest(25, 5, 15, 4, 20*time.Millisecond, n)
+	a := New(25, 5, 15, 4, 20*time.Millisecond, n)
 	a.Start()
 	a.Stop()
-	if got := a.Status(); got != "idle" {
-		t.Fatalf("expected idle, got %s", got)
+	if got := a.State(); got != engine.Idle {
+		t.Fatalf("expected Idle, got %s", got)
 	}
 	line := a.StatusLine()
 	if !strings.Contains(line, "idle | 00:00") {
@@ -141,7 +140,7 @@ func TestStopResetsToIdle(t *testing.T) {
 
 func TestStartNewCycleResetsCycleProgressButPreservesDailyTotal(t *testing.T) {
 	n := &fakeNotifier{}
-	a := NewForTest(25, 5, 15, 4, 20*time.Millisecond, n)
+	a := New(25, 5, 15, 4, 20*time.Millisecond, n)
 	a.Start()
 	a.CompletePeriod()
 	if !strings.Contains(a.StatusLine(), "today's pomodoros=1") {
@@ -163,7 +162,7 @@ func TestStartNewCycleResetsCycleProgressButPreservesDailyTotal(t *testing.T) {
 
 func TestRestoreWorkWithTimeRemaining(t *testing.T) {
 	n := &fakeNotifier{}
-	a := NewForTest(25, 5, 15, 4, 20*time.Millisecond, n)
+	a := New(25, 5, 15, 4, 20*time.Millisecond, n)
 	snap := Snapshot{
 		Engine: engine.Snapshot{
 			State:          engine.Work,
@@ -177,8 +176,8 @@ func TestRestoreWorkWithTimeRemaining(t *testing.T) {
 	if err := a.Restore(snap); err != nil {
 		t.Fatalf("Restore: %v", err)
 	}
-	if got := a.Status(); got != "pomodoro" {
-		t.Fatalf("expected pomodoro, got %s", got)
+	if got := a.State(); got != engine.Work {
+		t.Fatalf("expected Work, got %s", got)
 	}
 	line := a.StatusLine()
 	if !strings.Contains(line, "today's pomodoros=2") {
@@ -188,7 +187,7 @@ func TestRestoreWorkWithTimeRemaining(t *testing.T) {
 
 func TestRestoreWorkExpiredTransitionsToAwaitingConfirm(t *testing.T) {
 	n := &fakeNotifier{}
-	a := NewForTest(25, 5, 15, 4, 20*time.Millisecond, n)
+	a := New(25, 5, 15, 4, 20*time.Millisecond, n)
 	snap := Snapshot{
 		Engine: engine.Snapshot{
 			State:          engine.Work,
@@ -202,14 +201,14 @@ func TestRestoreWorkExpiredTransitionsToAwaitingConfirm(t *testing.T) {
 	if err := a.Restore(snap); err != nil {
 		t.Fatalf("Restore: %v", err)
 	}
-	if got := a.Status(); got != "awaiting confirmation" {
-		t.Fatalf("expected awaiting confirmation, got %s", got)
+	if got := a.State(); got != engine.AwaitingConfirm {
+		t.Fatalf("expected AwaitingConfirm, got %s", got)
 	}
 }
 
 func TestRestorePausedPreservesRemaining(t *testing.T) {
 	n := &fakeNotifier{}
-	a := NewForTest(25, 5, 15, 4, 20*time.Millisecond, n)
+	a := New(25, 5, 15, 4, 20*time.Millisecond, n)
 	snap := Snapshot{
 		Engine: engine.Snapshot{
 			State:      engine.Paused,
@@ -221,18 +220,18 @@ func TestRestorePausedPreservesRemaining(t *testing.T) {
 	if err := a.Restore(snap); err != nil {
 		t.Fatalf("Restore: %v", err)
 	}
-	if got := a.Status(); got != "paused" {
-		t.Fatalf("expected paused, got %s", got)
+	if got := a.State(); got != engine.Paused {
+		t.Fatalf("expected Paused, got %s", got)
 	}
 	a.Resume()
-	if got := a.Status(); got != "pomodoro" {
-		t.Fatalf("expected pomodoro after resume, got %s", got)
+	if got := a.State(); got != engine.Work {
+		t.Fatalf("expected Work after resume, got %s", got)
 	}
 }
 
 func TestRestoreAwaitingConfirmStartsReminder(t *testing.T) {
 	n := &fakeNotifier{}
-	a := NewForTest(25, 5, 15, 4, 20*time.Millisecond, n)
+	a := New(25, 5, 15, 4, 20*time.Millisecond, n)
 	snap := Snapshot{
 		Engine: engine.Snapshot{
 			State:     engine.AwaitingConfirm,
@@ -242,8 +241,8 @@ func TestRestoreAwaitingConfirmStartsReminder(t *testing.T) {
 	if err := a.Restore(snap); err != nil {
 		t.Fatalf("Restore: %v", err)
 	}
-	if got := a.Status(); got != "awaiting confirmation" {
-		t.Fatalf("expected awaiting confirmation, got %s", got)
+	if got := a.State(); got != engine.AwaitingConfirm {
+		t.Fatalf("expected AwaitingConfirm, got %s", got)
 	}
 	time.Sleep(50 * time.Millisecond)
 	if n.calls.Load() == 0 {
@@ -254,7 +253,7 @@ func TestRestoreAwaitingConfirmStartsReminder(t *testing.T) {
 
 func TestRestoreIdleIsClean(t *testing.T) {
 	n := &fakeNotifier{}
-	a := NewForTest(25, 5, 15, 4, 20*time.Millisecond, n)
+	a := New(25, 5, 15, 4, 20*time.Millisecond, n)
 	snap := Snapshot{
 		Engine: engine.Snapshot{
 			State:          engine.Idle,
@@ -265,8 +264,8 @@ func TestRestoreIdleIsClean(t *testing.T) {
 	if err := a.Restore(snap); err != nil {
 		t.Fatalf("Restore: %v", err)
 	}
-	if got := a.Status(); got != "idle" {
-		t.Fatalf("expected idle, got %s", got)
+	if got := a.State(); got != engine.Idle {
+		t.Fatalf("expected Idle, got %s", got)
 	}
 	line := a.StatusLine()
 	if !strings.Contains(line, "today's pomodoros=5") {
@@ -276,18 +275,18 @@ func TestRestoreIdleIsClean(t *testing.T) {
 
 func TestSnapshotRestoreRoundTrip(t *testing.T) {
 	n := &fakeNotifier{}
-	a := NewForTest(25, 5, 15, 4, 20*time.Millisecond, n)
+	a := New(25, 5, 15, 4, 20*time.Millisecond, n)
 	a.Start()
 	a.CompletePeriod()
 	a.Confirm()
 
 	snap := a.Snapshot()
-	a2 := NewForTest(25, 5, 15, 4, 20*time.Millisecond, n)
+	a2 := New(25, 5, 15, 4, 20*time.Millisecond, n)
 	if err := a2.Restore(snap); err != nil {
 		t.Fatalf("Restore: %v", err)
 	}
-	if got := a2.Status(); got != "short-break" {
-		t.Fatalf("expected short-break after restore, got %s", got)
+	if got := a2.State(); got != engine.ShortBreak {
+		t.Fatalf("expected ShortBreak after restore, got %s", got)
 	}
 	line := a2.StatusLine()
 	if !strings.Contains(line, "today's pomodoros=1") {
