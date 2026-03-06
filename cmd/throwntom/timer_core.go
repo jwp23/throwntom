@@ -9,9 +9,11 @@ import (
 
 	"github.com/jwp23/throwntom/v2/internal/app"
 	"github.com/jwp23/throwntom/v2/internal/config"
+	"github.com/jwp23/throwntom/v2/internal/engine"
 	"github.com/jwp23/throwntom/v2/internal/notifier"
 	"github.com/jwp23/throwntom/v2/internal/reminder"
 	"github.com/jwp23/throwntom/v2/internal/scheduler"
+	"github.com/jwp23/throwntom/v2/internal/session"
 	"github.com/jwp23/throwntom/v2/internal/task"
 )
 
@@ -105,6 +107,7 @@ type timerCore struct {
 	pendingFocusPrompt  bool
 	pendingFocusToggled map[int]bool
 	pendingFocusAction  string
+	sessionPath         string
 }
 
 type commandHandler func(parts []string) commandResult
@@ -321,6 +324,56 @@ func startMorningScheduler(ctx context.Context, state *reminderState, sched *sch
 			}
 		}
 	}()
+}
+
+func (d *timerCore) saveSession() {
+	if d.sessionPath == "" {
+		return
+	}
+	var focusIDs []int
+	for _, t := range d.focused {
+		focusIDs = append(focusIDs, t.ID)
+	}
+	data := session.Data{
+		SavedAt:        d.now(),
+		App:            d.cycle.Snapshot(),
+		FocusedTaskIDs: focusIDs,
+	}
+	_ = session.Save(d.sessionPath, data)
+}
+
+func (d *timerCore) loadSession() error {
+	if d.sessionPath == "" {
+		return nil
+	}
+	data, err := session.Load(d.sessionPath)
+	if err != nil {
+		return err
+	}
+	if data.SavedAt.IsZero() {
+		return nil
+	}
+	if !session.IsSameDay(data.SavedAt, d.now()) {
+		return nil
+	}
+	if err := d.cycle.Restore(data.App); err != nil {
+		return err
+	}
+	if d.tasks != nil && len(data.FocusedTaskIDs) > 0 {
+		activeByID := make(map[int]task.Task)
+		for _, t := range d.tasks.Active() {
+			activeByID[t.ID] = t
+		}
+		for _, id := range data.FocusedTaskIDs {
+			if t, ok := activeByID[id]; ok {
+				d.focused = append(d.focused, t)
+			}
+		}
+	}
+	if data.App.Engine.State != engine.Idle {
+		d.state.markSkippedToday(d.now())
+	}
+	return nil
 }
 
 func commandsHelp() string {
