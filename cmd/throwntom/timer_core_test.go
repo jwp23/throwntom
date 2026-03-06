@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -424,6 +425,59 @@ func TestSnapshotResetsCompletedTodayOnDayRollover(t *testing.T) {
 	status2, _ := core.snapshot()
 	if !strings.Contains(status2, "today's pomodoros=0") {
 		t.Fatalf("expected today's pomodoros=0 after day rollover, got %s", status2)
+	}
+}
+
+func TestStartBeginsMorningLoopWhenPendingAndIdle(t *testing.T) {
+	cfg := config.Default()
+	core := newTimerCore(cfg, noopNotifier{})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	core.start(ctx)
+	defer core.stop()
+
+	core.state.mu.Lock()
+	hasCancel := core.state.morningCancel != nil
+	core.state.mu.Unlock()
+	if !hasCancel {
+		t.Fatal("expected morning loop to be running after start with morningPending=true and idle engine")
+	}
+}
+
+func TestStartSkipsMorningLoopWhenNotPending(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	core := newTimerCore(cfg, noopNotifier{})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	core.start(ctx)
+	defer core.stop()
+
+	core.state.mu.Lock()
+	hasCancel := core.state.morningCancel != nil
+	core.state.mu.Unlock()
+	if hasCancel {
+		t.Fatal("expected no morning loop when morningPending=false")
+	}
+}
+
+func TestStartSkipsMorningLoopWhenEngineNotIdle(t *testing.T) {
+	cfg := config.Default()
+	core := newTimerCore(cfg, noopNotifier{})
+	core.execute("start") // engine transitions to Work, stopMorningLoop clears morningPending
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	core.start(ctx)
+	defer core.stop()
+
+	core.state.mu.Lock()
+	hasCancel := core.state.morningCancel != nil
+	core.state.mu.Unlock()
+	if hasCancel {
+		t.Fatal("expected no morning loop when engine is not idle")
 	}
 }
 
