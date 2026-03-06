@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -135,7 +136,7 @@ func newTimerCore(cfg config.Config, n notifier.Notifier) *timerCore {
 
 func (d *timerCore) start(ctx context.Context) {
 	startMorningScheduler(ctx, d.state, d.scheduler, d.repeatInterval, d.notifier)
-	if d.state.isMorningPending() && d.cycle.Status() == "idle" {
+	if d.state.isMorningPending() && d.cycle.State() == engine.Idle {
 		startMorningLoop(d.state, d.repeatInterval, d.notifier)
 	}
 }
@@ -250,11 +251,11 @@ func (d *timerCore) handleStop(_ []string) commandResult {
 
 func (d *timerCore) handleConfirm(_ []string) commandResult {
 	d.cycle.Confirm()
-	status := d.cycle.Status()
-	if status == "pomodoro" && d.tasks != nil && len(d.focused) == 0 {
+	state := d.cycle.State()
+	if state == engine.Work && d.tasks != nil && len(d.focused) == 0 {
 		return d.enterFocusPrompt("confirm")
 	}
-	return commandResult{message: fmt.Sprintf("confirmed, state=%s", status)}
+	return commandResult{message: fmt.Sprintf("confirmed, state=%s", state)}
 }
 
 func (d *timerCore) handleSnooze(parts []string) commandResult {
@@ -347,7 +348,9 @@ func (d *timerCore) saveSession() {
 		App:            d.cycle.Snapshot(),
 		FocusedTaskIDs: focusIDs,
 	}
-	_ = session.Save(d.sessionPath, data)
+	if err := session.Save(d.sessionPath, data); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: session save failed: %v\n", err)
+	}
 }
 
 func (d *timerCore) loadSession() error {
@@ -388,16 +391,16 @@ func (d *timerCore) loadSession() error {
 func commandsHelp() string {
 	return strings.Join([]string{
 		"commands:",
-		"  start              start a new pomodoro",
-		"  new-cycle          start a fresh pomodoro cycle",
+		"  start              start work period",
+		"  new-cycle          start a fresh cycle (reset cycle progress, keep today's total)",
 		"  pause              pause the active pomodoro or break timer",
 		"  resume             resume a paused pomodoro or break timer",
 		"  stop               stop active timer and return to idle",
-		"  confirm            acknowledge transition and move to next phase",
-		"  snooze <duration>  delay reminders (example: snooze 10m)",
-		"  skip-today         disable reminders and cycle for the rest of today",
-		"  status             print current cycle status",
-		"  test-sound         play reminder sound now",
+		"  confirm            acknowledge transition and start next phase",
+		"  snooze <duration>  snooze current reminder (example: snooze 10m)",
+		"  skip-today         stop reminders for the current day",
+		"  status             print current status",
+		"  test-sound         play the reminder sound to verify audio",
 		"  quit               exit throwntom",
 		"  exit               alias for quit",
 		"",

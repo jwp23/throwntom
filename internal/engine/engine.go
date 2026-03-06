@@ -145,10 +145,6 @@ func (e *Engine) Snooze(d time.Duration) {
 	e.snoozeUntil = time.Now().Add(d)
 }
 
-func (e *Engine) SnoozeUntil() time.Time {
-	return e.snoozeUntil
-}
-
 func (e *Engine) CompletedToday() int {
 	return e.completedToday
 }

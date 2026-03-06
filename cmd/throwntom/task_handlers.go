@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jwp23/throwntom/v2/internal/engine"
 	"github.com/jwp23/throwntom/v2/internal/task"
 )
 
@@ -317,7 +318,7 @@ func (d *timerCore) formatFocusLines() []string {
 }
 
 func (d *timerCore) isWorkSession() bool {
-	return d.cycle.Status() == "pomodoro"
+	return d.cycle.State() == engine.Work
 }
 
 func (d *timerCore) initTasks(path string) error {

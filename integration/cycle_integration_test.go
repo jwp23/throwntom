@@ -10,6 +10,7 @@ import (
 
 	"github.com/jwp23/throwntom/v2/internal/app"
 	"github.com/jwp23/throwntom/v2/internal/config"
+	"github.com/jwp23/throwntom/v2/internal/engine"
 	"github.com/jwp23/throwntom/v2/internal/scheduler"
 )
 
@@ -24,7 +25,7 @@ func (f *fakeNotifier) PlaySound(string) error {
 
 func TestCycleTransitionAndReminderAck(t *testing.T) {
 	notifier := &fakeNotifier{}
-	cycle := app.NewForTest(25, 5, 15, 4, 20*time.Millisecond, notifier)
+	cycle := app.New(25, 5, 15, 4, 20*time.Millisecond, notifier)
 
 	cycle.Start()
 	cycle.CompletePeriod()
@@ -34,8 +35,8 @@ func TestCycleTransitionAndReminderAck(t *testing.T) {
 	}
 
 	cycle.Confirm()
-	if got := cycle.Status(); got != "short-break" {
-		t.Fatalf("expected short-break after confirm, got %q", got)
+	if got := cycle.State(); got != engine.ShortBreak {
+		t.Fatalf("expected ShortBreak after confirm, got %q", got)
 	}
 
 	afterConfirm := notifier.calls.Load()
@@ -68,7 +69,7 @@ repeat_secs = 3
 
 func TestStatusIncludesPomodoroProgress(t *testing.T) {
 	notifier := &fakeNotifier{}
-	cycle := app.NewForTest(25, 5, 15, 4, 30*time.Millisecond, notifier)
+	cycle := app.New(25, 5, 15, 4, 30*time.Millisecond, notifier)
 	cycle.Start()
 
 	status := cycle.StatusLine()

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jwp23/throwntom/v2/internal/config"
+	"github.com/jwp23/throwntom/v2/internal/engine"
 	"github.com/jwp23/throwntom/v2/internal/task"
 )
 
@@ -285,8 +286,8 @@ func TestStartEntersFocusPromptWhenTasksExist(t *testing.T) {
 	if !strings.Contains(result.message, "Select tasks") {
 		t.Fatalf("expected prompt message, got %q", result.message)
 	}
-	if core.cycle.Status() != "idle" {
-		t.Fatalf("expected idle during prompt, got %s", core.cycle.Status())
+	if core.cycle.State() != engine.Idle {
+		t.Fatalf("expected idle during prompt, got %s", core.cycle.State())
 	}
 }
 
@@ -299,8 +300,8 @@ func TestStartShowsPromptWhenNoTasks(t *testing.T) {
 	if !strings.Contains(result.message, "Select tasks") {
 		t.Fatalf("expected prompt message, got %q", result.message)
 	}
-	if core.cycle.Status() != "idle" {
-		t.Fatalf("expected idle during prompt, got %s", core.cycle.Status())
+	if core.cycle.State() != engine.Idle {
+		t.Fatalf("expected idle during prompt, got %s", core.cycle.State())
 	}
 }
 
@@ -312,8 +313,8 @@ func TestStartPromptEmptyListAllowsAddAndStart(t *testing.T) {
 	if core.isFocusPromptPending() {
 		t.Fatal("expected prompt cleared")
 	}
-	if core.cycle.Status() != "pomodoro" {
-		t.Fatalf("expected pomodoro, got %s", core.cycle.Status())
+	if core.cycle.State() != engine.Work {
+		t.Fatalf("expected pomodoro, got %s", core.cycle.State())
 	}
 	focused := core.focusedTasks()
 	if len(focused) != 1 {
@@ -332,8 +333,8 @@ func TestStartPromptEmptyListSkipStarts(t *testing.T) {
 	if core.isFocusPromptPending() {
 		t.Fatal("expected prompt cleared")
 	}
-	if core.cycle.Status() != "pomodoro" {
-		t.Fatalf("expected pomodoro, got %s", core.cycle.Status())
+	if core.cycle.State() != engine.Work {
+		t.Fatalf("expected pomodoro, got %s", core.cycle.State())
 	}
 	if len(core.focusedTasks()) != 0 {
 		t.Fatal("expected no focused tasks after skip")
@@ -353,8 +354,8 @@ func TestFocusPromptToggleAndStart(t *testing.T) {
 	if core.isFocusPromptPending() {
 		t.Fatal("expected prompt cleared")
 	}
-	if core.cycle.Status() != "pomodoro" {
-		t.Fatalf("expected pomodoro, got %s", core.cycle.Status())
+	if core.cycle.State() != engine.Work {
+		t.Fatalf("expected pomodoro, got %s", core.cycle.State())
 	}
 	focused := core.focusedTasks()
 	if len(focused) != 1 {
@@ -373,8 +374,8 @@ func TestFocusPromptSkip(t *testing.T) {
 	if core.isFocusPromptPending() {
 		t.Fatal("expected prompt cleared")
 	}
-	if core.cycle.Status() != "pomodoro" {
-		t.Fatalf("expected pomodoro, got %s", core.cycle.Status())
+	if core.cycle.State() != engine.Work {
+		t.Fatalf("expected pomodoro, got %s", core.cycle.State())
 	}
 	if len(core.focusedTasks()) != 0 {
 		t.Fatal("expected no focused tasks after skip")
@@ -478,8 +479,8 @@ func TestCancelFocusPromptDoesNotStart(t *testing.T) {
 	if core.isFocusPromptPending() {
 		t.Fatal("expected prompt to be cancelled")
 	}
-	if core.cycle.Status() != "idle" {
-		t.Fatalf("expected idle after cancel, got %s", core.cycle.Status())
+	if core.cycle.State() != engine.Idle {
+		t.Fatalf("expected idle after cancel, got %s", core.cycle.State())
 	}
 	if !strings.Contains(result.message, "cancelled") {
 		t.Fatalf("expected cancelled message, got %q", result.message)
@@ -543,8 +544,8 @@ func TestConfirmToWorkSkipsFocusPromptWhenFocusedTasksExist(t *testing.T) {
 	}
 
 	// Should be in pomodoro state
-	if core.cycle.Status() != "pomodoro" {
-		t.Fatalf("expected pomodoro, got %s", core.cycle.Status())
+	if core.cycle.State() != engine.Work {
+		t.Fatalf("expected pomodoro, got %s", core.cycle.State())
 	}
 
 	// Focused tasks should still contain task B

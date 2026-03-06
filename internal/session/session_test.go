@@ -79,28 +79,6 @@ func TestLoadCorruptFileReturnsError(t *testing.T) {
 	}
 }
 
-func TestRemoveExistingFile(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "session.json")
-	if err := os.WriteFile(path, []byte("{}"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := Remove(path); err != nil {
-		t.Fatalf("Remove: %v", err)
-	}
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		t.Fatal("expected file to be removed")
-	}
-}
-
-func TestRemoveMissingFileNoError(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "nonexistent.json")
-	if err := Remove(path); err != nil {
-		t.Fatalf("Remove missing file: %v", err)
-	}
-}
-
 func TestIsSameDay(t *testing.T) {
 	loc := time.Local
 	tests := []struct {

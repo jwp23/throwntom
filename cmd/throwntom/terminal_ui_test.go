@@ -6,7 +6,7 @@ import (
 )
 
 func TestRenderFrame(t *testing.T) {
-	got := renderFrame("pomodoro | 24:59 | today's pomodoros=0 | pomodoros=0/4", false, "pomodoro started", "")
+	got := renderFrameWithWidth("pomodoro | 24:59 | today's pomodoros=0 | pomodoros=0/4", false, "pomodoro started", "", 0)
 	if !strings.Contains(got, "status: pomodoro | 24:59 | today's pomodoros=0 | pomodoros=0/4 morning reminder pending=false") {
 		t.Fatalf("unexpected status line: %q", got)
 	}

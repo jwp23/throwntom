@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jwp23/throwntom/v2/internal/config"
+	"github.com/jwp23/throwntom/v2/internal/engine"
 	"github.com/jwp23/throwntom/v2/internal/session"
 	"github.com/jwp23/throwntom/v2/internal/task"
 )
@@ -332,9 +333,9 @@ func TestSaveLoadExpiredTimerTransitionsToAwaitingConfirm(t *testing.T) {
 	if err := core2.loadSession(); err != nil {
 		t.Fatalf("loadSession: %v", err)
 	}
-	status := core2.cycle.Status()
-	if status != "awaiting confirmation" {
-		t.Fatalf("expected awaiting confirmation for expired timer, got %s", status)
+	state := core2.cycle.State()
+	if state != engine.AwaitingConfirm {
+		t.Fatalf("expected AwaitingConfirm for expired timer, got %s", state)
 	}
 	core2.cycle.Stop()
 }
@@ -356,14 +357,14 @@ func TestSaveLoadPausedPreservesRemainingDuration(t *testing.T) {
 	if err := core2.loadSession(); err != nil {
 		t.Fatalf("loadSession: %v", err)
 	}
-	status := core2.cycle.Status()
-	if status != "paused" {
-		t.Fatalf("expected paused, got %s", status)
+	state := core2.cycle.State()
+	if state != engine.Paused {
+		t.Fatalf("expected Paused, got %s", state)
 	}
 	core2.execute("resume")
-	status = core2.cycle.Status()
-	if status != "pomodoro" {
-		t.Fatalf("expected pomodoro after resume, got %s", status)
+	state = core2.cycle.State()
+	if state != engine.Work {
+		t.Fatalf("expected Work after resume, got %s", state)
 	}
 	core2.cycle.Stop()
 }
