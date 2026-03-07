@@ -33,6 +33,24 @@ func TestRequiresInteractiveTTY(t *testing.T) {
 	}
 }
 
+func TestConfigDirPathCreatesDirectory(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	path, err := configDirPath("tasks.json")
+	if err != nil {
+		t.Fatalf("configDirPath: %v", err)
+	}
+	dir := filepath.Dir(path)
+	info, err := os.Stat(dir)
+	if err != nil {
+		t.Fatalf("expected config dir to exist at %s: %v", dir, err)
+	}
+	if !info.IsDir() {
+		t.Fatalf("expected %s to be a directory", dir)
+	}
+}
+
 func TestLoadConfigUsesDefaultHomeConfigFile(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
