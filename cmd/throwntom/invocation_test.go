@@ -20,7 +20,7 @@ func TestParseInvocationRejectsPositionalArgs(t *testing.T) {
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			if err := parseInvocation(tc.args); err == nil {
+			if parseInvocation(tc.args) == nil {
 				t.Fatalf("expected error for args %v", tc.args)
 			}
 		})
