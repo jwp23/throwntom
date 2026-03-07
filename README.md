@@ -16,23 +16,11 @@ go build -o throwntom ./cmd/throwntom
 go install github.com/jwp23/throwntom/v2/cmd/throwntom@latest
 ```
 
-## Modes
-
-### Interactive (default)
+## Usage
 
 ```bash
 throwntom
-```
-
-Interactive terminal rendering/input is managed by Bubble Tea with a fixed 3-line layout:
-- `status: ...`
-- `message: ...`
-- `command> ...`
-
-Equivalent explicit mode:
-
-```bash
-throwntom run
+throwntom --config path/to/config.toml
 ```
 
 ## Commands
@@ -82,17 +70,25 @@ If the saved session is from a different day, it is discarded and throwntom star
 
 ## Config
 
-Example `throwntom.toml`:
+Config file location: `~/.config/throwntom/config.toml`
+
+Example `config.toml`:
 
 ```toml
+[pomodoro]
 work_minutes = 25
 short_break_minutes = 5
 long_break_minutes = 15
 long_break_every = 4
+
+[schedule]
+days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+time = "09:15"
+
 repeat_secs = 20
-schedule_time = "09:15"
-schedule_days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
 sound_command = ["paplay", "/usr/share/sounds/freedesktop/stereo/bell.oga"]
+morning_reminder_pending = true
+emoji = true
 ```
 
 ## Verify
