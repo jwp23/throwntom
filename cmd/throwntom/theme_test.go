@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jwp23/throwntom/v2/internal/engine"
+	"github.com/jwp23/throwntom/v3/internal/engine"
 )
 
 const testBellEmoji = "\U0001F514"

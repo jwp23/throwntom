@@ -8,14 +8,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jwp23/throwntom/v2/internal/app"
-	"github.com/jwp23/throwntom/v2/internal/config"
-	"github.com/jwp23/throwntom/v2/internal/engine"
-	"github.com/jwp23/throwntom/v2/internal/notifier"
-	"github.com/jwp23/throwntom/v2/internal/reminder"
-	"github.com/jwp23/throwntom/v2/internal/scheduler"
-	"github.com/jwp23/throwntom/v2/internal/session"
-	"github.com/jwp23/throwntom/v2/internal/task"
+	"github.com/jwp23/throwntom/v3/internal/app"
+	"github.com/jwp23/throwntom/v3/internal/config"
+	"github.com/jwp23/throwntom/v3/internal/engine"
+	"github.com/jwp23/throwntom/v3/internal/notifier"
+	"github.com/jwp23/throwntom/v3/internal/reminder"
+	"github.com/jwp23/throwntom/v3/internal/scheduler"
+	"github.com/jwp23/throwntom/v3/internal/session"
+	"github.com/jwp23/throwntom/v3/internal/task"
 )
 
 type reminderState struct {

@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jwp23/throwntom/v2/internal/config"
-	"github.com/jwp23/throwntom/v2/internal/engine"
-	"github.com/jwp23/throwntom/v2/internal/task"
+	"github.com/jwp23/throwntom/v3/internal/config"
+	"github.com/jwp23/throwntom/v3/internal/engine"
+	"github.com/jwp23/throwntom/v3/internal/task"
 )
 
 const (
