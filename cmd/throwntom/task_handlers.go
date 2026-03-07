@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -13,6 +14,24 @@ const (
 	fmtInvalidTaskNumber = "invalid task number: %s"
 	fmtInvalidPosition   = "invalid position: %s"
 )
+
+func (d *timerCore) requireWorkSession(name string) (commandResult, bool) {
+	if !d.isWorkSession() {
+		return commandResult{err: fmt.Errorf("%s is only available during a work session", name)}, false
+	}
+	return commandResult{}, true
+}
+
+func parseTaskPosition(parts []string, usage, errFmt string) (int, commandResult, bool) {
+	if len(parts) < 3 {
+		return 0, commandResult{err: errors.New(usage)}, false
+	}
+	pos, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return 0, commandResult{err: fmt.Errorf(errFmt, parts[2])}, false
+	}
+	return pos, commandResult{}, true
+}
 
 func (d *timerCore) handleTask(parts []string) commandResult {
 	if d.tasks == nil {
@@ -60,12 +79,9 @@ func (d *timerCore) handleTaskAdd(parts []string) commandResult {
 }
 
 func (d *timerCore) handleTaskDone(parts []string) commandResult {
-	if len(parts) < 3 {
-		return commandResult{err: fmt.Errorf("usage: task done <n>")}
-	}
-	pos, err := strconv.Atoi(parts[2])
-	if err != nil {
-		return commandResult{err: fmt.Errorf(fmtInvalidTaskNumber, parts[2])}
+	pos, res, ok := parseTaskPosition(parts, "usage: task done <n>", fmtInvalidTaskNumber)
+	if !ok {
+		return res
 	}
 	id, err := d.tasks.ActiveTaskID(pos)
 	if err != nil {
@@ -84,12 +100,9 @@ func (d *timerCore) handleTaskDone(parts []string) commandResult {
 }
 
 func (d *timerCore) handleTaskRemove(parts []string) commandResult {
-	if len(parts) < 3 {
-		return commandResult{err: fmt.Errorf("usage: task remove <n>")}
-	}
-	pos, err := strconv.Atoi(parts[2])
-	if err != nil {
-		return commandResult{err: fmt.Errorf(fmtInvalidTaskNumber, parts[2])}
+	pos, res, ok := parseTaskPosition(parts, "usage: task remove <n>", fmtInvalidTaskNumber)
+	if !ok {
+		return res
 	}
 	id, err := d.tasks.ActiveTaskID(pos)
 	if err != nil {
@@ -133,15 +146,12 @@ func (d *timerCore) handleTaskClear() commandResult {
 }
 
 func (d *timerCore) handleTaskFocus(parts []string) commandResult {
-	if !d.isWorkSession() {
-		return commandResult{err: fmt.Errorf("focus is only available during a work session")}
+	if res, ok := d.requireWorkSession("focus"); !ok {
+		return res
 	}
-	if len(parts) < 3 {
-		return commandResult{err: fmt.Errorf("usage: task focus <n>")}
-	}
-	pos, err := strconv.Atoi(parts[2])
-	if err != nil {
-		return commandResult{err: fmt.Errorf(fmtInvalidTaskNumber, parts[2])}
+	pos, res, ok := parseTaskPosition(parts, "usage: task focus <n>", fmtInvalidTaskNumber)
+	if !ok {
+		return res
 	}
 	id, err := d.tasks.ActiveTaskID(pos)
 	if err != nil {
@@ -163,15 +173,12 @@ func (d *timerCore) handleTaskFocus(parts []string) commandResult {
 }
 
 func (d *timerCore) handleTaskUnfocus(parts []string) commandResult {
-	if !d.isWorkSession() {
-		return commandResult{err: fmt.Errorf("unfocus is only available during a work session")}
+	if res, ok := d.requireWorkSession("unfocus"); !ok {
+		return res
 	}
-	if len(parts) < 3 {
-		return commandResult{err: fmt.Errorf("usage: task unfocus <n>")}
-	}
-	pos, err := strconv.Atoi(parts[2])
-	if err != nil {
-		return commandResult{err: fmt.Errorf(fmtInvalidPosition, parts[2])}
+	pos, res, ok := parseTaskPosition(parts, "usage: task unfocus <n>", fmtInvalidPosition)
+	if !ok {
+		return res
 	}
 	if pos < 1 || pos > len(d.focused) {
 		return commandResult{err: fmt.Errorf("position %d out of range (1-%d)", pos, len(d.focused))}
@@ -181,15 +188,12 @@ func (d *timerCore) handleTaskUnfocus(parts []string) commandResult {
 }
 
 func (d *timerCore) handleTaskUp(parts []string) commandResult {
-	if !d.isWorkSession() {
-		return commandResult{err: fmt.Errorf("up is only available during a work session")}
+	if res, ok := d.requireWorkSession("up"); !ok {
+		return res
 	}
-	if len(parts) < 3 {
-		return commandResult{err: fmt.Errorf("usage: task up <n>")}
-	}
-	pos, err := strconv.Atoi(parts[2])
-	if err != nil {
-		return commandResult{err: fmt.Errorf(fmtInvalidPosition, parts[2])}
+	pos, res, ok := parseTaskPosition(parts, "usage: task up <n>", fmtInvalidPosition)
+	if !ok {
+		return res
 	}
 	if pos < 2 || pos > len(d.focused) {
 		return commandResult{err: fmt.Errorf("position %d out of range for up (2-%d)", pos, len(d.focused))}
@@ -199,15 +203,12 @@ func (d *timerCore) handleTaskUp(parts []string) commandResult {
 }
 
 func (d *timerCore) handleTaskDown(parts []string) commandResult {
-	if !d.isWorkSession() {
-		return commandResult{err: fmt.Errorf("down is only available during a work session")}
+	if res, ok := d.requireWorkSession("down"); !ok {
+		return res
 	}
-	if len(parts) < 3 {
-		return commandResult{err: fmt.Errorf("usage: task down <n>")}
-	}
-	pos, err := strconv.Atoi(parts[2])
-	if err != nil {
-		return commandResult{err: fmt.Errorf(fmtInvalidPosition, parts[2])}
+	pos, res, ok := parseTaskPosition(parts, "usage: task down <n>", fmtInvalidPosition)
+	if !ok {
+		return res
 	}
 	if pos < 1 || pos >= len(d.focused) {
 		return commandResult{err: fmt.Errorf("position %d out of range for down (1-%d)", pos, len(d.focused)-1)}

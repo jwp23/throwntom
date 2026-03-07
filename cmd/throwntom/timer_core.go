@@ -118,10 +118,10 @@ func newTimerCore(cfg config.Config, n notifier.Notifier) *timerCore {
 	repeatInterval := time.Duration(cfg.RepeatSecs) * time.Second
 	core := &timerCore{
 		cycle: app.New(
-			cfg.WorkMinutes,
-			cfg.ShortBreakMinutes,
-			cfg.LongBreakMinutes,
-			cfg.LongBreakEvery,
+			cfg.Pomodoro.WorkMinutes,
+			cfg.Pomodoro.ShortBreakMinutes,
+			cfg.Pomodoro.LongBreakMinutes,
+			cfg.Pomodoro.LongBreakEvery,
 			repeatInterval,
 			n,
 		),
@@ -367,7 +367,7 @@ func (d *timerCore) loadSession() error {
 	if data.SavedAt.IsZero() {
 		return nil
 	}
-	if !session.IsSameDay(data.SavedAt, d.now()) {
+	if !engine.IsSameDay(data.SavedAt, d.now()) {
 		return nil
 	}
 	if err := d.cycle.Restore(data.App); err != nil {
