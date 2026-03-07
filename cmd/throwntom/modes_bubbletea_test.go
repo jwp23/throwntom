@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jwp23/throwntom/v2/internal/config"
+	"github.com/jwp23/throwntom/v2/internal/engine"
 	"github.com/jwp23/throwntom/v2/internal/notifier"
 )
 
@@ -25,8 +26,8 @@ func TestRunInteractiveCallbacksUsesRunInteractiveUI(t *testing.T) {
 	}
 
 	err := runInteractiveCallbacks(interactiveCallbacks{
-		StatusSnapshot: func() (string, bool) {
-			return "idle | 00:00", false
+		StatusSnapshot: func() (string, engine.State, bool) {
+			return "Idle | 00:00", engine.Idle, false
 		},
 		Execute: func(string) (commandResponse, error) {
 			return commandResponse{}, nil
@@ -82,7 +83,7 @@ func TestLocalModeCallbacksExecuteDelegatesToCore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error from execute callback, got %v", err)
 	}
-	if resp.Message != "pomodoro started" {
+	if resp.Message != "Pomodoro started -- let's go!" {
 		t.Fatalf("expected start message, got %q", resp.Message)
 	}
 }

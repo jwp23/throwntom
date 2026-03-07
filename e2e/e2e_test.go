@@ -160,13 +160,13 @@ exec "$1"`
 	if strings.Contains(output, "\x1b[3F\x1b[J") {
 		t.Fatalf("expected no legacy cursor reanchor sequence, got %q", output)
 	}
-	if !strings.Contains(output, "command> ") {
+	if !strings.Contains(output, "> ") {
 		t.Fatalf("expected prompt in interactive output, got %q", output)
 	}
-	if !strings.Contains(output, "status:") {
+	if !strings.Contains(output, "Idle") {
 		t.Fatalf("expected status line in interactive output, got %q", output)
 	}
-	if !strings.Contains(output, "throwntom run mode started") {
+	if !strings.Contains(output, "throwntom") {
 		t.Fatalf("expected persistent run header in interactive output, got %q", output)
 	}
 	if !strings.Contains(output, "?: help") {

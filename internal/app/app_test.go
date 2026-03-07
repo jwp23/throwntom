@@ -12,7 +12,7 @@ import (
 const (
 	fmtRestore                 = "Restore: %v"
 	fmtExpectedAwaitingConfirm = "expected AwaitingConfirm, got %s"
-	statusTodayPomodoros1      = "today's pomodoros=1"
+	statusTodayPomodoros1      = "Today: 1"
 )
 
 type fakeNotifier struct {
@@ -62,8 +62,8 @@ func TestStatusLineShowsPendingWhenAwaitingConfirm(t *testing.T) {
 	a.Start()
 	a.CompletePeriod()
 	line := a.StatusLine()
-	if !strings.Contains(line, "transition pending") {
-		t.Fatalf("expected pending line, got %s", line)
+	if !strings.Contains(line, "Confirm to continue") {
+		t.Fatalf("expected Confirm to continue line, got %s", line)
 	}
 }
 
@@ -72,15 +72,15 @@ func TestStatusLineUsesPomodoroLabel(t *testing.T) {
 	a := New(25, 5, 15, 4, 20*time.Millisecond, n)
 	a.Start()
 	line := a.StatusLine()
-	if !strings.Contains(line, "pomodoros=0/4") {
+	if !strings.Contains(line, "Cycle: 0/4") {
 		t.Fatalf("expected completed-only pomodoro progress, got %s", line)
 	}
-	if !strings.Contains(line, "today's pomodoros=0") {
+	if !strings.Contains(line, "Today: 0") {
 		t.Fatalf("expected day total count in status line, got %s", line)
 	}
 	a.CompletePeriod()
 	line = a.StatusLine()
-	if !strings.Contains(line, "pomodoros=1/4") {
+	if !strings.Contains(line, "Cycle: 1/4") {
 		t.Fatalf("expected done pomodoro progress after completion, got %s", line)
 	}
 }
@@ -99,19 +99,19 @@ func TestStatusLineShowsFullCycleAtLongBreakBoundary(t *testing.T) {
 
 	a.CompletePeriod()
 	awaiting := a.StatusLine()
-	if !strings.Contains(awaiting, "awaiting-confirm") {
-		t.Fatalf("expected awaiting-confirm boundary state, got %s", awaiting)
+	if !strings.Contains(awaiting, "Confirm to continue") {
+		t.Fatalf("expected Confirm to continue boundary state, got %s", awaiting)
 	}
-	if !strings.Contains(awaiting, "pomodoros=4/4") {
+	if !strings.Contains(awaiting, "Cycle: 4/4") {
 		t.Fatalf("expected full-cycle progress at boundary, got %s", awaiting)
 	}
 
 	a.Confirm()
 	longBreak := a.StatusLine()
-	if !strings.Contains(longBreak, "long-break") {
-		t.Fatalf("expected long-break after confirming boundary transition, got %s", longBreak)
+	if !strings.Contains(longBreak, "Long break") {
+		t.Fatalf("expected Long break after confirming boundary transition, got %s", longBreak)
 	}
-	if !strings.Contains(longBreak, "pomodoros=4/4") {
+	if !strings.Contains(longBreak, "Cycle: 4/4") {
 		t.Fatalf("expected full-cycle progress during long break, got %s", longBreak)
 	}
 }
@@ -139,8 +139,8 @@ func TestStopResetsToIdle(t *testing.T) {
 		t.Fatalf("expected Idle, got %s", got)
 	}
 	line := a.StatusLine()
-	if !strings.Contains(line, "idle | 00:00") {
-		t.Fatalf("expected idle countdown reset, got %s", line)
+	if !strings.Contains(line, "Idle") {
+		t.Fatalf("expected Idle status, got %s", line)
 	}
 }
 
@@ -155,10 +155,10 @@ func TestStartNewCycleResetsCycleProgressButPreservesDailyTotal(t *testing.T) {
 
 	a.StartNewCycle()
 	line := a.StatusLine()
-	if !strings.Contains(line, "pomodoro") {
-		t.Fatalf("expected pomodoro state after new cycle, got %s", line)
+	if !strings.Contains(line, "Pomodoro") {
+		t.Fatalf("expected Pomodoro state after new cycle, got %s", line)
 	}
-	if !strings.Contains(line, "pomodoros=0/4") {
+	if !strings.Contains(line, "Cycle: 0/4") {
 		t.Fatalf("expected cycle progress reset, got %s", line)
 	}
 	if !strings.Contains(line, statusTodayPomodoros1) {
@@ -186,7 +186,7 @@ func TestRestoreWorkWithTimeRemaining(t *testing.T) {
 		t.Fatalf("expected Work, got %s", got)
 	}
 	line := a.StatusLine()
-	if !strings.Contains(line, "today's pomodoros=2") {
+	if !strings.Contains(line, "Today: 2") {
 		t.Fatalf("expected completedToday=2, got %s", line)
 	}
 }
@@ -274,7 +274,7 @@ func TestRestoreIdleIsClean(t *testing.T) {
 		t.Fatalf("expected Idle, got %s", got)
 	}
 	line := a.StatusLine()
-	if !strings.Contains(line, "today's pomodoros=5") {
+	if !strings.Contains(line, "Today: 5") {
 		t.Fatalf("expected completedToday=5 preserved, got %s", line)
 	}
 }

@@ -3,77 +3,77 @@ package main
 import (
 	"strings"
 	"testing"
+
+	"github.com/charmbracelet/x/ansi"
+	"github.com/jwp23/throwntom/v2/internal/engine"
 )
 
-func TestRenderFrame(t *testing.T) {
-	got := renderFrameWithWidth("pomodoro | 24:59 | today's pomodoros=0 | pomodoros=0/4", false, "pomodoro started", "", 0)
-	if !strings.Contains(got, "status: pomodoro | 24:59 | today's pomodoros=0 | pomodoros=0/4 morning reminder pending=false") {
-		t.Fatalf("unexpected status line: %q", got)
+func TestRenderThemedFrameIncludesThreeLines(t *testing.T) {
+	got := renderThemedFrame(frameInput{
+		StatusLine: testStatusIdle,
+		State:      engine.Idle,
+		Message:    "waiting",
+		Input:      "sta",
+		Emoji:      true,
+	})
+	if !strings.Contains(got, "Idle") {
+		t.Fatalf("missing status content: %q", got)
 	}
-	if !strings.Contains(got, "\nmessage: pomodoro started\n") {
-		t.Fatalf("expected message line in frame: %q", got)
-	}
-	if !strings.Contains(got, "\ncommand> ") {
-		t.Fatalf("expected command prompt in frame: %q", got)
-	}
-}
-
-func TestRenderFrameWithWidthIncludesThreeLines(t *testing.T) {
-	got := renderFrameWithWidth("idle | 00:00", false, "waiting", "sta", 0)
-	if !strings.Contains(got, "status: idle | 00:00 morning reminder pending=false") {
-		t.Fatalf("missing status line: %q", got)
-	}
-	if !strings.Contains(got, "\nmessage: waiting\n") {
+	if !strings.Contains(got, "\nwaiting\n") {
 		t.Fatalf("missing message line: %q", got)
 	}
-	if !strings.Contains(got, "\ncommand> sta") {
+	if !strings.Contains(got, "\n> sta") {
 		t.Fatalf("missing prompt line: %q", got)
 	}
 }
 
-func TestRenderFrameWithWidthDoesNotUseLegacyCursorEscape(t *testing.T) {
-	got := renderFrameWithWidth("idle | 00:00", false, "", "", 0)
+func TestRenderThemedFrameDoesNotUseLegacyCursorEscape(t *testing.T) {
+	got := renderThemedFrame(frameInput{
+		StatusLine: testStatusIdle,
+		State:      engine.Idle,
+		Emoji:      true,
+	})
 	if strings.Contains(got, "\x1b[3F\x1b[J") {
 		t.Fatalf("expected no legacy cursor reanchor escape, got %q", got)
 	}
 }
 
-func TestRenderFrameWithWidthClampsEachLineToTerminalWidth(t *testing.T) {
-	got := renderFrameWithWidth(
-		"idle | 00:00 | today's pomodoros=0 | pomodoros=0/4",
-		false,
-		"stopped and returned to idle",
-		"this is a long command input",
-		40,
-	)
+func TestRenderThemedFrameClampsEachLineToTerminalWidth(t *testing.T) {
+	got := renderThemedFrame(frameInput{
+		StatusLine: testStatusIdle,
+		State:      engine.Idle,
+		Message:    "Stopped. Back to idle.",
+		Input:      "this is a long command input",
+		Width:      40,
+	})
 
 	lines := strings.Split(got, "\n")
 	if len(lines) != 3 {
 		t.Fatalf("expected 3 lines, got %d in %q", len(lines), got)
 	}
 	for idx, line := range lines {
-		if len([]rune(line)) > 40 {
-			t.Fatalf("expected line %d to be clamped to width 40, got %d chars: %q", idx, len([]rune(line)), line)
+		if ansi.StringWidth(line) > 39 {
+			t.Fatalf("expected line %d to be clamped to width 40, got %d visible chars: %q", idx, ansi.StringWidth(line), line)
 		}
 	}
 }
 
-func TestRenderFrameWithWidthAvoidsTerminalAutoWrap(t *testing.T) {
-	got := renderFrameWithWidth(
-		"pomodoro | 24:59 | today's pomodoros=0 | pomodoros=0/4",
-		false,
-		"this message should be clamped",
-		"this command should be clamped",
-		20,
-	)
+func TestRenderThemedFrameAvoidsTerminalAutoWrap(t *testing.T) {
+	got := renderThemedFrame(frameInput{
+		StatusLine: "Pomodoro  24:59  Today: 0  Cycle: 0/4",
+		State:      engine.Work,
+		Message:    "this message should be clamped",
+		Input:      "this command should be clamped",
+		Width:      20,
+	})
 
 	lines := strings.Split(got, "\n")
 	if len(lines) != 3 {
 		t.Fatalf("expected 3 lines, got %d in %q", len(lines), got)
 	}
 	for idx, line := range lines {
-		if len([]rune(line)) >= 20 {
-			t.Fatalf("expected line %d to stay below width 20 to avoid terminal auto-wrap, got %d chars: %q", idx, len([]rune(line)), line)
+		if ansi.StringWidth(line) >= 20 {
+			t.Fatalf("expected line %d to stay below width 20 to avoid terminal auto-wrap, got %d visible chars: %q", idx, ansi.StringWidth(line), line)
 		}
 	}
 }

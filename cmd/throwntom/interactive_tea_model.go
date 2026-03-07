@@ -5,6 +5,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/jwp23/throwntom/v2/internal/engine"
 )
 
 type interactiveTickMsg struct{}
@@ -15,7 +16,10 @@ type interactiveTeaModel struct {
 	helpLines      []string
 	showHelp       bool
 	statusLine     string
+	engineState    engine.State
 	morningPending bool
+	isError        bool
+	emoji          bool
 	message        string
 	prompt         promptState
 	width          int
@@ -24,13 +28,15 @@ type interactiveTeaModel struct {
 }
 
 func newInteractiveTeaModel(callbacks interactiveCallbacks) interactiveTeaModel {
-	statusLine, morningPending := callbacks.StatusSnapshot()
+	statusLine, engineState, morningPending := callbacks.StatusSnapshot()
 	return interactiveTeaModel{
 		callbacks:      callbacks,
 		headerLines:    append([]string(nil), callbacks.HeaderLines...),
 		helpLines:      append([]string(nil), callbacks.HelpLines...),
 		statusLine:     statusLine,
+		engineState:    engineState,
 		morningPending: morningPending,
+		emoji:          callbacks.Emoji,
 	}
 }
 
@@ -49,7 +55,7 @@ func (m interactiveTeaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		return m.updateKey(msg)
 	case interactiveTickMsg:
-		m.statusLine, m.morningPending = m.callbacks.StatusSnapshot()
+		m.statusLine, m.engineState, m.morningPending = m.callbacks.StatusSnapshot()
 		if m.callbacks.FocusSnapshot != nil {
 			m.focusLines, m.focusPrompt = m.callbacks.FocusSnapshot()
 		}
@@ -68,27 +74,36 @@ func (m interactiveTeaModel) View() string {
 	if m.focusPrompt != "" {
 		var lines []string
 		for _, line := range strings.Split(m.focusPrompt, "\n") {
-			lines = append(lines, clampTerminalLine(line, m.width))
+			lines = append(lines, clampANSILine(line, m.width))
 		}
-		lines = append(lines, clampTerminalLine("command> "+m.prompt.input, m.width))
+		lines = append(lines, clampANSILine("> "+m.prompt.input, m.width))
 		return strings.Join(lines, "\n")
 	}
 
-	frame := renderFrameWithWidth(m.statusLine, m.morningPending, m.message, m.prompt.input, m.width)
+	frame := renderThemedFrame(frameInput{
+		StatusLine:     m.statusLine,
+		State:          m.engineState,
+		MorningPending: m.morningPending,
+		Message:        m.message,
+		IsError:        m.isError,
+		Input:          m.prompt.input,
+		Width:          m.width,
+		Emoji:          m.emoji,
+	})
 
 	var header []string
 	for _, line := range m.headerLines {
-		header = append(header, clampTerminalLine(line, m.width))
+		header = append(header, clampANSILine(line, m.width))
 	}
 	for _, line := range m.focusLines {
-		header = append(header, clampTerminalLine(line, m.width))
+		header = append(header, clampANSILine(line, m.width))
 	}
 	if m.showHelp {
 		for _, line := range m.helpLines {
-			header = append(header, clampTerminalLine(line, m.width))
+			header = append(header, clampANSILine(line, m.width))
 		}
 	} else if len(m.helpLines) > 0 {
-		header = append(header, clampTerminalLine("?: help", m.width))
+		header = append(header, clampANSILine("?: help", m.width))
 	}
 
 	if len(header) == 0 {
@@ -137,6 +152,7 @@ func (m interactiveTeaModel) handleEsc() (tea.Model, tea.Cmd) {
 		m.focusPrompt = ""
 		m.focusLines = resp.FocusLines
 		m.statusLine = resp.StatusLine
+		m.engineState = resp.EngineState
 		m.morningPending = resp.MorningPending
 		if resp.Message != "" {
 			m.message = resp.Message
@@ -156,18 +172,22 @@ func (m interactiveTeaModel) submitCommand() (tea.Model, tea.Cmd) {
 	resp, err := m.callbacks.Execute(submitted)
 	if err != nil {
 		m.message = err.Error()
-		m.statusLine, m.morningPending = m.callbacks.StatusSnapshot()
+		m.isError = true
+		m.statusLine, m.engineState, m.morningPending = m.callbacks.StatusSnapshot()
 		return m, nil
 	}
 
 	m.statusLine = resp.StatusLine
+	m.engineState = resp.EngineState
 	m.morningPending = resp.MorningPending
 	m.focusLines = resp.FocusLines
 	m.focusPrompt = resp.FocusPrompt
 	if resp.Error != "" {
 		m.message = resp.Error
+		m.isError = true
 	} else if resp.Message != "" {
 		m.message = resp.Message
+		m.isError = false
 	}
 	if resp.Exit {
 		return m, tea.Quit

@@ -26,11 +26,11 @@ type reminderState struct {
 	morningPending bool
 }
 
-func (s *reminderState) statusSnapshot(cycle *app.App) (string, bool) {
+func (s *reminderState) statusSnapshot(cycle *app.App) (string, engine.State, bool) {
 	s.mu.Lock()
 	currentMorningPending := s.morningPending
 	s.mu.Unlock()
-	return cycle.StatusLine(), currentMorningPending
+	return cycle.StatusLine(), cycle.State(), currentMorningPending
 }
 
 func (s *reminderState) beginMorningLoop() (context.Context, bool) {
@@ -109,6 +109,7 @@ type timerCore struct {
 	pendingFocusToggled map[int]bool
 	pendingFocusAction  string
 	sessionPath         string
+	emoji               bool
 }
 
 type commandHandler func(parts []string) commandResult
@@ -129,6 +130,7 @@ func newTimerCore(cfg config.Config, n notifier.Notifier) *timerCore {
 		scheduler:      scheduler.New(cfg.Schedule.Days, cfg.Schedule.Time),
 		repeatInterval: repeatInterval,
 		now:            time.Now,
+		emoji:          cfg.Emoji,
 	}
 	core.handlers = core.buildCommandHandlers()
 	return core
@@ -147,7 +149,7 @@ func (d *timerCore) stop() {
 	d.state.stopMorningLoop()
 }
 
-func (d *timerCore) snapshot() (string, bool) {
+func (d *timerCore) snapshot() (string, engine.State, bool) {
 	d.cycle.AdvanceDay(d.now())
 	return d.state.statusSnapshot(d.cycle)
 }
@@ -156,9 +158,10 @@ func (d *timerCore) executeCommand(line string) commandResponse {
 	d.cycle.AdvanceDay(d.now())
 	result := d.execute(line)
 	d.saveSession()
-	statusLine, morningPending := d.snapshot()
+	statusLine, engineState, morningPending := d.snapshot()
 	resp := commandResponse{
 		StatusLine:     statusLine,
+		EngineState:    engineState,
 		MorningPending: morningPending,
 		Message:        result.message,
 		Exit:           result.exit,
@@ -223,30 +226,30 @@ func (d *timerCore) handleStart(_ []string) commandResult {
 		return d.enterFocusPrompt("start")
 	}
 	d.cycle.Start()
-	return commandResult{message: "pomodoro started"}
+	return commandResult{message: "Pomodoro started -- let's go!"}
 }
 
 func (d *timerCore) handleNewCycle(_ []string) commandResult {
 	d.state.stopMorningLoop()
 	d.state.clearSnooze()
 	d.cycle.StartNewCycle()
-	return commandResult{message: "new pomodoro cycle started"}
+	return commandResult{message: "New cycle started -- fresh start!"}
 }
 
 func (d *timerCore) handlePause(_ []string) commandResult {
 	d.cycle.Pause()
-	return commandResult{message: "paused"}
+	return commandResult{message: "Paused. Take your time."}
 }
 
 func (d *timerCore) handleResume(_ []string) commandResult {
 	d.cycle.Resume()
-	return commandResult{message: "resumed"}
+	return commandResult{message: "Resumed -- back at it!"}
 }
 
 func (d *timerCore) handleStop(_ []string) commandResult {
 	d.cycle.Stop()
 	d.focused = nil
-	return commandResult{message: "stopped and returned to idle"}
+	return commandResult{message: "Stopped. Back to idle."}
 }
 
 func (d *timerCore) handleConfirm(_ []string) commandResult {
@@ -255,7 +258,7 @@ func (d *timerCore) handleConfirm(_ []string) commandResult {
 	if state == engine.Work && d.tasks != nil && len(d.focused) == 0 {
 		return d.enterFocusPrompt("confirm")
 	}
-	return commandResult{message: fmt.Sprintf("confirmed, state=%s", state)}
+	return commandResult{message: fmt.Sprintf("Confirmed -- %s", friendlyStateName(state))}
 }
 
 func (d *timerCore) handleSnooze(parts []string) commandResult {
@@ -276,14 +279,14 @@ func (d *timerCore) handleSkipToday(_ []string) commandResult {
 	d.state.stopMorningLoop()
 	d.state.markSkippedToday(d.now())
 	d.cycle.SkipToday()
-	return commandResult{message: "skipped reminders for today"}
+	return commandResult{message: "Skipped reminders for today."}
 }
 
 func (d *timerCore) handleTestSound(_ []string) commandResult {
 	if err := d.notifier.PlaySound("test"); err != nil {
 		return commandResult{message: fmt.Sprintf("sound test failed: %v", err)}
 	}
-	return commandResult{message: "sound test played"}
+	return commandResult{message: "Sound test played."}
 }
 
 func (d *timerCore) handleStatus(_ []string) commandResult {
@@ -292,7 +295,7 @@ func (d *timerCore) handleStatus(_ []string) commandResult {
 
 func (d *timerCore) handleQuit(_ []string) commandResult {
 	d.state.stopMorningLoop()
-	return commandResult{message: "bye", exit: true}
+	return commandResult{message: "See you next time!", exit: true}
 }
 
 func parseSnoozeDuration(parts []string) (time.Duration, error) {
@@ -391,16 +394,16 @@ func (d *timerCore) loadSession() error {
 func commandsHelp() string {
 	return strings.Join([]string{
 		"commands:",
-		"  start              start work period",
-		"  new-cycle          start a fresh cycle (reset cycle progress, keep today's total)",
-		"  pause              pause the active pomodoro or break timer",
-		"  resume             resume a paused pomodoro or break timer",
-		"  stop               stop active timer and return to idle",
-		"  confirm            acknowledge transition and start next phase",
-		"  snooze <duration>  snooze current reminder (example: snooze 10m)",
-		"  skip-today         stop reminders for the current day",
-		"  status             print current status",
-		"  test-sound         play the reminder sound to verify audio",
+		"  start              start a pomodoro",
+		"  new-cycle          start a fresh cycle",
+		"  pause              pause the timer",
+		"  resume             resume the timer",
+		"  stop               stop and return to idle",
+		"  confirm            continue to next phase",
+		"  snooze <duration>  snooze reminder (e.g., snooze 10m)",
+		"  skip-today         skip reminders for today",
+		"  status             show current status",
+		"  test-sound         test the reminder sound",
 		"  quit               exit throwntom",
 		"  exit               alias for quit",
 		"",

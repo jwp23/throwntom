@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/jwp23/throwntom/v2/internal/config"
+	"github.com/jwp23/throwntom/v2/internal/engine"
 	"github.com/jwp23/throwntom/v2/internal/notifier"
 )
 
@@ -42,13 +43,14 @@ func runInteractiveCallbacks(callbacks interactiveCallbacks) error {
 
 func localModeCallbacks(cfg config.Config, core *timerCore) interactiveCallbacks {
 	header := []string{
-		fmt.Sprintf("throwntom run mode started (schedule %s %s)", strings.Join(cfg.Schedule.Days, ","), cfg.Schedule.Time),
-		fmt.Sprintf("cycle: work=%dm short=%dm long=%dm every=%d repeat=%ds", cfg.WorkMinutes, cfg.ShortBreakMinutes, cfg.LongBreakMinutes, cfg.LongBreakEvery, cfg.RepeatSecs),
+		fmt.Sprintf("%s throwntom (%s %s)", stateIcon(engine.Idle, cfg.Emoji), strings.Join(cfg.Schedule.Days, ","), cfg.Schedule.Time),
+		fmt.Sprintf("%dm work / %dm short / %dm long / every %d", cfg.WorkMinutes, cfg.ShortBreakMinutes, cfg.LongBreakMinutes, cfg.LongBreakEvery),
 	}
 
 	return interactiveCallbacks{
 		HeaderLines:    header,
 		HelpLines:      strings.Split(commandsHelp(), "\n"),
+		Emoji:          cfg.Emoji,
 		StatusSnapshot: core.snapshot,
 		FocusSnapshot: func() ([]string, string) {
 			focusLines := core.formatFocusLines()
@@ -63,9 +65,10 @@ func localModeCallbacks(cfg config.Config, core *timerCore) interactiveCallbacks
 		},
 		CancelFocus: func() commandResponse {
 			result := core.cancelFocusPrompt()
-			statusLine, morningPending := core.snapshot()
+			statusLine, engineState, morningPending := core.snapshot()
 			return commandResponse{
 				StatusLine:     statusLine,
+				EngineState:    engineState,
 				MorningPending: morningPending,
 				Message:        result.message,
 				FocusLines:     core.formatFocusLines(),

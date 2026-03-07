@@ -19,8 +19,8 @@ const (
 	testSessionFile       = "session.json"
 	cmdStart              = "start"
 	fmtLoadSession        = "loadSession: %v"
-	statusTodayPomodoros1 = "today's pomodoros=1"
-	statusTodayPomodoros0 = "today's pomodoros=0"
+	statusTodayPomodoros1 = "Today: 1"
+	statusTodayPomodoros0 = "Today: 0"
 )
 
 type noopNotifier struct{}
@@ -84,7 +84,7 @@ func TestNewCycleCommandResetsCycleProgressButKeepsDailyTotal(t *testing.T) {
 
 	core.execute(cmdStart)
 	core.cycle.CompletePeriod()
-	before, _ := core.snapshot()
+	before, _, _ := core.snapshot()
 	if !strings.Contains(before, statusTodayPomodoros1) {
 		t.Fatalf("expected baseline daily total, got %s", before)
 	}
@@ -94,11 +94,11 @@ func TestNewCycleCommandResetsCycleProgressButKeepsDailyTotal(t *testing.T) {
 		t.Fatalf("new-cycle command failed: %v", result.err)
 	}
 
-	after, _ := core.snapshot()
-	if !strings.Contains(after, "pomodoro") {
-		t.Fatalf("expected pomodoro state, got %s", after)
+	after, _, _ := core.snapshot()
+	if !strings.Contains(after, "Pomodoro") {
+		t.Fatalf("expected Pomodoro state, got %s", after)
 	}
-	if !strings.Contains(after, "pomodoros=0/4") {
+	if !strings.Contains(after, "Cycle: 0/4") {
 		t.Fatalf("expected cycle reset, got %s", after)
 	}
 	if !strings.Contains(after, statusTodayPomodoros1) {
@@ -148,9 +148,9 @@ func TestLoadSessionRestoresState(t *testing.T) {
 	if err := core2.loadSession(); err != nil {
 		t.Fatalf(fmtLoadSession, err)
 	}
-	status, _ := core2.snapshot()
-	if !strings.Contains(status, "awaiting-confirm") {
-		t.Fatalf("expected awaiting-confirm after restore, got %s", status)
+	status, _, _ := core2.snapshot()
+	if !strings.Contains(status, "Confirm to continue") {
+		t.Fatalf("expected Confirm to continue after restore, got %s", status)
 	}
 	if !strings.Contains(status, statusTodayPomodoros1) {
 		t.Fatalf("expected completedToday=1, got %s", status)
@@ -177,9 +177,9 @@ func TestLoadSessionDiscardsDifferentDay(t *testing.T) {
 	if err := core.loadSession(); err != nil {
 		t.Fatalf(fmtLoadSession, err)
 	}
-	status, _ := core.snapshot()
-	if !strings.Contains(status, "idle") {
-		t.Fatalf("expected idle for different-day session, got %s", status)
+	status, _, _ := core.snapshot()
+	if !strings.Contains(status, "Idle") {
+		t.Fatalf("expected Idle for different-day session, got %s", status)
 	}
 }
 
@@ -394,9 +394,9 @@ func TestSaveLoadCompletedTodayPersists(t *testing.T) {
 		core.execute("confirm")
 	}
 
-	status, _ := core.snapshot()
-	if !strings.Contains(status, "today's pomodoros=3") {
-		t.Fatalf("expected 3 completed before save, got %s", status)
+	status, _, _ := core.snapshot()
+	if !strings.Contains(status, "Today: 3") {
+		t.Fatalf("expected Today: 3 before save, got %s", status)
 	}
 	core.saveSession()
 
@@ -405,9 +405,9 @@ func TestSaveLoadCompletedTodayPersists(t *testing.T) {
 	if err := core2.loadSession(); err != nil {
 		t.Fatalf(fmtLoadSession, err)
 	}
-	status2, _ := core2.snapshot()
-	if !strings.Contains(status2, "today's pomodoros=3") {
-		t.Fatalf("expected 3 completed after load, got %s", status2)
+	status2, _, _ := core2.snapshot()
+	if !strings.Contains(status2, "Today: 3") {
+		t.Fatalf("expected Today: 3 after load, got %s", status2)
 	}
 	core2.cycle.Stop()
 }
@@ -423,7 +423,7 @@ func TestSnapshotResetsCompletedTodayOnDayRollover(t *testing.T) {
 	core.executeCommand(cmdStart)
 	core.cycle.CompletePeriod()
 
-	status, _ := core.snapshot()
+	status, _, _ := core.snapshot()
 	if !strings.Contains(status, statusTodayPomodoros1) {
 		t.Fatalf("expected today's pomodoros=1 yesterday, got %s", status)
 	}
@@ -431,7 +431,7 @@ func TestSnapshotResetsCompletedTodayOnDayRollover(t *testing.T) {
 	today := time.Date(2026, 3, 6, 9, 0, 0, 0, time.Local)
 	core.now = func() time.Time { return today }
 
-	status2, _ := core.snapshot()
+	status2, _, _ := core.snapshot()
 	if !strings.Contains(status2, statusTodayPomodoros0) {
 		t.Fatalf("expected today's pomodoros=0 after day rollover, got %s", status2)
 	}
@@ -517,7 +517,7 @@ func TestSessionSavedAfterMidnightResetsOnReload(t *testing.T) {
 		t.Fatalf(fmtLoadSession, err)
 	}
 
-	status, _ := core2.snapshot()
+	status, _, _ := core2.snapshot()
 	if !strings.Contains(status, statusTodayPomodoros0) {
 		t.Fatalf("expected today's pomodoros=0 after midnight reload, got %s", status)
 	}
