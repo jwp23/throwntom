@@ -41,15 +41,15 @@ func TestRunInteractiveCallbacksUsesRunInteractiveUI(t *testing.T) {
 	}
 }
 
-func TestLocalModeCallbacksHelpLinesContainCommandsHelp(t *testing.T) {
+func TestBuildCallbacksHelpLinesContainCommandsHelp(t *testing.T) {
 	cfg := config.Default()
 	core := newTimerCore(cfg, notifier.NewTestNotifier(func(string, ...string) error {
 		return fmt.Errorf("unused")
 	}))
 
-	callbacks := localModeCallbacks(cfg, core)
+	callbacks := buildCallbacks(cfg, core)
 	if len(callbacks.HelpLines) == 0 {
-		t.Fatal("expected local mode callbacks to include help lines")
+		t.Fatal("expected callbacks to include help lines")
 	}
 	foundCommandsHeader := false
 	for _, line := range callbacks.HelpLines {
@@ -62,13 +62,13 @@ func TestLocalModeCallbacksHelpLinesContainCommandsHelp(t *testing.T) {
 	}
 }
 
-func TestLocalModeCallbacksExecuteDelegatesToCore(t *testing.T) {
+func TestBuildCallbacksExecuteDelegatesToCore(t *testing.T) {
 	cfg := config.Default()
 	core := newTimerCore(cfg, notifier.NewTestNotifier(func(string, ...string) error {
 		return fmt.Errorf("unused")
 	}))
 
-	callbacks := localModeCallbacks(cfg, core)
+	callbacks := buildCallbacks(cfg, core)
 	if callbacks.StatusSnapshot == nil {
 		t.Fatal("expected status snapshot callback")
 	}
@@ -76,7 +76,7 @@ func TestLocalModeCallbacksExecuteDelegatesToCore(t *testing.T) {
 		t.Fatal("expected execute callback")
 	}
 	if len(callbacks.HeaderLines) == 0 {
-		t.Fatal("expected local mode callbacks to include persistent header lines")
+		t.Fatal("expected callbacks to include persistent header lines")
 	}
 
 	resp, err := callbacks.Execute("start")

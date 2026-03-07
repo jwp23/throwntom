@@ -27,7 +27,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	runLocalMode(cfg)
+	run(cfg)
 }
 
 func loadConfig(path string) (config.Config, error) {

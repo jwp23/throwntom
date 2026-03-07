@@ -14,7 +14,7 @@ import (
 
 var runInteractiveUI = runInteractiveTea
 
-func runLocalMode(cfg config.Config) {
+func run(cfg config.Config) {
 	if err := requireInteractiveTTY(isTerminal(os.Stdin), isTerminal(os.Stdout)); err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
@@ -31,7 +31,7 @@ func runLocalMode(cfg config.Config) {
 	core.start(ctx)
 	defer core.stop()
 
-	err = runInteractiveCallbacks(localModeCallbacks(cfg, core))
+	err = runInteractiveCallbacks(buildCallbacks(cfg, core))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "input error: %v\n", err)
 	}
@@ -41,7 +41,7 @@ func runInteractiveCallbacks(callbacks interactiveCallbacks) error {
 	return runInteractiveUI(os.Stdout, os.Stdin, callbacks)
 }
 
-func localModeCallbacks(cfg config.Config, core *timerCore) interactiveCallbacks {
+func buildCallbacks(cfg config.Config, core *timerCore) interactiveCallbacks {
 	header := []string{
 		fmt.Sprintf("%s throwntom (%s %s)", stateIcon(engine.Idle, cfg.Emoji), strings.Join(cfg.Schedule.Days, ","), cfg.Schedule.Time),
 		fmt.Sprintf("%dm work / %dm short / %dm long / every %d", cfg.Pomodoro.WorkMinutes, cfg.Pomodoro.ShortBreakMinutes, cfg.Pomodoro.LongBreakMinutes, cfg.Pomodoro.LongBreakEvery),
