@@ -15,8 +15,7 @@ func main() {
 	configPath := flag.String("config", "", "path to config toml")
 	flag.Parse()
 
-	inv, err := parseInvocation(flag.Args())
-	if err != nil {
+	if err := parseInvocation(flag.Args()); err != nil {
 		fmt.Fprintf(os.Stderr, "argument error: %v\n", err)
 		printUsage()
 		os.Exit(1)
@@ -28,13 +27,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	switch inv.mode {
-	case modeRun:
-		runLocalMode(cfg)
-	default:
-		fmt.Fprintf(os.Stderr, "argument error: unsupported mode %q\n", inv.mode)
-		os.Exit(1)
-	}
+	runLocalMode(cfg)
 }
 
 func loadConfig(path string) (config.Config, error) {
@@ -80,16 +73,13 @@ func defaultSessionPath() (string, error) {
 }
 
 func printUsage() {
-	fmt.Println("usage: throwntom [--config path] [run]")
-	fmt.Println()
-	fmt.Println("modes:")
-	fmt.Println("  run     run interactive pomodoro timer (default)")
+	fmt.Println("usage: throwntom [--config path]")
 	fmt.Println()
 	fmt.Println(commandsHelp())
 }
 
 func printFlagUsage() {
-	fmt.Fprintln(os.Stderr, "usage: throwntom [--config path] [run]")
+	fmt.Fprintln(os.Stderr, "usage: throwntom [--config path]")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "options:")
 	fmt.Fprintln(os.Stderr, "  --config string")
