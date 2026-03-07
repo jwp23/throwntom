@@ -1,12 +1,88 @@
 package main
 
 import (
+	"fmt"
+	"io"
 	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/jwp23/throwntom/v2/internal/engine"
 )
+
+type commandResponse struct {
+	StatusLine     string
+	EngineState    engine.State
+	MorningPending bool
+	Message        string
+	Error          string
+	Exit           bool
+	FocusLines     []string
+	FocusPrompt    string
+}
+
+type interactiveCallbacks struct {
+	HeaderLines    []string
+	HelpLines      []string
+	Emoji          bool
+	StatusSnapshot func() (string, engine.State, bool)
+	FocusSnapshot  func() ([]string, string)
+	Execute        func(command string) (commandResponse, error)
+	CancelFocus    func() commandResponse
+}
+
+type promptState struct {
+	input string
+}
+
+type keyKind int
+
+const (
+	keyPrintable keyKind = iota
+	keyBackspace
+	keyEnter
+	keyInterrupt
+)
+
+type keyEvent struct {
+	kind keyKind
+	r    rune
+}
+
+func applyKey(state promptState, ev keyEvent) (promptState, string, bool) {
+	switch ev.kind {
+	case keyPrintable:
+		state.input += string(ev.r)
+		return state, "", true
+	case keyBackspace:
+		chars := []rune(state.input)
+		if len(chars) > 0 {
+			state.input = string(chars[:len(chars)-1])
+		}
+		return state, "", true
+	case keyEnter:
+		submitted := state.input
+		state.input = ""
+		return state, submitted, true
+	default:
+		return state, "", false
+	}
+}
+
+func runInteractiveTea(out io.Writer, in io.Reader, callbacks interactiveCallbacks) error {
+	if callbacks.StatusSnapshot == nil || callbacks.Execute == nil {
+		return fmt.Errorf("interactive callbacks must provide status snapshot and execute handlers")
+	}
+
+	model := newInteractiveTeaModel(callbacks)
+	program := tea.NewProgram(
+		model,
+		tea.WithInput(in),
+		tea.WithOutput(out),
+	)
+	_, err := program.Run()
+	return err
+}
 
 type interactiveTickMsg struct{}
 
