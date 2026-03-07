@@ -6,6 +6,15 @@ import (
 	"time"
 )
 
+const (
+	testTasksFile   = "tasks.json"
+	fmtNewFileStore = "NewFileStore: %v"
+	fmtAdd          = "Add: %v"
+	fmtComplete     = "Complete: %v"
+	testTaskOne     = "task one"
+	testTaskTwo     = "task two"
+)
+
 func TestTaskStructFields(t *testing.T) {
 	now := time.Now()
 	task := Task{
@@ -34,10 +43,10 @@ func TestTaskStructFields(t *testing.T) {
 }
 
 func TestFileStoreAddCreatesTask(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "tasks.json")
+	path := filepath.Join(t.TempDir(), testTasksFile)
 	store, err := NewFileStore(path)
 	if err != nil {
-		t.Fatalf("NewFileStore: %v", err)
+		t.Fatalf(fmtNewFileStore, err)
 	}
 
 	before := time.Now()
@@ -45,7 +54,7 @@ func TestFileStoreAddCreatesTask(t *testing.T) {
 	after := time.Now()
 
 	if err != nil {
-		t.Fatalf("Add: %v", err)
+		t.Fatalf(fmtAdd, err)
 	}
 	if task.ID != 1 {
 		t.Errorf("expected ID 1, got %d", task.ID)
@@ -65,49 +74,49 @@ func TestFileStoreAddCreatesTask(t *testing.T) {
 }
 
 func TestFileStoreActiveReturnsUncompleted(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "tasks.json")
+	path := filepath.Join(t.TempDir(), testTasksFile)
 	store, err := NewFileStore(path)
 	if err != nil {
-		t.Fatalf("NewFileStore: %v", err)
+		t.Fatalf(fmtNewFileStore, err)
 	}
 
-	if _, err := store.Add("task one"); err != nil {
-		t.Fatalf("Add: %v", err)
+	if _, err := store.Add(testTaskOne); err != nil {
+		t.Fatalf(fmtAdd, err)
 	}
-	if _, err := store.Add("task two"); err != nil {
-		t.Fatalf("Add: %v", err)
+	if _, err := store.Add(testTaskTwo); err != nil {
+		t.Fatalf(fmtAdd, err)
 	}
 
 	active := store.Active()
 	if len(active) != 2 {
 		t.Fatalf("expected 2 active tasks, got %d", len(active))
 	}
-	if active[0].Description != "task one" {
+	if active[0].Description != testTaskOne {
 		t.Errorf("expected first task 'task one', got %q", active[0].Description)
 	}
-	if active[1].Description != "task two" {
+	if active[1].Description != testTaskTwo {
 		t.Errorf("expected second task 'task two', got %q", active[1].Description)
 	}
 }
 
 func TestFileStoreIDsAutoIncrement(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "tasks.json")
+	path := filepath.Join(t.TempDir(), testTasksFile)
 	store, err := NewFileStore(path)
 	if err != nil {
-		t.Fatalf("NewFileStore: %v", err)
+		t.Fatalf(fmtNewFileStore, err)
 	}
 
 	t1, err := store.Add("first")
 	if err != nil {
-		t.Fatalf("Add: %v", err)
+		t.Fatalf(fmtAdd, err)
 	}
 	t2, err := store.Add("second")
 	if err != nil {
-		t.Fatalf("Add: %v", err)
+		t.Fatalf(fmtAdd, err)
 	}
 	t3, err := store.Add("third")
 	if err != nil {
-		t.Fatalf("Add: %v", err)
+		t.Fatalf(fmtAdd, err)
 	}
 
 	if t1.ID != 1 {
@@ -122,19 +131,19 @@ func TestFileStoreIDsAutoIncrement(t *testing.T) {
 }
 
 func TestFileStoreCompleteMarksTaskDone(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "tasks.json")
+	path := filepath.Join(t.TempDir(), testTasksFile)
 	store, err := NewFileStore(path)
 	if err != nil {
-		t.Fatalf("NewFileStore: %v", err)
+		t.Fatalf(fmtNewFileStore, err)
 	}
 
 	if _, err := store.Add("task to complete"); err != nil {
-		t.Fatalf("Add: %v", err)
+		t.Fatalf(fmtAdd, err)
 	}
 
 	before := time.Now()
 	if err := store.Complete(1); err != nil {
-		t.Fatalf("Complete: %v", err)
+		t.Fatalf(fmtComplete, err)
 	}
 	after := time.Now()
 
@@ -156,10 +165,10 @@ func TestFileStoreCompleteMarksTaskDone(t *testing.T) {
 }
 
 func TestFileStoreCompleteUnknownIDReturnsError(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "tasks.json")
+	path := filepath.Join(t.TempDir(), testTasksFile)
 	store, err := NewFileStore(path)
 	if err != nil {
-		t.Fatalf("NewFileStore: %v", err)
+		t.Fatalf(fmtNewFileStore, err)
 	}
 
 	if err := store.Complete(99); err == nil {
@@ -168,17 +177,17 @@ func TestFileStoreCompleteUnknownIDReturnsError(t *testing.T) {
 }
 
 func TestFileStoreCompleteAlreadyDoneReturnsError(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "tasks.json")
+	path := filepath.Join(t.TempDir(), testTasksFile)
 	store, err := NewFileStore(path)
 	if err != nil {
-		t.Fatalf("NewFileStore: %v", err)
+		t.Fatalf(fmtNewFileStore, err)
 	}
 
 	if _, err := store.Add("task"); err != nil {
-		t.Fatalf("Add: %v", err)
+		t.Fatalf(fmtAdd, err)
 	}
 	if err := store.Complete(1); err != nil {
-		t.Fatalf("Complete: %v", err)
+		t.Fatalf(fmtComplete, err)
 	}
 	if err := store.Complete(1); err == nil {
 		t.Error("expected error for already-done task, got nil")
@@ -186,17 +195,17 @@ func TestFileStoreCompleteAlreadyDoneReturnsError(t *testing.T) {
 }
 
 func TestFileStoreRemoveDeletesTask(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "tasks.json")
+	path := filepath.Join(t.TempDir(), testTasksFile)
 	store, err := NewFileStore(path)
 	if err != nil {
-		t.Fatalf("NewFileStore: %v", err)
+		t.Fatalf(fmtNewFileStore, err)
 	}
 
 	if _, err := store.Add("keep"); err != nil {
-		t.Fatalf("Add: %v", err)
+		t.Fatalf(fmtAdd, err)
 	}
 	if _, err := store.Add("remove me"); err != nil {
-		t.Fatalf("Add: %v", err)
+		t.Fatalf(fmtAdd, err)
 	}
 
 	if err := store.Remove(2); err != nil {
@@ -213,10 +222,10 @@ func TestFileStoreRemoveDeletesTask(t *testing.T) {
 }
 
 func TestFileStoreRemoveUnknownIDReturnsError(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "tasks.json")
+	path := filepath.Join(t.TempDir(), testTasksFile)
 	store, err := NewFileStore(path)
 	if err != nil {
-		t.Fatalf("NewFileStore: %v", err)
+		t.Fatalf(fmtNewFileStore, err)
 	}
 
 	if err := store.Remove(99); err == nil {
@@ -225,20 +234,20 @@ func TestFileStoreRemoveUnknownIDReturnsError(t *testing.T) {
 }
 
 func TestFileStoreClearCompletedRemovesDoneTasks(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "tasks.json")
+	path := filepath.Join(t.TempDir(), testTasksFile)
 	store, err := NewFileStore(path)
 	if err != nil {
-		t.Fatalf("NewFileStore: %v", err)
+		t.Fatalf(fmtNewFileStore, err)
 	}
 
 	if _, err := store.Add("active task"); err != nil {
-		t.Fatalf("Add: %v", err)
+		t.Fatalf(fmtAdd, err)
 	}
 	if _, err := store.Add("done task"); err != nil {
-		t.Fatalf("Add: %v", err)
+		t.Fatalf(fmtAdd, err)
 	}
 	if err := store.Complete(2); err != nil {
-		t.Fatalf("Complete: %v", err)
+		t.Fatalf(fmtComplete, err)
 	}
 
 	if err := store.ClearCompleted(); err != nil {
@@ -256,20 +265,20 @@ func TestFileStoreClearCompletedRemovesDoneTasks(t *testing.T) {
 }
 
 func TestFileStorePersistsAcrossLoads(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "tasks.json")
+	path := filepath.Join(t.TempDir(), testTasksFile)
 	store, err := NewFileStore(path)
 	if err != nil {
-		t.Fatalf("NewFileStore: %v", err)
+		t.Fatalf(fmtNewFileStore, err)
 	}
 
-	if _, err := store.Add("task one"); err != nil {
-		t.Fatalf("Add: %v", err)
+	if _, err := store.Add(testTaskOne); err != nil {
+		t.Fatalf(fmtAdd, err)
 	}
-	if _, err := store.Add("task two"); err != nil {
-		t.Fatalf("Add: %v", err)
+	if _, err := store.Add(testTaskTwo); err != nil {
+		t.Fatalf(fmtAdd, err)
 	}
 	if err := store.Complete(1); err != nil {
-		t.Fatalf("Complete: %v", err)
+		t.Fatalf(fmtComplete, err)
 	}
 
 	reloaded, err := NewFileStore(path)
@@ -281,7 +290,7 @@ func TestFileStorePersistsAcrossLoads(t *testing.T) {
 	if len(active) != 1 {
 		t.Fatalf("expected 1 active task after reload, got %d", len(active))
 	}
-	if active[0].Description != "task two" {
+	if active[0].Description != testTaskTwo {
 		t.Errorf("expected active task 'task two', got %q", active[0].Description)
 	}
 
@@ -289,21 +298,21 @@ func TestFileStorePersistsAcrossLoads(t *testing.T) {
 	if len(completed) != 1 {
 		t.Fatalf("expected 1 completed task after reload, got %d", len(completed))
 	}
-	if completed[0].Description != "task one" {
+	if completed[0].Description != testTaskOne {
 		t.Errorf("expected completed task 'task one', got %q", completed[0].Description)
 	}
 }
 
 func TestFileStoreNextIDSurvivesReload(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "tasks.json")
+	path := filepath.Join(t.TempDir(), testTasksFile)
 	store, err := NewFileStore(path)
 	if err != nil {
-		t.Fatalf("NewFileStore: %v", err)
+		t.Fatalf(fmtNewFileStore, err)
 	}
 
 	t1, err := store.Add("first")
 	if err != nil {
-		t.Fatalf("Add: %v", err)
+		t.Fatalf(fmtAdd, err)
 	}
 	if t1.ID != 1 {
 		t.Errorf("expected first task ID 1, got %d", t1.ID)
@@ -324,26 +333,26 @@ func TestFileStoreNextIDSurvivesReload(t *testing.T) {
 }
 
 func TestFileStoreActiveTaskID(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "tasks.json")
+	path := filepath.Join(t.TempDir(), testTasksFile)
 	store, err := NewFileStore(path)
 	if err != nil {
-		t.Fatalf("NewFileStore: %v", err)
+		t.Fatalf(fmtNewFileStore, err)
 	}
 
 	// Add 3 tasks: IDs 1, 2, 3
 	if _, err := store.Add("first"); err != nil {
-		t.Fatalf("Add: %v", err)
+		t.Fatalf(fmtAdd, err)
 	}
 	if _, err := store.Add("second"); err != nil {
-		t.Fatalf("Add: %v", err)
+		t.Fatalf(fmtAdd, err)
 	}
 	if _, err := store.Add("third"); err != nil {
-		t.Fatalf("Add: %v", err)
+		t.Fatalf(fmtAdd, err)
 	}
 
 	// Complete the middle one (ID=2), so active list is [ID=1, ID=3]
 	if err := store.Complete(2); err != nil {
-		t.Fatalf("Complete: %v", err)
+		t.Fatalf(fmtComplete, err)
 	}
 
 	// Position 1 should map to ID 1

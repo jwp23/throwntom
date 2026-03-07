@@ -9,6 +9,11 @@ import (
 	"github.com/jwp23/throwntom/v2/internal/task"
 )
 
+const (
+	fmtInvalidTaskNumber = "invalid task number: %s"
+	fmtInvalidPosition   = "invalid position: %s"
+)
+
 func (d *timerCore) handleTask(parts []string) commandResult {
 	if d.tasks == nil {
 		return commandResult{err: fmt.Errorf("task store not initialized")}
@@ -60,7 +65,7 @@ func (d *timerCore) handleTaskDone(parts []string) commandResult {
 	}
 	pos, err := strconv.Atoi(parts[2])
 	if err != nil {
-		return commandResult{err: fmt.Errorf("invalid task number: %s", parts[2])}
+		return commandResult{err: fmt.Errorf(fmtInvalidTaskNumber, parts[2])}
 	}
 	id, err := d.tasks.ActiveTaskID(pos)
 	if err != nil {
@@ -84,7 +89,7 @@ func (d *timerCore) handleTaskRemove(parts []string) commandResult {
 	}
 	pos, err := strconv.Atoi(parts[2])
 	if err != nil {
-		return commandResult{err: fmt.Errorf("invalid task number: %s", parts[2])}
+		return commandResult{err: fmt.Errorf(fmtInvalidTaskNumber, parts[2])}
 	}
 	id, err := d.tasks.ActiveTaskID(pos)
 	if err != nil {
@@ -136,7 +141,7 @@ func (d *timerCore) handleTaskFocus(parts []string) commandResult {
 	}
 	pos, err := strconv.Atoi(parts[2])
 	if err != nil {
-		return commandResult{err: fmt.Errorf("invalid task number: %s", parts[2])}
+		return commandResult{err: fmt.Errorf(fmtInvalidTaskNumber, parts[2])}
 	}
 	id, err := d.tasks.ActiveTaskID(pos)
 	if err != nil {
@@ -166,7 +171,7 @@ func (d *timerCore) handleTaskUnfocus(parts []string) commandResult {
 	}
 	pos, err := strconv.Atoi(parts[2])
 	if err != nil {
-		return commandResult{err: fmt.Errorf("invalid position: %s", parts[2])}
+		return commandResult{err: fmt.Errorf(fmtInvalidPosition, parts[2])}
 	}
 	if pos < 1 || pos > len(d.focused) {
 		return commandResult{err: fmt.Errorf("position %d out of range (1-%d)", pos, len(d.focused))}
@@ -184,7 +189,7 @@ func (d *timerCore) handleTaskUp(parts []string) commandResult {
 	}
 	pos, err := strconv.Atoi(parts[2])
 	if err != nil {
-		return commandResult{err: fmt.Errorf("invalid position: %s", parts[2])}
+		return commandResult{err: fmt.Errorf(fmtInvalidPosition, parts[2])}
 	}
 	if pos < 2 || pos > len(d.focused) {
 		return commandResult{err: fmt.Errorf("position %d out of range for up (2-%d)", pos, len(d.focused))}
@@ -202,7 +207,7 @@ func (d *timerCore) handleTaskDown(parts []string) commandResult {
 	}
 	pos, err := strconv.Atoi(parts[2])
 	if err != nil {
-		return commandResult{err: fmt.Errorf("invalid position: %s", parts[2])}
+		return commandResult{err: fmt.Errorf(fmtInvalidPosition, parts[2])}
 	}
 	if pos < 1 || pos >= len(d.focused) {
 		return commandResult{err: fmt.Errorf("position %d out of range for down (1-%d)", pos, len(d.focused)-1)}

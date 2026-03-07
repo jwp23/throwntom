@@ -61,8 +61,7 @@ repeat_secs = 3
 	}
 
 	s := scheduler.New(cfg.Schedule.Days, cfg.Schedule.Time)
-	at := time.Date(2026, 3, 2, 9, 15, 0, 0, time.Local) // Monday
-	if !s.ShouldTrigger(at) {
+	if !s.ShouldTrigger(time.Date(2026, 3, 2, 9, 15, 0, 0, time.Local)) { // Monday
 		t.Fatal("expected scheduler trigger from parsed config values")
 	}
 }
@@ -72,8 +71,7 @@ func TestStatusIncludesPomodoroProgress(t *testing.T) {
 	cycle := app.New(25, 5, 15, 4, 30*time.Millisecond, notifier)
 	cycle.Start()
 
-	status := cycle.StatusLine()
-	if !strings.Contains(status, "pomodoros=0/4") {
+	if status := cycle.StatusLine(); !strings.Contains(status, "pomodoros=0/4") {
 		t.Fatalf("expected pomodoro progress in status line, got %q", status)
 	}
 }

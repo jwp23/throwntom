@@ -7,16 +7,24 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+const (
+	testStatusIdle     = "idle | 00:00"
+	testStatusIdleFull = "idle | 00:00 | today's pomodoros=0 | pomodoros=0/4"
+	testCommandsHeader = "commands:"
+	testHelpHint       = "?: help"
+	testFocusHeader    = "Focus:"
+)
+
 func TestInteractiveTeaModelEnterExecutesAndClearsPrompt(t *testing.T) {
 	var submitted string
 	model := newInteractiveTeaModel(interactiveCallbacks{
 		StatusSnapshot: func() (string, bool) {
-			return "idle | 00:00", false
+			return testStatusIdle, false
 		},
 		Execute: func(command string) (commandResponse, error) {
 			submitted = command
 			return commandResponse{
-				StatusLine:     "idle | 00:00",
+				StatusLine:     testStatusIdle,
 				MorningPending: false,
 				Message:        "ok",
 			}, nil
@@ -47,12 +55,12 @@ func TestInteractiveTeaModelSpaceKeyIncludedInSubmittedCommand(t *testing.T) {
 	var submitted string
 	model := newInteractiveTeaModel(interactiveCallbacks{
 		StatusSnapshot: func() (string, bool) {
-			return "idle | 00:00", false
+			return testStatusIdle, false
 		},
 		Execute: func(command string) (commandResponse, error) {
 			submitted = command
 			return commandResponse{
-				StatusLine:     "idle | 00:00",
+				StatusLine:     testStatusIdle,
 				MorningPending: false,
 				Message:        "ok",
 			}, nil
@@ -77,7 +85,7 @@ func TestInteractiveTeaModelSpaceKeyIncludedInSubmittedCommand(t *testing.T) {
 }
 
 func TestInteractiveTeaModelTickRefreshesStatusAndKeepsPrompt(t *testing.T) {
-	statusLine := "idle | 00:00"
+	statusLine := testStatusIdle
 	model := newInteractiveTeaModel(interactiveCallbacks{
 		StatusSnapshot: func() (string, bool) {
 			return statusLine, false
@@ -103,7 +111,7 @@ func TestInteractiveTeaModelTickRefreshesStatusAndKeepsPrompt(t *testing.T) {
 func TestInteractiveTeaModelResizeClampsViewWidth(t *testing.T) {
 	model := newInteractiveTeaModel(interactiveCallbacks{
 		StatusSnapshot: func() (string, bool) {
-			return "idle | 00:00 | today's pomodoros=0 | pomodoros=0/4", false
+			return testStatusIdleFull, false
 		},
 		Execute: func(string) (commandResponse, error) {
 			return commandResponse{}, nil
@@ -127,7 +135,7 @@ func TestInteractiveTeaModelResizeClampsViewWidth(t *testing.T) {
 func TestInteractiveTeaModelResizeZeroWidthKeepsPreviousClamp(t *testing.T) {
 	model := newInteractiveTeaModel(interactiveCallbacks{
 		StatusSnapshot: func() (string, bool) {
-			return "idle | 00:00 | today's pomodoros=0 | pomodoros=0/4", false
+			return testStatusIdleFull, false
 		},
 		Execute: func(string) (commandResponse, error) {
 			return commandResponse{}, nil
@@ -149,10 +157,10 @@ func TestInteractiveTeaModelViewIncludesPersistentHeaderLines(t *testing.T) {
 	model := newInteractiveTeaModel(interactiveCallbacks{
 		HeaderLines: []string{
 			"throwntom run mode started (schedule Mon,Tue,Wed,Thu,Fri 09:00)",
-			"commands:",
+			testCommandsHeader,
 		},
 		StatusSnapshot: func() (string, bool) {
-			return "idle | 00:00 | today's pomodoros=0 | pomodoros=0/4", false
+			return testStatusIdleFull, false
 		},
 		Execute: func(string) (commandResponse, error) {
 			return commandResponse{}, nil
@@ -168,7 +176,7 @@ func TestInteractiveTeaModelViewIncludesPersistentHeaderLines(t *testing.T) {
 	if !strings.HasPrefix(lines[0], "throwntom run mode started") {
 		t.Fatalf("expected first header line, got %q", lines[0])
 	}
-	if !strings.HasPrefix(lines[1], "commands:") {
+	if !strings.HasPrefix(lines[1], testCommandsHeader) {
 		t.Fatalf("expected second header line, got %q", lines[1])
 	}
 	for idx, line := range lines {
@@ -183,7 +191,7 @@ func TestInteractiveTeaModelHelpHiddenByDefault(t *testing.T) {
 		HeaderLines: []string{"throwntom run mode started"},
 		HelpLines:   strings.Split(commandsHelp(), "\n"),
 		StatusSnapshot: func() (string, bool) {
-			return "idle | 00:00", false
+			return testStatusIdle, false
 		},
 		Execute: func(string) (commandResponse, error) {
 			return commandResponse{}, nil
@@ -191,10 +199,10 @@ func TestInteractiveTeaModelHelpHiddenByDefault(t *testing.T) {
 	})
 
 	view := model.View()
-	if !strings.Contains(view, "?: help") {
+	if !strings.Contains(view, testHelpHint) {
 		t.Fatalf("expected hint line '?: help' when help is hidden, got %q", view)
 	}
-	if strings.Contains(view, "commands:") {
+	if strings.Contains(view, testCommandsHeader) {
 		t.Fatalf("expected help to be hidden by default, but found 'commands:' in %q", view)
 	}
 }
@@ -203,7 +211,7 @@ func TestInteractiveTeaModelQuestionMarkTogglesHelp(t *testing.T) {
 	model := newInteractiveTeaModel(interactiveCallbacks{
 		HelpLines: strings.Split(commandsHelp(), "\n"),
 		StatusSnapshot: func() (string, bool) {
-			return "idle | 00:00", false
+			return testStatusIdle, false
 		},
 		Execute: func(string) (commandResponse, error) {
 			return commandResponse{}, nil
@@ -212,27 +220,27 @@ func TestInteractiveTeaModelQuestionMarkTogglesHelp(t *testing.T) {
 
 	// Initially hidden
 	view := model.View()
-	if strings.Contains(view, "commands:") {
+	if strings.Contains(view, testCommandsHeader) {
 		t.Fatalf("expected help hidden initially, got %q", view)
 	}
 
 	// Press ? to show
 	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}})
 	view = next.(interactiveTeaModel).View()
-	if !strings.Contains(view, "commands:") {
+	if !strings.Contains(view, testCommandsHeader) {
 		t.Fatalf("expected help visible after ?, got %q", view)
 	}
-	if strings.Contains(view, "?: help") {
+	if strings.Contains(view, testHelpHint) {
 		t.Fatalf("expected hint hidden when help is shown, got %q", view)
 	}
 
 	// Press ? again to hide
 	next, _ = next.(interactiveTeaModel).Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}})
 	view = next.(interactiveTeaModel).View()
-	if strings.Contains(view, "commands:") {
+	if strings.Contains(view, testCommandsHeader) {
 		t.Fatalf("expected help hidden after second ?, got %q", view)
 	}
-	if !strings.Contains(view, "?: help") {
+	if !strings.Contains(view, testHelpHint) {
 		t.Fatalf("expected hint visible after hiding help, got %q", view)
 	}
 }
@@ -241,7 +249,7 @@ func TestInteractiveTeaModelQuestionMarkTypedWhenInputNonEmpty(t *testing.T) {
 	model := newInteractiveTeaModel(interactiveCallbacks{
 		HelpLines: strings.Split(commandsHelp(), "\n"),
 		StatusSnapshot: func() (string, bool) {
-			return "idle | 00:00", false
+			return testStatusIdle, false
 		},
 		Execute: func(string) (commandResponse, error) {
 			return commandResponse{}, nil
@@ -256,7 +264,7 @@ func TestInteractiveTeaModelQuestionMarkTypedWhenInputNonEmpty(t *testing.T) {
 	if !strings.Contains(view, "command> a?") {
 		t.Fatalf("expected '?' typed as normal input when buffer non-empty, got %q", view)
 	}
-	if strings.Contains(view, "commands:") {
+	if strings.Contains(view, testCommandsHeader) {
 		t.Fatalf("expected help to stay hidden when '?' typed with non-empty input, got %q", view)
 	}
 }
@@ -266,11 +274,11 @@ func TestInteractiveTeaModelQuestionMarkTypedWhenInputNonEmpty(t *testing.T) {
 func TestViewShowsFocusLinesAboveStatus(t *testing.T) {
 	m := interactiveTeaModel{
 		statusLine: "pomodoro | 24:30 | today's pomodoros=1 | pomodoros=1/4",
-		focusLines: []string{"Focus:", "  1. important task"},
+		focusLines: []string{testFocusHeader, "  1. important task"},
 		width:      120,
 	}
 	view := m.View()
-	focusIdx := strings.Index(view, "Focus:")
+	focusIdx := strings.Index(view, testFocusHeader)
 	statusIdx := strings.Index(view, "status:")
 	if focusIdx == -1 {
 		t.Fatal("expected Focus: in view")
@@ -299,11 +307,11 @@ func TestViewShowsFocusPromptWhenPending(t *testing.T) {
 
 func TestViewHidesFocusLinesWhenEmpty(t *testing.T) {
 	m := interactiveTeaModel{
-		statusLine: "idle | 00:00",
+		statusLine: testStatusIdle,
 		width:      120,
 	}
 	view := m.View()
-	if strings.Contains(view, "Focus:") {
+	if strings.Contains(view, testFocusHeader) {
 		t.Fatal("expected no focus lines")
 	}
 }
@@ -312,7 +320,7 @@ func TestEnterInFocusPromptCallsExecuteWithEmptyString(t *testing.T) {
 	var executedCommand *string
 	model := newInteractiveTeaModel(interactiveCallbacks{
 		StatusSnapshot: func() (string, bool) {
-			return "idle | 00:00", false
+			return testStatusIdle, false
 		},
 		Execute: func(command string) (commandResponse, error) {
 			executedCommand = &command
@@ -345,7 +353,7 @@ func TestEscCancelsFocusPrompt(t *testing.T) {
 	var cancelCalled bool
 	model := newInteractiveTeaModel(interactiveCallbacks{
 		StatusSnapshot: func() (string, bool) {
-			return "idle | 00:00", false
+			return testStatusIdle, false
 		},
 		Execute: func(string) (commandResponse, error) {
 			return commandResponse{}, nil
@@ -353,7 +361,7 @@ func TestEscCancelsFocusPrompt(t *testing.T) {
 		CancelFocus: func() commandResponse {
 			cancelCalled = true
 			return commandResponse{
-				StatusLine: "idle | 00:00",
+				StatusLine: testStatusIdle,
 				Message:    "task selection cancelled",
 			}
 		},
@@ -376,7 +384,7 @@ func TestEscDoesNothingWhenNoFocusPrompt(t *testing.T) {
 	var cancelCalled bool
 	model := newInteractiveTeaModel(interactiveCallbacks{
 		StatusSnapshot: func() (string, bool) {
-			return "idle | 00:00", false
+			return testStatusIdle, false
 		},
 		Execute: func(string) (commandResponse, error) {
 			return commandResponse{}, nil

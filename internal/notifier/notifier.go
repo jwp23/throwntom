@@ -61,8 +61,7 @@ func NewTestNotifier(run runner) Notifier {
 }
 
 func (n *macOSNotifier) PlaySound(name string) error {
-	soundPath := "/System/Library/Sounds/Glass.aiff"
-	if err := n.run("afplay", soundPath); err != nil {
+	if err := n.run("afplay", "/System/Library/Sounds/Glass.aiff"); err != nil {
 		return fmt.Errorf("play sound %q: %w", name, err)
 	}
 	return nil

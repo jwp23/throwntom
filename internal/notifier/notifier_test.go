@@ -7,11 +7,13 @@ import (
 	"testing"
 )
 
+const testSoundName = "default"
+
 func TestNotifierFallbackOnCommandError(t *testing.T) {
 	n := NewTestNotifier(func(name string, args ...string) error {
 		return errors.New("exec failed")
 	})
-	if err := n.PlaySound("default"); err == nil {
+	if n.PlaySound(testSoundName) == nil {
 		t.Fatal("expected contextual error")
 	}
 }
@@ -25,7 +27,7 @@ func TestLinuxNotifierWritesTerminalBell(t *testing.T) {
 		},
 	}
 
-	if err := n.PlaySound("default"); err != nil {
+	if err := n.PlaySound(testSoundName); err != nil {
 		t.Fatalf("play sound: %v", err)
 	}
 	if got := out.String(); got != "\a" {
@@ -39,7 +41,7 @@ func TestLinuxNotifierErrorsOnNilOutput(t *testing.T) {
 			return errors.New("no command available")
 		},
 	}
-	if err := n.PlaySound("default"); err == nil {
+	if n.PlaySound(testSoundName) == nil {
 		t.Fatal("expected nil output error")
 	}
 }
@@ -57,7 +59,7 @@ func TestLinuxNotifierUsesConfiguredCommandFirst(t *testing.T) {
 		},
 	}
 
-	if err := n.PlaySound("default"); err != nil {
+	if err := n.PlaySound(testSoundName); err != nil {
 		t.Fatalf("play sound: %v", err)
 	}
 	if gotName != "paplay" {

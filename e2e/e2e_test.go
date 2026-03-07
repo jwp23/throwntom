@@ -174,7 +174,7 @@ exec "$1"`
 	}
 }
 
-func scriptCommandInvocation(goos string, scriptCmd string, bin string) []string {
+func scriptCommandInvocation(goos, scriptCmd, bin string) []string {
 	if goos == "linux" {
 		return []string{
 			"-q",

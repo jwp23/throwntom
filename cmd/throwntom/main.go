@@ -55,28 +55,24 @@ func loadConfig(path string) (config.Config, error) {
 	return config.LoadFile(path)
 }
 
-func defaultConfigPath() (string, error) {
+func configDirPath(filename string) (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("resolve home directory: %w", err)
 	}
-	return filepath.Join(homeDir, ".config", "throwntom", "config.toml"), nil
+	return filepath.Join(homeDir, ".config", "throwntom", filename), nil
+}
+
+func defaultConfigPath() (string, error) {
+	return configDirPath("config.toml")
 }
 
 func defaultTasksPath() (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("resolve home directory: %w", err)
-	}
-	return filepath.Join(homeDir, ".config", "throwntom", "tasks.json"), nil
+	return configDirPath("tasks.json")
 }
 
 func defaultSessionPath() (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("resolve home directory: %w", err)
-	}
-	return filepath.Join(homeDir, ".config", "throwntom", "session.json"), nil
+	return configDirPath("session.json")
 }
 
 func printUsage() {

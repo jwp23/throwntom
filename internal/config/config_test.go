@@ -6,6 +6,8 @@ import (
 	"testing"
 )
 
+const fmtUnexpectedErr = "unexpected error: %v"
+
 func TestDefaultConfig(t *testing.T) {
 	cfg := Default()
 	if cfg.Schedule.Time != "09:15" {
@@ -44,7 +46,7 @@ morning_reminder_pending = false
 `)
 	cfg, err := LoadBytes(raw)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(fmtUnexpectedErr, err)
 	}
 	if cfg.LongBreakEvery != 3 || cfg.Schedule.Time != "09:45" {
 		t.Fatalf("unexpected parsed config: %+v", cfg)
@@ -60,7 +62,7 @@ morning_reminder_pending = false
 func TestLoadAcceptsValidTimeAndMergesDefaults(t *testing.T) {
 	cfg, err := LoadBytes([]byte(`schedule_time = "10:30"`))
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(fmtUnexpectedErr, err)
 	}
 	if cfg.Schedule.Time != "10:30" {
 		t.Fatalf("expected overridden time 10:30, got %s", cfg.Schedule.Time)
@@ -92,7 +94,7 @@ func TestLoadFile(t *testing.T) {
 	}
 	cfg, err := LoadFile(path)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf(fmtUnexpectedErr, err)
 	}
 	if cfg.Schedule.Time != "11:45" {
 		t.Fatalf("expected overridden time, got %s", cfg.Schedule.Time)

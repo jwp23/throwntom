@@ -15,6 +15,14 @@ import (
 	"github.com/jwp23/throwntom/v2/internal/task"
 )
 
+const (
+	testSessionFile       = "session.json"
+	cmdStart              = "start"
+	fmtLoadSession        = "loadSession: %v"
+	statusTodayPomodoros1 = "today's pomodoros=1"
+	statusTodayPomodoros0 = "today's pomodoros=0"
+)
+
 type noopNotifier struct{}
 
 func (noopNotifier) PlaySound(string) error {
@@ -74,10 +82,10 @@ func TestNewCycleCommandResetsCycleProgressButKeepsDailyTotal(t *testing.T) {
 	cfg.MorningReminderPending = false
 	core := newTimerCore(cfg, noopNotifier{})
 
-	core.execute("start")
+	core.execute(cmdStart)
 	core.cycle.CompletePeriod()
 	before, _ := core.snapshot()
-	if !strings.Contains(before, "today's pomodoros=1") {
+	if !strings.Contains(before, statusTodayPomodoros1) {
 		t.Fatalf("expected baseline daily total, got %s", before)
 	}
 
@@ -93,20 +101,20 @@ func TestNewCycleCommandResetsCycleProgressButKeepsDailyTotal(t *testing.T) {
 	if !strings.Contains(after, "pomodoros=0/4") {
 		t.Fatalf("expected cycle reset, got %s", after)
 	}
-	if !strings.Contains(after, "today's pomodoros=1") {
+	if !strings.Contains(after, statusTodayPomodoros1) {
 		t.Fatalf("expected daily total preserved, got %s", after)
 	}
 }
 
 func TestSaveSessionWritesValidJSON(t *testing.T) {
 	dir := t.TempDir()
-	sessPath := filepath.Join(dir, "session.json")
+	sessPath := filepath.Join(dir, testSessionFile)
 
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
 	core := newTimerCore(cfg, noopNotifier{})
 	core.sessionPath = sessPath
-	core.execute("start")
+	core.execute(cmdStart)
 
 	core.saveSession()
 
@@ -125,33 +133,33 @@ func TestSaveSessionWritesValidJSON(t *testing.T) {
 
 func TestLoadSessionRestoresState(t *testing.T) {
 	dir := t.TempDir()
-	sessPath := filepath.Join(dir, "session.json")
+	sessPath := filepath.Join(dir, testSessionFile)
 
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
 	core := newTimerCore(cfg, noopNotifier{})
 	core.sessionPath = sessPath
-	core.execute("start")
+	core.execute(cmdStart)
 	core.cycle.CompletePeriod()
 	core.saveSession()
 
 	core2 := newTimerCore(cfg, noopNotifier{})
 	core2.sessionPath = sessPath
 	if err := core2.loadSession(); err != nil {
-		t.Fatalf("loadSession: %v", err)
+		t.Fatalf(fmtLoadSession, err)
 	}
 	status, _ := core2.snapshot()
 	if !strings.Contains(status, "awaiting-confirm") {
 		t.Fatalf("expected awaiting-confirm after restore, got %s", status)
 	}
-	if !strings.Contains(status, "today's pomodoros=1") {
+	if !strings.Contains(status, statusTodayPomodoros1) {
 		t.Fatalf("expected completedToday=1, got %s", status)
 	}
 }
 
 func TestLoadSessionDiscardsDifferentDay(t *testing.T) {
 	dir := t.TempDir()
-	sessPath := filepath.Join(dir, "session.json")
+	sessPath := filepath.Join(dir, testSessionFile)
 
 	yesterday := time.Now().Add(-24 * time.Hour)
 	data := session.Data{
@@ -167,7 +175,7 @@ func TestLoadSessionDiscardsDifferentDay(t *testing.T) {
 	core := newTimerCore(cfg, noopNotifier{})
 	core.sessionPath = sessPath
 	if err := core.loadSession(); err != nil {
-		t.Fatalf("loadSession: %v", err)
+		t.Fatalf(fmtLoadSession, err)
 	}
 	status, _ := core.snapshot()
 	if !strings.Contains(status, "idle") {
@@ -177,7 +185,7 @@ func TestLoadSessionDiscardsDifferentDay(t *testing.T) {
 
 func TestLoadSessionPreservesFocusedTaskOrder(t *testing.T) {
 	dir := t.TempDir()
-	sessPath := filepath.Join(dir, "session.json")
+	sessPath := filepath.Join(dir, testSessionFile)
 	tasksPath := filepath.Join(dir, "tasks.json")
 
 	store, err := task.NewFileStore(tasksPath)
@@ -193,7 +201,7 @@ func TestLoadSessionPreservesFocusedTaskOrder(t *testing.T) {
 	core := newTimerCore(cfg, noopNotifier{})
 	core.sessionPath = sessPath
 	core.tasks = store
-	core.execute("start")
+	core.execute(cmdStart)
 	core.focused = []task.Task{t3, t1}
 	core.saveSession()
 
@@ -202,7 +210,7 @@ func TestLoadSessionPreservesFocusedTaskOrder(t *testing.T) {
 	core2.sessionPath = sessPath
 	core2.tasks = store2
 	if err := core2.loadSession(); err != nil {
-		t.Fatalf("loadSession: %v", err)
+		t.Fatalf(fmtLoadSession, err)
 	}
 	focused := core2.focusedTasks()
 	if len(focused) != 2 {
@@ -216,7 +224,7 @@ func TestLoadSessionPreservesFocusedTaskOrder(t *testing.T) {
 
 func TestLoadSessionDropsStaleTaskIDs(t *testing.T) {
 	dir := t.TempDir()
-	sessPath := filepath.Join(dir, "session.json")
+	sessPath := filepath.Join(dir, testSessionFile)
 	tasksPath := filepath.Join(dir, "tasks.json")
 
 	store, err := task.NewFileStore(tasksPath)
@@ -240,7 +248,7 @@ func TestLoadSessionDropsStaleTaskIDs(t *testing.T) {
 	core.sessionPath = sessPath
 	core.tasks = store
 	if err := core.loadSession(); err != nil {
-		t.Fatalf("loadSession: %v", err)
+		t.Fatalf(fmtLoadSession, err)
 	}
 	focused := core.focusedTasks()
 	if len(focused) != 1 {
@@ -253,14 +261,14 @@ func TestLoadSessionDropsStaleTaskIDs(t *testing.T) {
 
 func TestExecuteCommandSavesSession(t *testing.T) {
 	dir := t.TempDir()
-	sessPath := filepath.Join(dir, "session.json")
+	sessPath := filepath.Join(dir, testSessionFile)
 
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
 	core := newTimerCore(cfg, noopNotifier{})
 	core.sessionPath = sessPath
 
-	core.executeCommand("start")
+	core.executeCommand(cmdStart)
 
 	if _, err := os.Stat(sessPath); os.IsNotExist(err) {
 		t.Fatal("expected session file to be created after executeCommand")
@@ -269,13 +277,13 @@ func TestExecuteCommandSavesSession(t *testing.T) {
 
 func TestStopSavesSession(t *testing.T) {
 	dir := t.TempDir()
-	sessPath := filepath.Join(dir, "session.json")
+	sessPath := filepath.Join(dir, testSessionFile)
 
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
 	core := newTimerCore(cfg, noopNotifier{})
 	core.sessionPath = sessPath
-	core.execute("start")
+	core.execute(cmdStart)
 
 	core.stop()
 
@@ -286,20 +294,20 @@ func TestStopSavesSession(t *testing.T) {
 
 func TestLoadSessionSuppressesMorningReminder(t *testing.T) {
 	dir := t.TempDir()
-	sessPath := filepath.Join(dir, "session.json")
+	sessPath := filepath.Join(dir, testSessionFile)
 
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
 	core := newTimerCore(cfg, noopNotifier{})
 	core.sessionPath = sessPath
-	core.execute("start")
+	core.execute(cmdStart)
 	core.saveSession()
 
 	cfg2 := config.Default()
 	core2 := newTimerCore(cfg2, noopNotifier{})
 	core2.sessionPath = sessPath
 	if err := core2.loadSession(); err != nil {
-		t.Fatalf("loadSession: %v", err)
+		t.Fatalf(fmtLoadSession, err)
 	}
 	dayKey := time.Now().Format("2006-01-02")
 	core2.state.mu.Lock()
@@ -312,13 +320,13 @@ func TestLoadSessionSuppressesMorningReminder(t *testing.T) {
 
 func TestSaveLoadExpiredTimerTransitionsToAwaitingConfirm(t *testing.T) {
 	dir := t.TempDir()
-	sessPath := filepath.Join(dir, "session.json")
+	sessPath := filepath.Join(dir, testSessionFile)
 
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
 	core := newTimerCore(cfg, noopNotifier{})
 	core.sessionPath = sessPath
-	core.execute("start")
+	core.execute(cmdStart)
 	core.saveSession()
 
 	data, err := session.Load(sessPath)
@@ -331,7 +339,7 @@ func TestSaveLoadExpiredTimerTransitionsToAwaitingConfirm(t *testing.T) {
 	core2 := newTimerCore(cfg, noopNotifier{})
 	core2.sessionPath = sessPath
 	if err := core2.loadSession(); err != nil {
-		t.Fatalf("loadSession: %v", err)
+		t.Fatalf(fmtLoadSession, err)
 	}
 	state := core2.cycle.State()
 	if state != engine.AwaitingConfirm {
@@ -342,20 +350,20 @@ func TestSaveLoadExpiredTimerTransitionsToAwaitingConfirm(t *testing.T) {
 
 func TestSaveLoadPausedPreservesRemainingDuration(t *testing.T) {
 	dir := t.TempDir()
-	sessPath := filepath.Join(dir, "session.json")
+	sessPath := filepath.Join(dir, testSessionFile)
 
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
 	core := newTimerCore(cfg, noopNotifier{})
 	core.sessionPath = sessPath
-	core.execute("start")
+	core.execute(cmdStart)
 	core.execute("pause")
 	core.saveSession()
 
 	core2 := newTimerCore(cfg, noopNotifier{})
 	core2.sessionPath = sessPath
 	if err := core2.loadSession(); err != nil {
-		t.Fatalf("loadSession: %v", err)
+		t.Fatalf(fmtLoadSession, err)
 	}
 	state := core2.cycle.State()
 	if state != engine.Paused {
@@ -371,14 +379,14 @@ func TestSaveLoadPausedPreservesRemainingDuration(t *testing.T) {
 
 func TestSaveLoadCompletedTodayPersists(t *testing.T) {
 	dir := t.TempDir()
-	sessPath := filepath.Join(dir, "session.json")
+	sessPath := filepath.Join(dir, testSessionFile)
 
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
 	core := newTimerCore(cfg, noopNotifier{})
 	core.sessionPath = sessPath
 
-	core.execute("start")
+	core.execute(cmdStart)
 	for i := 0; i < 3; i++ {
 		core.cycle.CompletePeriod()
 		core.execute("confirm")
@@ -395,7 +403,7 @@ func TestSaveLoadCompletedTodayPersists(t *testing.T) {
 	core2 := newTimerCore(cfg, noopNotifier{})
 	core2.sessionPath = sessPath
 	if err := core2.loadSession(); err != nil {
-		t.Fatalf("loadSession: %v", err)
+		t.Fatalf(fmtLoadSession, err)
 	}
 	status2, _ := core2.snapshot()
 	if !strings.Contains(status2, "today's pomodoros=3") {
@@ -412,11 +420,11 @@ func TestSnapshotResetsCompletedTodayOnDayRollover(t *testing.T) {
 	yesterday := time.Date(2026, 3, 5, 17, 0, 0, 0, time.Local)
 	core.now = func() time.Time { return yesterday }
 
-	core.executeCommand("start")
+	core.executeCommand(cmdStart)
 	core.cycle.CompletePeriod()
 
 	status, _ := core.snapshot()
-	if !strings.Contains(status, "today's pomodoros=1") {
+	if !strings.Contains(status, statusTodayPomodoros1) {
 		t.Fatalf("expected today's pomodoros=1 yesterday, got %s", status)
 	}
 
@@ -424,7 +432,7 @@ func TestSnapshotResetsCompletedTodayOnDayRollover(t *testing.T) {
 	core.now = func() time.Time { return today }
 
 	status2, _ := core.snapshot()
-	if !strings.Contains(status2, "today's pomodoros=0") {
+	if !strings.Contains(status2, statusTodayPomodoros0) {
 		t.Fatalf("expected today's pomodoros=0 after day rollover, got %s", status2)
 	}
 }
@@ -467,7 +475,7 @@ func TestStartSkipsMorningLoopWhenNotPending(t *testing.T) {
 func TestStartSkipsMorningLoopWhenEngineNotIdle(t *testing.T) {
 	cfg := config.Default()
 	core := newTimerCore(cfg, noopNotifier{})
-	core.execute("start") // engine transitions to Work, stopMorningLoop clears morningPending
+	core.execute(cmdStart) // engine transitions to Work, stopMorningLoop clears morningPending
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -484,7 +492,7 @@ func TestStartSkipsMorningLoopWhenEngineNotIdle(t *testing.T) {
 
 func TestSessionSavedAfterMidnightResetsOnReload(t *testing.T) {
 	dir := t.TempDir()
-	sessPath := filepath.Join(dir, "session.json")
+	sessPath := filepath.Join(dir, testSessionFile)
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
 
@@ -493,7 +501,7 @@ func TestSessionSavedAfterMidnightResetsOnReload(t *testing.T) {
 	core.sessionPath = sessPath
 	core.now = func() time.Time { return yesterday }
 
-	core.executeCommand("start")
+	core.executeCommand(cmdStart)
 	core.cycle.CompletePeriod()
 	core.executeCommand("pause")
 
@@ -506,11 +514,11 @@ func TestSessionSavedAfterMidnightResetsOnReload(t *testing.T) {
 	core2.sessionPath = sessPath
 	core2.now = func() time.Time { return today }
 	if err := core2.loadSession(); err != nil {
-		t.Fatalf("loadSession: %v", err)
+		t.Fatalf(fmtLoadSession, err)
 	}
 
 	status, _ := core2.snapshot()
-	if !strings.Contains(status, "today's pomodoros=0") {
+	if !strings.Contains(status, statusTodayPomodoros0) {
 		t.Fatalf("expected today's pomodoros=0 after midnight reload, got %s", status)
 	}
 }
