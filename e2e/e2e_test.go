@@ -126,7 +126,7 @@ func TestInteractiveResizeSmokeNoLineClobber(t *testing.T) {
 
 	bin := buildBinary(t)
 	scriptCmd := `(sleep 0.25; stty cols 40 >/dev/null 2>&1 || true; sleep 0.25; stty cols 120 >/dev/null 2>&1 || true) &
-exec "$1"`
+TERM=dumb exec "$1"`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
