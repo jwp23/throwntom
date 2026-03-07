@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jwp23/throwntom/v2/internal/app"
-	"github.com/jwp23/throwntom/v2/internal/engine"
+	"github.com/jwp23/throwntom/v3/internal/app"
+	"github.com/jwp23/throwntom/v3/internal/engine"
 )
 
 func TestSaveLoadRoundTrip(t *testing.T) {

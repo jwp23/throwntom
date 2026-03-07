@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jwp23/throwntom/v2/internal/config"
+	"github.com/jwp23/throwntom/v3/internal/config"
 )
 
 func main() {

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/jwp23/throwntom/v2/internal/engine"
+	"github.com/jwp23/throwntom/v3/internal/engine"
 )
 
 const (

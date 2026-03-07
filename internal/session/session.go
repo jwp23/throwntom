@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/jwp23/throwntom/v2/internal/app"
+	"github.com/jwp23/throwntom/v3/internal/app"
 )
 
 type Data struct {

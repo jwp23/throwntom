@@ -5,7 +5,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/jwp23/throwntom/v2/internal/engine"
+	"github.com/jwp23/throwntom/v3/internal/engine"
 )
 
 var (
