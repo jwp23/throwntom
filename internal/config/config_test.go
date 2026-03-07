@@ -16,6 +16,9 @@ func TestDefaultConfig(t *testing.T) {
 	if !cfg.MorningReminderPending {
 		t.Fatal("expected morning reminder pending to default to true")
 	}
+	if !cfg.Emoji {
+		t.Fatal("expected emoji to default to true")
+	}
 }
 
 func TestDefaultCycleCadence(t *testing.T) {
@@ -56,6 +59,16 @@ morning_reminder_pending = false
 	}
 	if cfg.MorningReminderPending {
 		t.Fatal("expected morning reminder pending to parse as false")
+	}
+}
+
+func TestEmojiDefaultsTrueAndCanBeDisabled(t *testing.T) {
+	cfg, err := LoadBytes([]byte(`emoji = false`))
+	if err != nil {
+		t.Fatalf(fmtUnexpectedErr, err)
+	}
+	if cfg.Emoji {
+		t.Fatal("expected emoji to be false when explicitly set")
 	}
 }
 

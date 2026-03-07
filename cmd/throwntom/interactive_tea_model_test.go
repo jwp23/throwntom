@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/jwp23/throwntom/v2/internal/engine"
 )
 
 const (
@@ -18,8 +19,8 @@ const (
 func TestInteractiveTeaModelEnterExecutesAndClearsPrompt(t *testing.T) {
 	var submitted string
 	model := newInteractiveTeaModel(interactiveCallbacks{
-		StatusSnapshot: func() (string, bool) {
-			return testStatusIdle, false
+		StatusSnapshot: func() (string, engine.State, bool) {
+			return testStatusIdle, engine.Idle, false
 		},
 		Execute: func(command string) (commandResponse, error) {
 			submitted = command
@@ -54,8 +55,8 @@ func TestInteractiveTeaModelEnterExecutesAndClearsPrompt(t *testing.T) {
 func TestInteractiveTeaModelSpaceKeyIncludedInSubmittedCommand(t *testing.T) {
 	var submitted string
 	model := newInteractiveTeaModel(interactiveCallbacks{
-		StatusSnapshot: func() (string, bool) {
-			return testStatusIdle, false
+		StatusSnapshot: func() (string, engine.State, bool) {
+			return testStatusIdle, engine.Idle, false
 		},
 		Execute: func(command string) (commandResponse, error) {
 			submitted = command
@@ -87,8 +88,8 @@ func TestInteractiveTeaModelSpaceKeyIncludedInSubmittedCommand(t *testing.T) {
 func TestInteractiveTeaModelTickRefreshesStatusAndKeepsPrompt(t *testing.T) {
 	statusLine := testStatusIdle
 	model := newInteractiveTeaModel(interactiveCallbacks{
-		StatusSnapshot: func() (string, bool) {
-			return statusLine, false
+		StatusSnapshot: func() (string, engine.State, bool) {
+			return statusLine, engine.Idle, false
 		},
 		Execute: func(string) (commandResponse, error) {
 			return commandResponse{}, nil
@@ -110,8 +111,8 @@ func TestInteractiveTeaModelTickRefreshesStatusAndKeepsPrompt(t *testing.T) {
 
 func TestInteractiveTeaModelResizeClampsViewWidth(t *testing.T) {
 	model := newInteractiveTeaModel(interactiveCallbacks{
-		StatusSnapshot: func() (string, bool) {
-			return testStatusIdleFull, false
+		StatusSnapshot: func() (string, engine.State, bool) {
+			return testStatusIdleFull, engine.Idle, false
 		},
 		Execute: func(string) (commandResponse, error) {
 			return commandResponse{}, nil
@@ -134,8 +135,8 @@ func TestInteractiveTeaModelResizeClampsViewWidth(t *testing.T) {
 
 func TestInteractiveTeaModelResizeZeroWidthKeepsPreviousClamp(t *testing.T) {
 	model := newInteractiveTeaModel(interactiveCallbacks{
-		StatusSnapshot: func() (string, bool) {
-			return testStatusIdleFull, false
+		StatusSnapshot: func() (string, engine.State, bool) {
+			return testStatusIdleFull, engine.Idle, false
 		},
 		Execute: func(string) (commandResponse, error) {
 			return commandResponse{}, nil
@@ -159,8 +160,8 @@ func TestInteractiveTeaModelViewIncludesPersistentHeaderLines(t *testing.T) {
 			"throwntom run mode started (schedule Mon,Tue,Wed,Thu,Fri 09:00)",
 			testCommandsHeader,
 		},
-		StatusSnapshot: func() (string, bool) {
-			return testStatusIdleFull, false
+		StatusSnapshot: func() (string, engine.State, bool) {
+			return testStatusIdleFull, engine.Idle, false
 		},
 		Execute: func(string) (commandResponse, error) {
 			return commandResponse{}, nil
@@ -190,8 +191,8 @@ func TestInteractiveTeaModelHelpHiddenByDefault(t *testing.T) {
 	model := newInteractiveTeaModel(interactiveCallbacks{
 		HeaderLines: []string{"throwntom run mode started"},
 		HelpLines:   strings.Split(commandsHelp(), "\n"),
-		StatusSnapshot: func() (string, bool) {
-			return testStatusIdle, false
+		StatusSnapshot: func() (string, engine.State, bool) {
+			return testStatusIdle, engine.Idle, false
 		},
 		Execute: func(string) (commandResponse, error) {
 			return commandResponse{}, nil
@@ -210,8 +211,8 @@ func TestInteractiveTeaModelHelpHiddenByDefault(t *testing.T) {
 func TestInteractiveTeaModelQuestionMarkTogglesHelp(t *testing.T) {
 	model := newInteractiveTeaModel(interactiveCallbacks{
 		HelpLines: strings.Split(commandsHelp(), "\n"),
-		StatusSnapshot: func() (string, bool) {
-			return testStatusIdle, false
+		StatusSnapshot: func() (string, engine.State, bool) {
+			return testStatusIdle, engine.Idle, false
 		},
 		Execute: func(string) (commandResponse, error) {
 			return commandResponse{}, nil
@@ -248,8 +249,8 @@ func TestInteractiveTeaModelQuestionMarkTogglesHelp(t *testing.T) {
 func TestInteractiveTeaModelQuestionMarkTypedWhenInputNonEmpty(t *testing.T) {
 	model := newInteractiveTeaModel(interactiveCallbacks{
 		HelpLines: strings.Split(commandsHelp(), "\n"),
-		StatusSnapshot: func() (string, bool) {
-			return testStatusIdle, false
+		StatusSnapshot: func() (string, engine.State, bool) {
+			return testStatusIdle, engine.Idle, false
 		},
 		Execute: func(string) (commandResponse, error) {
 			return commandResponse{}, nil
@@ -319,8 +320,8 @@ func TestViewHidesFocusLinesWhenEmpty(t *testing.T) {
 func TestEnterInFocusPromptCallsExecuteWithEmptyString(t *testing.T) {
 	var executedCommand *string
 	model := newInteractiveTeaModel(interactiveCallbacks{
-		StatusSnapshot: func() (string, bool) {
-			return testStatusIdle, false
+		StatusSnapshot: func() (string, engine.State, bool) {
+			return testStatusIdle, engine.Idle, false
 		},
 		Execute: func(command string) (commandResponse, error) {
 			executedCommand = &command
@@ -352,8 +353,8 @@ func TestEnterInFocusPromptCallsExecuteWithEmptyString(t *testing.T) {
 func TestEscCancelsFocusPrompt(t *testing.T) {
 	var cancelCalled bool
 	model := newInteractiveTeaModel(interactiveCallbacks{
-		StatusSnapshot: func() (string, bool) {
-			return testStatusIdle, false
+		StatusSnapshot: func() (string, engine.State, bool) {
+			return testStatusIdle, engine.Idle, false
 		},
 		Execute: func(string) (commandResponse, error) {
 			return commandResponse{}, nil
@@ -383,8 +384,8 @@ func TestEscCancelsFocusPrompt(t *testing.T) {
 func TestEscDoesNothingWhenNoFocusPrompt(t *testing.T) {
 	var cancelCalled bool
 	model := newInteractiveTeaModel(interactiveCallbacks{
-		StatusSnapshot: func() (string, bool) {
-			return testStatusIdle, false
+		StatusSnapshot: func() (string, engine.State, bool) {
+			return testStatusIdle, engine.Idle, false
 		},
 		Execute: func(string) (commandResponse, error) {
 			return commandResponse{}, nil

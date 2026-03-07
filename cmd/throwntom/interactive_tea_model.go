@@ -5,6 +5,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/jwp23/throwntom/v2/internal/engine"
 )
 
 type interactiveTickMsg struct{}
@@ -15,7 +16,10 @@ type interactiveTeaModel struct {
 	helpLines      []string
 	showHelp       bool
 	statusLine     string
+	engineState    engine.State
 	morningPending bool
+	isError        bool
+	emoji          bool
 	message        string
 	prompt         promptState
 	width          int
@@ -24,13 +28,15 @@ type interactiveTeaModel struct {
 }
 
 func newInteractiveTeaModel(callbacks interactiveCallbacks) interactiveTeaModel {
-	statusLine, morningPending := callbacks.StatusSnapshot()
+	statusLine, engineState, morningPending := callbacks.StatusSnapshot()
 	return interactiveTeaModel{
 		callbacks:      callbacks,
 		headerLines:    append([]string(nil), callbacks.HeaderLines...),
 		helpLines:      append([]string(nil), callbacks.HelpLines...),
 		statusLine:     statusLine,
+		engineState:    engineState,
 		morningPending: morningPending,
+		emoji:          callbacks.Emoji,
 	}
 }
 
@@ -49,7 +55,7 @@ func (m interactiveTeaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		return m.updateKey(msg)
 	case interactiveTickMsg:
-		m.statusLine, m.morningPending = m.callbacks.StatusSnapshot()
+		m.statusLine, m.engineState, m.morningPending = m.callbacks.StatusSnapshot()
 		if m.callbacks.FocusSnapshot != nil {
 			m.focusLines, m.focusPrompt = m.callbacks.FocusSnapshot()
 		}
@@ -137,6 +143,7 @@ func (m interactiveTeaModel) handleEsc() (tea.Model, tea.Cmd) {
 		m.focusPrompt = ""
 		m.focusLines = resp.FocusLines
 		m.statusLine = resp.StatusLine
+		m.engineState = resp.EngineState
 		m.morningPending = resp.MorningPending
 		if resp.Message != "" {
 			m.message = resp.Message
@@ -156,18 +163,22 @@ func (m interactiveTeaModel) submitCommand() (tea.Model, tea.Cmd) {
 	resp, err := m.callbacks.Execute(submitted)
 	if err != nil {
 		m.message = err.Error()
-		m.statusLine, m.morningPending = m.callbacks.StatusSnapshot()
+		m.isError = true
+		m.statusLine, m.engineState, m.morningPending = m.callbacks.StatusSnapshot()
 		return m, nil
 	}
 
 	m.statusLine = resp.StatusLine
+	m.engineState = resp.EngineState
 	m.morningPending = resp.MorningPending
 	m.focusLines = resp.FocusLines
 	m.focusPrompt = resp.FocusPrompt
 	if resp.Error != "" {
 		m.message = resp.Error
+		m.isError = true
 	} else if resp.Message != "" {
 		m.message = resp.Message
+		m.isError = false
 	}
 	if resp.Exit {
 		return m, tea.Quit

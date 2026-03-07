@@ -26,11 +26,11 @@ type reminderState struct {
 	morningPending bool
 }
 
-func (s *reminderState) statusSnapshot(cycle *app.App) (string, bool) {
+func (s *reminderState) statusSnapshot(cycle *app.App) (string, engine.State, bool) {
 	s.mu.Lock()
 	currentMorningPending := s.morningPending
 	s.mu.Unlock()
-	return cycle.StatusLine(), currentMorningPending
+	return cycle.StatusLine(), cycle.State(), currentMorningPending
 }
 
 func (s *reminderState) beginMorningLoop() (context.Context, bool) {
@@ -147,7 +147,7 @@ func (d *timerCore) stop() {
 	d.state.stopMorningLoop()
 }
 
-func (d *timerCore) snapshot() (string, bool) {
+func (d *timerCore) snapshot() (string, engine.State, bool) {
 	d.cycle.AdvanceDay(d.now())
 	return d.state.statusSnapshot(d.cycle)
 }
@@ -156,9 +156,10 @@ func (d *timerCore) executeCommand(line string) commandResponse {
 	d.cycle.AdvanceDay(d.now())
 	result := d.execute(line)
 	d.saveSession()
-	statusLine, morningPending := d.snapshot()
+	statusLine, engineState, morningPending := d.snapshot()
 	resp := commandResponse{
 		StatusLine:     statusLine,
+		EngineState:    engineState,
 		MorningPending: morningPending,
 		Message:        result.message,
 		Exit:           result.exit,

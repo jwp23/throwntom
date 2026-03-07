@@ -49,6 +49,7 @@ func localModeCallbacks(cfg config.Config, core *timerCore) interactiveCallbacks
 	return interactiveCallbacks{
 		HeaderLines:    header,
 		HelpLines:      strings.Split(commandsHelp(), "\n"),
+		Emoji:          cfg.Emoji,
 		StatusSnapshot: core.snapshot,
 		FocusSnapshot: func() ([]string, string) {
 			focusLines := core.formatFocusLines()
@@ -63,9 +64,10 @@ func localModeCallbacks(cfg config.Config, core *timerCore) interactiveCallbacks
 		},
 		CancelFocus: func() commandResponse {
 			result := core.cancelFocusPrompt()
-			statusLine, morningPending := core.snapshot()
+			statusLine, engineState, morningPending := core.snapshot()
 			return commandResponse{
 				StatusLine:     statusLine,
+				EngineState:    engineState,
 				MorningPending: morningPending,
 				Message:        result.message,
 				FocusLines:     core.formatFocusLines(),

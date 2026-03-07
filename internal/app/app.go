@@ -217,15 +217,21 @@ func (a *App) StatusLine() string {
 	if completedInCycle == 0 && workSessionsInBlock > 0 && (state == engine.AwaitingConfirm || state == engine.LongBreak) {
 		completedInCycle = longBreakEvery
 	}
-	if state == engine.AwaitingConfirm {
-		return fmt.Sprintf("%s | transition pending | today's pomodoros=%d | pomodoros=%d/%d", a.statusLabelLocked(), completedToday, completedInCycle, longBreakEvery)
-	}
 
-	remaining := "00:00"
-	if !a.phaseEndAt.IsZero() {
-		remaining = formatRemaining(time.Until(a.phaseEndAt))
+	label := a.statusLabelLocked()
+	today := fmt.Sprintf("Today: %d", completedToday)
+	cycle := fmt.Sprintf("Cycle: %d/%d", completedInCycle, longBreakEvery)
+
+	switch state {
+	case engine.Idle, engine.AwaitingConfirm:
+		return fmt.Sprintf("%s  %s  %s", label, today, cycle)
+	default:
+		remaining := "00:00"
+		if !a.phaseEndAt.IsZero() {
+			remaining = formatRemaining(time.Until(a.phaseEndAt))
+		}
+		return fmt.Sprintf("%s  %s  %s  %s", label, remaining, today, cycle)
 	}
-	return fmt.Sprintf("%s | %s | today's pomodoros=%d | pomodoros=%d/%d", a.statusLabelLocked(), remaining, completedToday, completedInCycle, longBreakEvery)
 }
 
 func formatRemaining(d time.Duration) string {
@@ -288,18 +294,18 @@ func (a *App) stopTimerLocked() {
 func (a *App) statusLabelLocked() string {
 	switch a.engine.State() {
 	case engine.Idle:
-		return "idle"
+		return "Idle"
 	case engine.Work:
-		return "pomodoro"
+		return "Pomodoro"
 	case engine.ShortBreak:
-		return "short-break"
+		return "Short break"
 	case engine.LongBreak:
-		return "long-break"
+		return "Long break"
 	case engine.AwaitingConfirm:
-		return "awaiting-confirm"
+		return "Confirm to continue"
 	case engine.Paused:
-		return "paused"
+		return "Paused"
 	default:
-		return "unknown"
+		return "Unknown"
 	}
 }

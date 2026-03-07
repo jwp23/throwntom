@@ -22,6 +22,7 @@ type Config struct {
 	RepeatSecs             int
 	SoundCommand           []string
 	MorningReminderPending bool
+	Emoji                  bool
 }
 
 func Default() Config {
@@ -34,6 +35,7 @@ func Default() Config {
 	cfg.LongBreakEvery = 4
 	cfg.RepeatSecs = 20
 	cfg.MorningReminderPending = true
+	cfg.Emoji = true
 	return cfg
 }
 
@@ -180,6 +182,9 @@ var configSetters = map[string]func(cfg *Config, val string) error{
 	},
 	"morning_reminder_pending": func(cfg *Config, val string) error {
 		return setBoolField(&cfg.MorningReminderPending, val)
+	},
+	"emoji": func(cfg *Config, val string) error {
+		return setBoolField(&cfg.Emoji, val)
 	},
 }
 
