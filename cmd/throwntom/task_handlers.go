@@ -269,7 +269,7 @@ func (d *timerCore) finalizeFocusPrompt() commandResult {
 	if action == "start" {
 		d.cycle.Start()
 	}
-	return commandResult{message: "pomodoro started"}
+	return commandResult{message: "Pomodoro started -- let's go!"}
 }
 
 func (d *timerCore) formatFocusPrompt() string {
@@ -315,7 +315,7 @@ func (d *timerCore) formatFocusLines() []string {
 	if len(d.focused) == 0 {
 		return nil
 	}
-	lines := []string{"Focus:"}
+	lines := []string{stateIcon(engine.Work, d.emoji) + " Focus:"}
 	for i, tk := range d.focused {
 		lines = append(lines, fmt.Sprintf("  %d. %s", i+1, tk.Description))
 	}

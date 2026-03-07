@@ -60,6 +60,25 @@ func morningIcon(emoji bool) string {
 	return "[!]"
 }
 
+func friendlyStateName(state engine.State) string {
+	switch state {
+	case engine.Work:
+		return "pomodoro"
+	case engine.ShortBreak:
+		return "short break"
+	case engine.LongBreak:
+		return "long break"
+	case engine.Idle:
+		return "idle"
+	case engine.Paused:
+		return "paused"
+	case engine.AwaitingConfirm:
+		return "awaiting confirmation"
+	default:
+		return state.String()
+	}
+}
+
 func stateStyle(state engine.State) lipgloss.Style {
 	switch state {
 	case engine.Work:

@@ -83,7 +83,7 @@ func TestLocalModeCallbacksExecuteDelegatesToCore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error from execute callback, got %v", err)
 	}
-	if resp.Message != "pomodoro started" {
+	if resp.Message != "Pomodoro started -- let's go!" {
 		t.Fatalf("expected start message, got %q", resp.Message)
 	}
 }

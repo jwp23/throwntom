@@ -328,7 +328,7 @@ func TestEnterInFocusPromptCallsExecuteWithEmptyString(t *testing.T) {
 			executedCommand = &command
 			return commandResponse{
 				StatusLine: "pomodoro | 25:00",
-				Message:    "pomodoro started",
+				Message:    "Pomodoro started -- let's go!",
 			}, nil
 		},
 	})
@@ -346,7 +346,7 @@ func TestEnterInFocusPromptCallsExecuteWithEmptyString(t *testing.T) {
 		t.Fatalf("expected empty string command, got %q", *executedCommand)
 	}
 	m := next.(interactiveTeaModel)
-	if m.message != "pomodoro started" {
+	if m.message != "Pomodoro started -- let's go!" {
 		t.Fatalf("expected message 'pomodoro started', got %q", m.message)
 	}
 }
