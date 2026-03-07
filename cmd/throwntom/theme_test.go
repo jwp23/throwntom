@@ -7,6 +7,8 @@ import (
 	"github.com/jwp23/throwntom/v2/internal/engine"
 )
 
+const testBellEmoji = "\U0001F514"
+
 func TestStateIconEmojiMode(t *testing.T) {
 	tests := []struct {
 		state engine.State
@@ -18,7 +20,7 @@ func TestStateIconEmojiMode(t *testing.T) {
 		{engine.LongBreak, "\U0001F33F", "~"},
 		{engine.Idle, "\U0001F331", "-"},
 		{engine.Paused, "\u23F8\uFE0F", "||"},
-		{engine.AwaitingConfirm, "\U0001F514", "!"},
+		{engine.AwaitingConfirm, testBellEmoji, "!"},
 	}
 	for _, tt := range tests {
 		got := stateIcon(tt.state, true)
@@ -33,7 +35,7 @@ func TestStateIconEmojiMode(t *testing.T) {
 }
 
 func TestMorningIcon(t *testing.T) {
-	if got := morningIcon(true); got != "\U0001F514" {
+	if got := morningIcon(true); got != testBellEmoji {
 		t.Errorf("morningIcon(true) = %q, want bell emoji", got)
 	}
 	if got := morningIcon(false); got != "[!]" {
@@ -52,7 +54,13 @@ func TestStateStyleReturnsNonEmpty(t *testing.T) {
 }
 
 func TestRenderThemedFrame(t *testing.T) {
-	frame := renderThemedFrame("Pomodoro  24:35  Today: 0  Cycle: 0/4", engine.Work, false, "started", false, "st", 0, true)
+	frame := renderThemedFrame(frameInput{
+		StatusLine: "Pomodoro  24:35  Today: 0  Cycle: 0/4",
+		State:      engine.Work,
+		Message:    "started",
+		Input:      "st",
+		Emoji:      true,
+	})
 	if !strings.Contains(frame, "Pomodoro") {
 		t.Fatalf("expected status line in themed frame, got %q", frame)
 	}
@@ -65,8 +73,13 @@ func TestRenderThemedFrame(t *testing.T) {
 }
 
 func TestRenderThemedFrameMorningIndicator(t *testing.T) {
-	frame := renderThemedFrame("Idle  Today: 0  Cycle: 0/4", engine.Idle, true, "", false, "", 0, true)
-	if !strings.Contains(frame, "\U0001F514") {
+	frame := renderThemedFrame(frameInput{
+		StatusLine:     testStatusIdle,
+		State:          engine.Idle,
+		MorningPending: true,
+		Emoji:          true,
+	})
+	if !strings.Contains(frame, testBellEmoji) {
 		t.Fatalf("expected morning bell icon when morning pending, got %q", frame)
 	}
 }

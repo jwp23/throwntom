@@ -98,30 +98,41 @@ func stateStyle(state engine.State) lipgloss.Style {
 	}
 }
 
-func renderThemedFrame(statusLine string, state engine.State, morningPending bool, message string, isError bool, input string, width int, emoji bool) string {
-	icon := stateIcon(state, emoji)
-	style := stateStyle(state)
-	statusRendered := fmt.Sprintf("%s %s", icon, style.Render(statusLine))
-	if morningPending {
-		statusRendered += " " + morningIcon(emoji)
+type frameInput struct {
+	StatusLine     string
+	State          engine.State
+	MorningPending bool
+	Message        string
+	IsError        bool
+	Input          string
+	Width          int
+	Emoji          bool
+}
+
+func renderThemedFrame(f frameInput) string {
+	icon := stateIcon(f.State, f.Emoji)
+	style := stateStyle(f.State)
+	statusRendered := fmt.Sprintf("%s %s", icon, style.Render(f.StatusLine))
+	if f.MorningPending {
+		statusRendered += " " + morningIcon(f.Emoji)
 	}
 
 	var msgLine string
-	if message != "" {
-		if isError {
-			msgLine = lipgloss.NewStyle().Foreground(colorRed).Render(message)
+	if f.Message != "" {
+		if f.IsError {
+			msgLine = lipgloss.NewStyle().Foreground(colorRed).Render(f.Message)
 		} else {
-			msgLine = message
+			msgLine = f.Message
 		}
 	}
 
-	promptLine := "> " + input
+	promptLine := "> " + f.Input
 
 	return fmt.Sprintf(
 		"%s\n%s\n%s",
-		clampANSILine(statusRendered, width),
-		clampANSILine(msgLine, width),
-		clampANSILine(promptLine, width),
+		clampANSILine(statusRendered, f.Width),
+		clampANSILine(msgLine, f.Width),
+		clampANSILine(promptLine, f.Width),
 	)
 }
 

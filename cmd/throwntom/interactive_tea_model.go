@@ -80,7 +80,16 @@ func (m interactiveTeaModel) View() string {
 		return strings.Join(lines, "\n")
 	}
 
-	frame := renderThemedFrame(m.statusLine, m.engineState, m.morningPending, m.message, m.isError, m.prompt.input, m.width, m.emoji)
+	frame := renderThemedFrame(frameInput{
+		StatusLine:     m.statusLine,
+		State:          m.engineState,
+		MorningPending: m.morningPending,
+		Message:        m.message,
+		IsError:        m.isError,
+		Input:          m.prompt.input,
+		Width:          m.width,
+		Emoji:          m.emoji,
+	})
 
 	var header []string
 	for _, line := range m.headerLines {
