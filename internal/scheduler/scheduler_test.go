@@ -7,8 +7,7 @@ import (
 
 func TestShouldTriggerMorningReminder(t *testing.T) {
 	s := New([]string{"Mon", "Tue", "Wed", "Thu", "Fri"}, "09:15")
-	at := time.Date(2026, 3, 2, 9, 15, 0, 0, time.Local)
-	if !s.ShouldTrigger(at) {
+	if !s.ShouldTrigger(time.Date(2026, 3, 2, 9, 15, 0, 0, time.Local)) {
 		t.Fatal("expected trigger at scheduled weekday/time")
 	}
 }

@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-func renderFrameWithWidth(statusLine string, morningPending bool, message string, input string, width int) string {
+func renderFrameWithWidth(statusLine string, morningPending bool, message, input string, width int) string {
 	return fmt.Sprintf(
 		"%s\n%s\n%s",
 		clampTerminalLine(fmt.Sprintf("status: %s morning reminder pending=%t", statusLine, morningPending), width),

@@ -9,6 +9,12 @@ import (
 	"github.com/jwp23/throwntom/v2/internal/engine"
 )
 
+const (
+	fmtRestore                 = "Restore: %v"
+	fmtExpectedAwaitingConfirm = "expected AwaitingConfirm, got %s"
+	statusTodayPomodoros1      = "today's pomodoros=1"
+)
+
 type fakeNotifier struct {
 	calls atomic.Int32
 	err   error
@@ -25,7 +31,7 @@ func TestStateShowsAwaitingConfirm(t *testing.T) {
 	a.Start()
 	a.CompletePeriod()
 	if got := a.State(); got != engine.AwaitingConfirm {
-		t.Fatalf("expected AwaitingConfirm, got %s", got)
+		t.Fatalf(fmtExpectedAwaitingConfirm, got)
 	}
 }
 
@@ -143,7 +149,7 @@ func TestStartNewCycleResetsCycleProgressButPreservesDailyTotal(t *testing.T) {
 	a := New(25, 5, 15, 4, 20*time.Millisecond, n)
 	a.Start()
 	a.CompletePeriod()
-	if !strings.Contains(a.StatusLine(), "today's pomodoros=1") {
+	if !strings.Contains(a.StatusLine(), statusTodayPomodoros1) {
 		t.Fatalf("expected daily total before reset, got %s", a.StatusLine())
 	}
 
@@ -155,7 +161,7 @@ func TestStartNewCycleResetsCycleProgressButPreservesDailyTotal(t *testing.T) {
 	if !strings.Contains(line, "pomodoros=0/4") {
 		t.Fatalf("expected cycle progress reset, got %s", line)
 	}
-	if !strings.Contains(line, "today's pomodoros=1") {
+	if !strings.Contains(line, statusTodayPomodoros1) {
 		t.Fatalf("expected daily total preserved, got %s", line)
 	}
 }
@@ -174,7 +180,7 @@ func TestRestoreWorkWithTimeRemaining(t *testing.T) {
 		PhaseEndAt: time.Now().Add(10 * time.Minute),
 	}
 	if err := a.Restore(snap); err != nil {
-		t.Fatalf("Restore: %v", err)
+		t.Fatalf(fmtRestore, err)
 	}
 	if got := a.State(); got != engine.Work {
 		t.Fatalf("expected Work, got %s", got)
@@ -199,10 +205,10 @@ func TestRestoreWorkExpiredTransitionsToAwaitingConfirm(t *testing.T) {
 		PhaseEndAt: time.Now().Add(-1 * time.Second),
 	}
 	if err := a.Restore(snap); err != nil {
-		t.Fatalf("Restore: %v", err)
+		t.Fatalf(fmtRestore, err)
 	}
 	if got := a.State(); got != engine.AwaitingConfirm {
-		t.Fatalf("expected AwaitingConfirm, got %s", got)
+		t.Fatalf(fmtExpectedAwaitingConfirm, got)
 	}
 }
 
@@ -218,7 +224,7 @@ func TestRestorePausedPreservesRemaining(t *testing.T) {
 		PausedRemaining: 12 * time.Minute,
 	}
 	if err := a.Restore(snap); err != nil {
-		t.Fatalf("Restore: %v", err)
+		t.Fatalf(fmtRestore, err)
 	}
 	if got := a.State(); got != engine.Paused {
 		t.Fatalf("expected Paused, got %s", got)
@@ -239,10 +245,10 @@ func TestRestoreAwaitingConfirmStartsReminder(t *testing.T) {
 		},
 	}
 	if err := a.Restore(snap); err != nil {
-		t.Fatalf("Restore: %v", err)
+		t.Fatalf(fmtRestore, err)
 	}
 	if got := a.State(); got != engine.AwaitingConfirm {
-		t.Fatalf("expected AwaitingConfirm, got %s", got)
+		t.Fatalf(fmtExpectedAwaitingConfirm, got)
 	}
 	time.Sleep(50 * time.Millisecond)
 	if n.calls.Load() == 0 {
@@ -262,7 +268,7 @@ func TestRestoreIdleIsClean(t *testing.T) {
 		},
 	}
 	if err := a.Restore(snap); err != nil {
-		t.Fatalf("Restore: %v", err)
+		t.Fatalf(fmtRestore, err)
 	}
 	if got := a.State(); got != engine.Idle {
 		t.Fatalf("expected Idle, got %s", got)
@@ -283,13 +289,13 @@ func TestSnapshotRestoreRoundTrip(t *testing.T) {
 	snap := a.Snapshot()
 	a2 := New(25, 5, 15, 4, 20*time.Millisecond, n)
 	if err := a2.Restore(snap); err != nil {
-		t.Fatalf("Restore: %v", err)
+		t.Fatalf(fmtRestore, err)
 	}
 	if got := a2.State(); got != engine.ShortBreak {
 		t.Fatalf("expected ShortBreak after restore, got %s", got)
 	}
 	line := a2.StatusLine()
-	if !strings.Contains(line, "today's pomodoros=1") {
+	if !strings.Contains(line, statusTodayPomodoros1) {
 		t.Fatalf("expected completedToday=1, got %s", line)
 	}
 	a2.Stop()

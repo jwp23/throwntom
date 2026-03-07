@@ -81,14 +81,23 @@ func validate(cfg Config) error {
 	if len(cfg.Schedule.Days) == 0 {
 		return fmt.Errorf("schedule_days must contain at least one day")
 	}
-	if len(cfg.SoundCommand) > 0 {
-		for i, part := range cfg.SoundCommand {
-			if strings.TrimSpace(part) == "" {
-				return fmt.Errorf("sound_command[%d] must be a non-empty string", i)
-			}
+	if err := validateSoundCommand(cfg.SoundCommand); err != nil {
+		return err
+	}
+	return validateScheduleDays(cfg.Schedule.Days)
+}
+
+func validateSoundCommand(parts []string) error {
+	for i, part := range parts {
+		if strings.TrimSpace(part) == "" {
+			return fmt.Errorf("sound_command[%d] must be a non-empty string", i)
 		}
 	}
-	for _, day := range cfg.Schedule.Days {
+	return nil
+}
+
+func validateScheduleDays(days []string) error {
+	for _, day := range days {
 		if !isSupportedWeekday(day) {
 			return fmt.Errorf("invalid schedule day %q: expected Sun,Mon,Tue,Wed,Thu,Fri,Sat", day)
 		}

@@ -10,6 +10,16 @@ import (
 	"github.com/jwp23/throwntom/v2/internal/task"
 )
 
+const (
+	fmtUnexpectedErr    = "unexpected error: %v"
+	cmdTaskList         = "task list"
+	cmdTaskDone1        = "task done 1"
+	cmdTaskCompleted    = "task completed"
+	msgNoActiveTasks    = "no active tasks"
+	cmdTaskAddImportant = "task add important work"
+	cmdTaskFocus1       = "task focus 1"
+)
+
 func newTestCoreWithTasks(t *testing.T) *timerCore {
 	t.Helper()
 	cfg := config.Default()
@@ -28,7 +38,7 @@ func TestTaskAddCommand(t *testing.T) {
 	core := newTestCoreWithTasks(t)
 	result := core.execute("task add write unit tests")
 	if result.err != nil {
-		t.Fatalf("unexpected error: %v", result.err)
+		t.Fatalf(fmtUnexpectedErr, result.err)
 	}
 	if !strings.Contains(result.message, "added") {
 		t.Fatalf("expected message to contain 'added', got %q", result.message)
@@ -42,9 +52,9 @@ func TestTaskListCommand(t *testing.T) {
 	core := newTestCoreWithTasks(t)
 	core.execute("task add first task")
 	core.execute("task add second task")
-	result := core.execute("task list")
+	result := core.execute(cmdTaskList)
 	if result.err != nil {
-		t.Fatalf("unexpected error: %v", result.err)
+		t.Fatalf(fmtUnexpectedErr, result.err)
 	}
 	if !strings.Contains(result.message, "1)") {
 		t.Fatalf("expected numbered list with '1)', got %q", result.message)
@@ -62,11 +72,11 @@ func TestTaskListCommand(t *testing.T) {
 
 func TestTaskListEmptyCommand(t *testing.T) {
 	core := newTestCoreWithTasks(t)
-	result := core.execute("task list")
+	result := core.execute(cmdTaskList)
 	if result.err != nil {
-		t.Fatalf("unexpected error: %v", result.err)
+		t.Fatalf(fmtUnexpectedErr, result.err)
 	}
-	if !strings.Contains(result.message, "no active tasks") {
+	if !strings.Contains(result.message, msgNoActiveTasks) {
 		t.Fatalf("expected 'no active tasks', got %q", result.message)
 	}
 }
@@ -74,15 +84,15 @@ func TestTaskListEmptyCommand(t *testing.T) {
 func TestTaskDoneCommand(t *testing.T) {
 	core := newTestCoreWithTasks(t)
 	core.execute("task add my task")
-	result := core.execute("task done 1")
+	result := core.execute(cmdTaskDone1)
 	if result.err != nil {
-		t.Fatalf("unexpected error: %v", result.err)
+		t.Fatalf(fmtUnexpectedErr, result.err)
 	}
 	if !strings.Contains(result.message, "completed") {
 		t.Fatalf("expected message to contain 'completed', got %q", result.message)
 	}
-	list := core.execute("task list")
-	if !strings.Contains(list.message, "no active tasks") {
+	list := core.execute(cmdTaskList)
+	if !strings.Contains(list.message, msgNoActiveTasks) {
 		t.Fatalf("expected no active tasks after done, got %q", list.message)
 	}
 }
@@ -90,10 +100,10 @@ func TestTaskDoneCommand(t *testing.T) {
 func TestTaskCompletedCommand(t *testing.T) {
 	core := newTestCoreWithTasks(t)
 	core.execute("task add finished task")
-	core.execute("task done 1")
-	result := core.execute("task completed")
+	core.execute(cmdTaskDone1)
+	result := core.execute(cmdTaskCompleted)
 	if result.err != nil {
-		t.Fatalf("unexpected error: %v", result.err)
+		t.Fatalf(fmtUnexpectedErr, result.err)
 	}
 	if !strings.Contains(result.message, "finished task") {
 		t.Fatalf("expected 'finished task' in completed list, got %q", result.message)
@@ -105,9 +115,9 @@ func TestTaskCompletedCommand(t *testing.T) {
 
 func TestTaskCompletedEmptyCommand(t *testing.T) {
 	core := newTestCoreWithTasks(t)
-	result := core.execute("task completed")
+	result := core.execute(cmdTaskCompleted)
 	if result.err != nil {
-		t.Fatalf("unexpected error: %v", result.err)
+		t.Fatalf(fmtUnexpectedErr, result.err)
 	}
 	if !strings.Contains(result.message, "no completed tasks") {
 		t.Fatalf("expected 'no completed tasks', got %q", result.message)
@@ -119,13 +129,13 @@ func TestTaskRemoveCommand(t *testing.T) {
 	core.execute("task add removable task")
 	result := core.execute("task remove 1")
 	if result.err != nil {
-		t.Fatalf("unexpected error: %v", result.err)
+		t.Fatalf(fmtUnexpectedErr, result.err)
 	}
 	if !strings.Contains(result.message, "removed") {
 		t.Fatalf("expected message to contain 'removed', got %q", result.message)
 	}
-	list := core.execute("task list")
-	if !strings.Contains(list.message, "no active tasks") {
+	list := core.execute(cmdTaskList)
+	if !strings.Contains(list.message, msgNoActiveTasks) {
 		t.Fatalf("expected no active tasks after remove, got %q", list.message)
 	}
 }
@@ -133,15 +143,15 @@ func TestTaskRemoveCommand(t *testing.T) {
 func TestTaskClearCommand(t *testing.T) {
 	core := newTestCoreWithTasks(t)
 	core.execute("task add clear me")
-	core.execute("task done 1")
+	core.execute(cmdTaskDone1)
 	result := core.execute("task clear")
 	if result.err != nil {
-		t.Fatalf("unexpected error: %v", result.err)
+		t.Fatalf(fmtUnexpectedErr, result.err)
 	}
 	if !strings.Contains(result.message, "cleared") {
 		t.Fatalf("expected message to contain 'cleared', got %q", result.message)
 	}
-	completed := core.execute("task completed")
+	completed := core.execute(cmdTaskCompleted)
 	if !strings.Contains(completed.message, "no completed tasks") {
 		t.Fatalf("expected no completed tasks after clear, got %q", completed.message)
 	}
@@ -151,7 +161,7 @@ func TestTaskCommandWithoutStore(t *testing.T) {
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
 	core := newTimerCore(cfg, noopNotifier{})
-	result := core.execute("task list")
+	result := core.execute(cmdTaskList)
 	if result.err == nil {
 		t.Fatal("expected error when task store is nil")
 	}
@@ -189,10 +199,10 @@ func TestInitTasksCreatesStore(t *testing.T) {
 
 func TestTaskFocusDuringWorkSession(t *testing.T) {
 	core := newTestCoreWithTasks(t)
-	core.execute("task add important work")
+	core.execute(cmdTaskAddImportant)
 	core.execute("start") // enters focus prompt
 	core.execute("")      // skip prompt, start pomodoro
-	result := core.execute("task focus 1")
+	result := core.execute(cmdTaskFocus1)
 	if result.err != nil {
 		t.Fatalf("focus failed: %v", result.err)
 	}
@@ -207,8 +217,8 @@ func TestTaskFocusDuringWorkSession(t *testing.T) {
 
 func TestTaskFocusRejectsOutsideWorkSession(t *testing.T) {
 	core := newTestCoreWithTasks(t)
-	core.execute("task add important work")
-	result := core.execute("task focus 1")
+	core.execute(cmdTaskAddImportant)
+	result := core.execute(cmdTaskFocus1)
 	if result.err == nil {
 		t.Fatal("expected error when not in work session")
 	}
@@ -216,10 +226,10 @@ func TestTaskFocusRejectsOutsideWorkSession(t *testing.T) {
 
 func TestTaskUnfocus(t *testing.T) {
 	core := newTestCoreWithTasks(t)
-	core.execute("task add important work")
+	core.execute(cmdTaskAddImportant)
 	core.execute("start") // enters focus prompt
 	core.execute("")      // skip prompt, start pomodoro
-	core.execute("task focus 1")
+	core.execute(cmdTaskFocus1)
 	result := core.execute("task unfocus 1")
 	if result.err != nil {
 		t.Fatal(result.err)
@@ -235,7 +245,7 @@ func TestTaskUpDown(t *testing.T) {
 	core.execute("task add second")
 	core.execute("start") // enters focus prompt
 	core.execute("")      // skip prompt, start pomodoro
-	core.execute("task focus 1")
+	core.execute(cmdTaskFocus1)
 	core.execute("task focus 2")
 	core.execute("task up 2")
 	focused := core.focusedTasks()
@@ -255,7 +265,7 @@ func TestFocusClearedOnStop(t *testing.T) {
 	core.execute("task add work item")
 	core.execute("start") // enters focus prompt
 	core.execute("")      // skip prompt, start pomodoro
-	core.execute("task focus 1")
+	core.execute(cmdTaskFocus1)
 	core.execute("stop")
 	if len(core.focusedTasks()) != 0 {
 		t.Fatal("expected focus cleared on stop")
@@ -267,8 +277,8 @@ func TestTaskDoneDuringWorkSessionRemovesFromFocus(t *testing.T) {
 	core.execute("task add finish this")
 	core.execute("start") // enters focus prompt
 	core.execute("")      // skip prompt, start pomodoro
-	core.execute("task focus 1")
-	core.execute("task done 1")
+	core.execute(cmdTaskFocus1)
+	core.execute(cmdTaskDone1)
 	if len(core.focusedTasks()) != 0 {
 		t.Fatal("expected task removed from focus after done")
 	}
@@ -432,7 +442,7 @@ func TestControlResponseIncludesFocusLines(t *testing.T) {
 	core.execute("task add important")
 	core.execute("start")
 	core.execute("") // skip prompt
-	core.execute("task focus 1")
+	core.execute(cmdTaskFocus1)
 	resp := core.executeCommand("status")
 	if len(resp.FocusLines) == 0 {
 		t.Fatal("expected focus lines in response")
@@ -523,7 +533,7 @@ func TestConfirmToWorkSkipsFocusPromptWhenFocusedTasksExist(t *testing.T) {
 	core.execute("")      // confirm and start pomodoro
 
 	// Complete task A (position 1 in active list)
-	core.execute("task done 1")
+	core.execute(cmdTaskDone1)
 
 	// focused should still have task B
 	if len(core.focusedTasks()) != 1 {
@@ -564,8 +574,8 @@ func TestHelpIncludesTaskCommands(t *testing.T) {
 		"task add",
 		"task done",
 		"task remove",
-		"task list",
-		"task completed",
+		cmdTaskList,
+		cmdTaskCompleted,
 		"task clear",
 		"task focus",
 		"task unfocus",
