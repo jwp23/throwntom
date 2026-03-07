@@ -13,7 +13,7 @@ func TestNotifierFallbackOnCommandError(t *testing.T) {
 	n := NewTestNotifier(func(name string, args ...string) error {
 		return errors.New("exec failed")
 	})
-	if err := n.PlaySound(testSoundName); err == nil {
+	if n.PlaySound(testSoundName) == nil {
 		t.Fatal("expected contextual error")
 	}
 }
@@ -41,7 +41,7 @@ func TestLinuxNotifierErrorsOnNilOutput(t *testing.T) {
 			return errors.New("no command available")
 		},
 	}
-	if err := n.PlaySound(testSoundName); err == nil {
+	if n.PlaySound(testSoundName) == nil {
 		t.Fatal("expected nil output error")
 	}
 }
