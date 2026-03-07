@@ -217,14 +217,18 @@ func (e *Engine) Restore(s Snapshot) {
 	e.workDate = s.WorkDate
 }
 
+func IsSameDay(a, b time.Time) bool {
+	y1, m1, d1 := a.Date()
+	y2, m2, d2 := b.Date()
+	return y1 == y2 && m1 == m2 && d1 == d2
+}
+
 func (e *Engine) AdvanceDay(now time.Time) {
 	if e.workDate.IsZero() {
 		e.workDate = now
 		return
 	}
-	y1, m1, d1 := e.workDate.Date()
-	y2, m2, d2 := now.Date()
-	if y1 == y2 && m1 == m2 && d1 == d2 {
+	if IsSameDay(e.workDate, now) {
 		return
 	}
 	e.completedToday = 0

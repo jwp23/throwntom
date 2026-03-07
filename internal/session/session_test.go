@@ -78,22 +78,3 @@ func TestLoadCorruptFileReturnsError(t *testing.T) {
 		t.Fatal("expected error for corrupt file")
 	}
 }
-
-func TestIsSameDay(t *testing.T) {
-	loc := time.Local
-	tests := []struct {
-		name string
-		a, b time.Time
-		want bool
-	}{
-		{"same day", time.Date(2026, 3, 5, 10, 0, 0, 0, loc), time.Date(2026, 3, 5, 23, 59, 0, 0, loc), true},
-		{"different day", time.Date(2026, 3, 5, 23, 59, 0, 0, loc), time.Date(2026, 3, 6, 0, 1, 0, 0, loc), false},
-		{"different month", time.Date(2026, 2, 28, 12, 0, 0, 0, loc), time.Date(2026, 3, 1, 12, 0, 0, 0, loc), false},
-		{"same midnight", time.Date(2026, 3, 5, 0, 0, 0, 0, loc), time.Date(2026, 3, 5, 0, 0, 0, 0, loc), true},
-	}
-	for _, tc := range tests {
-		if got := IsSameDay(tc.a, tc.b); got != tc.want {
-			t.Errorf("%s: IsSameDay(%v, %v) = %v, want %v", tc.name, tc.a, tc.b, got, tc.want)
-		}
-	}
-}

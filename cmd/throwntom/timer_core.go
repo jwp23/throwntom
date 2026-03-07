@@ -367,7 +367,7 @@ func (d *timerCore) loadSession() error {
 	if data.SavedAt.IsZero() {
 		return nil
 	}
-	if !session.IsSameDay(data.SavedAt, d.now()) {
+	if !engine.IsSameDay(data.SavedAt, d.now()) {
 		return nil
 	}
 	if err := d.cycle.Restore(data.App); err != nil {
