@@ -60,7 +60,11 @@ func configDirPath(filename string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve home directory: %w", err)
 	}
-	return filepath.Join(homeDir, ".config", "throwntom", filename), nil
+	dir := filepath.Join(homeDir, ".config", "throwntom")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", fmt.Errorf("create config directory: %w", err)
+	}
+	return filepath.Join(dir, filename), nil
 }
 
 func defaultConfigPath() (string, error) {
