@@ -21,6 +21,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := ensureConfigDir(); err != nil {
+		fmt.Fprintf(os.Stderr, "config error: %v\n", err)
+		os.Exit(1)
+	}
+
 	cfg, err := loadConfig(*configPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "config error: %v\n", err)
@@ -48,16 +53,24 @@ func loadConfig(path string) (config.Config, error) {
 	return config.LoadFile(path)
 }
 
+func ensureConfigDir() error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("resolve home directory: %w", err)
+	}
+	dir := filepath.Join(homeDir, ".config", "throwntom")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("create config directory: %w", err)
+	}
+	return nil
+}
+
 func configDirPath(filename string) (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("resolve home directory: %w", err)
 	}
-	dir := filepath.Join(homeDir, ".config", "throwntom")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", fmt.Errorf("create config directory: %w", err)
-	}
-	return filepath.Join(dir, filename), nil
+	return filepath.Join(homeDir, ".config", "throwntom", filename), nil
 }
 
 func defaultConfigPath() (string, error) {

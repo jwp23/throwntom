@@ -33,10 +33,27 @@ func TestRequiresInteractiveTTY(t *testing.T) {
 	}
 }
 
-func TestConfigDirPathCreatesDirectory(t *testing.T) {
+func TestConfigDirPathReturnsPathWithoutCreating(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
+	path, err := configDirPath("tasks.json")
+	if err != nil {
+		t.Fatalf("configDirPath: %v", err)
+	}
+	dir := filepath.Dir(path)
+	if _, err := os.Stat(dir); err == nil {
+		t.Fatalf("expected config dir NOT to exist before ensureConfigDir, but it does at %s", dir)
+	}
+}
+
+func TestEnsureConfigDirCreatesDirectory(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	if err := ensureConfigDir(); err != nil {
+		t.Fatalf("ensureConfigDir: %v", err)
+	}
 	path, err := configDirPath("tasks.json")
 	if err != nil {
 		t.Fatalf("configDirPath: %v", err)

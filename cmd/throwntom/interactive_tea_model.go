@@ -167,7 +167,13 @@ func (m interactiveTeaModel) View() string {
 		Emoji:          m.emoji,
 	})
 
-	var header []string
+	cap := len(m.headerLines) + len(m.focusLines)
+	if m.showHelp {
+		cap += len(m.helpLines)
+	} else if len(m.helpLines) > 0 {
+		cap++ // "?: help" line
+	}
+	header := make([]string, 0, cap)
 	for _, line := range m.headerLines {
 		header = append(header, clampANSILine(line, m.width))
 	}
