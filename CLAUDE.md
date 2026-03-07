@@ -28,6 +28,7 @@
 ## Project-Specific
 - Never consider backwards-compatibility, legacy or similar concerns, I'm the only user, and it's a new greenfield project, we can freely make any changes we want.
 - Make sure you never introduce any new compilation warnings, address them if you encounter them.
+- When updating dependencies, always pin to explicit versions (e.g. `go get pkg@v1.2.3`), never use `@latest`. When bumping one dep in a family (e.g. charmbracelet), bump all related deps together to avoid transitive incompatibilities.
 
 ## Mindset & Principles
 - Flag missing info and unsupported assumptions.
