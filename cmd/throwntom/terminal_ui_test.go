@@ -3,48 +3,41 @@ package main
 import (
 	"strings"
 	"testing"
+
+	"github.com/charmbracelet/x/ansi"
+	"github.com/jwp23/throwntom/v2/internal/engine"
 )
 
-func TestRenderFrame(t *testing.T) {
-	got := renderFrameWithWidth("pomodoro | 24:59 | today's pomodoros=0 | pomodoros=0/4", false, "pomodoro started", "", 0)
-	if !strings.Contains(got, "status: pomodoro | 24:59 | today's pomodoros=0 | pomodoros=0/4 morning reminder pending=false") {
-		t.Fatalf("unexpected status line: %q", got)
+func TestRenderThemedFrameIncludesThreeLines(t *testing.T) {
+	got := renderThemedFrame("Idle  Today: 0  Cycle: 0/4", engine.Idle, false, "waiting", false, "sta", 0, true)
+	if !strings.Contains(got, "Idle") {
+		t.Fatalf("missing status content: %q", got)
 	}
-	if !strings.Contains(got, "\nmessage: pomodoro started\n") {
-		t.Fatalf("expected message line in frame: %q", got)
-	}
-	if !strings.Contains(got, "\ncommand> ") {
-		t.Fatalf("expected command prompt in frame: %q", got)
-	}
-}
-
-func TestRenderFrameWithWidthIncludesThreeLines(t *testing.T) {
-	got := renderFrameWithWidth("idle | 00:00", false, "waiting", "sta", 0)
-	if !strings.Contains(got, "status: idle | 00:00 morning reminder pending=false") {
-		t.Fatalf("missing status line: %q", got)
-	}
-	if !strings.Contains(got, "\nmessage: waiting\n") {
+	if !strings.Contains(got, "\nwaiting\n") {
 		t.Fatalf("missing message line: %q", got)
 	}
-	if !strings.Contains(got, "\ncommand> sta") {
+	if !strings.Contains(got, "\n> sta") {
 		t.Fatalf("missing prompt line: %q", got)
 	}
 }
 
-func TestRenderFrameWithWidthDoesNotUseLegacyCursorEscape(t *testing.T) {
-	got := renderFrameWithWidth("idle | 00:00", false, "", "", 0)
+func TestRenderThemedFrameDoesNotUseLegacyCursorEscape(t *testing.T) {
+	got := renderThemedFrame("Idle  Today: 0  Cycle: 0/4", engine.Idle, false, "", false, "", 0, true)
 	if strings.Contains(got, "\x1b[3F\x1b[J") {
 		t.Fatalf("expected no legacy cursor reanchor escape, got %q", got)
 	}
 }
 
-func TestRenderFrameWithWidthClampsEachLineToTerminalWidth(t *testing.T) {
-	got := renderFrameWithWidth(
-		"idle | 00:00 | today's pomodoros=0 | pomodoros=0/4",
+func TestRenderThemedFrameClampsEachLineToTerminalWidth(t *testing.T) {
+	got := renderThemedFrame(
+		"Idle  Today: 0  Cycle: 0/4",
+		engine.Idle,
 		false,
-		"stopped and returned to idle",
+		"Stopped. Back to idle.",
+		false,
 		"this is a long command input",
 		40,
+		false,
 	)
 
 	lines := strings.Split(got, "\n")
@@ -52,19 +45,22 @@ func TestRenderFrameWithWidthClampsEachLineToTerminalWidth(t *testing.T) {
 		t.Fatalf("expected 3 lines, got %d in %q", len(lines), got)
 	}
 	for idx, line := range lines {
-		if len([]rune(line)) > 40 {
-			t.Fatalf("expected line %d to be clamped to width 40, got %d chars: %q", idx, len([]rune(line)), line)
+		if ansi.StringWidth(line) > 39 {
+			t.Fatalf("expected line %d to be clamped to width 40, got %d visible chars: %q", idx, ansi.StringWidth(line), line)
 		}
 	}
 }
 
-func TestRenderFrameWithWidthAvoidsTerminalAutoWrap(t *testing.T) {
-	got := renderFrameWithWidth(
-		"pomodoro | 24:59 | today's pomodoros=0 | pomodoros=0/4",
+func TestRenderThemedFrameAvoidsTerminalAutoWrap(t *testing.T) {
+	got := renderThemedFrame(
+		"Pomodoro  24:59  Today: 0  Cycle: 0/4",
+		engine.Work,
 		false,
 		"this message should be clamped",
+		false,
 		"this command should be clamped",
 		20,
+		false,
 	)
 
 	lines := strings.Split(got, "\n")
@@ -72,8 +68,8 @@ func TestRenderFrameWithWidthAvoidsTerminalAutoWrap(t *testing.T) {
 		t.Fatalf("expected 3 lines, got %d in %q", len(lines), got)
 	}
 	for idx, line := range lines {
-		if len([]rune(line)) >= 20 {
-			t.Fatalf("expected line %d to stay below width 20 to avoid terminal auto-wrap, got %d chars: %q", idx, len([]rune(line)), line)
+		if ansi.StringWidth(line) >= 20 {
+			t.Fatalf("expected line %d to stay below width 20 to avoid terminal auto-wrap, got %d visible chars: %q", idx, ansi.StringWidth(line), line)
 		}
 	}
 }

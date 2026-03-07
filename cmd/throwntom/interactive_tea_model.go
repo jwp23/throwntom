@@ -74,27 +74,27 @@ func (m interactiveTeaModel) View() string {
 	if m.focusPrompt != "" {
 		var lines []string
 		for _, line := range strings.Split(m.focusPrompt, "\n") {
-			lines = append(lines, clampTerminalLine(line, m.width))
+			lines = append(lines, clampANSILine(line, m.width))
 		}
-		lines = append(lines, clampTerminalLine("command> "+m.prompt.input, m.width))
+		lines = append(lines, clampANSILine("> "+m.prompt.input, m.width))
 		return strings.Join(lines, "\n")
 	}
 
-	frame := renderFrameWithWidth(m.statusLine, m.morningPending, m.message, m.prompt.input, m.width)
+	frame := renderThemedFrame(m.statusLine, m.engineState, m.morningPending, m.message, m.isError, m.prompt.input, m.width, m.emoji)
 
 	var header []string
 	for _, line := range m.headerLines {
-		header = append(header, clampTerminalLine(line, m.width))
+		header = append(header, clampANSILine(line, m.width))
 	}
 	for _, line := range m.focusLines {
-		header = append(header, clampTerminalLine(line, m.width))
+		header = append(header, clampANSILine(line, m.width))
 	}
 	if m.showHelp {
 		for _, line := range m.helpLines {
-			header = append(header, clampTerminalLine(line, m.width))
+			header = append(header, clampANSILine(line, m.width))
 		}
 	} else if len(m.helpLines) > 0 {
-		header = append(header, clampTerminalLine("?: help", m.width))
+		header = append(header, clampANSILine("?: help", m.width))
 	}
 
 	if len(header) == 0 {
