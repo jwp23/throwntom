@@ -44,7 +44,7 @@ func runInteractiveCallbacks(callbacks interactiveCallbacks) error {
 func localModeCallbacks(cfg config.Config, core *timerCore) interactiveCallbacks {
 	header := []string{
 		fmt.Sprintf("%s throwntom (%s %s)", stateIcon(engine.Idle, cfg.Emoji), strings.Join(cfg.Schedule.Days, ","), cfg.Schedule.Time),
-		fmt.Sprintf("%dm work / %dm short / %dm long / every %d", cfg.WorkMinutes, cfg.ShortBreakMinutes, cfg.LongBreakMinutes, cfg.LongBreakEvery),
+		fmt.Sprintf("%dm work / %dm short / %dm long / every %d", cfg.Pomodoro.WorkMinutes, cfg.Pomodoro.ShortBreakMinutes, cfg.Pomodoro.LongBreakMinutes, cfg.Pomodoro.LongBreakEvery),
 	}
 
 	return interactiveCallbacks{

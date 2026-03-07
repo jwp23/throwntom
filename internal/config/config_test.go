@@ -23,13 +23,13 @@ func TestDefaultConfig(t *testing.T) {
 
 func TestDefaultCycleCadence(t *testing.T) {
 	cfg := Default()
-	if cfg.WorkMinutes != 25 || cfg.ShortBreakMinutes != 5 || cfg.LongBreakMinutes != 15 || cfg.LongBreakEvery != 4 {
+	if cfg.Pomodoro.WorkMinutes != 25 || cfg.Pomodoro.ShortBreakMinutes != 5 || cfg.Pomodoro.LongBreakMinutes != 15 || cfg.Pomodoro.LongBreakEvery != 4 {
 		t.Fatalf("unexpected defaults: %+v", cfg)
 	}
 }
 
 func TestLoadRejectsInvalidTime(t *testing.T) {
-	_, err := LoadBytes([]byte(`schedule_time = "9:15"\nschedule_days = ["Mon"]`))
+	_, err := LoadBytes([]byte("[schedule]\ntime = \"9:15\"\ndays = [\"Mon\"]"))
 	if err == nil {
 		t.Fatal("expected invalid time format error")
 	}
@@ -37,21 +37,25 @@ func TestLoadRejectsInvalidTime(t *testing.T) {
 
 func TestLoadBytesParsesToml(t *testing.T) {
 	raw := []byte(`
+repeat_secs = 15
+sound_command = ["paplay", "/tmp/sound.oga"]
+morning_reminder_pending = false
+
+[pomodoro]
 work_minutes = 30
 short_break_minutes = 6
 long_break_minutes = 20
 long_break_every = 3
-repeat_secs = 15
-schedule_time = "09:45"
-schedule_days = ["Mon","Tue","Wed"]
-sound_command = ["paplay","/tmp/sound.oga"]
-morning_reminder_pending = false
+
+[schedule]
+time = "09:45"
+days = ["Mon", "Tue", "Wed"]
 `)
 	cfg, err := LoadBytes(raw)
 	if err != nil {
 		t.Fatalf(fmtUnexpectedErr, err)
 	}
-	if cfg.LongBreakEvery != 3 || cfg.Schedule.Time != "09:45" {
+	if cfg.Pomodoro.LongBreakEvery != 3 || cfg.Schedule.Time != "09:45" {
 		t.Fatalf("unexpected parsed config: %+v", cfg)
 	}
 	if len(cfg.SoundCommand) != 2 || cfg.SoundCommand[0] != "paplay" {
@@ -73,7 +77,7 @@ func TestEmojiDefaultsTrueAndCanBeDisabled(t *testing.T) {
 }
 
 func TestLoadAcceptsValidTimeAndMergesDefaults(t *testing.T) {
-	cfg, err := LoadBytes([]byte(`schedule_time = "10:30"`))
+	cfg, err := LoadBytes([]byte("[schedule]\ntime = \"10:30\""))
 	if err != nil {
 		t.Fatalf(fmtUnexpectedErr, err)
 	}
@@ -86,14 +90,14 @@ func TestLoadAcceptsValidTimeAndMergesDefaults(t *testing.T) {
 }
 
 func TestLoadRejectsOutOfRangeTime(t *testing.T) {
-	_, err := LoadBytes([]byte(`schedule_time = "99:99"`))
+	_, err := LoadBytes([]byte("[schedule]\ntime = \"99:99\""))
 	if err == nil {
 		t.Fatal("expected out-of-range schedule_time error")
 	}
 }
 
 func TestLoadRejectsUnknownScheduleDay(t *testing.T) {
-	_, err := LoadBytes([]byte(`schedule_days = ["Monday"]`))
+	_, err := LoadBytes([]byte("[schedule]\ndays = [\"Monday\"]"))
 	if err == nil {
 		t.Fatal("expected unknown schedule day error")
 	}
@@ -102,7 +106,7 @@ func TestLoadRejectsUnknownScheduleDay(t *testing.T) {
 func TestLoadFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.toml")
-	if err := os.WriteFile(path, []byte(`schedule_time = "11:45"`), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte("[schedule]\ntime = \"11:45\""), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 	cfg, err := LoadFile(path)
@@ -118,5 +122,12 @@ func TestLoadRejectsEmptySoundCommandPart(t *testing.T) {
 	_, err := LoadBytes([]byte(`sound_command = ["", "/tmp/sound.oga"]`))
 	if err == nil {
 		t.Fatal("expected empty sound command part error")
+	}
+}
+
+func TestLoadRejectsUnknownKey(t *testing.T) {
+	_, err := LoadBytes([]byte(`bogus_key = 42`))
+	if err == nil {
+		t.Fatal("expected unknown key error")
 	}
 }

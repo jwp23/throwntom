@@ -48,13 +48,17 @@ func TestCycleTransitionAndReminderAck(t *testing.T) {
 
 func TestConfigToSchedulerTrigger(t *testing.T) {
 	cfg, err := config.LoadBytes([]byte(`
-schedule_days = ["Mon", "Tue"]
-schedule_time = "09:15"
+repeat_secs = 3
+
+[pomodoro]
 work_minutes = 20
 short_break_minutes = 5
 long_break_minutes = 10
 long_break_every = 4
-repeat_secs = 3
+
+[schedule]
+days = ["Mon", "Tue"]
+time = "09:15"
 `))
 	if err != nil {
 		t.Fatalf("load config: %v", err)

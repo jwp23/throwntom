@@ -6,33 +6,37 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/BurntSushi/toml"
 )
 
 var timePattern = regexp.MustCompile(`^[0-9]{2}:[0-9]{2}$`)
 
 type Config struct {
+	Pomodoro struct {
+		WorkMinutes       int `toml:"work_minutes"`
+		ShortBreakMinutes int `toml:"short_break_minutes"`
+		LongBreakMinutes  int `toml:"long_break_minutes"`
+		LongBreakEvery    int `toml:"long_break_every"`
+	} `toml:"pomodoro"`
 	Schedule struct {
-		Days []string
-		Time string
-	}
-	WorkMinutes            int
-	ShortBreakMinutes      int
-	LongBreakMinutes       int
-	LongBreakEvery         int
-	RepeatSecs             int
-	SoundCommand           []string
-	MorningReminderPending bool
-	Emoji                  bool
+		Days []string `toml:"days"`
+		Time string   `toml:"time"`
+	} `toml:"schedule"`
+	RepeatSecs             int      `toml:"repeat_secs"`
+	SoundCommand           []string `toml:"sound_command"`
+	MorningReminderPending bool     `toml:"morning_reminder_pending"`
+	Emoji                  bool     `toml:"emoji"`
 }
 
 func Default() Config {
 	var cfg Config
 	cfg.Schedule.Days = []string{"Mon", "Tue", "Wed", "Thu", "Fri"}
 	cfg.Schedule.Time = "09:15"
-	cfg.WorkMinutes = 25
-	cfg.ShortBreakMinutes = 5
-	cfg.LongBreakMinutes = 15
-	cfg.LongBreakEvery = 4
+	cfg.Pomodoro.WorkMinutes = 25
+	cfg.Pomodoro.ShortBreakMinutes = 5
+	cfg.Pomodoro.LongBreakMinutes = 15
+	cfg.Pomodoro.LongBreakEvery = 4
 	cfg.RepeatSecs = 20
 	cfg.MorningReminderPending = true
 	cfg.Emoji = true
@@ -41,8 +45,12 @@ func Default() Config {
 
 func LoadBytes(b []byte) (Config, error) {
 	cfg := Default()
-	if err := parseTOMLInto(&cfg, string(b)); err != nil {
-		return Config{}, err
+	md, err := toml.Decode(string(b), &cfg)
+	if err != nil {
+		return Config{}, fmt.Errorf("parse config: %w", err)
+	}
+	if undecoded := md.Undecoded(); len(undecoded) > 0 {
+		return Config{}, fmt.Errorf("unknown key %q", undecoded[0])
 	}
 	if err := validate(cfg); err != nil {
 		return Config{}, err
@@ -65,16 +73,16 @@ func validate(cfg Config) error {
 	if err := validateHHMMRange(cfg.Schedule.Time); err != nil {
 		return fmt.Errorf("invalid schedule_time %q: %w", cfg.Schedule.Time, err)
 	}
-	if cfg.WorkMinutes <= 0 {
+	if cfg.Pomodoro.WorkMinutes <= 0 {
 		return fmt.Errorf("work_minutes must be > 0")
 	}
-	if cfg.ShortBreakMinutes <= 0 {
+	if cfg.Pomodoro.ShortBreakMinutes <= 0 {
 		return fmt.Errorf("short_break_minutes must be > 0")
 	}
-	if cfg.LongBreakMinutes <= 0 {
+	if cfg.Pomodoro.LongBreakMinutes <= 0 {
 		return fmt.Errorf("long_break_minutes must be > 0")
 	}
-	if cfg.LongBreakEvery <= 0 {
+	if cfg.Pomodoro.LongBreakEvery <= 0 {
 		return fmt.Errorf("long_break_every must be > 0")
 	}
 	if cfg.RepeatSecs <= 0 {
@@ -130,152 +138,4 @@ func isSupportedWeekday(day string) bool {
 	default:
 		return false
 	}
-}
-
-func parseTOMLInto(cfg *Config, raw string) error {
-	if strings.TrimSpace(raw) == "" {
-		return nil
-	}
-	lines := strings.Split(raw, "\n")
-	for i, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
-			continue
-		}
-		parts := strings.SplitN(trimmed, "=", 2)
-		if len(parts) != 2 {
-			return fmt.Errorf("line %d: expected key = value", i+1)
-		}
-		key := strings.TrimSpace(parts[0])
-		val := strings.TrimSpace(parts[1])
-		if err := applyKV(cfg, key, val); err != nil {
-			return fmt.Errorf("line %d: %w", i+1, err)
-		}
-	}
-	return nil
-}
-
-var configSetters = map[string]func(cfg *Config, val string) error{
-	"work_minutes": func(cfg *Config, val string) error {
-		return setIntField(&cfg.WorkMinutes, val)
-	},
-	"short_break_minutes": func(cfg *Config, val string) error {
-		return setIntField(&cfg.ShortBreakMinutes, val)
-	},
-	"long_break_minutes": func(cfg *Config, val string) error {
-		return setIntField(&cfg.LongBreakMinutes, val)
-	},
-	"long_break_every": func(cfg *Config, val string) error {
-		return setIntField(&cfg.LongBreakEvery, val)
-	},
-	"repeat_secs": func(cfg *Config, val string) error {
-		return setIntField(&cfg.RepeatSecs, val)
-	},
-	"schedule_time": func(cfg *Config, val string) error {
-		return setStringField(&cfg.Schedule.Time, val)
-	},
-	"schedule_days": func(cfg *Config, val string) error {
-		return setStringSliceField(&cfg.Schedule.Days, val)
-	},
-	"sound_command": func(cfg *Config, val string) error {
-		return setStringSliceField(&cfg.SoundCommand, val)
-	},
-	"morning_reminder_pending": func(cfg *Config, val string) error {
-		return setBoolField(&cfg.MorningReminderPending, val)
-	},
-	"emoji": func(cfg *Config, val string) error {
-		return setBoolField(&cfg.Emoji, val)
-	},
-}
-
-func applyKV(cfg *Config, key, val string) error {
-	setter, ok := configSetters[key]
-	if !ok {
-		return fmt.Errorf("unknown key %q", key)
-	}
-	return setter(cfg, val)
-}
-
-func setIntField(field *int, val string) error {
-	n, err := parseInt(val)
-	if err != nil {
-		return err
-	}
-	*field = n
-	return nil
-}
-
-func setStringField(field *string, val string) error {
-	s, err := parseQuotedString(val)
-	if err != nil {
-		return err
-	}
-	*field = s
-	return nil
-}
-
-func setStringSliceField(field *[]string, val string) error {
-	items, err := parseStringArray(val)
-	if err != nil {
-		return err
-	}
-	*field = items
-	return nil
-}
-
-func setBoolField(field *bool, val string) error {
-	b, err := parseBool(val)
-	if err != nil {
-		return err
-	}
-	*field = b
-	return nil
-}
-
-func parseInt(val string) (int, error) {
-	n, err := strconv.Atoi(strings.TrimSpace(val))
-	if err != nil {
-		return 0, fmt.Errorf("invalid integer %q", val)
-	}
-	return n, nil
-}
-
-func parseQuotedString(val string) (string, error) {
-	v := strings.TrimSpace(val)
-	if len(v) < 2 || v[0] != '"' || v[len(v)-1] != '"' {
-		return "", fmt.Errorf("expected quoted string, got %q", val)
-	}
-	return v[1 : len(v)-1], nil
-}
-
-func parseBool(val string) (bool, error) {
-	switch strings.TrimSpace(val) {
-	case "true":
-		return true, nil
-	case "false":
-		return false, nil
-	default:
-		return false, fmt.Errorf("invalid boolean %q", val)
-	}
-}
-
-func parseStringArray(val string) ([]string, error) {
-	v := strings.TrimSpace(val)
-	if len(v) < 2 || v[0] != '[' || v[len(v)-1] != ']' {
-		return nil, fmt.Errorf("expected array, got %q", val)
-	}
-	body := strings.TrimSpace(v[1 : len(v)-1])
-	if body == "" {
-		return []string{}, nil
-	}
-	parts := strings.Split(body, ",")
-	items := make([]string, 0, len(parts))
-	for _, part := range parts {
-		s, err := parseQuotedString(strings.TrimSpace(part))
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, s)
-	}
-	return items, nil
 }
