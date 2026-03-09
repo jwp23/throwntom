@@ -568,6 +568,21 @@ func TestConfirmToWorkSkipsFocusPromptWhenFocusedTasksExist(t *testing.T) {
 	}
 }
 
+func TestTaskRemoveDuringWorkSessionRemovesFromFocus(t *testing.T) {
+	core := newTestCoreWithTasks(t)
+	core.execute("task add removable")
+	core.execute("start") // enters focus prompt
+	core.execute("1")     // toggle task
+	core.execute("")      // confirm, start pomodoro
+	if len(core.focusedTasks()) != 1 {
+		t.Fatal("expected 1 focused task before remove")
+	}
+	core.execute("task remove 1")
+	if len(core.focusedTasks()) != 0 {
+		t.Fatal("expected task removed from focus after task remove")
+	}
+}
+
 func TestHelpIncludesTaskCommands(t *testing.T) {
 	help := commandsHelp()
 	subcommands := []string{

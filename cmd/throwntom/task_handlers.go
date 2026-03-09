@@ -111,6 +111,12 @@ func (d *timerCore) handleTaskRemove(parts []string) commandResult {
 	if err := d.tasks.Remove(id); err != nil {
 		return commandResult{err: fmt.Errorf("task remove: %w", err)}
 	}
+	for i, f := range d.focused {
+		if f.ID == id {
+			d.focused = append(d.focused[:i], d.focused[i+1:]...)
+			break
+		}
+	}
 	return commandResult{message: fmt.Sprintf("task %d removed", pos)}
 }
 
