@@ -440,6 +440,8 @@ func TestSnapshotResetsCompletedTodayOnDayRollover(t *testing.T) {
 func TestStartBeginsMorningLoopWhenPendingAndIdle(t *testing.T) {
 	cfg := config.Default()
 	core := newTimerCore(cfg, noopNotifier{})
+	// Monday at 10:00 — after default schedule 09:15
+	core.now = func() time.Time { return time.Date(2026, 3, 2, 10, 0, 0, 0, time.Local) }
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -487,6 +489,44 @@ func TestStartSkipsMorningLoopWhenEngineNotIdle(t *testing.T) {
 	core.state.mu.Unlock()
 	if hasCancel {
 		t.Fatal("expected no morning loop when engine is not idle")
+	}
+}
+
+func TestStartSkipsMorningLoopBeforeScheduledTime(t *testing.T) {
+	cfg := config.Default()
+	core := newTimerCore(cfg, noopNotifier{})
+	// Monday at 08:00 — before default schedule 09:15
+	core.now = func() time.Time { return time.Date(2026, 3, 2, 8, 0, 0, 0, time.Local) }
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	core.start(ctx)
+	defer core.stop()
+
+	core.state.mu.Lock()
+	hasCancel := core.state.morningCancel != nil
+	core.state.mu.Unlock()
+	if hasCancel {
+		t.Fatal("expected no morning loop before scheduled time")
+	}
+}
+
+func TestStartBeginsMorningLoopAfterScheduledTime(t *testing.T) {
+	cfg := config.Default()
+	core := newTimerCore(cfg, noopNotifier{})
+	// Monday at 11:30 — after default schedule 09:15
+	core.now = func() time.Time { return time.Date(2026, 3, 2, 11, 30, 0, 0, time.Local) }
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	core.start(ctx)
+	defer core.stop()
+
+	core.state.mu.Lock()
+	hasCancel := core.state.morningCancel != nil
+	core.state.mu.Unlock()
+	if !hasCancel {
+		t.Fatal("expected morning loop to be running after scheduled time")
 	}
 }
 
