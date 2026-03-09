@@ -138,7 +138,7 @@ func newTimerCore(cfg config.Config, n notifier.Notifier) *timerCore {
 
 func (d *timerCore) start(ctx context.Context) {
 	startMorningScheduler(ctx, d.state, d.scheduler, d.repeatInterval, d.notifier)
-	if d.state.isMorningPending() && d.cycle.State() == engine.Idle {
+	if d.state.isMorningPending() && d.cycle.State() == engine.Idle && d.scheduler.IsActiveNow(d.now()) {
 		startMorningLoop(d.state, d.repeatInterval, d.notifier)
 	}
 }
