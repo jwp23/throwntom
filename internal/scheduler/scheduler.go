@@ -36,6 +36,13 @@ func (s *Scheduler) ShouldTrigger(now time.Time) bool {
 	return now.Hour() == s.hour && now.Minute() == s.minute
 }
 
+func (s *Scheduler) IsActiveNow(now time.Time) bool {
+	if _, ok := s.allowedWeekdays[now.Weekday()]; !ok {
+		return false
+	}
+	return now.Hour() > s.hour || (now.Hour() == s.hour && now.Minute() >= s.minute)
+}
+
 func (s *Scheduler) NextTrigger(from time.Time) time.Time {
 	candidate := time.Date(from.Year(), from.Month(), from.Day(), s.hour, s.minute, 0, 0, from.Location())
 	if !candidate.After(from) {
