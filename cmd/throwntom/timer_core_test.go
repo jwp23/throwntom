@@ -21,6 +21,7 @@ const (
 	fmtLoadSession        = "loadSession: %v"
 	statusTodayPomodoros1 = "Today: 1"
 	statusTodayPomodoros0 = "Today: 0"
+	fmtSnoozeFailed       = "snooze failed: %v"
 )
 
 type noopNotifier struct{}
@@ -528,6 +529,106 @@ func TestStartBeginsMorningLoopAfterScheduledTime(t *testing.T) {
 	if !hasCancel {
 		t.Fatal("expected morning loop to be running after scheduled time")
 	}
+}
+
+func TestMorningSnoozeRestartsLoopAfterExpiry(t *testing.T) {
+	cfg := config.Default()
+	core := newTimerCore(cfg, noopNotifier{})
+	core.now = func() time.Time { return time.Date(2026, 3, 2, 10, 0, 0, 0, time.Local) }
+
+	// Start morning loop manually to simulate scheduler trigger
+	startMorningLoop(core.state, core.repeatInterval, core.notifier)
+
+	// Snooze for a tiny duration
+	result := core.execute("snooze 1ms")
+	if result.err != nil {
+		t.Fatalf(fmtSnoozeFailed, result.err)
+	}
+	if !strings.Contains(result.message, "morning reminder snoozed") {
+		t.Fatalf("expected morning snooze message, got %q", result.message)
+	}
+
+	// Morning loop should be stopped immediately after snooze
+	core.state.mu.Lock()
+	hasCancel := core.state.morningCancel != nil
+	core.state.mu.Unlock()
+	if hasCancel {
+		t.Fatal("expected morning loop to be stopped during snooze")
+	}
+
+	// Wait for snooze to expire and goroutine to re-trigger
+	time.Sleep(50 * time.Millisecond)
+
+	core.state.mu.Lock()
+	hasCancel = core.state.morningCancel != nil
+	core.state.mu.Unlock()
+	if !hasCancel {
+		t.Fatal("expected morning loop to be restarted after snooze expiry")
+	}
+	core.state.stopMorningLoop()
+}
+
+func TestMorningSnoozeSkipsRestartIfNotIdle(t *testing.T) {
+	cfg := config.Default()
+	core := newTimerCore(cfg, noopNotifier{})
+	core.now = func() time.Time { return time.Date(2026, 3, 2, 10, 0, 0, 0, time.Local) }
+
+	// Start morning loop manually
+	startMorningLoop(core.state, core.repeatInterval, core.notifier)
+
+	// Snooze for a tiny duration
+	result := core.execute("snooze 1ms")
+	if result.err != nil {
+		t.Fatalf(fmtSnoozeFailed, result.err)
+	}
+
+	// Start a pomodoro before snooze expires
+	core.execute(cmdStart)
+	if core.cycle.State() != engine.Work {
+		t.Fatal("expected engine to be in Work state")
+	}
+
+	// Wait for snooze goroutine to fire
+	time.Sleep(50 * time.Millisecond)
+
+	// Morning loop should NOT restart since engine is not idle
+	core.state.mu.Lock()
+	hasCancel := core.state.morningCancel != nil
+	core.state.mu.Unlock()
+	if hasCancel {
+		t.Fatal("expected morning loop to NOT restart when engine is not idle")
+	}
+	core.cycle.Stop()
+}
+
+func TestMorningSnoozeStopMidSnooze(t *testing.T) {
+	cfg := config.Default()
+	core := newTimerCore(cfg, noopNotifier{})
+	core.now = func() time.Time { return time.Date(2026, 3, 2, 10, 0, 0, 0, time.Local) }
+
+	// Start morning loop manually
+	startMorningLoop(core.state, core.repeatInterval, core.notifier)
+
+	// Snooze for a longer duration
+	result := core.execute("snooze 100ms")
+	if result.err != nil {
+		t.Fatalf(fmtSnoozeFailed, result.err)
+	}
+
+	// Start a pomodoro (which calls stopMorningLoop + clearSnooze)
+	core.execute(cmdStart)
+
+	// Wait for the snooze goroutine to fire
+	time.Sleep(150 * time.Millisecond)
+
+	// The goroutine should not interfere — engine is not idle
+	core.state.mu.Lock()
+	hasCancel := core.state.morningCancel != nil
+	core.state.mu.Unlock()
+	if hasCancel {
+		t.Fatal("expected no morning loop interference after start during snooze")
+	}
+	core.cycle.Stop()
 }
 
 func TestSessionSavedAfterMidnightResetsOnReload(t *testing.T) {
