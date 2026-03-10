@@ -21,6 +21,7 @@ const (
 	fmtLoadSession        = "loadSession: %v"
 	statusTodayPomodoros1 = "Today: 1"
 	statusTodayPomodoros0 = "Today: 0"
+	fmtSnoozeFailed       = "snooze failed: %v"
 )
 
 type noopNotifier struct{}
@@ -541,7 +542,7 @@ func TestMorningSnoozeRestartsLoopAfterExpiry(t *testing.T) {
 	// Snooze for a tiny duration
 	result := core.execute("snooze 1ms")
 	if result.err != nil {
-		t.Fatalf("snooze failed: %v", result.err)
+		t.Fatalf(fmtSnoozeFailed, result.err)
 	}
 	if !strings.Contains(result.message, "morning reminder snoozed") {
 		t.Fatalf("expected morning snooze message, got %q", result.message)
@@ -578,7 +579,7 @@ func TestMorningSnoozeSkipsRestartIfNotIdle(t *testing.T) {
 	// Snooze for a tiny duration
 	result := core.execute("snooze 1ms")
 	if result.err != nil {
-		t.Fatalf("snooze failed: %v", result.err)
+		t.Fatalf(fmtSnoozeFailed, result.err)
 	}
 
 	// Start a pomodoro before snooze expires
@@ -611,7 +612,7 @@ func TestMorningSnoozeStopMidSnooze(t *testing.T) {
 	// Snooze for a longer duration
 	result := core.execute("snooze 100ms")
 	if result.err != nil {
-		t.Fatalf("snooze failed: %v", result.err)
+		t.Fatalf(fmtSnoozeFailed, result.err)
 	}
 
 	// Start a pomodoro (which calls stopMorningLoop + clearSnooze)
