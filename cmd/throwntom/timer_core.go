@@ -269,6 +269,18 @@ func (d *timerCore) handleSnooze(parts []string) commandResult {
 	if d.state.isMorningPending() {
 		d.state.stopMorningLoop()
 		d.state.setSnoozeUntil(d.now().Add(parsed))
+		state := d.state
+		repeatInterval := d.repeatInterval
+		n := d.notifier
+		cycle := d.cycle
+		go func() {
+			time.Sleep(parsed)
+			if cycle.State() != engine.Idle {
+				return
+			}
+			state.clearSnooze()
+			startMorningLoop(state, repeatInterval, n)
+		}()
 		return commandResult{message: fmt.Sprintf("morning reminder snoozed for %s", parsed)}
 	}
 	d.cycle.Snooze(parsed)
