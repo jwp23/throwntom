@@ -631,6 +631,39 @@ func TestMorningSnoozeStopMidSnooze(t *testing.T) {
 	core.cycle.Stop()
 }
 
+func TestParseSnoozeDurationBareNumber(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   []string
+		want    time.Duration
+		wantErr bool
+	}{
+		{"bare 5 means 5m", []string{"snooze", "5"}, 5 * time.Minute, false},
+		{"bare 10 means 10m", []string{"snooze", "10"}, 10 * time.Minute, false},
+		{"explicit 5m still works", []string{"snooze", "5m"}, 5 * time.Minute, false},
+		{"explicit 1h still works", []string{"snooze", "1h"}, time.Hour, false},
+		{"invalid string errors", []string{"snooze", "abc"}, 0, true},
+		{"missing arg errors", []string{"snooze"}, 0, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseSnoozeDuration(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestSessionSavedAfterMidnightResetsOnReload(t *testing.T) {
 	dir := t.TempDir()
 	sessPath := filepath.Join(dir, testSessionFile)
