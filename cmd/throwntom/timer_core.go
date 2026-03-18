@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -314,7 +315,11 @@ func parseSnoozeDuration(parts []string) (time.Duration, error) {
 	if len(parts) < 2 {
 		return 0, fmt.Errorf("usage: snooze <duration>")
 	}
-	d, err := time.ParseDuration(parts[1])
+	raw := parts[1]
+	if _, err := strconv.ParseFloat(raw, 64); err == nil {
+		raw += "m"
+	}
+	d, err := time.ParseDuration(raw)
 	if err != nil {
 		return 0, fmt.Errorf("invalid duration: %v", err)
 	}
