@@ -35,8 +35,12 @@ func TestStatsWithEvents(t *testing.T) {
 	dir := t.TempDir()
 	eventsPath := dir + "/events.jsonl"
 	w := eventlog.NewWriter(eventsPath)
-	w.Log("pomodoro_started", nil)
-	w.Log("pomodoro_completed", nil)
+	if err := w.Log("pomodoro_started", nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Log("pomodoro_completed", nil); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := config.Default()
 	cfg.MorningReminderPending = false

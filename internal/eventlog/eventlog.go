@@ -46,12 +46,13 @@ func (w *Writer) Log(eventType string, data map[string]any) error {
 	if err != nil {
 		return fmt.Errorf("open event log: %w", err)
 	}
-	defer f.Close()
 
-	if _, err := f.Write(line); err != nil {
-		return fmt.Errorf("write event: %w", err)
+	_, writeErr := f.Write(line)
+	closeErr := f.Close()
+	if writeErr != nil {
+		return fmt.Errorf("write event: %w", writeErr)
 	}
-	return nil
+	return closeErr
 }
 
 func ReadAll(path string) ([]Event, error) {

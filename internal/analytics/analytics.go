@@ -41,104 +41,104 @@ type PatternStats struct {
 	PauseRate    float64
 }
 
+type periodBounds struct {
+	todayStart time.Time
+	weekStart  time.Time
+	monthStart time.Time
+	endOfToday time.Time
+}
+
+type accumulator struct {
+	dash       Dashboard
+	pomDays    map[string]int
+	hourCounts [24]int
+	wdCounts   map[time.Weekday]int
+	wdDays     map[time.Weekday]map[string]bool
+	lastStart  time.Time
+	hasStart   bool
+}
+
 func Compute(events []eventlog.Event, now time.Time) Dashboard {
-	var dash Dashboard
-
-	todayStart := startOfDay(now)
-	weekStart := startOfWeek(now)
-	monthStart := startOfMonth(now)
-
-	pomDays := make(map[string]int)
-	var hourCounts [24]int
-	weekdayCounts := make(map[time.Weekday]int)
-	weekdayDays := make(map[time.Weekday]map[string]bool)
-	var lastStart time.Time
-	var hasStart bool
-
-	for _, ev := range events {
-		day := startOfDay(ev.Timestamp)
-		dayKey := day.Format("2006-01-02")
-		inToday := !day.Before(todayStart) && day.Before(todayStart.AddDate(0, 0, 1))
-		inWeek := !ev.Timestamp.Before(weekStart) && ev.Timestamp.Before(now.AddDate(0, 0, 1))
-		inMonth := !ev.Timestamp.Before(monthStart) && ev.Timestamp.Before(now.AddDate(0, 0, 1))
-
-		switch ev.Type {
-		case "pomodoro_started":
-			lastStart = ev.Timestamp
-			hasStart = true
-
-		case "pomodoro_completed":
-			dash.AllTime.Pomodoros++
-			pomDays[dayKey]++
-			hourCounts[ev.Timestamp.Hour()]++
-			wd := ev.Timestamp.Weekday()
-			weekdayCounts[wd]++
-			if weekdayDays[wd] == nil {
-				weekdayDays[wd] = make(map[string]bool)
-			}
-			weekdayDays[wd][dayKey] = true
-			if inToday {
-				dash.Today.Pomodoros++
-			}
-			if inWeek {
-				dash.ThisWeek.Pomodoros++
-			}
-			if inMonth {
-				dash.ThisMonth.Pomodoros++
-			}
-			if hasStart {
-				minutes := int(ev.Timestamp.Sub(lastStart).Minutes())
-				dash.AllTime.FocusMinutes += minutes
-				if inToday {
-					dash.Today.FocusMinutes += minutes
-				}
-				if inWeek {
-					dash.ThisWeek.FocusMinutes += minutes
-				}
-				if inMonth {
-					dash.ThisMonth.FocusMinutes += minutes
-				}
-				hasStart = false
-			}
-
-		case "paused":
-			dash.AllTime.Pauses++
-			if inToday {
-				dash.Today.Pauses++
-			}
-			if inWeek {
-				dash.ThisWeek.Pauses++
-			}
-			if inMonth {
-				dash.ThisMonth.Pauses++
-			}
-
-		case "snoozed":
-			dash.AllTime.Snoozes++
-			if inToday {
-				dash.Today.Snoozes++
-			}
-			if inWeek {
-				dash.ThisWeek.Snoozes++
-			}
-			if inMonth {
-				dash.ThisMonth.Snoozes++
-			}
-		}
+	bounds := periodBounds{
+		todayStart: startOfDay(now),
+		weekStart:  startOfWeek(now),
+		monthStart: startOfMonth(now),
+		endOfToday: startOfDay(now).AddDate(0, 0, 1),
+	}
+	acc := accumulator{
+		pomDays:  make(map[string]int),
+		wdCounts: make(map[time.Weekday]int),
+		wdDays:   make(map[time.Weekday]map[string]bool),
 	}
 
-	dash.ThisWeek.DailyCounts = buildDailyCounts(pomDays, weekStart, now)
-	dash.ThisMonth.DailyCounts = buildDailyCounts(pomDays, monthStart, now)
-	dash.Streaks = computeStreaks(pomDays, now)
-	dash.Patterns = computePatterns(hourCounts, weekdayCounts, weekdayDays, dash.AllTime)
+	for _, ev := range events {
+		acc.processEvent(ev, bounds)
+	}
 
-	return dash
+	acc.dash.ThisWeek.DailyCounts = buildDailyCounts(acc.pomDays, bounds.weekStart, now)
+	acc.dash.ThisMonth.DailyCounts = buildDailyCounts(acc.pomDays, bounds.monthStart, now)
+	acc.dash.Streaks = computeStreaks(acc.pomDays, now)
+	acc.dash.Patterns = computePatterns(acc.hourCounts, acc.wdCounts, acc.wdDays, acc.dash.AllTime)
+
+	return acc.dash
+}
+
+func (a *accumulator) processEvent(ev eventlog.Event, b periodBounds) {
+	day := startOfDay(ev.Timestamp)
+	dayKey := day.Format("2006-01-02")
+	periods := []*PeriodStats{&a.dash.Today, &a.dash.ThisWeek, &a.dash.ThisMonth}
+	active := [3]bool{
+		!day.Before(b.todayStart) && day.Before(b.endOfToday),
+		!ev.Timestamp.Before(b.weekStart) && ev.Timestamp.Before(b.endOfToday),
+		!ev.Timestamp.Before(b.monthStart) && ev.Timestamp.Before(b.endOfToday),
+	}
+
+	switch ev.Type {
+	case "pomodoro_started":
+		a.lastStart = ev.Timestamp
+		a.hasStart = true
+	case "pomodoro_completed":
+		a.processCompletion(ev, dayKey, periods, active)
+	case "paused":
+		a.dash.AllTime.Pauses++
+		addToActive(periods, active, func(p *PeriodStats) { p.Pauses++ })
+	case "snoozed":
+		a.dash.AllTime.Snoozes++
+		addToActive(periods, active, func(p *PeriodStats) { p.Snoozes++ })
+	}
+}
+
+func (a *accumulator) processCompletion(ev eventlog.Event, dayKey string, periods []*PeriodStats, active [3]bool) {
+	a.dash.AllTime.Pomodoros++
+	a.pomDays[dayKey]++
+	a.hourCounts[ev.Timestamp.Hour()]++
+	wd := ev.Timestamp.Weekday()
+	a.wdCounts[wd]++
+	if a.wdDays[wd] == nil {
+		a.wdDays[wd] = make(map[string]bool)
+	}
+	a.wdDays[wd][dayKey] = true
+	addToActive(periods, active, func(p *PeriodStats) { p.Pomodoros++ })
+
+	if a.hasStart {
+		minutes := int(ev.Timestamp.Sub(a.lastStart).Minutes())
+		a.dash.AllTime.FocusMinutes += minutes
+		addToActive(periods, active, func(p *PeriodStats) { p.FocusMinutes += minutes })
+		a.hasStart = false
+	}
+}
+
+func addToActive(periods []*PeriodStats, active [3]bool, fn func(*PeriodStats)) {
+	for i, p := range periods {
+		if active[i] {
+			fn(p)
+		}
+	}
 }
 
 func computePatterns(hourCounts [24]int, weekdayCounts map[time.Weekday]int, weekdayDays map[time.Weekday]map[string]bool, allTime PeriodStats) PatternStats {
 	var p PatternStats
 
-	// Best hour
 	bestHourCount := 0
 	for h, c := range hourCounts {
 		if c > bestHourCount {
@@ -147,7 +147,6 @@ func computePatterns(hourCounts [24]int, weekdayCounts map[time.Weekday]int, wee
 		}
 	}
 
-	// Best day and avg by weekday
 	bestDayAvg := 0.0
 	for wd := time.Sunday; wd <= time.Saturday; wd++ {
 		days := len(weekdayDays[wd])
@@ -161,7 +160,6 @@ func computePatterns(hourCounts [24]int, weekdayCounts map[time.Weekday]int, wee
 		}
 	}
 
-	// Rates
 	if allTime.Pomodoros > 0 {
 		p.SnoozeRate = float64(allTime.Snoozes) / float64(allTime.Pomodoros)
 		p.PauseRate = float64(allTime.Pauses) / float64(allTime.Pomodoros)
@@ -192,8 +190,6 @@ func computeStreaks(pomDays map[string]int, now time.Time) StreakStats {
 	}
 
 	today := startOfDay(now)
-
-	// Current streak: walk backward from today
 	current := 0
 	for d := today; ; d = d.AddDate(0, 0, -1) {
 		if daySet[d.Format("2006-01-02")] {
@@ -203,7 +199,6 @@ func computeStreaks(pomDays map[string]int, now time.Time) StreakStats {
 		}
 	}
 
-	// Longest streak: sort all dates and walk forward
 	var sorted []time.Time
 	for k := range pomDays {
 		t, _ := time.ParseInLocation("2006-01-02", k, now.Location())

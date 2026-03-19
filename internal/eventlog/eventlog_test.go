@@ -124,12 +124,19 @@ func TestWriterConcurrentSafe(t *testing.T) {
 	}
 }
 
+func mustLog(t *testing.T, w *Writer, eventType string, data map[string]any) {
+	t.Helper()
+	if err := w.Log(eventType, data); err != nil {
+		t.Fatalf("Log(%s): %v", eventType, err)
+	}
+}
+
 func TestReadAllReturnsAll(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "events.jsonl")
 	w := NewWriter(path)
-	w.Log("pomodoro_started", nil)
-	w.Log("pomodoro_completed", nil)
-	w.Log("break_started", map[string]any{"kind": "short"})
+	mustLog(t, w, "pomodoro_started", nil)
+	mustLog(t, w, "pomodoro_completed", nil)
+	mustLog(t, w, "break_started", map[string]any{"kind": "short"})
 
 	events, err := ReadAll(path)
 	if err != nil {
@@ -180,9 +187,14 @@ func TestReadRangeFilters(t *testing.T) {
 			Type:      "pomodoro_completed",
 			Timestamp: base.Add(time.Duration(i) * time.Hour),
 		}
-		line, _ := json.Marshal(ev)
+		line, err := json.Marshal(ev)
+		if err != nil {
+			t.Fatalf("Marshal: %v", err)
+		}
 		line = append(line, '\n')
-		os.WriteFile(path, append(readFileOrEmpty(path), line...), 0o644)
+		if err := os.WriteFile(path, append(readFileOrEmpty(path), line...), 0o644); err != nil {
+			t.Fatalf("WriteFile: %v", err)
+		}
 	}
 
 	from := base.Add(1 * time.Hour)
@@ -199,13 +211,20 @@ func TestReadRangeFilters(t *testing.T) {
 func TestReadAllSkipsCorrupt(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "events.jsonl")
 	w := NewWriter(path)
-	w.Log("pomodoro_started", nil)
+	mustLog(t, w, "pomodoro_started", nil)
 
-	f, _ := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
-	f.WriteString("not valid json\n")
-	f.Close()
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatalf("OpenFile: %v", err)
+	}
+	if _, err := f.WriteString("not valid json\n"); err != nil {
+		t.Fatalf("WriteString: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
 
-	w.Log("pomodoro_completed", nil)
+	mustLog(t, w, "pomodoro_completed", nil)
 
 	events, err := ReadAll(path)
 	if err != nil {
