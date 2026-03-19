@@ -131,3 +131,40 @@ func TestLoadRejectsUnknownKey(t *testing.T) {
 		t.Fatal("expected unknown key error")
 	}
 }
+
+func TestDefaultStatsConfig(t *testing.T) {
+	cfg := Default()
+	if cfg.Stats.TierLow != 2 {
+		t.Fatalf("expected default TierLow=2, got %d", cfg.Stats.TierLow)
+	}
+	if cfg.Stats.TierMid != 5 {
+		t.Fatalf("expected default TierMid=5, got %d", cfg.Stats.TierMid)
+	}
+}
+
+func TestStatsTiersParsed(t *testing.T) {
+	raw := []byte(`
+[stats]
+tier_low = 3
+tier_mid = 8
+`)
+	cfg, err := LoadBytes(raw)
+	if err != nil {
+		t.Fatalf(fmtUnexpectedErr, err)
+	}
+	if cfg.Stats.TierLow != 3 || cfg.Stats.TierMid != 8 {
+		t.Fatalf("expected parsed tiers 3/8, got %d/%d", cfg.Stats.TierLow, cfg.Stats.TierMid)
+	}
+}
+
+func TestTierLowLessThanMid(t *testing.T) {
+	raw := []byte(`
+[stats]
+tier_low = 5
+tier_mid = 3
+`)
+	_, err := LoadBytes(raw)
+	if err == nil {
+		t.Fatal("expected error when tier_low >= tier_mid")
+	}
+}

@@ -27,6 +27,10 @@ type Config struct {
 	SoundCommand           []string `toml:"sound_command"`
 	MorningReminderPending bool     `toml:"morning_reminder_pending"`
 	Emoji                  bool     `toml:"emoji"`
+	Stats                  struct {
+		TierLow int `toml:"tier_low"`
+		TierMid int `toml:"tier_mid"`
+	} `toml:"stats"`
 }
 
 func Default() Config {
@@ -40,6 +44,8 @@ func Default() Config {
 	cfg.RepeatSecs = 20
 	cfg.MorningReminderPending = true
 	cfg.Emoji = true
+	cfg.Stats.TierLow = 2
+	cfg.Stats.TierMid = 5
 	return cfg
 }
 
@@ -93,6 +99,12 @@ func validate(cfg Config) error {
 	}
 	if err := validateSoundCommand(cfg.SoundCommand); err != nil {
 		return err
+	}
+	if cfg.Stats.TierLow <= 0 || cfg.Stats.TierMid <= 0 {
+		return fmt.Errorf("stats tier_low and tier_mid must be > 0")
+	}
+	if cfg.Stats.TierLow >= cfg.Stats.TierMid {
+		return fmt.Errorf("stats tier_low must be less than tier_mid")
 	}
 	return validateScheduleDays(cfg.Schedule.Days)
 }
