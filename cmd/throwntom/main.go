@@ -10,10 +10,18 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/config"
 )
 
+var version = "3.0.4"
+
 func main() {
 	flag.Usage = printFlagUsage
 	configPath := flag.String("config", "", "path to config toml")
+	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Println(version)
+		os.Exit(0)
+	}
 
 	if err := parseInvocation(flag.Args()); err != nil {
 		fmt.Fprintf(os.Stderr, "argument error: %v\n", err)
@@ -86,17 +94,15 @@ func defaultSessionPath() (string, error) {
 }
 
 func printUsage() {
-	fmt.Println("usage: throwntom [--config path]")
-	fmt.Println()
-	fmt.Println(commandsHelp())
+	fmt.Println("usage: throwntom [--version] [--config path]")
 }
 
 func printFlagUsage() {
-	fmt.Fprintln(os.Stderr, "usage: throwntom [--config path]")
+	fmt.Fprintln(os.Stderr, "usage: throwntom [--version] [--config path]")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "options:")
 	fmt.Fprintln(os.Stderr, "  --config string")
 	fmt.Fprintln(os.Stderr, "        path to config toml")
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, commandsHelp())
+	fmt.Fprintln(os.Stderr, "  --version")
+	fmt.Fprintln(os.Stderr, "        print version and exit")
 }
