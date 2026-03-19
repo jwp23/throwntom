@@ -35,6 +35,7 @@ Type these commands in the interactive prompt:
 - `confirm` - acknowledge transition and start next phase
 - `snooze <duration>` - snooze current reminder (example: `snooze 10m`)
 - `skip-today` - stop reminders for the current day
+- `stats` - show productivity dashboard (today, week, month, all-time, streaks, patterns)
 - `status` - print current status
 - `test-sound` - play the reminder sound immediately to verify terminal audio/bell
 - `quit` - exit throwntom
@@ -68,6 +69,22 @@ throwntom automatically saves session state to `~/.config/throwntom/session.json
 
 If the saved session is from a different day, it is discarded and throwntom starts fresh. If the timer expired while closed, it transitions to awaiting confirmation. Paused timers remain paused with their remaining duration preserved.
 
+## Productivity Analytics
+
+throwntom records every meaningful event (pomodoro start/complete, breaks, pauses, snoozes) to `~/.config/throwntom/events.jsonl`. This append-only log powers the `stats` command, which displays:
+
+- **Today / This Week / This Month / All Time** — pomodoro counts, focus time, pauses, snoozes
+- **Streaks** — current and longest consecutive days with at least one pomodoro
+- **Patterns** — best day of the week, most productive hour, snooze/pause rates
+
+Pomodoro counts are color-coded by tier (configurable):
+
+| Tier | Default range | Color |
+|------|--------------|-------|
+| Cool | 0–2 | gray |
+| Warm | 3–5 | amber |
+| Hot | 6+ | green |
+
 ## Config
 
 Config file location: `~/.config/throwntom/config.toml`
@@ -89,6 +106,10 @@ repeat_secs = 20
 sound_command = ["paplay", "/usr/share/sounds/freedesktop/stereo/bell.oga"]
 morning_reminder_pending = true
 emoji = true
+
+[stats]
+tier_low = 2
+tier_mid = 5
 ```
 
 ## Verify
