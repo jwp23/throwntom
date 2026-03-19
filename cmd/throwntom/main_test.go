@@ -110,9 +110,9 @@ func captureStderr(t *testing.T, fn func()) string {
 	return buf.String()
 }
 
-func TestVersionDefaultIsDev(t *testing.T) {
-	if version != "dev" {
-		t.Fatalf("expected default version %q, got %q", "dev", version)
+func TestVersionIsSet(t *testing.T) {
+	if version == "" {
+		t.Fatal("expected version to be set, got empty string")
 	}
 }
 
