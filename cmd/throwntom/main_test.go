@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -65,6 +67,82 @@ func TestEnsureConfigDirCreatesDirectory(t *testing.T) {
 	}
 	if !info.IsDir() {
 		t.Fatalf("expected %s to be a directory", dir)
+	}
+}
+
+// captureStdout captures os.Stdout output during fn execution.
+// Not parallel-safe.
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	old := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("create pipe: %v", err)
+	}
+	os.Stdout = w
+	fn()
+	_ = w.Close()
+	os.Stdout = old
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("read pipe: %v", err)
+	}
+	return buf.String()
+}
+
+// captureStderr captures os.Stderr output during fn execution.
+// Not parallel-safe.
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+	old := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("create pipe: %v", err)
+	}
+	os.Stderr = w
+	fn()
+	_ = w.Close()
+	os.Stderr = old
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("read pipe: %v", err)
+	}
+	return buf.String()
+}
+
+func TestVersionDefaultIsDev(t *testing.T) {
+	if version != "dev" {
+		t.Fatalf("expected default version %q, got %q", "dev", version)
+	}
+}
+
+func TestPrintUsageExcludesInteractiveCommands(t *testing.T) {
+	out := captureStdout(t, printUsage)
+	lower := strings.ToLower(out)
+	if strings.Contains(lower, "commands:") {
+		t.Fatalf("printUsage should not contain interactive commands section, got:\n%s", out)
+	}
+}
+
+func TestPrintFlagUsageExcludesInteractiveCommands(t *testing.T) {
+	out := captureStderr(t, printFlagUsage)
+	lower := strings.ToLower(out)
+	if strings.Contains(lower, "commands:") {
+		t.Fatalf("printFlagUsage should not contain interactive commands section, got:\n%s", out)
+	}
+}
+
+func TestPrintFlagUsageIncludesVersionOption(t *testing.T) {
+	out := captureStderr(t, printFlagUsage)
+	if !strings.Contains(out, "--version") {
+		t.Fatalf("printFlagUsage should contain --version option, got:\n%s", out)
+	}
+}
+
+func TestPrintUsageIncludesVersionFlag(t *testing.T) {
+	out := captureStdout(t, printUsage)
+	if !strings.Contains(out, "--version") {
+		t.Fatalf("printUsage should contain --version in usage line, got:\n%s", out)
 	}
 }
 
