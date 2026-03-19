@@ -275,6 +275,7 @@ func (d *timerCore) finalizeFocusPrompt() commandResult {
 	d.pendingFocusAction = ""
 	if action == "start" {
 		d.cycle.Start()
+		d.logEvent("pomodoro_started", nil)
 	}
 	return commandResult{message: "Pomodoro started -- let's go!"}
 }
