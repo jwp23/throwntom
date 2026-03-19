@@ -10,7 +10,7 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/config"
 )
 
-var version = "3.0.4"
+var version = "3.1.0"
 
 func main() {
 	flag.Usage = printFlagUsage
