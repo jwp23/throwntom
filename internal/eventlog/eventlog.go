@@ -53,3 +53,58 @@ func (w *Writer) Log(eventType string, data map[string]any) error {
 	}
 	return nil
 }
+
+func ReadAll(path string) ([]Event, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read event log: %w", err)
+	}
+	return parseEvents(data), nil
+}
+
+func ReadRange(path string, from, to time.Time) ([]Event, error) {
+	all, err := ReadAll(path)
+	if err != nil {
+		return nil, err
+	}
+	var filtered []Event
+	for _, ev := range all {
+		if !ev.Timestamp.Before(from) && ev.Timestamp.Before(to) {
+			filtered = append(filtered, ev)
+		}
+	}
+	return filtered, nil
+}
+
+func parseEvents(data []byte) []Event {
+	var events []Event
+	for _, line := range splitLines(data) {
+		if len(line) == 0 {
+			continue
+		}
+		var ev Event
+		if err := json.Unmarshal(line, &ev); err != nil {
+			continue
+		}
+		events = append(events, ev)
+	}
+	return events
+}
+
+func splitLines(data []byte) [][]byte {
+	var lines [][]byte
+	start := 0
+	for i, b := range data {
+		if b == '\n' {
+			lines = append(lines, data[start:i])
+			start = i + 1
+		}
+	}
+	if start < len(data) {
+		lines = append(lines, data[start:])
+	}
+	return lines
+}

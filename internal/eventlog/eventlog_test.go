@@ -124,5 +124,99 @@ func TestWriterConcurrentSafe(t *testing.T) {
 	}
 }
 
-// Suppress unused import warnings for time package used in Event struct.
-var _ = time.Now
+func TestReadAllReturnsAll(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "events.jsonl")
+	w := NewWriter(path)
+	w.Log("pomodoro_started", nil)
+	w.Log("pomodoro_completed", nil)
+	w.Log("break_started", map[string]any{"kind": "short"})
+
+	events, err := ReadAll(path)
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	if len(events) != 3 {
+		t.Fatalf("expected 3 events, got %d", len(events))
+	}
+	if events[0].Type != "pomodoro_started" {
+		t.Fatalf("expected first event type pomodoro_started, got %s", events[0].Type)
+	}
+	if events[2].Data["kind"] != "short" {
+		t.Fatalf("expected third event data.kind=short, got %v", events[2].Data["kind"])
+	}
+}
+
+func TestReadAllEmpty(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "events.jsonl")
+	if err := os.WriteFile(path, []byte{}, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	events, err := ReadAll(path)
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	if len(events) != 0 {
+		t.Fatalf("expected 0 events, got %d", len(events))
+	}
+}
+
+func TestReadAllMissing(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nonexistent.jsonl")
+	events, err := ReadAll(path)
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	if len(events) != 0 {
+		t.Fatalf("expected 0 events for missing file, got %d", len(events))
+	}
+}
+
+func TestReadRangeFilters(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "events.jsonl")
+	base := time.Date(2026, 3, 15, 10, 0, 0, 0, time.Local)
+
+	for i := 0; i < 5; i++ {
+		ev := Event{
+			Type:      "pomodoro_completed",
+			Timestamp: base.Add(time.Duration(i) * time.Hour),
+		}
+		line, _ := json.Marshal(ev)
+		line = append(line, '\n')
+		os.WriteFile(path, append(readFileOrEmpty(path), line...), 0o644)
+	}
+
+	from := base.Add(1 * time.Hour)
+	to := base.Add(3 * time.Hour)
+	events, err := ReadRange(path, from, to)
+	if err != nil {
+		t.Fatalf("ReadRange: %v", err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("expected 2 events in range, got %d", len(events))
+	}
+}
+
+func TestReadAllSkipsCorrupt(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "events.jsonl")
+	w := NewWriter(path)
+	w.Log("pomodoro_started", nil)
+
+	f, _ := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+	f.WriteString("not valid json\n")
+	f.Close()
+
+	w.Log("pomodoro_completed", nil)
+
+	events, err := ReadAll(path)
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("expected 2 events (corrupt skipped), got %d", len(events))
+	}
+}
+
+func readFileOrEmpty(path string) []byte {
+	data, _ := os.ReadFile(path)
+	return data
+}
