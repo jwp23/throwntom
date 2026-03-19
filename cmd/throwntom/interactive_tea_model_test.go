@@ -382,6 +382,82 @@ func TestEscCancelsFocusPrompt(t *testing.T) {
 	}
 }
 
+func TestStatsViewRenderedFullScreen(t *testing.T) {
+	model := newInteractiveTeaModel(interactiveCallbacks{
+		StatusSnapshot: func() (string, engine.State, bool) {
+			return testStatusIdle, engine.Idle, false
+		},
+		Execute: func(string) (commandResponse, error) {
+			return commandResponse{
+				StatusLine: testStatusIdle,
+				StatsView:  "-- Today --\nPomodoros: 5",
+			}, nil
+		},
+	})
+
+	// Submit "stats" command
+	next := tea.Model(model)
+	for _, r := range "stats" {
+		next, _ = next.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+	}
+	next, _ = next.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	view := next.(interactiveTeaModel).View()
+	if !strings.Contains(view, "-- Today --") {
+		t.Fatalf("expected stats view content, got %q", view)
+	}
+	if !strings.Contains(view, "esc: back") {
+		t.Fatalf("expected 'esc: back' hint, got %q", view)
+	}
+	// Should NOT contain normal frame elements
+	if strings.Contains(view, "> ") {
+		t.Fatalf("expected no prompt in stats view, got %q", view)
+	}
+}
+
+func TestEscDismissesStatsView(t *testing.T) {
+	model := newInteractiveTeaModel(interactiveCallbacks{
+		StatusSnapshot: func() (string, engine.State, bool) {
+			return testStatusIdle, engine.Idle, false
+		},
+		Execute: func(string) (commandResponse, error) {
+			return commandResponse{
+				StatusLine: testStatusIdle,
+				StatsView:  "-- Today --\nPomodoros: 5",
+			}, nil
+		},
+	})
+
+	// Submit "stats" to enter stats view
+	next := tea.Model(model)
+	for _, r := range "stats" {
+		next, _ = next.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+	}
+	next, _ = next.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	// Verify stats view is showing
+	m := next.(interactiveTeaModel)
+	if m.statsView == "" {
+		t.Fatal("expected statsView to be set")
+	}
+
+	// Press Escape
+	next, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = next.(interactiveTeaModel)
+	if m.statsView != "" {
+		t.Fatalf("expected statsView cleared after Esc, got %q", m.statsView)
+	}
+
+	// View should show normal frame
+	view := m.View()
+	if strings.Contains(view, "-- Today --") {
+		t.Fatal("expected stats view dismissed after Esc")
+	}
+	if !strings.Contains(view, "> ") {
+		t.Fatalf("expected prompt to appear after dismissing stats view, got %q", view)
+	}
+}
+
 func TestEscDoesNothingWhenNoFocusPrompt(t *testing.T) {
 	var cancelCalled bool
 	model := newInteractiveTeaModel(interactiveCallbacks{

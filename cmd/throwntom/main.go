@@ -93,6 +93,10 @@ func defaultSessionPath() (string, error) {
 	return configDirPath("session.json")
 }
 
+func defaultEventsPath() (string, error) {
+	return configDirPath("events.jsonl")
+}
+
 func printUsage() {
 	fmt.Println("usage: throwntom [--version] [--config path]")
 }

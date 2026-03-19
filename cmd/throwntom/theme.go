@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
@@ -128,12 +129,13 @@ func renderThemedFrame(f frameInput) string {
 
 	promptLine := "> " + f.Input
 
-	return fmt.Sprintf(
-		"%s\n%s\n%s",
-		clampANSILine(statusRendered, f.Width),
-		clampANSILine(msgLine, f.Width),
-		clampANSILine(promptLine, f.Width),
-	)
+	var parts []string
+	parts = append(parts, clampANSILine(statusRendered, f.Width))
+	for _, line := range strings.Split(msgLine, "\n") {
+		parts = append(parts, clampANSILine(line, f.Width))
+	}
+	parts = append(parts, clampANSILine(promptLine, f.Width))
+	return strings.Join(parts, "\n")
 }
 
 func clampANSILine(line string, width int) string {

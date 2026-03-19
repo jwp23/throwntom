@@ -9,6 +9,7 @@ import (
 
 	"github.com/jwp23/throwntom/v3/internal/config"
 	"github.com/jwp23/throwntom/v3/internal/engine"
+	"github.com/jwp23/throwntom/v3/internal/eventlog"
 	"github.com/jwp23/throwntom/v3/internal/notifier"
 )
 
@@ -98,6 +99,14 @@ func buildTimerCore(cfg config.Config) (*timerCore, error) {
 	if err := core.loadSession(); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: could not load session: %v\n", err)
 	}
+	eventsPath, err := defaultEventsPath()
+	if err != nil {
+		return nil, err
+	}
+	core.eventWriter = eventlog.NewWriter(eventsPath)
+	core.eventsPath = eventsPath
+	core.tierLow = cfg.Stats.TierLow
+	core.tierMid = cfg.Stats.TierMid
 	return core, nil
 }
 

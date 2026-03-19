@@ -12,6 +12,7 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/app"
 	"github.com/jwp23/throwntom/v3/internal/config"
 	"github.com/jwp23/throwntom/v3/internal/engine"
+	"github.com/jwp23/throwntom/v3/internal/eventlog"
 	"github.com/jwp23/throwntom/v3/internal/notifier"
 	"github.com/jwp23/throwntom/v3/internal/reminder"
 	"github.com/jwp23/throwntom/v3/internal/scheduler"
@@ -111,6 +112,10 @@ type timerCore struct {
 	pendingFocusAction  string
 	sessionPath         string
 	emoji               bool
+	eventWriter         *eventlog.Writer
+	eventsPath          string
+	tierLow             int
+	tierMid             int
 }
 
 type commandHandler func(parts []string) commandResult
@@ -171,6 +176,7 @@ func (d *timerCore) executeCommand(line string) commandResponse {
 	if d.pendingFocusPrompt {
 		resp.FocusPrompt = d.formatFocusPrompt()
 	}
+	resp.StatsView = result.statsView
 	if result.err != nil {
 		resp.Error = result.err.Error()
 	}
@@ -178,9 +184,10 @@ func (d *timerCore) executeCommand(line string) commandResponse {
 }
 
 type commandResult struct {
-	message string
-	exit    bool
-	err     error
+	message   string
+	statsView string
+	exit      bool
+	err       error
 }
 
 func (d *timerCore) execute(line string) commandResult {
@@ -214,9 +221,19 @@ func (d *timerCore) buildCommandHandlers() map[string]commandHandler {
 		"skip-today": d.handleSkipToday,
 		"test-sound": d.handleTestSound,
 		"status":     d.handleStatus,
+		"stats":      d.handleStats,
 		"quit":       d.handleQuit,
 		"exit":       d.handleQuit,
 		"task":       d.handleTask,
+	}
+}
+
+func (d *timerCore) logEvent(eventType string, data map[string]any) {
+	if d.eventWriter == nil {
+		return
+	}
+	if err := d.eventWriter.Log(eventType, data); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: event log: %v\n", err)
 	}
 }
 
@@ -227,6 +244,7 @@ func (d *timerCore) handleStart(_ []string) commandResult {
 		return d.enterFocusPrompt("start")
 	}
 	d.cycle.Start()
+	d.logEvent("pomodoro_started", nil)
 	return commandResult{message: "Pomodoro started -- let's go!"}
 }
 
@@ -234,16 +252,19 @@ func (d *timerCore) handleNewCycle(_ []string) commandResult {
 	d.state.stopMorningLoop()
 	d.state.clearSnooze()
 	d.cycle.StartNewCycle()
+	d.logEvent("pomodoro_started", nil)
 	return commandResult{message: "New cycle started -- fresh start!"}
 }
 
 func (d *timerCore) handlePause(_ []string) commandResult {
 	d.cycle.Pause()
+	d.logEvent("paused", nil)
 	return commandResult{message: "Paused. Take your time."}
 }
 
 func (d *timerCore) handleResume(_ []string) commandResult {
 	d.cycle.Resume()
+	d.logEvent("resumed", nil)
 	return commandResult{message: "Resumed -- back at it!"}
 }
 
@@ -254,12 +275,37 @@ func (d *timerCore) handleStop(_ []string) commandResult {
 }
 
 func (d *timerCore) handleConfirm(_ []string) commandResult {
+	snap := d.cycle.Snapshot()
+	d.logConfirmCompletion(snap.Engine.LastPhase)
 	d.cycle.Confirm()
 	state := d.cycle.State()
+	d.logConfirmStart(state)
 	if state == engine.Work && d.tasks != nil && len(d.focused) == 0 {
 		return d.enterFocusPrompt("confirm")
 	}
 	return commandResult{message: fmt.Sprintf("Confirmed -- %s", friendlyStateName(state))}
+}
+
+func (d *timerCore) logConfirmCompletion(lastPhase engine.State) {
+	switch lastPhase {
+	case engine.Work:
+		d.logEvent("pomodoro_completed", nil)
+	case engine.ShortBreak:
+		d.logEvent("break_completed", map[string]any{"kind": "short"})
+	case engine.LongBreak:
+		d.logEvent("break_completed", map[string]any{"kind": "long"})
+	}
+}
+
+func (d *timerCore) logConfirmStart(newState engine.State) {
+	switch newState {
+	case engine.Work:
+		d.logEvent("pomodoro_started", nil)
+	case engine.ShortBreak:
+		d.logEvent("break_started", map[string]any{"kind": "short"})
+	case engine.LongBreak:
+		d.logEvent("break_started", map[string]any{"kind": "long"})
+	}
 }
 
 func (d *timerCore) handleSnooze(parts []string) commandResult {
@@ -267,6 +313,7 @@ func (d *timerCore) handleSnooze(parts []string) commandResult {
 	if err != nil {
 		return commandResult{err: err}
 	}
+	snoozeSecs := int(parsed.Seconds())
 	if d.state.isMorningPending() {
 		d.state.stopMorningLoop()
 		d.state.setSnoozeUntil(d.now().Add(parsed))
@@ -282,9 +329,11 @@ func (d *timerCore) handleSnooze(parts []string) commandResult {
 			state.clearSnooze()
 			startMorningLoop(state, repeatInterval, n)
 		}()
+		d.logEvent("snoozed", map[string]any{"duration_secs": snoozeSecs})
 		return commandResult{message: fmt.Sprintf("morning reminder snoozed for %s", parsed)}
 	}
 	d.cycle.Snooze(parsed)
+	d.logEvent("snoozed", map[string]any{"duration_secs": snoozeSecs})
 	return commandResult{message: fmt.Sprintf("cycle reminder snoozed for %s", parsed)}
 }
 
@@ -292,6 +341,7 @@ func (d *timerCore) handleSkipToday(_ []string) commandResult {
 	d.state.stopMorningLoop()
 	d.state.markSkippedToday(d.now())
 	d.cycle.SkipToday()
+	d.logEvent("skipped_today", nil)
 	return commandResult{message: "Skipped reminders for today."}
 }
 
@@ -419,6 +469,7 @@ func commandsHelp() string {
 		"  confirm            continue to next phase",
 		"  snooze <duration>  snooze reminder (e.g., snooze 10m)",
 		"  skip-today         skip reminders for today",
+		"  stats              show productivity dashboard",
 		"  status             show current status",
 		"  test-sound         test the reminder sound",
 		"  quit               exit throwntom",

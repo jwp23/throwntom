@@ -146,6 +146,22 @@ func TestPrintUsageIncludesVersionFlag(t *testing.T) {
 	}
 }
 
+func TestDefaultEventsPath(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	path, err := defaultEventsPath()
+	if err != nil {
+		t.Fatalf("defaultEventsPath: %v", err)
+	}
+	if !strings.Contains(path, "events.jsonl") {
+		t.Fatalf("expected events.jsonl in path, got %s", path)
+	}
+	if !strings.Contains(path, "throwntom") {
+		t.Fatalf("expected throwntom in path, got %s", path)
+	}
+}
+
 func TestLoadConfigUsesDefaultHomeConfigFile(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
