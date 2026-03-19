@@ -17,7 +17,7 @@ func (d *timerCore) handleStats(_ []string) commandResult {
 	}
 	dash := analytics.Compute(events, d.now())
 	msg := renderDashboard(dash, d.now(), d.tierLow, d.tierMid)
-	return commandResult{message: msg}
+	return commandResult{statsView: msg}
 }
 
 func renderDashboard(dash analytics.Dashboard, now time.Time, tierLow, tierMid int) string {

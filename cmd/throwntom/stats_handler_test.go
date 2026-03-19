@@ -10,7 +10,7 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/eventlog"
 )
 
-func TestStatsNoEvents(t *testing.T) {
+func TestStatsReturnsStatsView(t *testing.T) {
 	dir := t.TempDir()
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
@@ -23,11 +23,14 @@ func TestStatsNoEvents(t *testing.T) {
 	if result.err != nil {
 		t.Fatalf("stats failed: %v", result.err)
 	}
-	if !strings.Contains(result.message, "Today") {
-		t.Fatalf("expected Today section, got: %s", result.message)
+	if result.message != "" {
+		t.Fatalf("expected message empty, got: %s", result.message)
 	}
-	if !strings.Contains(result.message, "Pomodoros: 0") {
-		t.Fatalf("expected Pomodoros: 0, got: %s", result.message)
+	if !strings.Contains(result.statsView, "Today") {
+		t.Fatalf("expected Today section in statsView, got: %s", result.statsView)
+	}
+	if !strings.Contains(result.statsView, "Pomodoros: 0") {
+		t.Fatalf("expected Pomodoros: 0 in statsView, got: %s", result.statsView)
 	}
 }
 
@@ -53,8 +56,8 @@ func TestStatsWithEvents(t *testing.T) {
 	if result.err != nil {
 		t.Fatalf("stats failed: %v", result.err)
 	}
-	if !strings.Contains(result.message, "Pomodoros: 1") {
-		t.Fatalf("expected Pomodoros: 1, got: %s", result.message)
+	if !strings.Contains(result.statsView, "Pomodoros: 1") {
+		t.Fatalf("expected Pomodoros: 1 in statsView, got: %s", result.statsView)
 	}
 }
 

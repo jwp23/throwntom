@@ -176,6 +176,7 @@ func (d *timerCore) executeCommand(line string) commandResponse {
 	if d.pendingFocusPrompt {
 		resp.FocusPrompt = d.formatFocusPrompt()
 	}
+	resp.StatsView = result.statsView
 	if result.err != nil {
 		resp.Error = result.err.Error()
 	}
@@ -183,9 +184,10 @@ func (d *timerCore) executeCommand(line string) commandResponse {
 }
 
 type commandResult struct {
-	message string
-	exit    bool
-	err     error
+	message   string
+	statsView string
+	exit      bool
+	err       error
 }
 
 func (d *timerCore) execute(line string) commandResult {

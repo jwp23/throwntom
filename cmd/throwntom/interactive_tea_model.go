@@ -19,6 +19,7 @@ type commandResponse struct {
 	Exit           bool
 	FocusLines     []string
 	FocusPrompt    string
+	StatsView      string
 }
 
 type interactiveCallbacks struct {
@@ -101,6 +102,7 @@ type interactiveTeaModel struct {
 	width          int
 	focusLines     []string
 	focusPrompt    string
+	statsView      string
 }
 
 func newInteractiveTeaModel(callbacks interactiveCallbacks) interactiveTeaModel {
@@ -147,6 +149,15 @@ func (m interactiveTeaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m interactiveTeaModel) View() string {
+	if m.statsView != "" {
+		var lines []string
+		for _, line := range strings.Split(m.statsView, "\n") {
+			lines = append(lines, clampANSILine(line, m.width))
+		}
+		lines = append(lines, clampANSILine("esc: back", m.width))
+		return strings.Join(lines, "\n")
+	}
+
 	if m.focusPrompt != "" {
 		var lines []string
 		for _, line := range strings.Split(m.focusPrompt, "\n") {
@@ -229,6 +240,10 @@ func (m interactiveTeaModel) updateKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m interactiveTeaModel) handleEsc() (tea.Model, tea.Cmd) {
+	if m.statsView != "" {
+		m.statsView = ""
+		return m, nil
+	}
 	if m.focusPrompt != "" && m.callbacks.CancelFocus != nil {
 		resp := m.callbacks.CancelFocus()
 		m.focusPrompt = ""
@@ -264,6 +279,7 @@ func (m interactiveTeaModel) submitCommand() (tea.Model, tea.Cmd) {
 	m.morningPending = resp.MorningPending
 	m.focusLines = resp.FocusLines
 	m.focusPrompt = resp.FocusPrompt
+	m.statsView = resp.StatsView
 	if resp.Error != "" {
 		m.message = resp.Error
 		m.isError = true
