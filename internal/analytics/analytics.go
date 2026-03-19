@@ -49,6 +49,9 @@ func Compute(events []eventlog.Event, now time.Time) Dashboard {
 	monthStart := startOfMonth(now)
 
 	pomDays := make(map[string]int)
+	var hourCounts [24]int
+	weekdayCounts := make(map[time.Weekday]int)
+	weekdayDays := make(map[time.Weekday]map[string]bool)
 	var lastStart time.Time
 	var hasStart bool
 
@@ -67,6 +70,13 @@ func Compute(events []eventlog.Event, now time.Time) Dashboard {
 		case "pomodoro_completed":
 			dash.AllTime.Pomodoros++
 			pomDays[dayKey]++
+			hourCounts[ev.Timestamp.Hour()]++
+			wd := ev.Timestamp.Weekday()
+			weekdayCounts[wd]++
+			if weekdayDays[wd] == nil {
+				weekdayDays[wd] = make(map[string]bool)
+			}
+			weekdayDays[wd][dayKey] = true
 			if inToday {
 				dash.Today.Pomodoros++
 			}
@@ -120,8 +130,44 @@ func Compute(events []eventlog.Event, now time.Time) Dashboard {
 	dash.ThisWeek.DailyCounts = buildDailyCounts(pomDays, weekStart, now)
 	dash.ThisMonth.DailyCounts = buildDailyCounts(pomDays, monthStart, now)
 	dash.Streaks = computeStreaks(pomDays, now)
+	dash.Patterns = computePatterns(hourCounts, weekdayCounts, weekdayDays, dash.AllTime)
 
 	return dash
+}
+
+func computePatterns(hourCounts [24]int, weekdayCounts map[time.Weekday]int, weekdayDays map[time.Weekday]map[string]bool, allTime PeriodStats) PatternStats {
+	var p PatternStats
+
+	// Best hour
+	bestHourCount := 0
+	for h, c := range hourCounts {
+		if c > bestHourCount {
+			bestHourCount = c
+			p.BestHour = h
+		}
+	}
+
+	// Best day and avg by weekday
+	bestDayAvg := 0.0
+	for wd := time.Sunday; wd <= time.Saturday; wd++ {
+		days := len(weekdayDays[wd])
+		if days > 0 {
+			avg := float64(weekdayCounts[wd]) / float64(days)
+			p.AvgByWeekday[wd] = avg
+			if avg > bestDayAvg {
+				bestDayAvg = avg
+				p.BestDay = wd
+			}
+		}
+	}
+
+	// Rates
+	if allTime.Pomodoros > 0 {
+		p.SnoozeRate = float64(allTime.Snoozes) / float64(allTime.Pomodoros)
+		p.PauseRate = float64(allTime.Pauses) / float64(allTime.Pomodoros)
+	}
+
+	return p
 }
 
 func buildDailyCounts(pomDays map[string]int, from, to time.Time) []DayCount {

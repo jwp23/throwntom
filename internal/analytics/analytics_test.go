@@ -176,3 +176,98 @@ func TestStreakTodayOnly(t *testing.T) {
 		t.Fatalf("expected longest streak 1, got %d", dash.Streaks.Longest)
 	}
 }
+
+func TestBestDay(t *testing.T) {
+	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		// Monday x2
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 16, 10, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 16, 11, 0, 0, 0, time.Local)),
+		// Tuesday x3
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 17, 10, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 17, 11, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 17, 12, 0, 0, 0, time.Local)),
+		// Thursday x1
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 10, 0, 0, 0, time.Local)),
+	}
+	dash := Compute(events, now)
+	if dash.Patterns.BestDay != time.Tuesday {
+		t.Fatalf("expected best day Tuesday, got %v", dash.Patterns.BestDay)
+	}
+}
+
+func TestBestHour(t *testing.T) {
+	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 17, 10, 5, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 18, 10, 30, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 10, 55, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)),
+	}
+	dash := Compute(events, now)
+	if dash.Patterns.BestHour != 10 {
+		t.Fatalf("expected best hour 10, got %d", dash.Patterns.BestHour)
+	}
+}
+
+func TestAvgByWeekday(t *testing.T) {
+	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		// Two Mondays with 2 and 4 pomodoros
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 9, 10, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 9, 11, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 16, 10, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 16, 11, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 16, 12, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 16, 13, 0, 0, 0, time.Local)),
+	}
+	dash := Compute(events, now)
+	avg := dash.Patterns.AvgByWeekday[time.Monday]
+	if avg != 3.0 {
+		t.Fatalf("expected avg Monday 3.0, got %.1f", avg)
+	}
+}
+
+func TestSnoozeRate(t *testing.T) {
+	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 10, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 11, 0, 0, 0, time.Local)),
+		makeEventWithData("snoozed", time.Date(2026, 3, 19, 10, 30, 0, 0, time.Local), nil),
+	}
+	dash := Compute(events, now)
+	if dash.Patterns.SnoozeRate != 0.5 {
+		t.Fatalf("expected snooze rate 0.5, got %f", dash.Patterns.SnoozeRate)
+	}
+}
+
+func TestPauseRate(t *testing.T) {
+	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 10, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 11, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 12, 0, 0, 0, time.Local)),
+		makeEvent("paused", time.Date(2026, 3, 19, 10, 5, 0, 0, time.Local)),
+		makeEvent("paused", time.Date(2026, 3, 19, 11, 5, 0, 0, time.Local)),
+		makeEvent("paused", time.Date(2026, 3, 19, 12, 5, 0, 0, time.Local)),
+	}
+	dash := Compute(events, now)
+	if dash.Patterns.PauseRate != 1.0 {
+		t.Fatalf("expected pause rate 1.0, got %f", dash.Patterns.PauseRate)
+	}
+}
+
+func TestNoDivisionByZero(t *testing.T) {
+	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		makeEvent("paused", time.Date(2026, 3, 19, 10, 0, 0, 0, time.Local)),
+		makeEventWithData("snoozed", time.Date(2026, 3, 19, 10, 5, 0, 0, time.Local), nil),
+	}
+	dash := Compute(events, now)
+	if dash.Patterns.SnoozeRate != 0 {
+		t.Fatalf("expected snooze rate 0 with no pomodoros, got %f", dash.Patterns.SnoozeRate)
+	}
+	if dash.Patterns.PauseRate != 0 {
+		t.Fatalf("expected pause rate 0 with no pomodoros, got %f", dash.Patterns.PauseRate)
+	}
+}
