@@ -111,6 +111,9 @@ type timerCore struct {
 	pendingFocusAction  string
 	sessionPath         string
 	emoji               bool
+	eventsPath          string
+	tierLow             int
+	tierMid             int
 }
 
 type commandHandler func(parts []string) commandResult
@@ -214,6 +217,7 @@ func (d *timerCore) buildCommandHandlers() map[string]commandHandler {
 		"skip-today": d.handleSkipToday,
 		"test-sound": d.handleTestSound,
 		"status":     d.handleStatus,
+		"stats":      d.handleStats,
 		"quit":       d.handleQuit,
 		"exit":       d.handleQuit,
 		"task":       d.handleTask,
@@ -419,6 +423,7 @@ func commandsHelp() string {
 		"  confirm            continue to next phase",
 		"  snooze <duration>  snooze reminder (e.g., snooze 10m)",
 		"  skip-today         skip reminders for today",
+		"  stats              show productivity dashboard",
 		"  status             show current status",
 		"  test-sound         test the reminder sound",
 		"  quit               exit throwntom",
