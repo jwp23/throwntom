@@ -119,6 +119,7 @@ func Compute(events []eventlog.Event, now time.Time) Dashboard {
 
 	dash.ThisWeek.DailyCounts = buildDailyCounts(pomDays, weekStart, now)
 	dash.ThisMonth.DailyCounts = buildDailyCounts(pomDays, monthStart, now)
+	dash.Streaks = computeStreaks(pomDays, now)
 
 	return dash
 }
@@ -132,6 +133,60 @@ func buildDailyCounts(pomDays map[string]int, from, to time.Time) []DayCount {
 		}
 	}
 	return counts
+}
+
+func computeStreaks(pomDays map[string]int, now time.Time) StreakStats {
+	if len(pomDays) == 0 {
+		return StreakStats{}
+	}
+
+	daySet := make(map[string]bool, len(pomDays))
+	for k := range pomDays {
+		daySet[k] = true
+	}
+
+	today := startOfDay(now)
+
+	// Current streak: walk backward from today
+	current := 0
+	for d := today; ; d = d.AddDate(0, 0, -1) {
+		if daySet[d.Format("2006-01-02")] {
+			current++
+		} else {
+			break
+		}
+	}
+
+	// Longest streak: sort all dates and walk forward
+	var sorted []time.Time
+	for k := range pomDays {
+		t, _ := time.ParseInLocation("2006-01-02", k, now.Location())
+		sorted = append(sorted, t)
+	}
+	sortDates(sorted)
+
+	longest := 1
+	streak := 1
+	for i := 1; i < len(sorted); i++ {
+		if sorted[i].Sub(sorted[i-1]) == 24*time.Hour {
+			streak++
+			if streak > longest {
+				longest = streak
+			}
+		} else {
+			streak = 1
+		}
+	}
+
+	return StreakStats{Current: current, Longest: longest}
+}
+
+func sortDates(dates []time.Time) {
+	for i := 1; i < len(dates); i++ {
+		for j := i; j > 0 && dates[j].Before(dates[j-1]); j-- {
+			dates[j], dates[j-1] = dates[j-1], dates[j]
+		}
+	}
 }
 
 func startOfDay(t time.Time) time.Time {

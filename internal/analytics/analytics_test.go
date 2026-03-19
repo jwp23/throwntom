@@ -116,3 +116,63 @@ func TestComputePausesSnoozes(t *testing.T) {
 		t.Fatalf("expected 1 snooze today, got %d", dash.Today.Snoozes)
 	}
 }
+
+func TestStreakCurrent(t *testing.T) {
+	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 17, 10, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 18, 10, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 10, 0, 0, 0, time.Local)),
+	}
+	dash := Compute(events, now)
+	if dash.Streaks.Current != 3 {
+		t.Fatalf("expected current streak 3, got %d", dash.Streaks.Current)
+	}
+}
+
+func TestStreakLongest(t *testing.T) {
+	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 10, 10, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 11, 10, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 12, 10, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 13, 10, 0, 0, 0, time.Local)),
+		// gap on 14th
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 18, 10, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 10, 0, 0, 0, time.Local)),
+	}
+	dash := Compute(events, now)
+	if dash.Streaks.Longest != 4 {
+		t.Fatalf("expected longest streak 4, got %d", dash.Streaks.Longest)
+	}
+	if dash.Streaks.Current != 2 {
+		t.Fatalf("expected current streak 2, got %d", dash.Streaks.Current)
+	}
+}
+
+func TestStreakGapResets(t *testing.T) {
+	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 17, 10, 0, 0, 0, time.Local)),
+		// gap on 18th
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 10, 0, 0, 0, time.Local)),
+	}
+	dash := Compute(events, now)
+	if dash.Streaks.Current != 1 {
+		t.Fatalf("expected current streak 1 (gap resets), got %d", dash.Streaks.Current)
+	}
+}
+
+func TestStreakTodayOnly(t *testing.T) {
+	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 10, 0, 0, 0, time.Local)),
+	}
+	dash := Compute(events, now)
+	if dash.Streaks.Current != 1 {
+		t.Fatalf("expected current streak 1, got %d", dash.Streaks.Current)
+	}
+	if dash.Streaks.Longest != 1 {
+		t.Fatalf("expected longest streak 1, got %d", dash.Streaks.Longest)
+	}
+}
