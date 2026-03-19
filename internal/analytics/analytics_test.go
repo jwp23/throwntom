@@ -1,0 +1,118 @@
+package analytics
+
+import (
+	"testing"
+	"time"
+
+	"github.com/jwp23/throwntom/v3/internal/eventlog"
+)
+
+func makeEvent(typ string, ts time.Time) eventlog.Event {
+	return eventlog.Event{Type: typ, Timestamp: ts}
+}
+
+func makeEventWithData(typ string, ts time.Time, data map[string]any) eventlog.Event {
+	return eventlog.Event{Type: typ, Timestamp: ts, Data: data}
+}
+
+func TestComputeEmpty(t *testing.T) {
+	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
+	dash := Compute(nil, now)
+	if dash.Today.Pomodoros != 0 {
+		t.Fatalf("expected 0 today pomodoros, got %d", dash.Today.Pomodoros)
+	}
+	if dash.AllTime.Pomodoros != 0 {
+		t.Fatalf("expected 0 all-time pomodoros, got %d", dash.AllTime.Pomodoros)
+	}
+}
+
+func TestComputeToday(t *testing.T) {
+	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 10, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 11, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 18, 10, 0, 0, 0, time.Local)),
+	}
+	dash := Compute(events, now)
+	if dash.Today.Pomodoros != 2 {
+		t.Fatalf("expected 2 today pomodoros, got %d", dash.Today.Pomodoros)
+	}
+}
+
+func TestComputeThisWeek(t *testing.T) {
+	// 2026-03-19 is a Thursday. Week starts Monday 2026-03-16.
+	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 16, 10, 0, 0, 0, time.Local)), // Mon
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 17, 10, 0, 0, 0, time.Local)), // Tue
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 10, 0, 0, 0, time.Local)), // Thu
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 15, 10, 0, 0, 0, time.Local)), // Sun (prev week)
+	}
+	dash := Compute(events, now)
+	if dash.ThisWeek.Pomodoros != 3 {
+		t.Fatalf("expected 3 this-week pomodoros, got %d", dash.ThisWeek.Pomodoros)
+	}
+	if len(dash.ThisWeek.DailyCounts) == 0 {
+		t.Fatal("expected non-empty DailyCounts for this week")
+	}
+}
+
+func TestComputeThisMonth(t *testing.T) {
+	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 1, 10, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 10, 10, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 10, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 2, 28, 10, 0, 0, 0, time.Local)), // prev month
+	}
+	dash := Compute(events, now)
+	if dash.ThisMonth.Pomodoros != 3 {
+		t.Fatalf("expected 3 this-month pomodoros, got %d", dash.ThisMonth.Pomodoros)
+	}
+}
+
+func TestComputeAllTime(t *testing.T) {
+	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		makeEvent("pomodoro_completed", time.Date(2026, 1, 15, 10, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 2, 10, 10, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 10, 0, 0, 0, time.Local)),
+	}
+	dash := Compute(events, now)
+	if dash.AllTime.Pomodoros != 3 {
+		t.Fatalf("expected 3 all-time pomodoros, got %d", dash.AllTime.Pomodoros)
+	}
+}
+
+func TestComputeFocusMinutes(t *testing.T) {
+	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		makeEvent("pomodoro_started", time.Date(2026, 3, 19, 10, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 10, 25, 0, 0, time.Local)),
+		makeEvent("pomodoro_started", time.Date(2026, 3, 19, 10, 30, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 10, 55, 0, 0, time.Local)),
+		// Unpaired start — should be excluded
+		makeEvent("pomodoro_started", time.Date(2026, 3, 19, 11, 0, 0, 0, time.Local)),
+	}
+	dash := Compute(events, now)
+	if dash.Today.FocusMinutes != 50 {
+		t.Fatalf("expected 50 focus minutes today, got %d", dash.Today.FocusMinutes)
+	}
+}
+
+func TestComputePausesSnoozes(t *testing.T) {
+	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 10, 0, 0, 0, time.Local)),
+		makeEvent("paused", time.Date(2026, 3, 19, 10, 5, 0, 0, time.Local)),
+		makeEvent("paused", time.Date(2026, 3, 19, 10, 15, 0, 0, time.Local)),
+		makeEventWithData("snoozed", time.Date(2026, 3, 19, 10, 20, 0, 0, time.Local), map[string]any{"duration_secs": 300}),
+	}
+	dash := Compute(events, now)
+	if dash.Today.Pauses != 2 {
+		t.Fatalf("expected 2 pauses today, got %d", dash.Today.Pauses)
+	}
+	if dash.Today.Snoozes != 1 {
+		t.Fatalf("expected 1 snooze today, got %d", dash.Today.Snoozes)
+	}
+}
