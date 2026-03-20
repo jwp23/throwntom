@@ -44,7 +44,7 @@ func runInteractiveCallbacks(callbacks interactiveCallbacks) error {
 
 func buildCallbacks(cfg config.Config, core *timerCore) interactiveCallbacks {
 	header := []string{
-		fmt.Sprintf("%s throwntom (%s %s)", stateIcon(engine.Idle, cfg.Emoji), strings.Join(cfg.Schedule.Days, ","), cfg.Schedule.Time),
+		fmt.Sprintf("%s throwntom (%s)", stateIcon(engine.Idle, cfg.Emoji), formatScheduleHeader(cfg.Schedule)),
 		fmt.Sprintf("%dm work / %dm short / %dm long / every %d", cfg.Pomodoro.WorkMinutes, cfg.Pomodoro.ShortBreakMinutes, cfg.Pomodoro.LongBreakMinutes, cfg.Pomodoro.LongBreakEvery),
 	}
 
@@ -123,4 +123,12 @@ func isTerminal(f *os.File) bool {
 		return false
 	}
 	return (info.Mode() & os.ModeCharDevice) != 0
+}
+
+func formatScheduleHeader(entries []config.ScheduleEntry) string {
+	groups := make([]string, len(entries))
+	for i, e := range entries {
+		groups[i] = strings.Join(e.Days, ",") + " " + e.Time
+	}
+	return strings.Join(groups, " | ")
 }

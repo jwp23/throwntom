@@ -56,7 +56,7 @@ short_break_minutes = 5
 long_break_minutes = 10
 long_break_every = 4
 
-[schedule]
+[[schedule]]
 days = ["Mon", "Tue"]
 time = "09:15"
 `))
@@ -64,7 +64,7 @@ time = "09:15"
 		t.Fatalf("load config: %v", err)
 	}
 
-	s := scheduler.New(cfg.Schedule.Days, cfg.Schedule.Time)
+	s := scheduler.New(config.ScheduleDayTimes(cfg.Schedule))
 	if !s.ShouldTrigger(time.Date(2026, 3, 2, 9, 15, 0, 0, time.Local)) { // Monday
 		t.Fatal("expected scheduler trigger from parsed config values")
 	}
