@@ -214,14 +214,20 @@ func expandAlias(day string) []string {
 }
 
 func normalizeSchedule(entries []ScheduleEntry) ([]ScheduleEntry, error) {
-	// Step 1: default empty Days to ["weekday"]
+	defaultEmptyDays(entries)
+	concrete := collectConcreteDays(entries)
+	return expandEntries(entries, concrete)
+}
+
+func defaultEmptyDays(entries []ScheduleEntry) {
 	for i := range entries {
 		if len(entries[i].Days) == 0 {
 			entries[i].Days = []string{"weekday"}
 		}
 	}
+}
 
-	// Step 2: collect all concrete (non-alias) days across all entries
+func collectConcreteDays(entries []ScheduleEntry) map[string]bool {
 	concrete := make(map[string]bool)
 	for _, e := range entries {
 		for _, day := range e.Days {
@@ -230,27 +236,33 @@ func normalizeSchedule(entries []ScheduleEntry) ([]ScheduleEntry, error) {
 			}
 		}
 	}
+	return concrete
+}
 
-	// Step 3: expand aliases, excluding concrete days from other entries
+func expandEntries(entries []ScheduleEntry, concrete map[string]bool) ([]ScheduleEntry, error) {
 	result := make([]ScheduleEntry, 0, len(entries))
 	for _, e := range entries {
-		var expanded []string
-		for _, day := range e.Days {
-			if isAlias(day) {
-				for _, d := range expandAlias(day) {
-					if !concrete[strings.ToLower(d)] {
-						expanded = append(expanded, d)
-					}
-				}
-			} else {
-				expanded = append(expanded, day)
-			}
-		}
+		expanded := expandDays(e.Days, concrete)
 		if len(expanded) == 0 {
 			return nil, fmt.Errorf("schedule alias %q expands to zero days after exclusions", e.Days[0])
 		}
 		result = append(result, ScheduleEntry{Days: expanded, Time: e.Time})
 	}
-
 	return result, nil
+}
+
+func expandDays(days []string, concrete map[string]bool) []string {
+	var expanded []string
+	for _, day := range days {
+		if isAlias(day) {
+			for _, d := range expandAlias(day) {
+				if !concrete[strings.ToLower(d)] {
+					expanded = append(expanded, d)
+				}
+			}
+		} else {
+			expanded = append(expanded, day)
+		}
+	}
+	return expanded
 }

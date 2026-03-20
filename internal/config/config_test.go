@@ -7,6 +7,8 @@ import (
 )
 
 const fmtUnexpectedErr = "unexpected error: %v"
+const fmtExpectedNEntries = "expected %d entries, got %d"
+const fmtExpectedDayTime = "expected %s=%s, got %s"
 
 func TestDefaultConfig(t *testing.T) {
 	cfg := Default()
@@ -227,7 +229,7 @@ time = "09:00"
 	}
 	dt := ScheduleDayTimes(cfg.Schedule)
 	if len(dt) != 5 {
-		t.Fatalf("expected 5 entries, got %d", len(dt))
+		t.Fatalf(fmtExpectedNEntries, 5, len(dt))
 	}
 	if dt["Mon"] != "09:00" {
 		t.Fatalf("expected Mon=09:00, got %s", dt["Mon"])
@@ -268,7 +270,7 @@ func TestScheduleDayTimes(t *testing.T) {
 		t.Fatalf("unexpected day-time map: %v", dt)
 	}
 	if len(dt) != 5 {
-		t.Fatalf("expected 5 entries, got %d", len(dt))
+		t.Fatalf(fmtExpectedNEntries, 5, len(dt))
 	}
 }
 
@@ -286,11 +288,11 @@ time = "09:00"
 	dt := ScheduleDayTimes(cfg.Schedule)
 	for _, day := range []string{"Mon", "Tue", "Wed", "Thu", "Fri"} {
 		if dt[day] != "09:00" {
-			t.Fatalf("expected %s=09:00, got %s", day, dt[day])
+			t.Fatalf(fmtExpectedDayTime, day, "09:00", dt[day])
 		}
 	}
 	if len(dt) != 5 {
-		t.Fatalf("expected 5 entries, got %d", len(dt))
+		t.Fatalf(fmtExpectedNEntries, 5, len(dt))
 	}
 }
 
@@ -307,11 +309,11 @@ time = "09:00"
 	dt := ScheduleDayTimes(cfg.Schedule)
 	for _, day := range []string{"Mon", "Tue", "Wed", "Thu", "Fri"} {
 		if dt[day] != "09:00" {
-			t.Fatalf("expected %s=09:00, got %s", day, dt[day])
+			t.Fatalf(fmtExpectedDayTime, day, "09:00", dt[day])
 		}
 	}
 	if len(dt) != 5 {
-		t.Fatalf("expected 5 entries, got %d", len(dt))
+		t.Fatalf(fmtExpectedNEntries, 5, len(dt))
 	}
 }
 
@@ -328,11 +330,11 @@ time = "10:00"
 	dt := ScheduleDayTimes(cfg.Schedule)
 	for _, day := range []string{"Sat", "Sun"} {
 		if dt[day] != "10:00" {
-			t.Fatalf("expected %s=10:00, got %s", day, dt[day])
+			t.Fatalf(fmtExpectedDayTime, day, "10:00", dt[day])
 		}
 	}
 	if len(dt) != 2 {
-		t.Fatalf("expected 2 entries, got %d", len(dt))
+		t.Fatalf(fmtExpectedNEntries, 2, len(dt))
 	}
 }
 
@@ -352,14 +354,14 @@ time = "10:00"
 	dt := ScheduleDayTimes(cfg.Schedule)
 	for _, day := range []string{"Mon", "Tue", "Wed", "Thu"} {
 		if dt[day] != "09:00" {
-			t.Fatalf("expected %s=09:00, got %s", day, dt[day])
+			t.Fatalf(fmtExpectedDayTime, day, "09:00", dt[day])
 		}
 	}
 	if dt["Fri"] != "10:00" {
 		t.Fatalf("expected Fri=10:00, got %s", dt["Fri"])
 	}
 	if len(dt) != 5 {
-		t.Fatalf("expected 5 entries, got %d", len(dt))
+		t.Fatalf(fmtExpectedNEntries, 5, len(dt))
 	}
 }
 
@@ -380,14 +382,14 @@ time = "10:00"
 	dt := ScheduleDayTimes(cfg.Schedule)
 	for _, day := range []string{"Mon", "Tue", "Wed", "Thu"} {
 		if dt[day] != "09:00" {
-			t.Fatalf("expected %s=09:00, got %s", day, dt[day])
+			t.Fatalf(fmtExpectedDayTime, day, "09:00", dt[day])
 		}
 	}
 	if dt["Fri"] != "10:00" {
 		t.Fatalf("expected Fri=10:00, got %s", dt["Fri"])
 	}
 	if len(dt) != 5 {
-		t.Fatalf("expected 5 entries, got %d", len(dt))
+		t.Fatalf(fmtExpectedNEntries, 5, len(dt))
 	}
 }
 
@@ -447,10 +449,10 @@ time = "10:00"
 	}
 	for day, want := range expected {
 		if dt[day] != want {
-			t.Fatalf("expected %s=%s, got %s", day, want, dt[day])
+			t.Fatalf(fmtExpectedDayTime, day, want, dt[day])
 		}
 	}
 	if len(dt) != 7 {
-		t.Fatalf("expected 7 entries, got %d", len(dt))
+		t.Fatalf(fmtExpectedNEntries, 7, len(dt))
 	}
 }
