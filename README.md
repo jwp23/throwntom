@@ -98,10 +98,11 @@ short_break_minutes = 5
 long_break_minutes = 15
 long_break_every = 4
 
+# days omitted → defaults to weekday (Mon-Fri)
 [[schedule]]
-days = ["Mon", "Tue", "Wed", "Thu"]
 time = "09:15"
 
+# specific-day override carves out from the default group
 [[schedule]]
 days = ["Fri"]
 time = "10:00"
@@ -115,6 +116,8 @@ emoji = true
 tier_low = 2
 tier_mid = 5
 ```
+
+Schedule supports day aliases: `"weekday"` expands to Mon-Fri, `"weekend"` to Sat-Sun. Specific-day entries automatically carve out from alias expansions.
 
 ## Verify
 
