@@ -98,9 +98,13 @@ short_break_minutes = 5
 long_break_minutes = 15
 long_break_every = 4
 
-[schedule]
-days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+[[schedule]]
+days = ["Mon", "Tue", "Wed", "Thu"]
 time = "09:15"
+
+[[schedule]]
+days = ["Fri"]
+time = "10:00"
 
 repeat_secs = 20
 sound_command = ["paplay", "/usr/share/sounds/freedesktop/stereo/bell.oga"]
