@@ -69,6 +69,11 @@ func LoadBytes(b []byte) (Config, error) {
 	if len(cfg.Schedule) == 0 {
 		cfg.Schedule = Default().Schedule
 	}
+	normalized, err := normalizeSchedule(cfg.Schedule)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.Schedule = normalized
 	if err := validate(cfg); err != nil {
 		return Config{}, err
 	}
@@ -130,9 +135,6 @@ func validate(cfg Config) error {
 func validateScheduleEntries(entries []ScheduleEntry) error {
 	seen := make(map[string]bool)
 	for i, entry := range entries {
-		if len(entry.Days) == 0 {
-			return fmt.Errorf("schedule[%d]: days must not be empty", i)
-		}
 		if entry.Time == "" {
 			return fmt.Errorf("schedule[%d]: time is required", i)
 		}
@@ -183,9 +185,72 @@ func validateHHMMRange(hhmm string) error {
 
 func isSupportedWeekday(day string) bool {
 	switch strings.ToLower(day) {
-	case "sun", "mon", "tue", "wed", "thu", "fri", "sat":
+	case "sun", "mon", "tue", "wed", "thu", "fri", "sat",
+		"weekday", "weekend":
 		return true
 	default:
 		return false
 	}
+}
+
+func isAlias(day string) bool {
+	switch strings.ToLower(day) {
+	case "weekday", "weekend":
+		return true
+	default:
+		return false
+	}
+}
+
+func expandAlias(day string) []string {
+	switch strings.ToLower(day) {
+	case "weekday":
+		return []string{"Mon", "Tue", "Wed", "Thu", "Fri"}
+	case "weekend":
+		return []string{"Sat", "Sun"}
+	default:
+		return []string{day}
+	}
+}
+
+func normalizeSchedule(entries []ScheduleEntry) ([]ScheduleEntry, error) {
+	// Step 1: default empty Days to ["weekday"]
+	for i := range entries {
+		if len(entries[i].Days) == 0 {
+			entries[i].Days = []string{"weekday"}
+		}
+	}
+
+	// Step 2: collect all concrete (non-alias) days across all entries
+	concrete := make(map[string]bool)
+	for _, e := range entries {
+		for _, day := range e.Days {
+			if !isAlias(day) {
+				concrete[strings.ToLower(day)] = true
+			}
+		}
+	}
+
+	// Step 3: expand aliases, excluding concrete days from other entries
+	result := make([]ScheduleEntry, 0, len(entries))
+	for _, e := range entries {
+		var expanded []string
+		for _, day := range e.Days {
+			if isAlias(day) {
+				for _, d := range expandAlias(day) {
+					if !concrete[strings.ToLower(d)] {
+						expanded = append(expanded, d)
+					}
+				}
+			} else {
+				expanded = append(expanded, day)
+			}
+		}
+		if len(expanded) == 0 {
+			return nil, fmt.Errorf("schedule alias %q expands to zero days after exclusions", e.Days[0])
+		}
+		result = append(result, ScheduleEntry{Days: expanded, Time: e.Time})
+	}
+
+	return result, nil
 }
