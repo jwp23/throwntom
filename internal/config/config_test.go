@@ -223,17 +223,10 @@ func TestEmptyDaysDefaultsToWeekday(t *testing.T) {
 days = []
 time = "09:00"
 `)
-	cfg, err := LoadBytes(raw)
-	if err != nil {
-		t.Fatalf(fmtUnexpectedErr, err)
-	}
-	dt := ScheduleDayTimes(cfg.Schedule)
-	if len(dt) != 5 {
-		t.Fatalf(fmtExpectedNEntries, 5, len(dt))
-	}
-	if dt["Mon"] != "09:00" {
-		t.Fatalf("expected Mon=09:00, got %s", dt["Mon"])
-	}
+	assertDayTimes(t, raw, map[string]string{
+		"Mon": "09:00", "Tue": "09:00", "Wed": "09:00",
+		"Thu": "09:00", "Fri": "09:00",
+	})
 }
 
 func TestLoadRejectsScheduleEntryWithMissingTime(t *testing.T) {
@@ -276,120 +269,80 @@ func TestScheduleDayTimes(t *testing.T) {
 
 // --- Tests for schedule day aliases and optional days ---
 
-func TestOmittedDaysDefaultsToWeekday(t *testing.T) {
-	raw := []byte(`
-[[schedule]]
-time = "09:00"
-`)
-	cfg, err := LoadBytes(raw)
+func assertDayTimes(t *testing.T, toml []byte, expected map[string]string) {
+	t.Helper()
+	cfg, err := LoadBytes(toml)
 	if err != nil {
 		t.Fatalf(fmtUnexpectedErr, err)
 	}
 	dt := ScheduleDayTimes(cfg.Schedule)
-	for _, day := range []string{"Mon", "Tue", "Wed", "Thu", "Fri"} {
-		if dt[day] != "09:00" {
-			t.Fatalf(fmtExpectedDayTime, day, "09:00", dt[day])
+	for day, want := range expected {
+		if dt[day] != want {
+			t.Fatalf(fmtExpectedDayTime, day, want, dt[day])
 		}
 	}
-	if len(dt) != 5 {
-		t.Fatalf(fmtExpectedNEntries, 5, len(dt))
+	if len(dt) != len(expected) {
+		t.Fatalf(fmtExpectedNEntries, len(expected), len(dt))
 	}
 }
 
-func TestWeekdayAliasExpandsToMonFri(t *testing.T) {
-	raw := []byte(`
-[[schedule]]
-days = ["weekday"]
-time = "09:00"
-`)
-	cfg, err := LoadBytes(raw)
-	if err != nil {
-		t.Fatalf(fmtUnexpectedErr, err)
-	}
-	dt := ScheduleDayTimes(cfg.Schedule)
-	for _, day := range []string{"Mon", "Tue", "Wed", "Thu", "Fri"} {
-		if dt[day] != "09:00" {
-			t.Fatalf(fmtExpectedDayTime, day, "09:00", dt[day])
-		}
-	}
-	if len(dt) != 5 {
-		t.Fatalf(fmtExpectedNEntries, 5, len(dt))
-	}
+var weekdayAt0900 = map[string]string{
+	"Mon": "09:00", "Tue": "09:00", "Wed": "09:00",
+	"Thu": "09:00", "Fri": "09:00",
 }
 
-func TestWeekendAliasExpandsToSatSun(t *testing.T) {
-	raw := []byte(`
-[[schedule]]
-days = ["weekend"]
-time = "10:00"
-`)
-	cfg, err := LoadBytes(raw)
-	if err != nil {
-		t.Fatalf(fmtUnexpectedErr, err)
+func TestScheduleAliasExpansion(t *testing.T) {
+	tests := []struct {
+		name     string
+		toml     string
+		expected map[string]string
+	}{
+		{
+			name:     "omitted days defaults to weekday",
+			toml:     "[[schedule]]\ntime = \"09:00\"",
+			expected: weekdayAt0900,
+		},
+		{
+			name:     "weekday alias expands to Mon-Fri",
+			toml:     "[[schedule]]\ndays = [\"weekday\"]\ntime = \"09:00\"",
+			expected: weekdayAt0900,
+		},
+		{
+			name: "weekend alias expands to Sat-Sun",
+			toml: "[[schedule]]\ndays = [\"weekend\"]\ntime = \"10:00\"",
+			expected: map[string]string{
+				"Sat": "10:00", "Sun": "10:00",
+			},
+		},
+		{
+			name: "omitted days carve-out with Fri override",
+			toml: "[[schedule]]\ntime = \"09:00\"\n\n[[schedule]]\ndays = [\"Fri\"]\ntime = \"10:00\"",
+			expected: map[string]string{
+				"Mon": "09:00", "Tue": "09:00", "Wed": "09:00",
+				"Thu": "09:00", "Fri": "10:00",
+			},
+		},
+		{
+			name: "explicit weekday alias carve-out with Fri override",
+			toml: "[[schedule]]\ndays = [\"weekday\"]\ntime = \"09:00\"\n\n[[schedule]]\ndays = [\"Fri\"]\ntime = \"10:00\"",
+			expected: map[string]string{
+				"Mon": "09:00", "Tue": "09:00", "Wed": "09:00",
+				"Thu": "09:00", "Fri": "10:00",
+			},
+		},
+		{
+			name: "mixed weekend + weekday default + Fri override",
+			toml: "[[schedule]]\ndays = [\"weekend\"]\ntime = \"11:00\"\n\n[[schedule]]\ntime = \"09:00\"\n\n[[schedule]]\ndays = [\"Fri\"]\ntime = \"10:00\"",
+			expected: map[string]string{
+				"Mon": "09:00", "Tue": "09:00", "Wed": "09:00", "Thu": "09:00",
+				"Fri": "10:00", "Sat": "11:00", "Sun": "11:00",
+			},
+		},
 	}
-	dt := ScheduleDayTimes(cfg.Schedule)
-	for _, day := range []string{"Sat", "Sun"} {
-		if dt[day] != "10:00" {
-			t.Fatalf(fmtExpectedDayTime, day, "10:00", dt[day])
-		}
-	}
-	if len(dt) != 2 {
-		t.Fatalf(fmtExpectedNEntries, 2, len(dt))
-	}
-}
-
-func TestAliasOverrideCarveOut(t *testing.T) {
-	raw := []byte(`
-[[schedule]]
-time = "09:00"
-
-[[schedule]]
-days = ["Fri"]
-time = "10:00"
-`)
-	cfg, err := LoadBytes(raw)
-	if err != nil {
-		t.Fatalf(fmtUnexpectedErr, err)
-	}
-	dt := ScheduleDayTimes(cfg.Schedule)
-	for _, day := range []string{"Mon", "Tue", "Wed", "Thu"} {
-		if dt[day] != "09:00" {
-			t.Fatalf(fmtExpectedDayTime, day, "09:00", dt[day])
-		}
-	}
-	if dt["Fri"] != "10:00" {
-		t.Fatalf("expected Fri=10:00, got %s", dt["Fri"])
-	}
-	if len(dt) != 5 {
-		t.Fatalf(fmtExpectedNEntries, 5, len(dt))
-	}
-}
-
-func TestExplicitWeekdayAliasOverrideCarveOut(t *testing.T) {
-	raw := []byte(`
-[[schedule]]
-days = ["weekday"]
-time = "09:00"
-
-[[schedule]]
-days = ["Fri"]
-time = "10:00"
-`)
-	cfg, err := LoadBytes(raw)
-	if err != nil {
-		t.Fatalf(fmtUnexpectedErr, err)
-	}
-	dt := ScheduleDayTimes(cfg.Schedule)
-	for _, day := range []string{"Mon", "Tue", "Wed", "Thu"} {
-		if dt[day] != "09:00" {
-			t.Fatalf(fmtExpectedDayTime, day, "09:00", dt[day])
-		}
-	}
-	if dt["Fri"] != "10:00" {
-		t.Fatalf("expected Fri=10:00, got %s", dt["Fri"])
-	}
-	if len(dt) != 5 {
-		t.Fatalf(fmtExpectedNEntries, 5, len(dt))
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assertDayTimes(t, []byte(tc.toml), tc.expected)
+		})
 	}
 }
 
@@ -422,37 +375,5 @@ time = "10:30"
 	_, err := LoadBytes(raw)
 	if err == nil {
 		t.Fatal("expected error when alias is fully overridden")
-	}
-}
-
-func TestScheduleDayTimesAfterNormalization(t *testing.T) {
-	raw := []byte(`
-[[schedule]]
-days = ["weekend"]
-time = "11:00"
-
-[[schedule]]
-time = "09:00"
-
-[[schedule]]
-days = ["Fri"]
-time = "10:00"
-`)
-	cfg, err := LoadBytes(raw)
-	if err != nil {
-		t.Fatalf(fmtUnexpectedErr, err)
-	}
-	dt := ScheduleDayTimes(cfg.Schedule)
-	expected := map[string]string{
-		"Mon": "09:00", "Tue": "09:00", "Wed": "09:00", "Thu": "09:00",
-		"Fri": "10:00", "Sat": "11:00", "Sun": "11:00",
-	}
-	for day, want := range expected {
-		if dt[day] != want {
-			t.Fatalf(fmtExpectedDayTime, day, want, dt[day])
-		}
-	}
-	if len(dt) != 7 {
-		t.Fatalf(fmtExpectedNEntries, 7, len(dt))
 	}
 }
