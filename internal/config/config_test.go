@@ -215,15 +215,22 @@ time = "10:00"
 	}
 }
 
-func TestLoadRejectsScheduleEntryWithEmptyDays(t *testing.T) {
+func TestEmptyDaysDefaultsToWeekday(t *testing.T) {
 	raw := []byte(`
 [[schedule]]
 days = []
 time = "09:00"
 `)
-	_, err := LoadBytes(raw)
-	if err == nil {
-		t.Fatal("expected error for schedule entry with empty days")
+	cfg, err := LoadBytes(raw)
+	if err != nil {
+		t.Fatalf(fmtUnexpectedErr, err)
+	}
+	dt := ScheduleDayTimes(cfg.Schedule)
+	if len(dt) != 5 {
+		t.Fatalf("expected 5 entries, got %d", len(dt))
+	}
+	if dt["Mon"] != "09:00" {
+		t.Fatalf("expected Mon=09:00, got %s", dt["Mon"])
 	}
 }
 
@@ -262,5 +269,188 @@ func TestScheduleDayTimes(t *testing.T) {
 	}
 	if len(dt) != 5 {
 		t.Fatalf("expected 5 entries, got %d", len(dt))
+	}
+}
+
+// --- Tests for schedule day aliases and optional days ---
+
+func TestOmittedDaysDefaultsToWeekday(t *testing.T) {
+	raw := []byte(`
+[[schedule]]
+time = "09:00"
+`)
+	cfg, err := LoadBytes(raw)
+	if err != nil {
+		t.Fatalf(fmtUnexpectedErr, err)
+	}
+	dt := ScheduleDayTimes(cfg.Schedule)
+	for _, day := range []string{"Mon", "Tue", "Wed", "Thu", "Fri"} {
+		if dt[day] != "09:00" {
+			t.Fatalf("expected %s=09:00, got %s", day, dt[day])
+		}
+	}
+	if len(dt) != 5 {
+		t.Fatalf("expected 5 entries, got %d", len(dt))
+	}
+}
+
+func TestWeekdayAliasExpandsToMonFri(t *testing.T) {
+	raw := []byte(`
+[[schedule]]
+days = ["weekday"]
+time = "09:00"
+`)
+	cfg, err := LoadBytes(raw)
+	if err != nil {
+		t.Fatalf(fmtUnexpectedErr, err)
+	}
+	dt := ScheduleDayTimes(cfg.Schedule)
+	for _, day := range []string{"Mon", "Tue", "Wed", "Thu", "Fri"} {
+		if dt[day] != "09:00" {
+			t.Fatalf("expected %s=09:00, got %s", day, dt[day])
+		}
+	}
+	if len(dt) != 5 {
+		t.Fatalf("expected 5 entries, got %d", len(dt))
+	}
+}
+
+func TestWeekendAliasExpandsToSatSun(t *testing.T) {
+	raw := []byte(`
+[[schedule]]
+days = ["weekend"]
+time = "10:00"
+`)
+	cfg, err := LoadBytes(raw)
+	if err != nil {
+		t.Fatalf(fmtUnexpectedErr, err)
+	}
+	dt := ScheduleDayTimes(cfg.Schedule)
+	for _, day := range []string{"Sat", "Sun"} {
+		if dt[day] != "10:00" {
+			t.Fatalf("expected %s=10:00, got %s", day, dt[day])
+		}
+	}
+	if len(dt) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(dt))
+	}
+}
+
+func TestAliasOverrideCarveOut(t *testing.T) {
+	raw := []byte(`
+[[schedule]]
+time = "09:00"
+
+[[schedule]]
+days = ["Fri"]
+time = "10:00"
+`)
+	cfg, err := LoadBytes(raw)
+	if err != nil {
+		t.Fatalf(fmtUnexpectedErr, err)
+	}
+	dt := ScheduleDayTimes(cfg.Schedule)
+	for _, day := range []string{"Mon", "Tue", "Wed", "Thu"} {
+		if dt[day] != "09:00" {
+			t.Fatalf("expected %s=09:00, got %s", day, dt[day])
+		}
+	}
+	if dt["Fri"] != "10:00" {
+		t.Fatalf("expected Fri=10:00, got %s", dt["Fri"])
+	}
+	if len(dt) != 5 {
+		t.Fatalf("expected 5 entries, got %d", len(dt))
+	}
+}
+
+func TestExplicitWeekdayAliasOverrideCarveOut(t *testing.T) {
+	raw := []byte(`
+[[schedule]]
+days = ["weekday"]
+time = "09:00"
+
+[[schedule]]
+days = ["Fri"]
+time = "10:00"
+`)
+	cfg, err := LoadBytes(raw)
+	if err != nil {
+		t.Fatalf(fmtUnexpectedErr, err)
+	}
+	dt := ScheduleDayTimes(cfg.Schedule)
+	for _, day := range []string{"Mon", "Tue", "Wed", "Thu"} {
+		if dt[day] != "09:00" {
+			t.Fatalf("expected %s=09:00, got %s", day, dt[day])
+		}
+	}
+	if dt["Fri"] != "10:00" {
+		t.Fatalf("expected Fri=10:00, got %s", dt["Fri"])
+	}
+	if len(dt) != 5 {
+		t.Fatalf("expected 5 entries, got %d", len(dt))
+	}
+}
+
+func TestAliasFullyOverriddenErrors(t *testing.T) {
+	raw := []byte(`
+[[schedule]]
+days = ["weekday"]
+time = "09:00"
+
+[[schedule]]
+days = ["Mon"]
+time = "08:00"
+
+[[schedule]]
+days = ["Tue"]
+time = "08:30"
+
+[[schedule]]
+days = ["Wed"]
+time = "09:30"
+
+[[schedule]]
+days = ["Thu"]
+time = "10:00"
+
+[[schedule]]
+days = ["Fri"]
+time = "10:30"
+`)
+	_, err := LoadBytes(raw)
+	if err == nil {
+		t.Fatal("expected error when alias is fully overridden")
+	}
+}
+
+func TestScheduleDayTimesAfterNormalization(t *testing.T) {
+	raw := []byte(`
+[[schedule]]
+days = ["weekend"]
+time = "11:00"
+
+[[schedule]]
+time = "09:00"
+
+[[schedule]]
+days = ["Fri"]
+time = "10:00"
+`)
+	cfg, err := LoadBytes(raw)
+	if err != nil {
+		t.Fatalf(fmtUnexpectedErr, err)
+	}
+	dt := ScheduleDayTimes(cfg.Schedule)
+	expected := map[string]string{
+		"Mon": "09:00", "Tue": "09:00", "Wed": "09:00", "Thu": "09:00",
+		"Fri": "10:00", "Sat": "11:00", "Sun": "11:00",
+	}
+	for day, want := range expected {
+		if dt[day] != want {
+			t.Fatalf("expected %s=%s, got %s", day, want, dt[day])
+		}
+	}
+	if len(dt) != 7 {
+		t.Fatalf("expected 7 entries, got %d", len(dt))
 	}
 }
