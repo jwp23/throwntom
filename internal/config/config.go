@@ -12,6 +12,11 @@ import (
 
 var timePattern = regexp.MustCompile(`^[0-9]{2}:[0-9]{2}$`)
 
+type ScheduleEntry struct {
+	Days []string `toml:"days"`
+	Time string   `toml:"time"`
+}
+
 type Config struct {
 	Pomodoro struct {
 		WorkMinutes       int `toml:"work_minutes"`
@@ -19,14 +24,11 @@ type Config struct {
 		LongBreakMinutes  int `toml:"long_break_minutes"`
 		LongBreakEvery    int `toml:"long_break_every"`
 	} `toml:"pomodoro"`
-	Schedule struct {
-		Days []string `toml:"days"`
-		Time string   `toml:"time"`
-	} `toml:"schedule"`
-	RepeatSecs             int      `toml:"repeat_secs"`
-	SoundCommand           []string `toml:"sound_command"`
-	MorningReminderPending bool     `toml:"morning_reminder_pending"`
-	Emoji                  bool     `toml:"emoji"`
+	Schedule               []ScheduleEntry `toml:"schedule"`
+	RepeatSecs             int             `toml:"repeat_secs"`
+	SoundCommand           []string        `toml:"sound_command"`
+	MorningReminderPending bool            `toml:"morning_reminder_pending"`
+	Emoji                  bool            `toml:"emoji"`
 	Stats                  struct {
 		TierLow int `toml:"tier_low"`
 		TierMid int `toml:"tier_mid"`
@@ -35,8 +37,10 @@ type Config struct {
 
 func Default() Config {
 	var cfg Config
-	cfg.Schedule.Days = []string{"Mon", "Tue", "Wed", "Thu", "Fri"}
-	cfg.Schedule.Time = "09:15"
+	cfg.Schedule = []ScheduleEntry{{
+		Days: []string{"Mon", "Tue", "Wed", "Thu", "Fri"},
+		Time: "09:15",
+	}}
 	cfg.Pomodoro.WorkMinutes = 25
 	cfg.Pomodoro.ShortBreakMinutes = 5
 	cfg.Pomodoro.LongBreakMinutes = 15
@@ -51,6 +55,10 @@ func Default() Config {
 
 func LoadBytes(b []byte) (Config, error) {
 	cfg := Default()
+	// Clear default schedule before decode — TOML array-of-tables appends
+	// to existing slices, so we must start empty to avoid merging defaults
+	// with user-provided entries.
+	cfg.Schedule = nil
 	md, err := toml.Decode(string(b), &cfg)
 	if err != nil {
 		return Config{}, fmt.Errorf("parse config: %w", err)
@@ -58,6 +66,14 @@ func LoadBytes(b []byte) (Config, error) {
 	if undecoded := md.Undecoded(); len(undecoded) > 0 {
 		return Config{}, fmt.Errorf("unknown key %q", undecoded[0])
 	}
+	if len(cfg.Schedule) == 0 {
+		cfg.Schedule = Default().Schedule
+	}
+	normalized, err := normalizeSchedule(cfg.Schedule)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.Schedule = normalized
 	if err := validate(cfg); err != nil {
 		return Config{}, err
 	}
@@ -72,13 +88,17 @@ func LoadFile(path string) (Config, error) {
 	return LoadBytes(b)
 }
 
+func ScheduleDayTimes(entries []ScheduleEntry) map[string]string {
+	result := make(map[string]string)
+	for _, e := range entries {
+		for _, day := range e.Days {
+			result[day] = e.Time
+		}
+	}
+	return result
+}
+
 func validate(cfg Config) error {
-	if !timePattern.MatchString(cfg.Schedule.Time) {
-		return fmt.Errorf("invalid schedule_time %q: expected HH:MM", cfg.Schedule.Time)
-	}
-	if err := validateHHMMRange(cfg.Schedule.Time); err != nil {
-		return fmt.Errorf("invalid schedule_time %q: %w", cfg.Schedule.Time, err)
-	}
 	if cfg.Pomodoro.WorkMinutes <= 0 {
 		return fmt.Errorf("work_minutes must be > 0")
 	}
@@ -94,8 +114,11 @@ func validate(cfg Config) error {
 	if cfg.RepeatSecs <= 0 {
 		return fmt.Errorf("repeat_secs must be > 0")
 	}
-	if len(cfg.Schedule.Days) == 0 {
-		return fmt.Errorf("schedule_days must contain at least one day")
+	if len(cfg.Schedule) == 0 {
+		return fmt.Errorf("at least one [[schedule]] entry is required")
+	}
+	if err := validateScheduleEntries(cfg.Schedule); err != nil {
+		return err
 	}
 	if err := validateSoundCommand(cfg.SoundCommand); err != nil {
 		return err
@@ -106,22 +129,39 @@ func validate(cfg Config) error {
 	if cfg.Stats.TierLow >= cfg.Stats.TierMid {
 		return fmt.Errorf("stats tier_low must be less than tier_mid")
 	}
-	return validateScheduleDays(cfg.Schedule.Days)
+	return nil
+}
+
+func validateScheduleEntries(entries []ScheduleEntry) error {
+	seen := make(map[string]bool)
+	for i, entry := range entries {
+		if entry.Time == "" {
+			return fmt.Errorf("schedule[%d]: time is required", i)
+		}
+		if !timePattern.MatchString(entry.Time) {
+			return fmt.Errorf("invalid schedule_time %q: expected HH:MM", entry.Time)
+		}
+		if err := validateHHMMRange(entry.Time); err != nil {
+			return fmt.Errorf("invalid schedule_time %q: %w", entry.Time, err)
+		}
+		for _, day := range entry.Days {
+			if !isSupportedWeekday(day) {
+				return fmt.Errorf("invalid schedule day %q: expected Sun,Mon,Tue,Wed,Thu,Fri,Sat", day)
+			}
+			lower := strings.ToLower(day)
+			if seen[lower] {
+				return fmt.Errorf("duplicate schedule day %q across groups", day)
+			}
+			seen[lower] = true
+		}
+	}
+	return nil
 }
 
 func validateSoundCommand(parts []string) error {
 	for i, part := range parts {
 		if strings.TrimSpace(part) == "" {
 			return fmt.Errorf("sound_command[%d] must be a non-empty string", i)
-		}
-	}
-	return nil
-}
-
-func validateScheduleDays(days []string) error {
-	for _, day := range days {
-		if !isSupportedWeekday(day) {
-			return fmt.Errorf("invalid schedule day %q: expected Sun,Mon,Tue,Wed,Thu,Fri,Sat", day)
 		}
 	}
 	return nil
@@ -145,9 +185,84 @@ func validateHHMMRange(hhmm string) error {
 
 func isSupportedWeekday(day string) bool {
 	switch strings.ToLower(day) {
-	case "sun", "mon", "tue", "wed", "thu", "fri", "sat":
+	case "sun", "mon", "tue", "wed", "thu", "fri", "sat",
+		"weekday", "weekend":
 		return true
 	default:
 		return false
 	}
+}
+
+func isAlias(day string) bool {
+	switch strings.ToLower(day) {
+	case "weekday", "weekend":
+		return true
+	default:
+		return false
+	}
+}
+
+func expandAlias(day string) []string {
+	switch strings.ToLower(day) {
+	case "weekday":
+		return []string{"Mon", "Tue", "Wed", "Thu", "Fri"}
+	case "weekend":
+		return []string{"Sat", "Sun"}
+	default:
+		return []string{day}
+	}
+}
+
+func normalizeSchedule(entries []ScheduleEntry) ([]ScheduleEntry, error) {
+	defaultEmptyDays(entries)
+	concrete := collectConcreteDays(entries)
+	return expandEntries(entries, concrete)
+}
+
+func defaultEmptyDays(entries []ScheduleEntry) {
+	for i := range entries {
+		if len(entries[i].Days) == 0 {
+			entries[i].Days = []string{"weekday"}
+		}
+	}
+}
+
+func collectConcreteDays(entries []ScheduleEntry) map[string]bool {
+	concrete := make(map[string]bool)
+	for _, e := range entries {
+		for _, day := range e.Days {
+			if !isAlias(day) {
+				concrete[strings.ToLower(day)] = true
+			}
+		}
+	}
+	return concrete
+}
+
+func expandEntries(entries []ScheduleEntry, concrete map[string]bool) ([]ScheduleEntry, error) {
+	result := make([]ScheduleEntry, 0, len(entries))
+	for _, e := range entries {
+		expanded := expandDays(e.Days, concrete)
+		if len(expanded) == 0 {
+			return nil, fmt.Errorf("schedule alias %q expands to zero days after exclusions", e.Days[0])
+		}
+		result = append(result, ScheduleEntry{Days: expanded, Time: e.Time})
+	}
+	return result, nil
+}
+
+func expandDays(days []string, concrete map[string]bool) []string {
+	var expanded []string
+	for _, day := range days {
+		if isAlias(day) {
+			for _, d := range expandAlias(day) {
+				if !concrete[strings.ToLower(d)] {
+					expanded = append(expanded, d)
+				}
+			}
+		} else {
+			expanded = append(expanded, day)
+		}
+	}
+	return expanded
 }

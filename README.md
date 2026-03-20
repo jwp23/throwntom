@@ -98,9 +98,14 @@ short_break_minutes = 5
 long_break_minutes = 15
 long_break_every = 4
 
-[schedule]
-days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+# days omitted → defaults to weekday (Mon-Fri)
+[[schedule]]
 time = "09:15"
+
+# specific-day override carves out from the default group
+[[schedule]]
+days = ["Fri"]
+time = "10:00"
 
 repeat_secs = 20
 sound_command = ["paplay", "/usr/share/sounds/freedesktop/stereo/bell.oga"]
@@ -111,6 +116,8 @@ emoji = true
 tier_low = 2
 tier_mid = 5
 ```
+
+Schedule supports day aliases: `"weekday"` expands to Mon-Fri, `"weekend"` to Sat-Sun. Specific-day entries automatically carve out from alias expansions.
 
 ## Verify
 

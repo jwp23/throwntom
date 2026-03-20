@@ -170,7 +170,7 @@ func TestLoadConfigUsesDefaultHomeConfigFile(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
 		t.Fatalf("mkdir default config dir: %v", err)
 	}
-	if err := os.WriteFile(configPath, []byte("[schedule]\ntime = \"10:30\""), 0o644); err != nil {
+	if err := os.WriteFile(configPath, []byte("[[schedule]]\ndays = [\"Mon\"]\ntime = \"10:30\""), 0o644); err != nil {
 		t.Fatalf("write default config file: %v", err)
 	}
 
@@ -178,7 +178,7 @@ func TestLoadConfigUsesDefaultHomeConfigFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load default config: %v", err)
 	}
-	if cfg.Schedule.Time != "10:30" {
-		t.Fatalf("expected schedule time from default config file, got %q", cfg.Schedule.Time)
+	if len(cfg.Schedule) == 0 || cfg.Schedule[0].Time != "10:30" {
+		t.Fatalf("expected schedule time from default config file, got %v", cfg.Schedule)
 	}
 }

@@ -133,7 +133,7 @@ func newTimerCore(cfg config.Config, n notifier.Notifier) *timerCore {
 		),
 		notifier:       n,
 		state:          &reminderState{morningPending: cfg.MorningReminderPending},
-		scheduler:      scheduler.New(cfg.Schedule.Days, cfg.Schedule.Time),
+		scheduler:      scheduler.New(config.ScheduleDayTimes(cfg.Schedule)),
 		repeatInterval: repeatInterval,
 		now:            time.Now,
 		emoji:          cfg.Emoji,

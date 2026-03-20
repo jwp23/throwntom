@@ -7,65 +7,61 @@ import (
 	"time"
 )
 
-type Scheduler struct {
-	allowedWeekdays map[time.Weekday]struct{}
-	hour            int
-	minute          int
+type dayTime struct {
+	hour   int
+	minute int
 }
 
-func New(days []string, hhmm string) *Scheduler {
-	hour, minute, err := parseHHMM(hhmm)
-	if err != nil {
-		panic(err)
+type Scheduler struct {
+	times map[time.Weekday]dayTime
+}
+
+func New(dayTimes map[string]string) *Scheduler {
+	times := make(map[time.Weekday]dayTime, len(dayTimes))
+	for day, hhmm := range dayTimes {
+		wd, ok := toWeekday(day)
+		if !ok {
+			panic(fmt.Sprintf("invalid weekday %q", day))
+		}
+		hour, minute, err := parseHHMM(hhmm)
+		if err != nil {
+			panic(err)
+		}
+		times[wd] = dayTime{hour: hour, minute: minute}
 	}
-	allowedWeekdays, err := parseWeekdays(days)
-	if err != nil {
-		panic(err)
-	}
-	return &Scheduler{
-		allowedWeekdays: allowedWeekdays,
-		hour:            hour,
-		minute:          minute,
-	}
+	return &Scheduler{times: times}
 }
 
 func (s *Scheduler) ShouldTrigger(now time.Time) bool {
-	if _, ok := s.allowedWeekdays[now.Weekday()]; !ok {
+	dt, ok := s.times[now.Weekday()]
+	if !ok {
 		return false
 	}
-	return now.Hour() == s.hour && now.Minute() == s.minute
+	return now.Hour() == dt.hour && now.Minute() == dt.minute
 }
 
 func (s *Scheduler) IsActiveNow(now time.Time) bool {
-	if _, ok := s.allowedWeekdays[now.Weekday()]; !ok {
+	dt, ok := s.times[now.Weekday()]
+	if !ok {
 		return false
 	}
-	return now.Hour() > s.hour || (now.Hour() == s.hour && now.Minute() >= s.minute)
+	return now.Hour() > dt.hour || (now.Hour() == dt.hour && now.Minute() >= dt.minute)
 }
 
 func (s *Scheduler) NextTrigger(from time.Time) time.Time {
-	candidate := time.Date(from.Year(), from.Month(), from.Day(), s.hour, s.minute, 0, 0, from.Location())
-	if !candidate.After(from) {
-		candidate = candidate.AddDate(0, 0, 1)
-	}
-	for {
-		if _, ok := s.allowedWeekdays[candidate.Weekday()]; ok {
-			return candidate
+	candidate := from.AddDate(0, 0, 0)
+	for i := 0; i < 8; i++ {
+		dt, ok := s.times[candidate.Weekday()]
+		if ok {
+			t := time.Date(candidate.Year(), candidate.Month(), candidate.Day(),
+				dt.hour, dt.minute, 0, 0, from.Location())
+			if t.After(from) {
+				return t
+			}
 		}
 		candidate = candidate.AddDate(0, 0, 1)
 	}
-}
-
-func parseWeekdays(days []string) (map[time.Weekday]struct{}, error) {
-	result := make(map[time.Weekday]struct{}, len(days))
-	for _, day := range days {
-		if wd, ok := toWeekday(day); ok {
-			result[wd] = struct{}{}
-			continue
-		}
-		return nil, fmt.Errorf("invalid weekday %q: expected Sun,Mon,Tue,Wed,Thu,Fri,Sat", day)
-	}
-	return result, nil
+	panic("no valid schedule day found within 8 days")
 }
 
 func toWeekday(day string) (time.Weekday, bool) {
