@@ -127,18 +127,22 @@ func (e *Engine) ConfirmNext() {
 	if e.state != AwaitingConfirm {
 		return
 	}
+	next := e.NextPhase()
+	e.state = next
+	e.lastPhase = next
+}
+
+func (e *Engine) NextPhase() State {
+	if e.state != AwaitingConfirm {
+		return Idle
+	}
 	if e.lastPhase == Work {
 		if e.workSessionsBlock%e.longBreakEvery == 0 {
-			e.state = LongBreak
-			e.lastPhase = LongBreak
-			return
+			return LongBreak
 		}
-		e.state = ShortBreak
-		e.lastPhase = ShortBreak
-		return
+		return ShortBreak
 	}
-	e.state = Work
-	e.lastPhase = Work
+	return Work
 }
 
 func (e *Engine) Snooze(d time.Duration) {

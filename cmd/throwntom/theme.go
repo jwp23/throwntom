@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
@@ -99,8 +100,16 @@ func stateStyle(state engine.State) lipgloss.Style {
 	}
 }
 
+func nextStageLabel(next engine.State, duration time.Duration) string {
+	phrase := friendlyStateName(next)
+	minutes := int(duration / time.Minute)
+	colored := stateStyle(next).Render(fmt.Sprintf("%s (%d min)", phrase, minutes))
+	return fmt.Sprintf("Next: %s — press enter to start", colored)
+}
+
 type frameInput struct {
 	StatusLine     string
+	Secondary      string
 	State          engine.State
 	MorningPending bool
 	Message        string
@@ -131,6 +140,9 @@ func renderThemedFrame(f frameInput) string {
 
 	var parts []string
 	parts = append(parts, clampANSILine(statusRendered, f.Width))
+	if f.Secondary != "" {
+		parts = append(parts, clampANSILine(f.Secondary, f.Width))
+	}
 	for _, line := range strings.Split(msgLine, "\n") {
 		parts = append(parts, clampANSILine(line, f.Width))
 	}

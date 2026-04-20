@@ -25,6 +25,68 @@ func (f *fakeNotifier) PlaySound(string) error {
 	return f.err
 }
 
+func TestNextStageWhenAwaitingAfterWork(t *testing.T) {
+	n := &fakeNotifier{}
+	a := New(25, 5, 15, 4, 20*time.Millisecond, n)
+	a.Start()
+	a.CompletePeriod()
+	state, dur := a.NextStage()
+	if state != engine.ShortBreak {
+		t.Fatalf("expected ShortBreak, got %s", state)
+	}
+	if dur != 5*time.Minute {
+		t.Fatalf("expected 5m duration, got %s", dur)
+	}
+}
+
+func TestNextStageWhenAwaitingAfterBreak(t *testing.T) {
+	n := &fakeNotifier{}
+	a := New(25, 5, 15, 4, 20*time.Millisecond, n)
+	a.Start()
+	a.CompletePeriod()
+	a.Confirm()
+	a.CompletePeriod()
+	state, dur := a.NextStage()
+	if state != engine.Work {
+		t.Fatalf("expected Work, got %s", state)
+	}
+	if dur != 25*time.Minute {
+		t.Fatalf("expected 25m duration, got %s", dur)
+	}
+}
+
+func TestNextStageLongBreakBoundary(t *testing.T) {
+	n := &fakeNotifier{}
+	a := New(25, 5, 15, 4, 20*time.Millisecond, n)
+	a.Start()
+	for i := 0; i < 3; i++ {
+		a.CompletePeriod()
+		a.Confirm()
+		a.CompletePeriod()
+		a.Confirm()
+	}
+	a.CompletePeriod()
+	state, dur := a.NextStage()
+	if state != engine.LongBreak {
+		t.Fatalf("expected LongBreak, got %s", state)
+	}
+	if dur != 15*time.Minute {
+		t.Fatalf("expected 15m duration, got %s", dur)
+	}
+}
+
+func TestNextStageOutsideAwaitingConfirm(t *testing.T) {
+	n := &fakeNotifier{}
+	a := New(25, 5, 15, 4, 20*time.Millisecond, n)
+	state, dur := a.NextStage()
+	if state != engine.Idle {
+		t.Fatalf("expected Idle when not awaiting, got %s", state)
+	}
+	if dur != 0 {
+		t.Fatalf("expected zero duration, got %s", dur)
+	}
+}
+
 func TestStateShowsAwaitingConfirm(t *testing.T) {
 	n := &fakeNotifier{}
 	a := New(25, 5, 15, 4, 20*time.Millisecond, n)

@@ -23,13 +23,14 @@ type commandResponse struct {
 }
 
 type interactiveCallbacks struct {
-	HeaderLines    []string
-	HelpLines      []string
-	Emoji          bool
-	StatusSnapshot func() (string, engine.State, bool)
-	FocusSnapshot  func() ([]string, string)
-	Execute        func(command string) (commandResponse, error)
-	CancelFocus    func() commandResponse
+	HeaderLines     []string
+	HelpLines       []string
+	Emoji           bool
+	StatusSnapshot  func() (string, engine.State, bool)
+	SecondaryStatus func() string
+	FocusSnapshot   func() ([]string, string)
+	Execute         func(command string) (commandResponse, error)
+	CancelFocus     func() commandResponse
 }
 
 type promptState struct {
@@ -88,34 +89,43 @@ func runInteractiveTea(out io.Writer, in io.Reader, callbacks interactiveCallbac
 type interactiveTickMsg struct{}
 
 type interactiveTeaModel struct {
-	callbacks      interactiveCallbacks
-	headerLines    []string
-	helpLines      []string
-	showHelp       bool
-	statusLine     string
-	engineState    engine.State
-	morningPending bool
-	isError        bool
-	emoji          bool
-	message        string
-	prompt         promptState
-	width          int
-	focusLines     []string
-	focusPrompt    string
-	statsView      string
+	callbacks       interactiveCallbacks
+	headerLines     []string
+	helpLines       []string
+	showHelp        bool
+	statusLine      string
+	secondaryStatus string
+	engineState     engine.State
+	morningPending  bool
+	isError         bool
+	emoji           bool
+	message         string
+	prompt          promptState
+	width           int
+	focusLines      []string
+	focusPrompt     string
+	statsView       string
 }
 
 func newInteractiveTeaModel(callbacks interactiveCallbacks) interactiveTeaModel {
 	statusLine, engineState, morningPending := callbacks.StatusSnapshot()
 	return interactiveTeaModel{
-		callbacks:      callbacks,
-		headerLines:    append([]string(nil), callbacks.HeaderLines...),
-		helpLines:      append([]string(nil), callbacks.HelpLines...),
-		statusLine:     statusLine,
-		engineState:    engineState,
-		morningPending: morningPending,
-		emoji:          callbacks.Emoji,
+		callbacks:       callbacks,
+		headerLines:     append([]string(nil), callbacks.HeaderLines...),
+		helpLines:       append([]string(nil), callbacks.HelpLines...),
+		statusLine:      statusLine,
+		secondaryStatus: secondaryStatusFrom(callbacks),
+		engineState:     engineState,
+		morningPending:  morningPending,
+		emoji:           callbacks.Emoji,
 	}
+}
+
+func secondaryStatusFrom(callbacks interactiveCallbacks) string {
+	if callbacks.SecondaryStatus == nil {
+		return ""
+	}
+	return callbacks.SecondaryStatus()
 }
 
 func (m interactiveTeaModel) Init() tea.Cmd {
@@ -134,6 +144,7 @@ func (m interactiveTeaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateKey(msg)
 	case interactiveTickMsg:
 		m.statusLine, m.engineState, m.morningPending = m.callbacks.StatusSnapshot()
+		m.secondaryStatus = secondaryStatusFrom(m.callbacks)
 		if m.callbacks.FocusSnapshot != nil {
 			m.focusLines, m.focusPrompt = m.callbacks.FocusSnapshot()
 		}
@@ -169,6 +180,7 @@ func (m interactiveTeaModel) View() string {
 
 	frame := renderThemedFrame(frameInput{
 		StatusLine:     m.statusLine,
+		Secondary:      m.secondaryStatus,
 		State:          m.engineState,
 		MorningPending: m.morningPending,
 		Message:        m.message,
@@ -251,6 +263,7 @@ func (m interactiveTeaModel) handleEsc() (tea.Model, tea.Cmd) {
 		m.statusLine = resp.StatusLine
 		m.engineState = resp.EngineState
 		m.morningPending = resp.MorningPending
+		m.secondaryStatus = secondaryStatusFrom(m.callbacks)
 		if resp.Message != "" {
 			m.message = resp.Message
 		}
@@ -262,7 +275,7 @@ func (m interactiveTeaModel) handleEsc() (tea.Model, tea.Cmd) {
 func (m interactiveTeaModel) submitCommand() (tea.Model, tea.Cmd) {
 	nextPrompt, submitted, _ := applyKey(m.prompt, keyEvent{kind: keyEnter})
 	m.prompt = nextPrompt
-	if submitted == "" && m.focusPrompt == "" {
+	if submitted == "" && m.focusPrompt == "" && m.engineState != engine.AwaitingConfirm {
 		return m, nil
 	}
 
@@ -271,12 +284,14 @@ func (m interactiveTeaModel) submitCommand() (tea.Model, tea.Cmd) {
 		m.message = err.Error()
 		m.isError = true
 		m.statusLine, m.engineState, m.morningPending = m.callbacks.StatusSnapshot()
+		m.secondaryStatus = secondaryStatusFrom(m.callbacks)
 		return m, nil
 	}
 
 	m.statusLine = resp.StatusLine
 	m.engineState = resp.EngineState
 	m.morningPending = resp.MorningPending
+	m.secondaryStatus = secondaryStatusFrom(m.callbacks)
 	m.focusLines = resp.FocusLines
 	m.focusPrompt = resp.FocusPrompt
 	m.statsView = resp.StatsView

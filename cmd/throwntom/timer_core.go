@@ -160,6 +160,14 @@ func (d *timerCore) snapshot() (string, engine.State, bool) {
 	return d.state.statusSnapshot(d.cycle)
 }
 
+func (d *timerCore) secondaryStatus() string {
+	if d.cycle.State() != engine.AwaitingConfirm {
+		return ""
+	}
+	next, duration := d.cycle.NextStage()
+	return nextStageLabel(next, duration)
+}
+
 func (d *timerCore) executeCommand(line string) commandResponse {
 	d.cycle.AdvanceDay(d.now())
 	result := d.execute(line)
@@ -199,6 +207,9 @@ func (d *timerCore) execute(line string) commandResult {
 		return d.handleFocusPromptInput(trimmed)
 	}
 	if trimmed == "" {
+		if d.cycle.State() == engine.AwaitingConfirm {
+			return d.handleConfirm(nil)
+		}
 		return commandResult{}
 	}
 	parts := strings.Fields(trimmed)

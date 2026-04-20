@@ -49,10 +49,11 @@ func buildCallbacks(cfg config.Config, core *timerCore) interactiveCallbacks {
 	}
 
 	return interactiveCallbacks{
-		HeaderLines:    header,
-		HelpLines:      strings.Split(commandsHelp(), "\n"),
-		Emoji:          cfg.Emoji,
-		StatusSnapshot: core.snapshot,
+		HeaderLines:     header,
+		HelpLines:       strings.Split(commandsHelp(), "\n"),
+		Emoji:           cfg.Emoji,
+		StatusSnapshot:  core.snapshot,
+		SecondaryStatus: core.secondaryStatus,
 		FocusSnapshot: func() ([]string, string) {
 			focusLines := core.formatFocusLines()
 			focusPrompt := ""
