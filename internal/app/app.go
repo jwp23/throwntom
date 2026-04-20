@@ -205,6 +205,22 @@ func (a *App) State() engine.State {
 	return a.engine.State()
 }
 
+func (a *App) NextStage() (engine.State, time.Duration) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	next := a.engine.NextPhase()
+	switch next {
+	case engine.Work:
+		return next, a.workDuration
+	case engine.ShortBreak:
+		return next, a.shortBreakDuration
+	case engine.LongBreak:
+		return next, a.longBreakDuration
+	default:
+		return next, 0
+	}
+}
+
 func (a *App) StatusLine() string {
 	a.mu.Lock()
 	defer a.mu.Unlock()

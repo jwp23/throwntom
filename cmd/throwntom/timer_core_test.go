@@ -30,6 +30,142 @@ func (noopNotifier) PlaySound(string) error {
 	return nil
 }
 
+func TestEmptyInputInAwaitingConfirmAdvances(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	core := newTimerCore(cfg, noopNotifier{})
+	core.execute(cmdStart)
+	core.cycle.CompletePeriod()
+	if core.cycle.State() != engine.AwaitingConfirm {
+		t.Fatalf("precondition: expected AwaitingConfirm, got %s", core.cycle.State())
+	}
+
+	core.execute("")
+
+	if core.cycle.State() == engine.AwaitingConfirm {
+		t.Fatalf("expected empty input to advance out of AwaitingConfirm")
+	}
+	if core.cycle.State() != engine.ShortBreak {
+		t.Fatalf("expected ShortBreak after confirm, got %s", core.cycle.State())
+	}
+}
+
+func TestEmptyInputOutsideAwaitingConfirmIsNoop(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	core := newTimerCore(cfg, noopNotifier{})
+
+	before := core.cycle.State()
+	result := core.execute("")
+	if result.err != nil {
+		t.Fatalf("unexpected error on empty input: %v", result.err)
+	}
+	if core.cycle.State() != before {
+		t.Fatalf("empty input should not change state, got %s → %s", before, core.cycle.State())
+	}
+
+	core.execute(cmdStart)
+	workBefore := core.cycle.State()
+	core.execute("")
+	if core.cycle.State() != workBefore {
+		t.Fatalf("empty input during work should not change state, got %s → %s", workBefore, core.cycle.State())
+	}
+}
+
+func TestTypedConfirmStillAdvances(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	core := newTimerCore(cfg, noopNotifier{})
+	core.execute(cmdStart)
+	core.cycle.CompletePeriod()
+
+	core.execute("confirm")
+
+	if core.cycle.State() != engine.ShortBreak {
+		t.Fatalf("expected ShortBreak after typed confirm, got %s", core.cycle.State())
+	}
+}
+
+func TestSecondaryStatusShowsNextStageWhenAwaiting(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	core := newTimerCore(cfg, noopNotifier{})
+	core.execute(cmdStart)
+	core.cycle.CompletePeriod()
+
+	line := core.secondaryStatus()
+	if !strings.Contains(line, "Next:") {
+		t.Fatalf("expected 'Next:' in secondary line, got %s", line)
+	}
+	if !strings.Contains(line, "short break") {
+		t.Fatalf("expected next phase in secondary line, got %s", line)
+	}
+	if !strings.Contains(line, "5 min") {
+		t.Fatalf("expected duration in secondary line, got %s", line)
+	}
+	if !strings.Contains(line, "press enter to start") {
+		t.Fatalf("expected action hint in secondary line, got %s", line)
+	}
+}
+
+func TestSecondaryStatusEmptyOutsideAwaiting(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	core := newTimerCore(cfg, noopNotifier{})
+
+	if line := core.secondaryStatus(); line != "" {
+		t.Fatalf("expected empty secondary line when Idle, got %q", line)
+	}
+	core.execute(cmdStart)
+	if line := core.secondaryStatus(); line != "" {
+		t.Fatalf("expected empty secondary line during Work, got %q", line)
+	}
+}
+
+func TestSecondaryStatusLongBreakAtBoundary(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	core := newTimerCore(cfg, noopNotifier{})
+	core.execute(cmdStart)
+	for i := 0; i < 3; i++ {
+		core.cycle.CompletePeriod()
+		core.execute("confirm")
+		core.cycle.CompletePeriod()
+		core.execute("confirm")
+	}
+	core.cycle.CompletePeriod()
+
+	line := core.secondaryStatus()
+	if !strings.Contains(line, "long break") {
+		t.Fatalf("expected long break in secondary line, got %s", line)
+	}
+	if !strings.Contains(line, "15 min") {
+		t.Fatalf("expected 15 min in secondary line, got %s", line)
+	}
+}
+
+func TestSnapshotStatusLineUnchangedInAwaiting(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	core := newTimerCore(cfg, noopNotifier{})
+	core.execute(cmdStart)
+	core.cycle.CompletePeriod()
+
+	status, state, _ := core.snapshot()
+	if state != engine.AwaitingConfirm {
+		t.Fatalf("expected AwaitingConfirm, got %s", state)
+	}
+	if !strings.Contains(status, "Confirm to continue") {
+		t.Fatalf("expected status line to retain label, got %s", status)
+	}
+	if !strings.Contains(status, "Today: 1") {
+		t.Fatalf("expected status line to retain stats, got %s", status)
+	}
+	if strings.Contains(status, "Next:") {
+		t.Fatalf("status line should not contain the Next: secondary label, got %s", status)
+	}
+}
+
 func TestNewTimerCoreDefaultsMorningPendingTrue(t *testing.T) {
 	core := newTimerCore(config.Default(), noopNotifier{})
 	if !core.state.isMorningPending() {

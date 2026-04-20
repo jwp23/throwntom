@@ -47,6 +47,66 @@ func TestEveryFourthWorkGoesToLongBreak(t *testing.T) {
 	}
 }
 
+func TestNextPhaseFromWorkIsShortBreak(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartWork()
+	e.MarkPeriodComplete()
+	if got := e.NextPhase(); got != ShortBreak {
+		t.Fatalf("expected ShortBreak, got %v", got)
+	}
+}
+
+func TestNextPhaseFromWorkEveryFourthIsLongBreak(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartWork()
+	for i := 0; i < 3; i++ {
+		e.MarkPeriodComplete()
+		e.ConfirmNext()
+		e.MarkPeriodComplete()
+		e.ConfirmNext()
+	}
+	e.MarkPeriodComplete()
+	if got := e.NextPhase(); got != LongBreak {
+		t.Fatalf("expected LongBreak, got %v", got)
+	}
+}
+
+func TestNextPhaseFromShortBreakIsWork(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartWork()
+	e.MarkPeriodComplete()
+	e.ConfirmNext()
+	e.MarkPeriodComplete()
+	if got := e.NextPhase(); got != Work {
+		t.Fatalf("expected Work, got %v", got)
+	}
+}
+
+func TestNextPhaseOutsideAwaitingConfirmReturnsIdle(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	if got := e.NextPhase(); got != Idle {
+		t.Fatalf("expected Idle when not awaiting confirm, got %v", got)
+	}
+	e.StartWork()
+	if got := e.NextPhase(); got != Idle {
+		t.Fatalf("expected Idle during Work, got %v", got)
+	}
+}
+
+func TestNextPhaseDoesNotMutateState(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartWork()
+	e.MarkPeriodComplete()
+	_ = e.NextPhase()
+	if e.State() != AwaitingConfirm {
+		t.Fatalf("NextPhase must not mutate state, got %v", e.State())
+	}
+	_ = e.NextPhase()
+	if e.State() != AwaitingConfirm {
+		t.Fatalf("NextPhase called twice must not mutate, got %v", e.State())
+	}
+}
+
 func TestSnoozeDoesNotChangePhase(t *testing.T) {
 	e := New(25, 5, 15, 4)
 	e.StartWork()

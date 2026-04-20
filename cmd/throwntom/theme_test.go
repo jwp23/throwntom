@@ -3,7 +3,9 @@ package main
 import (
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/jwp23/throwntom/v3/internal/engine"
 )
 
@@ -81,6 +83,59 @@ func TestRenderThemedFrameMorningIndicator(t *testing.T) {
 	})
 	if !strings.Contains(frame, testBellEmoji) {
 		t.Fatalf("expected morning bell icon when morning pending, got %q", frame)
+	}
+}
+
+func TestNextStageLabelContainsPhaseAndDuration(t *testing.T) {
+	tests := []struct {
+		next        engine.State
+		duration    time.Duration
+		wantPhrase  string
+		wantMinutes string
+	}{
+		{engine.Work, 25 * time.Minute, "pomodoro", "25 min"},
+		{engine.ShortBreak, 5 * time.Minute, "short break", "5 min"},
+		{engine.LongBreak, 15 * time.Minute, "long break", "15 min"},
+	}
+	for _, tc := range tests {
+		got := nextStageLabel(tc.next, tc.duration)
+		if !strings.Contains(got, "Next:") {
+			t.Errorf("nextStageLabel(%s) missing 'Next:' prefix: %q", tc.next, got)
+		}
+		if !strings.Contains(got, tc.wantPhrase) {
+			t.Errorf("nextStageLabel(%s) missing %q, got %q", tc.next, tc.wantPhrase, got)
+		}
+		if !strings.Contains(got, tc.wantMinutes) {
+			t.Errorf("nextStageLabel(%s) missing duration %q, got %q", tc.next, tc.wantMinutes, got)
+		}
+		if !strings.Contains(got, "press enter to start") {
+			t.Errorf("nextStageLabel(%s) missing action hint, got %q", tc.next, got)
+		}
+	}
+}
+
+func TestNextStageLabelColorsPhaseWithPhaseStyle(t *testing.T) {
+	// The phase phrase should be wrapped in its own color (distinct from the
+	// surrounding AwaitingConfirm amber), so that when the full status line
+	// is rendered in amber, the phase still stands out in its own color.
+	got := nextStageLabel(engine.ShortBreak, 5*time.Minute)
+	coloredPhrase := stateStyle(engine.ShortBreak).Render("short break")
+	// Strip the trailing reset so we can search for the open sequence.
+	openSeq := strings.SplitAfter(coloredPhrase, "short break")[0]
+	if !strings.Contains(got, openSeq) {
+		t.Errorf("expected phase-color ANSI around phrase, got %q (wanted substring %q)", got, openSeq)
+	}
+	// Sanity: label is non-empty and longer than the plain form.
+	plain := "Next: short break (5 min) — press enter to start"
+	if lipgloss.Width(got) < lipgloss.Width(plain) {
+		t.Errorf("expected rendered label to be at least as wide as plain form, got %d < %d", lipgloss.Width(got), lipgloss.Width(plain))
+	}
+}
+
+func TestNextStageLabelIdleFallback(t *testing.T) {
+	got := nextStageLabel(engine.Idle, 0)
+	if !strings.Contains(got, "press enter to start") {
+		t.Errorf("fallback label should still prompt for enter, got %q", got)
 	}
 }
 

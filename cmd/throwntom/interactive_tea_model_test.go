@@ -3,6 +3,7 @@ package main
 import (
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/jwp23/throwntom/v3/internal/engine"
@@ -49,6 +50,95 @@ func TestInteractiveTeaModelEnterExecutesAndClearsPrompt(t *testing.T) {
 	}
 	if strings.Contains(view, "> st") {
 		t.Fatalf("expected prompt to clear after enter, got %q", view)
+	}
+}
+
+func TestInteractiveTeaModelEnterInAwaitingConfirmSubmitsEmpty(t *testing.T) {
+	var calls int
+	var submitted string
+	model := newInteractiveTeaModel(interactiveCallbacks{
+		StatusSnapshot: func() (string, engine.State, bool) {
+			return "Confirm to continue  Today: 1  Cycle: 1/4", engine.AwaitingConfirm, false
+		},
+		Execute: func(command string) (commandResponse, error) {
+			calls++
+			submitted = command
+			return commandResponse{
+				StatusLine:     "Short break  04:59  Today: 1  Cycle: 1/4",
+				EngineState:    engine.ShortBreak,
+				MorningPending: false,
+				Message:        "Confirmed -- short break",
+			}, nil
+		},
+	})
+
+	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	if calls != 1 {
+		t.Fatalf("expected Execute to be called once on bare enter in AwaitingConfirm, got %d", calls)
+	}
+	if submitted != "" {
+		t.Fatalf("expected empty submitted command on bare enter, got %q", submitted)
+	}
+	view := next.(interactiveTeaModel).View()
+	if !strings.Contains(view, "Short break") {
+		t.Fatalf("expected view to reflect new state, got %q", view)
+	}
+}
+
+func TestInteractiveTeaModelEnterIdleStillNoop(t *testing.T) {
+	var calls int
+	model := newInteractiveTeaModel(interactiveCallbacks{
+		StatusSnapshot: func() (string, engine.State, bool) {
+			return testStatusIdle, engine.Idle, false
+		},
+		Execute: func(string) (commandResponse, error) {
+			calls++
+			return commandResponse{}, nil
+		},
+	})
+
+	_, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	if calls != 0 {
+		t.Fatalf("expected bare enter in Idle to be a no-op, got %d Execute calls", calls)
+	}
+}
+
+func TestInteractiveTeaModelAwaitingConfirmShowsNextStageOnSecondLine(t *testing.T) {
+	model := newInteractiveTeaModel(interactiveCallbacks{
+		StatusSnapshot: func() (string, engine.State, bool) {
+			return "Confirm to continue  Today: 1  Cycle: 1/4", engine.AwaitingConfirm, false
+		},
+		SecondaryStatus: func() string {
+			return nextStageLabel(engine.ShortBreak, 5*time.Minute)
+		},
+		Execute: func(string) (commandResponse, error) {
+			return commandResponse{}, nil
+		},
+	})
+
+	view := model.View()
+	lines := strings.Split(view, "\n")
+
+	statusIdx, nextIdx := -1, -1
+	for i, line := range lines {
+		if strings.Contains(line, "Confirm to continue") && strings.Contains(line, "Today: 1") && strings.Contains(line, "Cycle: 1/4") {
+			statusIdx = i
+		}
+		if strings.Contains(line, "Next:") && strings.Contains(line, "short break") && strings.Contains(line, "press enter to start") {
+			nextIdx = i
+		}
+	}
+
+	if statusIdx < 0 {
+		t.Fatalf("expected status line preserved (with label+stats) on its own line, got %q", view)
+	}
+	if nextIdx < 0 {
+		t.Fatalf("expected next-stage line, got %q", view)
+	}
+	if nextIdx != statusIdx+1 {
+		t.Fatalf("expected next-stage to be immediately below status line, got status at %d, next at %d: %q", statusIdx, nextIdx, view)
 	}
 }
 
