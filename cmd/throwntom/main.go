@@ -77,22 +77,6 @@ func defaultConfigPath() (string, error) {
 	return config.DirPath("config.toml")
 }
 
-func defaultCorePaths() (corePaths, error) {
-	tasks, err := config.DirPath("tasks.json")
-	if err != nil {
-		return corePaths{}, err
-	}
-	sess, err := config.DirPath("session.json")
-	if err != nil {
-		return corePaths{}, err
-	}
-	events, err := config.DirPath("events.jsonl")
-	if err != nil {
-		return corePaths{}, err
-	}
-	return corePaths{Tasks: tasks, Session: sess, Events: events}, nil
-}
-
 func printUsage() {
 	fmt.Println("usage: throwntom [--version] [--config path]")
 }

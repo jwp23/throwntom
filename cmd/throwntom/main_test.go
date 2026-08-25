@@ -9,10 +9,11 @@ import (
 	"testing"
 
 	"github.com/jwp23/throwntom/v3/internal/config"
+	"github.com/jwp23/throwntom/v3/internal/core"
 )
 
 func TestCommandHelpIncludesAllCommands(t *testing.T) {
-	help := commandsHelp()
+	help := core.Help()
 	for _, cmd := range []string{"new-cycle", "pause", "resume", "stop", "status", "test-sound", "quit"} {
 		if !strings.Contains(help, cmd) {
 			t.Fatalf("expected %q in command help: %s", cmd, help)
@@ -145,34 +146,6 @@ func TestPrintUsageIncludesVersionFlag(t *testing.T) {
 	out := captureStdout(t, printUsage)
 	if !strings.Contains(out, "--version") {
 		t.Fatalf("printUsage should contain --version in usage line, got:\n%s", out)
-	}
-}
-
-func TestDefaultCorePaths(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-
-	paths, err := defaultCorePaths()
-	if err != nil {
-		t.Fatalf("defaultCorePaths: %v", err)
-	}
-	if !strings.Contains(paths.Tasks, "tasks.json") {
-		t.Fatalf("expected tasks.json in path, got %s", paths.Tasks)
-	}
-	if !strings.Contains(paths.Session, "session.json") {
-		t.Fatalf("expected session.json in path, got %s", paths.Session)
-	}
-	if !strings.Contains(paths.Events, "events.jsonl") {
-		t.Fatalf("expected events.jsonl in path, got %s", paths.Events)
-	}
-	if !strings.Contains(paths.Tasks, "throwntom") {
-		t.Fatalf("expected throwntom in tasks path, got %s", paths.Tasks)
-	}
-	if !strings.Contains(paths.Session, "throwntom") {
-		t.Fatalf("expected throwntom in session path, got %s", paths.Session)
-	}
-	if !strings.Contains(paths.Events, "throwntom") {
-		t.Fatalf("expected throwntom in events path, got %s", paths.Events)
 	}
 }
 

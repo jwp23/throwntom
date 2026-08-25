@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"errors"
@@ -15,8 +15,8 @@ const (
 	fmtInvalidPosition   = "invalid position: %s"
 )
 
-func (d *timerCore) requireWorkSession(name string) (commandResult, bool) {
-	if !d.isWorkSession() {
+func (c *Core) requireWorkSession(name string) (commandResult, bool) {
+	if !c.isWorkSession() {
 		return commandResult{err: fmt.Errorf("%s is only available during a work session", name)}, false
 	}
 	return commandResult{}, true
@@ -33,8 +33,8 @@ func parseTaskPosition(parts []string, usage, errFmt string) (int, commandResult
 	return pos, commandResult{}, true
 }
 
-func (d *timerCore) handleTask(parts []string) commandResult {
-	if d.tasks == nil {
+func (c *Core) handleTask(parts []string) commandResult {
+	if c.tasks == nil {
 		return commandResult{err: fmt.Errorf("task store not initialized")}
 	}
 	if len(parts) < 2 {
@@ -42,86 +42,86 @@ func (d *timerCore) handleTask(parts []string) commandResult {
 	}
 	switch parts[1] {
 	case "add":
-		return d.handleTaskAdd(parts)
+		return c.handleTaskAdd(parts)
 	case "done":
-		return d.handleTaskDone(parts)
+		return c.handleTaskDone(parts)
 	case "remove":
-		return d.handleTaskRemove(parts)
+		return c.handleTaskRemove(parts)
 	case "list":
-		return d.handleTaskList()
+		return c.handleTaskList()
 	case "completed":
-		return d.handleTaskCompleted()
+		return c.handleTaskCompleted()
 	case "clear":
-		return d.handleTaskClear()
+		return c.handleTaskClear()
 	case "focus":
-		return d.handleTaskFocus(parts)
+		return c.handleTaskFocus(parts)
 	case "unfocus":
-		return d.handleTaskUnfocus(parts)
+		return c.handleTaskUnfocus(parts)
 	case "up":
-		return d.handleTaskUp(parts)
+		return c.handleTaskUp(parts)
 	case "down":
-		return d.handleTaskDown(parts)
+		return c.handleTaskDown(parts)
 	default:
 		return commandResult{err: fmt.Errorf("unknown task subcommand: %s", parts[1])}
 	}
 }
 
-func (d *timerCore) handleTaskAdd(parts []string) commandResult {
+func (c *Core) handleTaskAdd(parts []string) commandResult {
 	if len(parts) < 3 {
 		return commandResult{err: fmt.Errorf("usage: task add <description>")}
 	}
 	desc := strings.Join(parts[2:], " ")
-	t, err := d.tasks.Add(desc)
+	t, err := c.tasks.Add(desc)
 	if err != nil {
 		return commandResult{err: fmt.Errorf("add task: %w", err)}
 	}
 	return commandResult{message: fmt.Sprintf("added task %d: %s", t.ID, t.Description)}
 }
 
-func (d *timerCore) handleTaskDone(parts []string) commandResult {
+func (c *Core) handleTaskDone(parts []string) commandResult {
 	pos, res, ok := parseTaskPosition(parts, "usage: task done <n>", fmtInvalidTaskNumber)
 	if !ok {
 		return res
 	}
-	id, err := d.tasks.ActiveTaskID(pos)
+	id, err := c.tasks.ActiveTaskID(pos)
 	if err != nil {
 		return commandResult{err: fmt.Errorf("task done: %w", err)}
 	}
-	if err := d.tasks.Complete(id); err != nil {
+	if err := c.tasks.Complete(id); err != nil {
 		return commandResult{err: fmt.Errorf("task done: %w", err)}
 	}
-	for i, f := range d.focused {
+	for i, f := range c.focused {
 		if f.ID == id {
-			d.focused = append(d.focused[:i], d.focused[i+1:]...)
+			c.focused = append(c.focused[:i], c.focused[i+1:]...)
 			break
 		}
 	}
 	return commandResult{message: fmt.Sprintf("task %d completed", pos)}
 }
 
-func (d *timerCore) handleTaskRemove(parts []string) commandResult {
+func (c *Core) handleTaskRemove(parts []string) commandResult {
 	pos, res, ok := parseTaskPosition(parts, "usage: task remove <n>", fmtInvalidTaskNumber)
 	if !ok {
 		return res
 	}
-	id, err := d.tasks.ActiveTaskID(pos)
+	id, err := c.tasks.ActiveTaskID(pos)
 	if err != nil {
 		return commandResult{err: fmt.Errorf("task remove: %w", err)}
 	}
-	if err := d.tasks.Remove(id); err != nil {
+	if err := c.tasks.Remove(id); err != nil {
 		return commandResult{err: fmt.Errorf("task remove: %w", err)}
 	}
-	for i, f := range d.focused {
+	for i, f := range c.focused {
 		if f.ID == id {
-			d.focused = append(d.focused[:i], d.focused[i+1:]...)
+			c.focused = append(c.focused[:i], c.focused[i+1:]...)
 			break
 		}
 	}
 	return commandResult{message: fmt.Sprintf("task %d removed", pos)}
 }
 
-func (d *timerCore) handleTaskList() commandResult {
-	active := d.tasks.Active()
+func (c *Core) handleTaskList() commandResult {
+	active := c.tasks.Active()
 	if len(active) == 0 {
 		return commandResult{message: "no active tasks"}
 	}
@@ -132,8 +132,8 @@ func (d *timerCore) handleTaskList() commandResult {
 	return commandResult{message: strings.Join(lines, "\n")}
 }
 
-func (d *timerCore) handleTaskCompleted() commandResult {
-	done := d.tasks.Completed()
+func (c *Core) handleTaskCompleted() commandResult {
+	done := c.tasks.Completed()
 	if len(done) == 0 {
 		return commandResult{message: "no completed tasks"}
 	}
@@ -144,156 +144,156 @@ func (d *timerCore) handleTaskCompleted() commandResult {
 	return commandResult{message: strings.Join(lines, "\n")}
 }
 
-func (d *timerCore) handleTaskClear() commandResult {
-	if err := d.tasks.ClearCompleted(); err != nil {
+func (c *Core) handleTaskClear() commandResult {
+	if err := c.tasks.ClearCompleted(); err != nil {
 		return commandResult{err: fmt.Errorf("clear completed: %w", err)}
 	}
 	return commandResult{message: "completed tasks cleared"}
 }
 
-func (d *timerCore) handleTaskFocus(parts []string) commandResult {
-	if res, ok := d.requireWorkSession("focus"); !ok {
+func (c *Core) handleTaskFocus(parts []string) commandResult {
+	if res, ok := c.requireWorkSession("focus"); !ok {
 		return res
 	}
 	pos, res, ok := parseTaskPosition(parts, "usage: task focus <n>", fmtInvalidTaskNumber)
 	if !ok {
 		return res
 	}
-	id, err := d.tasks.ActiveTaskID(pos)
+	id, err := c.tasks.ActiveTaskID(pos)
 	if err != nil {
 		return commandResult{err: fmt.Errorf("task focus: %w", err)}
 	}
-	for _, f := range d.focused {
+	for _, f := range c.focused {
 		if f.ID == id {
 			return commandResult{err: fmt.Errorf("task %d is already focused", pos)}
 		}
 	}
-	active := d.tasks.Active()
+	active := c.tasks.Active()
 	for _, t := range active {
 		if t.ID == id {
-			d.focused = append(d.focused, t)
+			c.focused = append(c.focused, t)
 			return commandResult{message: fmt.Sprintf("focused on task %d: %s", pos, t.Description)}
 		}
 	}
 	return commandResult{err: fmt.Errorf("task %d not found in active list", pos)}
 }
 
-func (d *timerCore) handleTaskUnfocus(parts []string) commandResult {
-	if res, ok := d.requireWorkSession("unfocus"); !ok {
+func (c *Core) handleTaskUnfocus(parts []string) commandResult {
+	if res, ok := c.requireWorkSession("unfocus"); !ok {
 		return res
 	}
 	pos, res, ok := parseTaskPosition(parts, "usage: task unfocus <n>", fmtInvalidPosition)
 	if !ok {
 		return res
 	}
-	if pos < 1 || pos > len(d.focused) {
-		return commandResult{err: fmt.Errorf("position %d out of range (1-%d)", pos, len(d.focused))}
+	if pos < 1 || pos > len(c.focused) {
+		return commandResult{err: fmt.Errorf("position %d out of range (1-%d)", pos, len(c.focused))}
 	}
-	d.focused = append(d.focused[:pos-1], d.focused[pos:]...)
+	c.focused = append(c.focused[:pos-1], c.focused[pos:]...)
 	return commandResult{message: fmt.Sprintf("unfocused task at position %d", pos)}
 }
 
-func (d *timerCore) handleTaskUp(parts []string) commandResult {
-	if res, ok := d.requireWorkSession("up"); !ok {
+func (c *Core) handleTaskUp(parts []string) commandResult {
+	if res, ok := c.requireWorkSession("up"); !ok {
 		return res
 	}
 	pos, res, ok := parseTaskPosition(parts, "usage: task up <n>", fmtInvalidPosition)
 	if !ok {
 		return res
 	}
-	if pos < 2 || pos > len(d.focused) {
-		return commandResult{err: fmt.Errorf("position %d out of range for up (2-%d)", pos, len(d.focused))}
+	if pos < 2 || pos > len(c.focused) {
+		return commandResult{err: fmt.Errorf("position %d out of range for up (2-%d)", pos, len(c.focused))}
 	}
-	d.focused[pos-1], d.focused[pos-2] = d.focused[pos-2], d.focused[pos-1]
+	c.focused[pos-1], c.focused[pos-2] = c.focused[pos-2], c.focused[pos-1]
 	return commandResult{message: fmt.Sprintf("moved task up to position %d", pos-1)}
 }
 
-func (d *timerCore) handleTaskDown(parts []string) commandResult {
-	if res, ok := d.requireWorkSession("down"); !ok {
+func (c *Core) handleTaskDown(parts []string) commandResult {
+	if res, ok := c.requireWorkSession("down"); !ok {
 		return res
 	}
 	pos, res, ok := parseTaskPosition(parts, "usage: task down <n>", fmtInvalidPosition)
 	if !ok {
 		return res
 	}
-	if pos < 1 || pos >= len(d.focused) {
-		return commandResult{err: fmt.Errorf("position %d out of range for down (1-%d)", pos, len(d.focused)-1)}
+	if pos < 1 || pos >= len(c.focused) {
+		return commandResult{err: fmt.Errorf("position %d out of range for down (1-%d)", pos, len(c.focused)-1)}
 	}
-	d.focused[pos-1], d.focused[pos] = d.focused[pos], d.focused[pos-1]
+	c.focused[pos-1], c.focused[pos] = c.focused[pos], c.focused[pos-1]
 	return commandResult{message: fmt.Sprintf("moved task down to position %d", pos+1)}
 }
 
-func (d *timerCore) enterFocusPrompt(action string) commandResult {
-	d.pendingFocusPrompt = true
-	d.pendingFocusToggled = make(map[int]bool)
-	d.pendingFocusAction = action
-	return commandResult{message: d.formatFocusPrompt()}
+func (c *Core) enterFocusPrompt(action string) commandResult {
+	c.pendingFocusPrompt = true
+	c.pendingFocusToggled = make(map[int]bool)
+	c.pendingFocusAction = action
+	return commandResult{message: c.FocusPrompt()}
 }
 
-func (d *timerCore) handleFocusPromptInput(input string) commandResult {
+func (c *Core) handleFocusPromptInput(input string) commandResult {
 	if input == "" {
-		return d.finalizeFocusPrompt()
+		return c.finalizeFocusPrompt()
 	}
 	if strings.HasPrefix(input, "a ") {
 		desc := strings.TrimPrefix(input, "a ")
-		t, err := d.tasks.Add(desc)
+		t, err := c.tasks.Add(desc)
 		if err != nil {
 			return commandResult{err: fmt.Errorf("add task: %w", err)}
 		}
-		d.pendingFocusToggled[t.ID] = true
-		return commandResult{message: d.formatFocusPrompt()}
+		c.pendingFocusToggled[t.ID] = true
+		return commandResult{message: c.FocusPrompt()}
 	}
 	pos, err := strconv.Atoi(input)
 	if err != nil {
 		return commandResult{err: fmt.Errorf("invalid input during task selection")}
 	}
-	active := d.tasks.Active()
+	active := c.tasks.Active()
 	if pos < 1 || pos > len(active) {
 		return commandResult{err: fmt.Errorf("position %d out of range (1-%d)", pos, len(active))}
 	}
 	id := active[pos-1].ID
-	if d.pendingFocusToggled[id] {
-		delete(d.pendingFocusToggled, id)
+	if c.pendingFocusToggled[id] {
+		delete(c.pendingFocusToggled, id)
 	} else {
-		d.pendingFocusToggled[id] = true
+		c.pendingFocusToggled[id] = true
 	}
-	return commandResult{message: d.formatFocusPrompt()}
+	return commandResult{message: c.FocusPrompt()}
 }
 
-func (d *timerCore) finalizeFocusPrompt() commandResult {
-	active := d.tasks.Active()
+func (c *Core) finalizeFocusPrompt() commandResult {
+	active := c.tasks.Active()
 	var focused []task.Task
 	for _, t := range active {
-		if d.pendingFocusToggled[t.ID] {
+		if c.pendingFocusToggled[t.ID] {
 			focused = append(focused, t)
 		}
 	}
-	d.focused = focused
-	d.pendingFocusPrompt = false
-	d.pendingFocusToggled = nil
-	action := d.pendingFocusAction
-	d.pendingFocusAction = ""
+	c.focused = focused
+	c.pendingFocusPrompt = false
+	c.pendingFocusToggled = nil
+	action := c.pendingFocusAction
+	c.pendingFocusAction = ""
 	if action == "start" {
-		d.cycle.Start()
-		d.logEvent("pomodoro_started", nil)
+		c.cycle.Start()
+		c.logEvent("pomodoro_started", nil)
 	}
 	return commandResult{message: "Pomodoro started -- let's go!"}
 }
 
-func (d *timerCore) formatFocusPrompt() string {
-	active := d.tasks.Active()
+func (c *Core) FocusPrompt() string {
+	active := c.tasks.Active()
 	var lines []string
 	lines = append(lines, "Select tasks for this pomodoro:")
 	for i, tk := range active {
 		marker := " "
-		if d.pendingFocusToggled[tk.ID] {
+		if c.pendingFocusToggled[tk.ID] {
 			marker = "*"
 		}
 		lines = append(lines, fmt.Sprintf(" %s%d) %s", marker, i+1, tk.Description))
 	}
 	var selected []string
 	for i, tk := range active {
-		if d.pendingFocusToggled[tk.ID] {
+		if c.pendingFocusToggled[tk.ID] {
 			selected = append(selected, fmt.Sprintf("%d", i+1))
 		}
 	}
@@ -304,30 +304,30 @@ func (d *timerCore) formatFocusPrompt() string {
 	return strings.Join(lines, "\n")
 }
 
-func (d *timerCore) cancelFocusPrompt() commandResult {
-	d.pendingFocusPrompt = false
-	d.pendingFocusToggled = nil
-	d.pendingFocusAction = ""
+func (c *Core) cancelFocusPrompt() commandResult {
+	c.pendingFocusPrompt = false
+	c.pendingFocusToggled = nil
+	c.pendingFocusAction = ""
 	return commandResult{message: "task selection cancelled"}
 }
 
-func (d *timerCore) focusedTasks() []task.Task {
-	return append([]task.Task(nil), d.focused...)
+func (c *Core) Focused() []task.Task {
+	return append([]task.Task(nil), c.focused...)
 }
 
-func (d *timerCore) isFocusPromptPending() bool {
-	return d.pendingFocusPrompt
+func (c *Core) FocusPromptPending() bool {
+	return c.pendingFocusPrompt
 }
 
-func (d *timerCore) isWorkSession() bool {
-	return d.cycle.State() == engine.Work
+func (c *Core) isWorkSession() bool {
+	return c.cycle.State() == engine.Work
 }
 
-func (d *timerCore) initTasks(path string) error {
+func (c *Core) initTasks(path string) error {
 	store, err := task.NewFileStore(path)
 	if err != nil {
 		return fmt.Errorf("init task store: %w", err)
 	}
-	d.tasks = store
+	c.tasks = store
 	return nil
 }

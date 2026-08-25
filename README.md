@@ -119,6 +119,23 @@ tier_mid = 5
 
 Schedule supports day aliases: `"weekday"` expands to Mon-Fri, `"weekend"` to Sat-Sun. Specific-day entries automatically carve out from alias expansions.
 
+## Project Layout
+
+- `cmd/throwntom/` — main binary: CLI entry point, Bubble Tea model, rendering
+- `internal/analytics/` — productivity dashboard computation
+- `internal/app/` — application logic
+- `internal/config/` — TOML config parsing
+- `internal/core/` — timer/task/reminder orchestration shared by the TUI and daemon
+- `internal/engine/` — pomodoro state machine
+- `internal/eventlog/` — append-only event log
+- `internal/notifier/` — desktop notifications and sound
+- `internal/reminder/` — reminder scheduling
+- `internal/scheduler/` — work schedule (days/times)
+- `internal/session/` — session persistence
+- `internal/task/` — task store
+- `e2e/` — end-to-end tests (build tag: `e2e`)
+- `integration/` — integration tests (build tag: `integration`)
+
 ## Verify
 
 ```bash

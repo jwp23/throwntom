@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/jwp23/throwntom/v3/internal/core"
 	"github.com/jwp23/throwntom/v3/internal/engine"
 	"github.com/jwp23/throwntom/v3/internal/task"
 )
@@ -63,25 +64,6 @@ func morningIcon(emoji bool) string {
 	return "[!]"
 }
 
-func friendlyStateName(state engine.State) string {
-	switch state {
-	case engine.Work:
-		return "pomodoro"
-	case engine.ShortBreak:
-		return "short break"
-	case engine.LongBreak:
-		return "long break"
-	case engine.Idle:
-		return "idle"
-	case engine.Paused:
-		return "paused"
-	case engine.AwaitingConfirm:
-		return "awaiting confirmation"
-	default:
-		return state.String()
-	}
-}
-
 func stateStyle(state engine.State) lipgloss.Style {
 	switch state {
 	case engine.Work:
@@ -113,7 +95,7 @@ func formatFocusLines(focused []task.Task, emoji bool) []string {
 }
 
 func nextStageLabel(next engine.State, duration time.Duration) string {
-	phrase := friendlyStateName(next)
+	phrase := core.FriendlyStateName(next)
 	minutes := int(duration / time.Minute)
 	colored := stateStyle(next).Render(fmt.Sprintf("%s (%d min)", phrase, minutes))
 	return fmt.Sprintf("Next: %s — press enter to start", colored)

@@ -6,9 +6,10 @@
 - Runs as an interactive terminal UI built with Bubble Tea
 
 ## Project Structure
-- `cmd/throwntom/` — main binary: CLI entry point, Bubble Tea model, timer core
+- `cmd/throwntom/` — main binary: CLI entry point, Bubble Tea model, rendering
 - `internal/app/` — application logic
 - `internal/config/` — TOML config parsing
+- `internal/core/` — timer/task/reminder orchestration shared by the TUI and daemon
 - `internal/engine/` — pomodoro state machine
 - `internal/notifier/` — desktop notifications and sound
 - `internal/reminder/` — reminder scheduling
