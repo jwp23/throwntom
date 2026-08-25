@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -216,5 +217,18 @@ func TestFriendlyStateName(t *testing.T) {
 		if got := FriendlyStateName(state); got != want {
 			t.Fatalf("FriendlyStateName(%s) = %q, want %q", state, got, want)
 		}
+	}
+}
+
+func TestPauseWhenIdleIsAnError(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+	if res := c.execute("pause"); !errors.Is(res.err, errNotRunning) {
+		t.Fatalf("expected errNotRunning, got %v", res.err)
+	}
+	c.execute("new-cycle")
+	if res := c.execute("resume"); !errors.Is(res.err, errNotPaused) {
+		t.Fatalf("expected errNotPaused, got %v", res.err)
 	}
 }

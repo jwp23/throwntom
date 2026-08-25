@@ -433,3 +433,21 @@ func TestAdvanceDayNotifiesOnRollover(t *testing.T) {
 		t.Fatalf("expected completedToday reset, got %d", got)
 	}
 }
+
+func TestPauseReportsRefusalWhenIdle(t *testing.T) {
+	a := New(25, 5, 15, 4, time.Hour, &fakeNotifier{})
+	if a.Pause() {
+		t.Fatal("expected Pause to report false when idle")
+	}
+	a.Start()
+	if !a.Pause() {
+		t.Fatal("expected Pause to report true during work")
+	}
+	if !a.Resume() {
+		t.Fatal("expected Resume to report true when paused")
+	}
+	if a.Resume() {
+		t.Fatal("expected Resume to report false when not paused")
+	}
+	a.Stop()
+}

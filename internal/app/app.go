@@ -188,12 +188,12 @@ func (a *App) SkipToday() {
 	a.engine.SkipToday()
 }
 
-func (a *App) Pause() {
+func (a *App) Pause() bool {
 	a.mu.Lock()
 	defer a.notifyChange()
 	defer a.mu.Unlock()
 	if !a.engine.Pause() {
-		return
+		return false
 	}
 	if !a.phaseEndAt.IsZero() {
 		a.pausedRemaining = time.Until(a.phaseEndAt)
@@ -203,14 +203,15 @@ func (a *App) Pause() {
 	}
 	a.stopTimerLocked()
 	a.phaseEndAt = time.Time{}
+	return true
 }
 
-func (a *App) Resume() {
+func (a *App) Resume() bool {
 	a.mu.Lock()
 	defer a.notifyChange()
 	defer a.mu.Unlock()
 	if !a.engine.Resume() {
-		return
+		return false
 	}
 	d := a.pausedRemaining
 	if d <= 0 {
@@ -222,11 +223,12 @@ func (a *App) Resume() {
 		case engine.LongBreak:
 			d = a.longBreakDuration
 		default:
-			return
+			return false
 		}
 	}
 	a.pausedRemaining = 0
 	a.startPhaseTimerLocked(d)
+	return true
 }
 
 func (a *App) Stop() {

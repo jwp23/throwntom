@@ -1,12 +1,18 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/jwp23/throwntom/v3/internal/engine"
+)
+
+var (
+	errNotRunning = errors.New("nothing to pause: timer is not running")
+	errNotPaused  = errors.New("nothing to resume: timer is not paused")
 )
 
 func (c *Core) buildCommandHandlers() map[string]commandHandler {
@@ -48,13 +54,17 @@ func (c *Core) handleNewCycle(_ []string) commandResult {
 }
 
 func (c *Core) handlePause(_ []string) commandResult {
-	c.cycle.Pause()
+	if !c.cycle.Pause() {
+		return commandResult{err: errNotRunning}
+	}
 	c.logEvent("paused", nil)
 	return commandResult{message: "Paused. Take your time."}
 }
 
 func (c *Core) handleResume(_ []string) commandResult {
-	c.cycle.Resume()
+	if !c.cycle.Resume() {
+		return commandResult{err: errNotPaused}
+	}
 	c.logEvent("resumed", nil)
 	return commandResult{message: "Resumed -- back at it!"}
 }
