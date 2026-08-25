@@ -34,10 +34,7 @@ func NewHandler(c *core.Core) http.Handler {
 	s.registerRoutes(mux)
 	mux.HandleFunc("GET /v1/state", s.getState)
 	mux.HandleFunc("POST /v1/command", s.postCommand)
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		writeError(w, http.StatusNotFound, errors.New("not found"))
-	})
-	return mux
+	return &jsonErrorWriter{handler: mux}
 }
 
 func (s *server) getState(w http.ResponseWriter, _ *http.Request) {
@@ -68,4 +65,38 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeError(w http.ResponseWriter, status int, err error) {
 	writeJSON(w, status, errorResponse{Error: err.Error()})
+}
+
+type jsonErrorWriter struct {
+	handler http.Handler
+}
+
+func (j *jsonErrorWriter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	wrapped := &statusCapturingWriter{ResponseWriter: w}
+	j.handler.ServeHTTP(wrapped, r)
+	switch wrapped.status {
+	case http.StatusNotFound:
+		writeError(w, http.StatusNotFound, errors.New("not found"))
+	case http.StatusMethodNotAllowed:
+		writeError(w, http.StatusMethodNotAllowed, errors.New("method not allowed"))
+	}
+}
+
+type statusCapturingWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (s *statusCapturingWriter) WriteHeader(status int) {
+	s.status = status
+	if status != http.StatusNotFound && status != http.StatusMethodNotAllowed {
+		s.ResponseWriter.WriteHeader(status)
+	}
+}
+
+func (s *statusCapturingWriter) Write(b []byte) (int, error) {
+	if s.status == http.StatusNotFound || s.status == http.StatusMethodNotAllowed {
+		return len(b), nil
+	}
+	return s.ResponseWriter.Write(b)
 }

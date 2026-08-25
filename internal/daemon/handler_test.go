@@ -101,3 +101,17 @@ func TestUnknownRouteIs404JSON(t *testing.T) {
 		t.Fatalf("status %d content-type %q", resp.StatusCode, resp.Header.Get("Content-Type"))
 	}
 }
+
+func TestWrongMethodIs405JSON(t *testing.T) {
+	srv, _ := newTestServer(t)
+	resp := postJSON(t, srv.URL+"/v1/state", commandRequest{Line: "test"})
+	if resp.StatusCode != 405 || resp.Header.Get("Content-Type") != "application/json" {
+		t.Fatalf("status %d content-type %q", resp.StatusCode, resp.Header.Get("Content-Type"))
+	}
+	if resp.Header.Get("Allow") == "" {
+		t.Fatal("Allow header missing")
+	}
+	if e := decode[errorResponse](t, resp); e.Error != "method not allowed" {
+		t.Fatalf("error %q", e.Error)
+	}
+}
