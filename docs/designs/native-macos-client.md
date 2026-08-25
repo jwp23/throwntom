@@ -98,7 +98,8 @@ removed after the lock is won.
 }
 ```
 
-`status_line` is the same string the TUI shows; the core owns
+`snooze_until` is the morning-reminder snooze deadline (null when no
+morning snooze is active). `status_line` is the same string the TUI shows; the core owns
 presentation strings. Clients compute the live countdown locally from
 `phase_end_at`; the daemon never emits per-second events.
 
