@@ -24,6 +24,7 @@ type App struct {
 	periodTimer        *time.Timer
 	phaseEndAt         time.Time
 	pausedRemaining    time.Duration
+	onChange           func()
 }
 
 func New(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery int, repeatInterval time.Duration, n notifier.Notifier) *App {
@@ -34,6 +35,23 @@ func New(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery int, r
 		workDuration:       time.Duration(workMinutes) * time.Minute,
 		shortBreakDuration: time.Duration(shortBreakMinutes) * time.Minute,
 		longBreakDuration:  time.Duration(longBreakMinutes) * time.Minute,
+	}
+}
+
+// SetOnChange registers fn to run after every state transition, including
+// timer-driven ones. fn runs outside the App lock.
+func (a *App) SetOnChange(fn func()) {
+	a.mu.Lock()
+	a.onChange = fn
+	a.mu.Unlock()
+}
+
+func (a *App) notifyChange() {
+	a.mu.Lock()
+	fn := a.onChange
+	a.mu.Unlock()
+	if fn != nil {
+		fn()
 	}
 }
 
@@ -55,6 +73,7 @@ func (a *App) Snapshot() Snapshot {
 
 func (a *App) Restore(s Snapshot) error {
 	a.mu.Lock()
+	defer a.notifyChange()
 	defer a.mu.Unlock()
 	a.engine.Restore(s.Engine)
 
@@ -76,12 +95,14 @@ func (a *App) Restore(s Snapshot) error {
 
 func (a *App) AdvanceDay(now time.Time) {
 	a.mu.Lock()
+	defer a.notifyChange()
 	defer a.mu.Unlock()
 	a.engine.AdvanceDay(now)
 }
 
 func (a *App) Start() {
 	a.mu.Lock()
+	defer a.notifyChange()
 	defer a.mu.Unlock()
 	a.engine.StartWork()
 	a.startPhaseTimerLocked(a.workDuration)
@@ -89,6 +110,7 @@ func (a *App) Start() {
 
 func (a *App) StartNewCycle() {
 	a.mu.Lock()
+	defer a.notifyChange()
 	defer a.mu.Unlock()
 	a.stopReminderLocked()
 	a.stopTimerLocked()
@@ -100,12 +122,14 @@ func (a *App) StartNewCycle() {
 
 func (a *App) CompletePeriod() {
 	a.mu.Lock()
+	defer a.notifyChange()
 	defer a.mu.Unlock()
 	a.completePeriodLocked()
 }
 
 func (a *App) Confirm() {
 	a.mu.Lock()
+	defer a.notifyChange()
 	defer a.mu.Unlock()
 	a.stopReminderLocked()
 	a.engine.ConfirmNext()
@@ -121,6 +145,7 @@ func (a *App) Confirm() {
 
 func (a *App) Snooze(d time.Duration) {
 	a.mu.Lock()
+	defer a.notifyChange()
 	a.engine.Snooze(d)
 	a.stopReminderLocked()
 	state := a.engine.State()
@@ -142,6 +167,7 @@ func (a *App) Snooze(d time.Duration) {
 
 func (a *App) SkipToday() {
 	a.mu.Lock()
+	defer a.notifyChange()
 	defer a.mu.Unlock()
 	a.stopReminderLocked()
 	a.stopTimerLocked()
@@ -152,6 +178,7 @@ func (a *App) SkipToday() {
 
 func (a *App) Pause() {
 	a.mu.Lock()
+	defer a.notifyChange()
 	defer a.mu.Unlock()
 	if !a.engine.Pause() {
 		return
@@ -168,6 +195,7 @@ func (a *App) Pause() {
 
 func (a *App) Resume() {
 	a.mu.Lock()
+	defer a.notifyChange()
 	defer a.mu.Unlock()
 	if !a.engine.Resume() {
 		return
@@ -191,6 +219,7 @@ func (a *App) Resume() {
 
 func (a *App) Stop() {
 	a.mu.Lock()
+	defer a.notifyChange()
 	defer a.mu.Unlock()
 	a.stopReminderLocked()
 	a.stopTimerLocked()
@@ -295,8 +324,9 @@ func (a *App) startPhaseTimerLocked(d time.Duration) {
 	a.phaseEndAt = time.Now().Add(d)
 	a.periodTimer = time.AfterFunc(d, func() {
 		a.mu.Lock()
-		defer a.mu.Unlock()
 		a.completePeriodLocked()
+		a.mu.Unlock()
+		a.notifyChange()
 	})
 }
 

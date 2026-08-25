@@ -362,3 +362,40 @@ func TestSnapshotRestoreRoundTrip(t *testing.T) {
 	}
 	a2.Stop()
 }
+
+func TestOnChangeFiresWhenPhaseTimerExpires(t *testing.T) {
+	a := New(25, 5, 15, 4, time.Hour, &fakeNotifier{})
+	fired := make(chan struct{}, 4)
+	a.SetOnChange(func() { fired <- struct{}{} })
+
+	snap := a.Snapshot()
+	snap.Engine.State = engine.Work
+	snap.PhaseEndAt = time.Now().Add(20 * time.Millisecond)
+	if err := a.Restore(snap); err != nil {
+		t.Fatal(err)
+	}
+	<-fired // Restore itself
+
+	select {
+	case <-fired:
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected OnChange when the phase timer expired")
+	}
+	if a.State() != engine.AwaitingConfirm {
+		t.Fatalf("state = %s", a.State())
+	}
+	a.Stop()
+}
+
+func TestOnChangeFiresOnVerbs(t *testing.T) {
+	a := New(25, 5, 15, 4, time.Hour, &fakeNotifier{})
+	count := 0
+	a.SetOnChange(func() { count++ })
+	a.Start()
+	a.Pause()
+	a.Resume()
+	a.Stop()
+	if count != 4 {
+		t.Fatalf("expected 4 change callbacks, got %d", count)
+	}
+}
