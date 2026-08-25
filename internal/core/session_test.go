@@ -22,9 +22,10 @@ func TestSaveSessionWritesValidJSON(t *testing.T) {
 	cfg.MorningReminderPending = false
 	c := newCore(cfg, noopNotifier{})
 	c.sessionPath = sessPath
+	defer c.Stop()
 	c.execute(cmdStart)
 
-	c.saveSession()
+	c.saveSessionLocked()
 
 	raw, err := os.ReadFile(sessPath)
 	if err != nil {
@@ -47,12 +48,14 @@ func TestLoadSessionRestoresState(t *testing.T) {
 	cfg.MorningReminderPending = false
 	c := newCore(cfg, noopNotifier{})
 	c.sessionPath = sessPath
+	defer c.Stop()
 	c.execute(cmdStart)
 	c.cycle.CompletePeriod()
-	c.saveSession()
+	c.saveSessionLocked()
 
 	c2 := newCore(cfg, noopNotifier{})
 	c2.sessionPath = sessPath
+	defer c2.Stop()
 	if err := c2.loadSession(); err != nil {
 		t.Fatalf(fmtLoadSession, err)
 	}
@@ -82,6 +85,7 @@ func TestLoadSessionDiscardsDifferentDay(t *testing.T) {
 	cfg.MorningReminderPending = false
 	c := newCore(cfg, noopNotifier{})
 	c.sessionPath = sessPath
+	defer c.Stop()
 	if err := c.loadSession(); err != nil {
 		t.Fatalf(fmtLoadSession, err)
 	}
@@ -108,14 +112,16 @@ func TestLoadSessionPreservesFocusedTaskOrder(t *testing.T) {
 	cfg.MorningReminderPending = false
 	c := newCore(cfg, noopNotifier{})
 	c.sessionPath = sessPath
+	defer c.Stop()
 	c.tasks = store
 	c.execute(cmdStart)
 	c.focused = []task.Task{t3, t1}
-	c.saveSession()
+	c.saveSessionLocked()
 
 	store2, _ := task.NewFileStore(tasksPath)
 	c2 := newCore(cfg, noopNotifier{})
 	c2.sessionPath = sessPath
+	defer c2.Stop()
 	c2.tasks = store2
 	if err := c2.loadSession(); err != nil {
 		t.Fatalf(fmtLoadSession, err)
@@ -154,6 +160,7 @@ func TestLoadSessionDropsStaleTaskIDs(t *testing.T) {
 	cfg.MorningReminderPending = false
 	c := newCore(cfg, noopNotifier{})
 	c.sessionPath = sessPath
+	defer c.Stop()
 	c.tasks = store
 	if err := c.loadSession(); err != nil {
 		t.Fatalf(fmtLoadSession, err)
@@ -175,6 +182,7 @@ func TestExecuteSavesSession(t *testing.T) {
 	cfg.MorningReminderPending = false
 	c := newCore(cfg, noopNotifier{})
 	c.sessionPath = sessPath
+	defer c.Stop()
 
 	c.Execute(cmdStart)
 
@@ -208,12 +216,14 @@ func TestLoadSessionSuppressesMorningReminder(t *testing.T) {
 	cfg.MorningReminderPending = false
 	c := newCore(cfg, noopNotifier{})
 	c.sessionPath = sessPath
+	defer c.Stop()
 	c.execute(cmdStart)
-	c.saveSession()
+	c.saveSessionLocked()
 
 	cfg2 := config.Default()
 	c2 := newCore(cfg2, noopNotifier{})
 	c2.sessionPath = sessPath
+	defer c2.Stop()
 	if err := c2.loadSession(); err != nil {
 		t.Fatalf(fmtLoadSession, err)
 	}
@@ -234,8 +244,9 @@ func TestSaveLoadExpiredTimerTransitionsToAwaitingConfirm(t *testing.T) {
 	cfg.MorningReminderPending = false
 	c := newCore(cfg, noopNotifier{})
 	c.sessionPath = sessPath
+	defer c.Stop()
 	c.execute(cmdStart)
-	c.saveSession()
+	c.saveSessionLocked()
 
 	data, err := session.Load(sessPath)
 	if err != nil {
@@ -246,6 +257,7 @@ func TestSaveLoadExpiredTimerTransitionsToAwaitingConfirm(t *testing.T) {
 
 	c2 := newCore(cfg, noopNotifier{})
 	c2.sessionPath = sessPath
+	defer c2.Stop()
 	if err := c2.loadSession(); err != nil {
 		t.Fatalf(fmtLoadSession, err)
 	}
@@ -264,12 +276,14 @@ func TestSaveLoadPausedPreservesRemainingDuration(t *testing.T) {
 	cfg.MorningReminderPending = false
 	c := newCore(cfg, noopNotifier{})
 	c.sessionPath = sessPath
+	defer c.Stop()
 	c.execute(cmdStart)
 	c.execute("pause")
-	c.saveSession()
+	c.saveSessionLocked()
 
 	c2 := newCore(cfg, noopNotifier{})
 	c2.sessionPath = sessPath
+	defer c2.Stop()
 	if err := c2.loadSession(); err != nil {
 		t.Fatalf(fmtLoadSession, err)
 	}
@@ -293,6 +307,7 @@ func TestSaveLoadCompletedTodayPersists(t *testing.T) {
 	cfg.MorningReminderPending = false
 	c := newCore(cfg, noopNotifier{})
 	c.sessionPath = sessPath
+	defer c.Stop()
 
 	c.execute(cmdStart)
 	for i := 0; i < 3; i++ {
@@ -306,10 +321,11 @@ func TestSaveLoadCompletedTodayPersists(t *testing.T) {
 	if !strings.Contains(status, "Today: 3") {
 		t.Fatalf("expected Today: 3 before save, got %s", status)
 	}
-	c.saveSession()
+	c.saveSessionLocked()
 
 	c2 := newCore(cfg, noopNotifier{})
 	c2.sessionPath = sessPath
+	defer c2.Stop()
 	if err := c2.loadSession(); err != nil {
 		t.Fatalf(fmtLoadSession, err)
 	}
@@ -329,20 +345,22 @@ func TestSessionSavedAfterMidnightResetsOnReload(t *testing.T) {
 	yesterday := time.Date(2026, 3, 5, 17, 0, 0, 0, time.Local)
 	c := newCore(cfg, noopNotifier{})
 	c.sessionPath = sessPath
-	c.now = func() time.Time { return yesterday }
+	defer c.Stop()
+	c.setNow(func() time.Time { return yesterday })
 
 	c.Execute(cmdStart)
 	c.cycle.CompletePeriod()
 	c.Execute("pause")
 
 	afterMidnight := time.Date(2026, 3, 6, 0, 5, 0, 0, time.Local)
-	c.now = func() time.Time { return afterMidnight }
+	c.setNow(func() time.Time { return afterMidnight })
 	c.Stop()
 
 	today := time.Date(2026, 3, 6, 9, 0, 0, 0, time.Local)
 	c2 := newCore(cfg, noopNotifier{})
 	c2.sessionPath = sessPath
-	c2.now = func() time.Time { return today }
+	defer c2.Stop()
+	c2.setNow(func() time.Time { return today })
 	if err := c2.loadSession(); err != nil {
 		t.Fatalf(fmtLoadSession, err)
 	}

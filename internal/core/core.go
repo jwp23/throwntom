@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jwp23/throwntom/v3/internal/analytics"
@@ -18,6 +19,10 @@ import (
 )
 
 type Core struct {
+	mu                  sync.Mutex
+	publishMu           sync.Mutex
+	subscribers         map[chan State]struct{}
+	stopped             bool
 	cycle               *app.App
 	notifier            notifier.Notifier
 	state               *reminderState
@@ -55,8 +60,11 @@ func newCore(cfg config.Config, n notifier.Notifier) *Core {
 		repeatInterval: repeatInterval,
 		now:            time.Now,
 		longBreakEvery: cfg.Pomodoro.LongBreakEvery,
+		subscribers:    make(map[chan State]struct{}),
 	}
 	c.handlers = c.buildCommandHandlers()
+	c.cycle.SetOnChange(c.publishAsync)
+	c.state.onChange = c.publishAsync
 	return c
 }
 
@@ -97,24 +105,45 @@ func New(cfg config.Config, n notifier.Notifier, paths Paths) (*Core, error) {
 }
 
 func (c *Core) Start(ctx context.Context) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	startMorningScheduler(ctx, c.state, c.scheduler, c.repeatInterval, c.notifier)
 	if c.state.isMorningPending() && c.cycle.State() == engine.Idle && c.scheduler.IsActiveNow(c.now()) {
 		startMorningLoop(c.state, c.repeatInterval, c.notifier)
 	}
 }
 
+// Stop publishes a final state and then stops publishing: once it returns, no
+// background change can save the session or reach a subscriber.
 func (c *Core) Stop() {
+	c.mu.Lock()
 	c.cycle.AdvanceDay(c.now())
-	c.saveSession()
 	c.state.stopMorningLoop()
+	c.mu.Unlock()
+	c.publish()
+	c.mu.Lock()
+	c.stopped = true
+	c.mu.Unlock()
 }
 
 func (c *Core) Status() (statusLine string, state engine.State, morningPending bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.statusLocked()
+}
+
+func (c *Core) statusLocked() (statusLine string, state engine.State, morningPending bool) {
 	c.cycle.AdvanceDay(c.now())
 	return c.state.statusSnapshot(c.cycle)
 }
 
 func (c *Core) NextStage() (engine.State, time.Duration, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.nextStageLocked()
+}
+
+func (c *Core) nextStageLocked() (engine.State, time.Duration, bool) {
 	if c.cycle.State() != engine.AwaitingConfirm {
 		return engine.Idle, 0, false
 	}
@@ -135,38 +164,42 @@ type Response struct {
 }
 
 func (c *Core) Execute(line string) Response {
+	c.mu.Lock()
 	c.cycle.AdvanceDay(c.now())
-	result := c.execute(line)
-	c.saveSession()
-	statusLine, engineState, morningPending := c.Status()
+	result := c.executeLocked(line)
+	resp := c.responseLocked(result)
+	c.mu.Unlock()
+	c.publish()
+	return resp
+}
+
+func (c *Core) CancelFocus() Response {
+	c.mu.Lock()
+	result := c.cancelFocusPrompt()
+	resp := c.responseLocked(result)
+	c.mu.Unlock()
+	c.publish()
+	return resp
+}
+
+func (c *Core) responseLocked(result commandResult) Response {
+	statusLine, engineState, morningPending := c.statusLocked()
 	resp := Response{
 		StatusLine:     statusLine,
 		EngineState:    engineState,
 		MorningPending: morningPending,
 		Message:        result.message,
 		Exit:           result.exit,
-		Focused:        c.Focused(),
+		Focused:        c.focusedLocked(),
+		Stats:          result.stats,
 	}
 	if c.pendingFocusPrompt {
-		resp.FocusPrompt = c.FocusPrompt()
+		resp.FocusPrompt = c.focusPromptLocked()
 	}
-	resp.Stats = result.stats
 	if result.err != nil {
 		resp.Error = result.err.Error()
 	}
 	return resp
-}
-
-func (c *Core) CancelFocus() Response {
-	result := c.cancelFocusPrompt()
-	statusLine, engineState, morningPending := c.Status()
-	return Response{
-		StatusLine:     statusLine,
-		EngineState:    engineState,
-		MorningPending: morningPending,
-		Message:        result.message,
-		Focused:        c.Focused(),
-	}
 }
 
 type commandResult struct {
@@ -176,7 +209,9 @@ type commandResult struct {
 	err     error
 }
 
-func (c *Core) execute(line string) commandResult {
+// executeLocked runs one command. Callers must hold c.mu: every handler reads
+// or mutates Core state.
+func (c *Core) executeLocked(line string) commandResult {
 	trimmed := strings.TrimSpace(line)
 	if trimmed == "_cancel_focus" && c.pendingFocusPrompt {
 		return c.cancelFocusPrompt()

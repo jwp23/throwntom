@@ -26,7 +26,13 @@ type State struct {
 }
 
 func (c *Core) State() State {
-	statusLine, state, morningPending := c.Status()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.stateLocked()
+}
+
+func (c *Core) stateLocked() State {
+	statusLine, state, morningPending := c.statusLocked()
 	snap := c.cycle.Snapshot()
 	s := State{
 		State:               state,
@@ -42,7 +48,7 @@ func (c *Core) State() State {
 		end := snap.PhaseEndAt
 		s.PhaseEndAt = &end
 	}
-	if next, dur, ok := c.NextStage(); ok {
+	if next, dur, ok := c.nextStageLocked(); ok {
 		s.NextStage = &NextStage{State: next, DurationSeconds: int(dur / time.Second)}
 	}
 	if until, ok := c.state.snoozeDeadline(); ok {

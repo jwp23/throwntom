@@ -1,0 +1,58 @@
+package core
+
+// Subscribe returns a channel that receives the current State immediately and
+// a fresh State after every change. The channel holds one value; when the
+// subscriber is slow the newest State replaces the undelivered one. The
+// returned func stops delivery and closes the channel.
+func (c *Core) Subscribe() (<-chan State, func()) {
+	ch := make(chan State, 1)
+	c.mu.Lock()
+	// Registering and seeding under the lock keeps the first value in step with
+	// the fan-out: the buffer is empty and unshared, so the send cannot block.
+	c.subscribers[ch] = struct{}{}
+	ch <- c.stateLocked()
+	c.mu.Unlock()
+
+	cancel := func() {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		if _, ok := c.subscribers[ch]; ok {
+			delete(c.subscribers, ch)
+			close(ch)
+		}
+	}
+	return ch, cancel
+}
+
+// publish snapshots State, saves the session and fans out to subscribers.
+// Callers must not hold c.mu (State takes it), so verbs do their work under the
+// lock, release it, then publish. Change callbacks from app.App and
+// reminderState fire from code paths that already hold c.mu, so they go through
+// publishAsync instead.
+//
+// publishMu serialises publishes: a State is read and delivered while it is
+// held, so a subscriber never receives a State older than one it already got.
+func (c *Core) publish() {
+	c.publishMu.Lock()
+	defer c.publishMu.Unlock()
+
+	s := c.State()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.stopped {
+		return
+	}
+	c.saveSessionLocked()
+	for ch := range c.subscribers {
+		select {
+		case <-ch: // drop the stale value the subscriber has not read yet
+		default:
+		}
+		ch <- s
+	}
+}
+
+// publishAsync publishes on its own goroutine, for callers that hold c.mu.
+func (c *Core) publishAsync() {
+	go c.publish()
+}

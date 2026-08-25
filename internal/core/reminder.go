@@ -18,6 +18,17 @@ type reminderState struct {
 	snoozeUntil    time.Time
 	lastTriggerDay string
 	morningPending bool
+	// onChange runs after a change an observer can see, with s.mu released.
+	onChange func()
+}
+
+func (s *reminderState) notifyChange() {
+	s.mu.Lock()
+	fn := s.onChange
+	s.mu.Unlock()
+	if fn != nil {
+		fn()
+	}
 }
 
 func (s *reminderState) statusSnapshot(cycle *app.App) (string, engine.State, bool) {
@@ -29,24 +40,30 @@ func (s *reminderState) statusSnapshot(cycle *app.App) (string, engine.State, bo
 
 func (s *reminderState) beginMorningLoop() (context.Context, bool) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s.morningCancel != nil {
+		s.mu.Unlock()
 		return nil, false
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	s.morningPending = true
 	s.morningCancel = cancel
+	s.mu.Unlock()
+	s.notifyChange()
 	return ctx, true
 }
 
 func (s *reminderState) stopMorningLoop() {
 	s.mu.Lock()
 	cancel := s.morningCancel
+	wasPending := s.morningPending
 	s.morningCancel = nil
 	s.morningPending = false
 	s.mu.Unlock()
 	if cancel != nil {
 		cancel()
+	}
+	if cancel != nil || wasPending {
+		s.notifyChange()
 	}
 }
 
@@ -65,22 +82,28 @@ func (s *reminderState) shouldStartMorning(now time.Time, sched *scheduler.Sched
 }
 
 func (s *reminderState) clearSnooze() {
-	s.mu.Lock()
-	s.snoozeUntil = time.Time{}
-	s.mu.Unlock()
+	s.setSnoozeUntil(time.Time{})
 }
 
 func (s *reminderState) setSnoozeUntil(until time.Time) {
 	s.mu.Lock()
+	changed := !s.snoozeUntil.Equal(until)
 	s.snoozeUntil = until
 	s.mu.Unlock()
+	if changed {
+		s.notifyChange()
+	}
 }
 
 func (s *reminderState) markSkippedToday(now time.Time) {
 	s.mu.Lock()
+	changed := !s.snoozeUntil.IsZero()
 	s.snoozeUntil = time.Time{}
 	s.lastTriggerDay = now.Format("2006-01-02")
 	s.mu.Unlock()
+	if changed {
+		s.notifyChange()
+	}
 }
 
 func (s *reminderState) isMorningPending() bool {

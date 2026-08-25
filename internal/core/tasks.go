@@ -227,7 +227,7 @@ func (c *Core) enterFocusPrompt(action string) commandResult {
 	c.pendingFocusPrompt = true
 	c.pendingFocusToggled = make(map[int]bool)
 	c.pendingFocusAction = action
-	return commandResult{message: c.FocusPrompt()}
+	return commandResult{message: c.focusPromptLocked()}
 }
 
 func (c *Core) handleFocusPromptInput(input string) commandResult {
@@ -241,7 +241,7 @@ func (c *Core) handleFocusPromptInput(input string) commandResult {
 			return commandResult{err: fmt.Errorf("add task: %w", err)}
 		}
 		c.pendingFocusToggled[t.ID] = true
-		return commandResult{message: c.FocusPrompt()}
+		return commandResult{message: c.focusPromptLocked()}
 	}
 	pos, err := strconv.Atoi(input)
 	if err != nil {
@@ -257,7 +257,7 @@ func (c *Core) handleFocusPromptInput(input string) commandResult {
 	} else {
 		c.pendingFocusToggled[id] = true
 	}
-	return commandResult{message: c.FocusPrompt()}
+	return commandResult{message: c.focusPromptLocked()}
 }
 
 func (c *Core) finalizeFocusPrompt() commandResult {
@@ -281,6 +281,12 @@ func (c *Core) finalizeFocusPrompt() commandResult {
 }
 
 func (c *Core) FocusPrompt() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.focusPromptLocked()
+}
+
+func (c *Core) focusPromptLocked() string {
 	active := c.tasks.Active()
 	var lines []string
 	lines = append(lines, "Select tasks for this pomodoro:")
@@ -312,10 +318,18 @@ func (c *Core) cancelFocusPrompt() commandResult {
 }
 
 func (c *Core) Focused() []task.Task {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.focusedLocked()
+}
+
+func (c *Core) focusedLocked() []task.Task {
 	return append([]task.Task(nil), c.focused...)
 }
 
 func (c *Core) FocusPromptPending() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.pendingFocusPrompt
 }
 

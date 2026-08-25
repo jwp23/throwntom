@@ -36,6 +36,7 @@ func newTestCore(t *testing.T, cfg config.Config, paths core.Paths) *core.Core {
 	if err != nil {
 		t.Fatalf("core.New: %v", err)
 	}
+	t.Cleanup(c.Stop)
 	return c
 }
 

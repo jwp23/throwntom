@@ -100,7 +100,7 @@ func TestStatusResetsCompletedTodayOnDayRollover(t *testing.T) {
 	c := newCore(cfg, noopNotifier{})
 
 	yesterday := time.Date(2026, 3, 5, 17, 0, 0, 0, time.Local)
-	c.now = func() time.Time { return yesterday }
+	c.setNow(func() time.Time { return yesterday })
 
 	c.Execute(cmdStart)
 	c.cycle.CompletePeriod()
@@ -111,7 +111,7 @@ func TestStatusResetsCompletedTodayOnDayRollover(t *testing.T) {
 	}
 
 	today := time.Date(2026, 3, 6, 9, 0, 0, 0, time.Local)
-	c.now = func() time.Time { return today }
+	c.setNow(func() time.Time { return today })
 
 	status2, _, _ := c.Status()
 	if !strings.Contains(status2, statusTodayPomodoros0) {

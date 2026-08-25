@@ -9,7 +9,7 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/task"
 )
 
-func (c *Core) saveSession() {
+func (c *Core) saveSessionLocked() {
 	if c.sessionPath == "" {
 		return
 	}
@@ -23,7 +23,11 @@ func (c *Core) saveSession() {
 	}
 }
 
+// loadSession takes the Core lock: restoring the app snapshot publishes a
+// change, and the publish must not observe the half-restored focus list.
 func (c *Core) loadSession() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.sessionPath == "" {
 		return nil
 	}

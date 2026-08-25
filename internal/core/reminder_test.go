@@ -45,7 +45,7 @@ func TestStartBeginsMorningLoopWhenPendingAndIdle(t *testing.T) {
 	cfg := config.Default()
 	c := newCore(cfg, noopNotifier{})
 	// Monday at 10:00 — after default schedule 09:15
-	c.now = func() time.Time { return time.Date(2026, 3, 2, 10, 0, 0, 0, time.Local) }
+	c.setNow(func() time.Time { return time.Date(2026, 3, 2, 10, 0, 0, 0, time.Local) })
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -100,7 +100,7 @@ func TestStartSkipsMorningLoopBeforeScheduledTime(t *testing.T) {
 	cfg := config.Default()
 	c := newCore(cfg, noopNotifier{})
 	// Monday at 08:00 — before default schedule 09:15
-	c.now = func() time.Time { return time.Date(2026, 3, 2, 8, 0, 0, 0, time.Local) }
+	c.setNow(func() time.Time { return time.Date(2026, 3, 2, 8, 0, 0, 0, time.Local) })
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -119,7 +119,7 @@ func TestStartBeginsMorningLoopAfterScheduledTime(t *testing.T) {
 	cfg := config.Default()
 	c := newCore(cfg, noopNotifier{})
 	// Monday at 11:30 — after default schedule 09:15
-	c.now = func() time.Time { return time.Date(2026, 3, 2, 11, 30, 0, 0, time.Local) }
+	c.setNow(func() time.Time { return time.Date(2026, 3, 2, 11, 30, 0, 0, time.Local) })
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -137,7 +137,7 @@ func TestStartBeginsMorningLoopAfterScheduledTime(t *testing.T) {
 func TestMorningSnoozeRestartsLoopAfterExpiry(t *testing.T) {
 	cfg := config.Default()
 	c := newCore(cfg, noopNotifier{})
-	c.now = func() time.Time { return time.Date(2026, 3, 2, 10, 0, 0, 0, time.Local) }
+	c.setNow(func() time.Time { return time.Date(2026, 3, 2, 10, 0, 0, 0, time.Local) })
 
 	// Start morning loop manually to simulate scheduler trigger
 	startMorningLoop(c.state, c.repeatInterval, c.notifier)
@@ -174,7 +174,7 @@ func TestMorningSnoozeRestartsLoopAfterExpiry(t *testing.T) {
 func TestMorningSnoozeSkipsRestartIfNotIdle(t *testing.T) {
 	cfg := config.Default()
 	c := newCore(cfg, noopNotifier{})
-	c.now = func() time.Time { return time.Date(2026, 3, 2, 10, 0, 0, 0, time.Local) }
+	c.setNow(func() time.Time { return time.Date(2026, 3, 2, 10, 0, 0, 0, time.Local) })
 
 	// Start morning loop manually
 	startMorningLoop(c.state, c.repeatInterval, c.notifier)
@@ -207,7 +207,7 @@ func TestMorningSnoozeSkipsRestartIfNotIdle(t *testing.T) {
 func TestMorningSnoozeStopMidSnooze(t *testing.T) {
 	cfg := config.Default()
 	c := newCore(cfg, noopNotifier{})
-	c.now = func() time.Time { return time.Date(2026, 3, 2, 10, 0, 0, 0, time.Local) }
+	c.setNow(func() time.Time { return time.Date(2026, 3, 2, 10, 0, 0, 0, time.Local) })
 
 	// Start morning loop manually
 	startMorningLoop(c.state, c.repeatInterval, c.notifier)
