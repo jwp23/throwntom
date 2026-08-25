@@ -82,15 +82,15 @@ removed after the lock is won.
 
 `State` document:
 
-```json
+```jsonc
 {
   "state": "work",
   "phase_end_at": "2026-08-25T10:25:00Z",
-  "paused_remaining": 0,
+  "paused_remaining": 0,          // seconds
   "completed_today": 3,
   "work_sessions_in_block": 1,
   "long_break_every": 4,
-  "next_stage": {"state": "short_break", "duration": 300},
+  "next_stage": {"state": "short_break", "duration": 300},  // seconds
   "morning_pending": false,
   "snooze_until": null,
   "status_line": "Work 12:34",
@@ -149,7 +149,7 @@ application menu bar:
   window. `⌘,` opens the config file in the default editor.
 
 Each action resolves to a command string sent to `POST /v1/command`
-(selecting row 3 and pressing `⌘⏌` sends `done 3`). The popover and the
+(selecting row 3 and pressing `⌘⏎` sends `done 3`). The popover and the
 window share one `Commands` definition.
 
 ### Data flow
