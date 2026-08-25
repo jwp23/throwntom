@@ -262,3 +262,29 @@ func TestTasksListsActiveAndCompleted(t *testing.T) {
 		t.Fatalf("completed = %+v", list.Completed)
 	}
 }
+
+func TestAddTaskReturnsCreatedTask(t *testing.T) {
+	c := newTestCoreWithTasks(t)
+	tk, err := c.AddTask("write tests")
+	if err != nil {
+		t.Fatalf("AddTask: %v", err)
+	}
+	if tk.Description != "write tests" {
+		t.Fatalf("description = %q", tk.Description)
+	}
+	if tk.ID == 0 {
+		t.Fatal("expected non-zero ID")
+	}
+	list := c.Tasks()
+	if len(list.Active) != 1 || list.Active[0].ID != tk.ID {
+		t.Fatalf("task not in active list: %+v", list.Active)
+	}
+}
+
+func TestAddTaskRejectsEmpty(t *testing.T) {
+	c := newTestCoreWithTasks(t)
+	_, err := c.AddTask(" ")
+	if err == nil {
+		t.Fatal("expected error for empty description")
+	}
+}

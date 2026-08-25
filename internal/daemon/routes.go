@@ -63,17 +63,16 @@ func (s *server) postTask(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Description string `json:"description"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || strings.TrimSpace(body.Description) == "" {
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, errors.New("description is required"))
 		return
 	}
-	resp := s.core.Execute("task add " + strings.TrimSpace(body.Description))
-	if resp.Error != "" {
-		writeError(w, http.StatusConflict, errors.New(resp.Error))
+	tk, err := s.core.AddTask(body.Description)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, errors.New("description is required"))
 		return
 	}
-	active := s.core.Tasks().Active
-	writeJSON(w, http.StatusCreated, active[len(active)-1])
+	writeJSON(w, http.StatusCreated, tk)
 }
 
 func (s *server) taskByID(w http.ResponseWriter, r *http.Request, action string) {

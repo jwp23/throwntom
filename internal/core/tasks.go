@@ -360,3 +360,24 @@ func (c *Core) Tasks() TaskList {
 	}
 	return TaskList{Active: c.tasks.Active(), Completed: c.tasks.Completed()}
 }
+
+// AddTask creates a new task with the given description and publishes the change.
+// It returns an error if the task store is nil or the description is empty.
+func (c *Core) AddTask(description string) (task.Task, error) {
+	c.mu.Lock()
+	if c.tasks == nil {
+		c.mu.Unlock()
+		return task.Task{}, fmt.Errorf("task store not initialized")
+	}
+	if strings.TrimSpace(description) == "" {
+		c.mu.Unlock()
+		return task.Task{}, fmt.Errorf("description is required")
+	}
+	t, err := c.tasks.Add(strings.TrimSpace(description))
+	c.mu.Unlock()
+	if err != nil {
+		return task.Task{}, err
+	}
+	c.publish()
+	return t, nil
+}
