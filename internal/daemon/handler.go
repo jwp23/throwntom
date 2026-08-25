@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/jwp23/throwntom/v3/internal/analytics"
 	"github.com/jwp23/throwntom/v3/internal/core"
@@ -32,6 +31,7 @@ type server struct {
 func NewHandler(c *core.Core) http.Handler {
 	s := &server{core: c}
 	mux := http.NewServeMux()
+	s.registerRoutes(mux)
 	mux.HandleFunc("GET /v1/state", s.getState)
 	mux.HandleFunc("POST /v1/command", s.postCommand)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -57,15 +57,7 @@ func (s *server) postCommand(w http.ResponseWriter, r *http.Request) {
 // the command endpoint and the verb/task routes.
 func (s *server) runCommand(w http.ResponseWriter, line string) {
 	resp := s.core.Execute(line)
-	if resp.Error != "" {
-		status := http.StatusConflict
-		if strings.HasPrefix(resp.Error, "unknown command") {
-			status = http.StatusBadRequest
-		}
-		writeError(w, status, errors.New(resp.Error))
-		return
-	}
-	writeJSON(w, http.StatusOK, commandResponse{Message: resp.Message, Exit: resp.Exit, Stats: resp.Stats})
+	writeCommandOutcome(w, resp)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
