@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -34,31 +33,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg, err := loadConfig(*configPath)
+	cfg, err := config.LoadDefault(*configPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "config error: %v\n", err)
 		os.Exit(1)
 	}
 
 	run(cfg)
-}
-
-func loadConfig(path string) (config.Config, error) {
-	if path == "" {
-		defaultPath, err := defaultConfigPath()
-		if err != nil {
-			return config.Config{}, err
-		}
-		cfg, err := config.LoadFile(defaultPath)
-		if err == nil {
-			return cfg, nil
-		}
-		if errors.Is(err, os.ErrNotExist) {
-			return config.Default(), nil
-		}
-		return config.Config{}, err
-	}
-	return config.LoadFile(path)
 }
 
 func ensureConfigDir() error {
@@ -71,10 +52,6 @@ func ensureConfigDir() error {
 		return fmt.Errorf("create config directory: %w", err)
 	}
 	return nil
-}
-
-func defaultConfigPath() (string, error) {
-	return config.DirPath("config.toml")
 }
 
 func printUsage() {

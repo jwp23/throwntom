@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -266,6 +267,26 @@ func expandDays(days []string, concrete map[string]bool) []string {
 		}
 	}
 	return expanded
+}
+
+// LoadDefault loads the config at path, or the default config file when path
+// is empty. A missing default config file is not an error; it yields Default().
+func LoadDefault(path string) (Config, error) {
+	if path == "" {
+		defaultPath, err := DirPath("config.toml")
+		if err != nil {
+			return Config{}, err
+		}
+		cfg, err := LoadFile(defaultPath)
+		if err == nil {
+			return cfg, nil
+		}
+		if errors.Is(err, os.ErrNotExist) {
+			return Default(), nil
+		}
+		return Config{}, err
+	}
+	return LoadFile(path)
 }
 
 // DirPath returns the path of filename inside the user's throwntom config directory.

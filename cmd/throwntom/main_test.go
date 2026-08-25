@@ -161,7 +161,7 @@ func TestLoadConfigUsesDefaultHomeConfigFile(t *testing.T) {
 		t.Fatalf("write default config file: %v", err)
 	}
 
-	cfg, err := loadConfig("")
+	cfg, err := config.LoadDefault("")
 	if err != nil {
 		t.Fatalf("load default config: %v", err)
 	}
