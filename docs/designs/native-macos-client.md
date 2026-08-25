@@ -64,7 +64,7 @@ the Linux smoke test.
 ## API contract
 
 Transport: HTTP/1.1 + JSON over a Unix socket at
-`<config dir>/daemon.sock` (macOS: `~/Library/Application Support/throwntom/`).
+`~/.config/throwntom/daemon.sock` (the directory the TUI already uses for config, tasks and session).
 A sibling lockfile is `flock`ed for single-instance; stale sockets are
 removed after the lock is won.
 
