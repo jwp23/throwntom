@@ -319,17 +319,6 @@ func (d *timerCore) isFocusPromptPending() bool {
 	return d.pendingFocusPrompt
 }
 
-func (d *timerCore) formatFocusLines() []string {
-	if len(d.focused) == 0 {
-		return nil
-	}
-	lines := []string{stateIcon(engine.Work, d.emoji) + " Focus:"}
-	for i, tk := range d.focused {
-		lines = append(lines, fmt.Sprintf("  %d. %s", i+1, tk.Description))
-	}
-	return lines
-}
-
 func (d *timerCore) isWorkSession() bool {
 	return d.cycle.State() == engine.Work
 }

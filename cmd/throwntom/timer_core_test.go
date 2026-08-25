@@ -86,61 +86,32 @@ func TestTypedConfirmStillAdvances(t *testing.T) {
 	}
 }
 
-func TestSecondaryStatusShowsNextStageWhenAwaiting(t *testing.T) {
+func TestNextStageWhenAwaiting(t *testing.T) {
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
 	core := newTimerCore(cfg, noopNotifier{})
 	core.execute(cmdStart)
 	core.cycle.CompletePeriod()
 
-	line := core.secondaryStatus()
-	if !strings.Contains(line, "Next:") {
-		t.Fatalf("expected 'Next:' in secondary line, got %s", line)
+	next, dur, ok := core.nextStage()
+	if !ok {
+		t.Fatal("expected next stage while awaiting confirm")
 	}
-	if !strings.Contains(line, "short break") {
-		t.Fatalf("expected next phase in secondary line, got %s", line)
-	}
-	if !strings.Contains(line, "5 min") {
-		t.Fatalf("expected duration in secondary line, got %s", line)
-	}
-	if !strings.Contains(line, "press enter to start") {
-		t.Fatalf("expected action hint in secondary line, got %s", line)
+	if next != engine.ShortBreak || dur != 5*time.Minute {
+		t.Fatalf("next stage = %s %s", next, dur)
 	}
 }
 
-func TestSecondaryStatusEmptyOutsideAwaiting(t *testing.T) {
+func TestNextStageAbsentOutsideAwaiting(t *testing.T) {
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
 	core := newTimerCore(cfg, noopNotifier{})
-
-	if line := core.secondaryStatus(); line != "" {
-		t.Fatalf("expected empty secondary line when Idle, got %q", line)
+	if _, _, ok := core.nextStage(); ok {
+		t.Fatal("expected no next stage when idle")
 	}
 	core.execute(cmdStart)
-	if line := core.secondaryStatus(); line != "" {
-		t.Fatalf("expected empty secondary line during Work, got %q", line)
-	}
-}
-
-func TestSecondaryStatusLongBreakAtBoundary(t *testing.T) {
-	cfg := config.Default()
-	cfg.MorningReminderPending = false
-	core := newTimerCore(cfg, noopNotifier{})
-	core.execute(cmdStart)
-	for i := 0; i < 3; i++ {
-		core.cycle.CompletePeriod()
-		core.execute("confirm")
-		core.cycle.CompletePeriod()
-		core.execute("confirm")
-	}
-	core.cycle.CompletePeriod()
-
-	line := core.secondaryStatus()
-	if !strings.Contains(line, "long break") {
-		t.Fatalf("expected long break in secondary line, got %s", line)
-	}
-	if !strings.Contains(line, "15 min") {
-		t.Fatalf("expected 15 min in secondary line, got %s", line)
+	if _, _, ok := core.nextStage(); ok {
+		t.Fatal("expected no next stage during work")
 	}
 }
 

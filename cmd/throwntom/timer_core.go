@@ -112,7 +112,6 @@ type timerCore struct {
 	pendingFocusToggled map[int]bool
 	pendingFocusAction  string
 	sessionPath         string
-	emoji               bool
 	eventWriter         *eventlog.Writer
 	eventsPath          string
 }
@@ -135,7 +134,6 @@ func newTimerCore(cfg config.Config, n notifier.Notifier) *timerCore {
 		scheduler:      scheduler.New(config.ScheduleDayTimes(cfg.Schedule)),
 		repeatInterval: repeatInterval,
 		now:            time.Now,
-		emoji:          cfg.Emoji,
 	}
 	core.handlers = core.buildCommandHandlers()
 	return core
@@ -159,12 +157,12 @@ func (d *timerCore) snapshot() (string, engine.State, bool) {
 	return d.state.statusSnapshot(d.cycle)
 }
 
-func (d *timerCore) secondaryStatus() string {
+func (d *timerCore) nextStage() (engine.State, time.Duration, bool) {
 	if d.cycle.State() != engine.AwaitingConfirm {
-		return ""
+		return engine.Idle, 0, false
 	}
 	next, duration := d.cycle.NextStage()
-	return nextStageLabel(next, duration)
+	return next, duration, true
 }
 
 func (d *timerCore) executeCommand(line string) commandResponse {
@@ -178,7 +176,7 @@ func (d *timerCore) executeCommand(line string) commandResponse {
 		MorningPending: morningPending,
 		Message:        result.message,
 		Exit:           result.exit,
-		FocusLines:     d.formatFocusLines(),
+		Focused:        d.focusedTasks(),
 	}
 	if d.pendingFocusPrompt {
 		resp.FocusPrompt = d.formatFocusPrompt()

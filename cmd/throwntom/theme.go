@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/jwp23/throwntom/v3/internal/engine"
+	"github.com/jwp23/throwntom/v3/internal/task"
 )
 
 var (
@@ -98,6 +99,17 @@ func stateStyle(state engine.State) lipgloss.Style {
 	default:
 		return lipgloss.NewStyle().Foreground(colorYellow)
 	}
+}
+
+func formatFocusLines(focused []task.Task, emoji bool) []string {
+	if len(focused) == 0 {
+		return nil
+	}
+	lines := []string{stateIcon(engine.Work, emoji) + " Focus:"}
+	for i, tk := range focused {
+		lines = append(lines, fmt.Sprintf("  %d. %s", i+1, tk.Description))
+	}
+	return lines
 }
 
 func nextStageLabel(next engine.State, duration time.Duration) string {

@@ -444,18 +444,11 @@ func TestControlResponseIncludesFocusLines(t *testing.T) {
 	core.execute("") // skip prompt
 	core.execute(cmdTaskFocus1)
 	resp := core.executeCommand("status")
-	if len(resp.FocusLines) == 0 {
-		t.Fatal("expected focus lines in response")
+	if len(resp.Focused) == 0 {
+		t.Fatal("expected focused tasks in response")
 	}
-	found := false
-	for _, line := range resp.FocusLines {
-		if strings.Contains(line, "important") {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Fatalf("expected task description in focus lines, got %v", resp.FocusLines)
+	if resp.Focused[0].Description != "important" {
+		t.Fatalf("expected task description in focused tasks, got %v", resp.Focused)
 	}
 }
 
@@ -476,8 +469,8 @@ func TestControlResponseNoFocusLinesWhenEmpty(t *testing.T) {
 	core.execute("start") // enters prompt even with no tasks
 	core.execute("")      // skip prompt, start pomodoro
 	resp := core.executeCommand("status")
-	if len(resp.FocusLines) != 0 {
-		t.Fatalf("expected no focus lines, got %v", resp.FocusLines)
+	if len(resp.Focused) != 0 {
+		t.Fatalf("expected no focused tasks, got %v", resp.Focused)
 	}
 }
 

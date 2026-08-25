@@ -105,3 +105,18 @@ func TestBuildCallbacksRendersStatsView(t *testing.T) {
 		t.Fatalf("expected rendered stats view, got %q", resp.StatsView)
 	}
 }
+
+func TestBuildCallbacksSecondaryStatusRendersNextStage(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	core := newTimerCore(cfg, noopNotifier{})
+	core.execute("start")
+	core.cycle.CompletePeriod()
+
+	line := buildCallbacks(cfg, core).SecondaryStatus()
+	for _, want := range []string{"Next:", "short break", "5 min", "press enter to start"} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("expected %q in %q", want, line)
+		}
+	}
+}

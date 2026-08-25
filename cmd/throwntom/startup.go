@@ -48,37 +48,45 @@ func buildCallbacks(cfg config.Config, core *timerCore) interactiveCallbacks {
 		fmt.Sprintf("%dm work / %dm short / %dm long / every %d", cfg.Pomodoro.WorkMinutes, cfg.Pomodoro.ShortBreakMinutes, cfg.Pomodoro.LongBreakMinutes, cfg.Pomodoro.LongBreakEvery),
 	}
 
+	render := func(resp commandResponse) commandResponse {
+		resp.FocusLines = formatFocusLines(resp.Focused, cfg.Emoji)
+		if resp.Stats != nil {
+			resp.StatsView = renderDashboard(*resp.Stats, core.now(), cfg.Stats.TierLow, cfg.Stats.TierMid)
+		}
+		return resp
+	}
 	return interactiveCallbacks{
-		HeaderLines:     header,
-		HelpLines:       strings.Split(commandsHelp(), "\n"),
-		Emoji:           cfg.Emoji,
-		StatusSnapshot:  core.snapshot,
-		SecondaryStatus: core.secondaryStatus,
+		HeaderLines:    header,
+		HelpLines:      strings.Split(commandsHelp(), "\n"),
+		Emoji:          cfg.Emoji,
+		StatusSnapshot: core.snapshot,
+		SecondaryStatus: func() string {
+			next, dur, ok := core.nextStage()
+			if !ok {
+				return ""
+			}
+			return nextStageLabel(next, dur)
+		},
 		FocusSnapshot: func() ([]string, string) {
-			focusLines := core.formatFocusLines()
 			focusPrompt := ""
 			if core.isFocusPromptPending() {
 				focusPrompt = core.formatFocusPrompt()
 			}
-			return focusLines, focusPrompt
+			return formatFocusLines(core.focusedTasks(), cfg.Emoji), focusPrompt
 		},
 		Execute: func(command string) (commandResponse, error) {
-			resp := core.executeCommand(command)
-			if resp.Stats != nil {
-				resp.StatsView = renderDashboard(*resp.Stats, core.now(), cfg.Stats.TierLow, cfg.Stats.TierMid)
-			}
-			return resp, nil
+			return render(core.executeCommand(command)), nil
 		},
 		CancelFocus: func() commandResponse {
 			result := core.cancelFocusPrompt()
 			statusLine, engineState, morningPending := core.snapshot()
-			return commandResponse{
+			return render(commandResponse{
 				StatusLine:     statusLine,
 				EngineState:    engineState,
 				MorningPending: morningPending,
 				Message:        result.message,
-				FocusLines:     core.formatFocusLines(),
-			}
+				Focused:        core.focusedTasks(),
+			})
 		},
 	}
 }
