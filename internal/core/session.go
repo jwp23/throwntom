@@ -13,14 +13,10 @@ func (c *Core) saveSession() {
 	if c.sessionPath == "" {
 		return
 	}
-	var focusIDs []int
-	for _, t := range c.focused {
-		focusIDs = append(focusIDs, t.ID)
-	}
 	data := session.Data{
 		SavedAt:        c.now(),
 		App:            c.cycle.Snapshot(),
-		FocusedTaskIDs: focusIDs,
+		FocusedTaskIDs: c.focusedIDs(),
 	}
 	if err := session.Save(c.sessionPath, data); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: session save failed: %v\n", err)

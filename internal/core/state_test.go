@@ -1,0 +1,94 @@
+package core
+
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/jwp23/throwntom/v3/internal/config"
+	"github.com/jwp23/throwntom/v3/internal/engine"
+)
+
+func TestStateIdle(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+
+	s := c.State()
+	if s.State != engine.Idle || s.PhaseEndAt != nil || s.NextStage != nil || s.SnoozeUntil != nil {
+		t.Fatalf("unexpected idle state %+v", s)
+	}
+	if s.LongBreakEvery != cfg.Pomodoro.LongBreakEvery {
+		t.Fatalf("long_break_every = %d", s.LongBreakEvery)
+	}
+	if s.StatusLine == "" {
+		t.Fatal("expected status line")
+	}
+}
+
+func TestStateWorkHasPhaseEnd(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+	c.execute(cmdStart)
+
+	s := c.State()
+	if s.State != engine.Work || s.PhaseEndAt == nil || !s.PhaseEndAt.After(time.Now()) {
+		t.Fatalf("expected work with future phase end, got %+v", s)
+	}
+}
+
+func TestStateAwaitingConfirmHasNextStage(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+	c.execute(cmdStart)
+	c.cycle.CompletePeriod()
+
+	s := c.State()
+	if s.NextStage == nil || s.NextStage.State != engine.ShortBreak || s.NextStage.DurationSeconds != 300 {
+		t.Fatalf("expected short break next stage, got %+v", s.NextStage)
+	}
+	if s.CompletedToday != 1 {
+		t.Fatalf("completed_today = %d", s.CompletedToday)
+	}
+}
+
+func TestStatePausedRemaining(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+	c.execute(cmdStart)
+	c.execute("pause")
+
+	s := c.State()
+	if s.State != engine.Paused || s.PausedRemaining < 1490 || s.PausedRemaining > 1500 {
+		t.Fatalf("expected ~1500s paused remaining, got %+v", s)
+	}
+}
+
+func TestStateSnoozeUntil(t *testing.T) {
+	cfg := config.Default()
+	c := newCore(cfg, noopNotifier{})
+	c.execute("snooze 10")
+
+	s := c.State()
+	if s.SnoozeUntil == nil || !s.SnoozeUntil.After(time.Now().Add(9*time.Minute)) {
+		t.Fatalf("expected snooze_until ~10m ahead, got %+v", s.SnoozeUntil)
+	}
+}
+
+func TestStateJSONTags(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	raw, err := json.Marshal(newCore(cfg, noopNotifier{}).State())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{`"state":"idle"`, `"phase_end_at":null`, `"paused_remaining":0`, `"completed_today":0`, `"work_sessions_in_block":0`, `"long_break_every":`, `"next_stage":null`, `"morning_pending":false`, `"snooze_until":null`, `"status_line":"`, `"focused_task_ids":`} {
+		if !strings.Contains(string(raw), key) {
+			t.Fatalf("missing %s in %s", key, raw)
+		}
+	}
+}

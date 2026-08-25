@@ -89,6 +89,12 @@ func (s *reminderState) isMorningPending() bool {
 	return s.morningPending
 }
 
+func (s *reminderState) snoozeDeadline() (time.Time, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.snoozeUntil, !s.snoozeUntil.IsZero()
+}
+
 func startMorningLoop(state *reminderState, repeatInterval time.Duration, n notifier.Notifier) {
 	ctx, shouldStart := state.beginMorningLoop()
 	if !shouldStart {

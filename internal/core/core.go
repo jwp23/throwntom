@@ -33,6 +33,7 @@ type Core struct {
 	sessionPath         string
 	eventWriter         *eventlog.Writer
 	eventsPath          string
+	longBreakEvery      int
 }
 
 type commandHandler func(parts []string) commandResult
@@ -53,6 +54,7 @@ func newCore(cfg config.Config, n notifier.Notifier) *Core {
 		scheduler:      scheduler.New(config.ScheduleDayTimes(cfg.Schedule)),
 		repeatInterval: repeatInterval,
 		now:            time.Now,
+		longBreakEvery: cfg.Pomodoro.LongBreakEvery,
 	}
 	c.handlers = c.buildCommandHandlers()
 	return c
