@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jwp23/throwntom/v3/internal/config"
 )
 
 func TestCommandHelpIncludesAllCommands(t *testing.T) {
@@ -39,9 +41,9 @@ func TestConfigDirPathReturnsPathWithoutCreating(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	path, err := configDirPath("tasks.json")
+	path, err := config.DirPath("tasks.json")
 	if err != nil {
-		t.Fatalf("configDirPath: %v", err)
+		t.Fatalf("config.DirPath: %v", err)
 	}
 	dir := filepath.Dir(path)
 	if _, err := os.Stat(dir); err == nil {
@@ -56,9 +58,9 @@ func TestEnsureConfigDirCreatesDirectory(t *testing.T) {
 	if err := ensureConfigDir(); err != nil {
 		t.Fatalf("ensureConfigDir: %v", err)
 	}
-	path, err := configDirPath("tasks.json")
+	path, err := config.DirPath("tasks.json")
 	if err != nil {
-		t.Fatalf("configDirPath: %v", err)
+		t.Fatalf("config.DirPath: %v", err)
 	}
 	dir := filepath.Dir(path)
 	info, err := os.Stat(dir)

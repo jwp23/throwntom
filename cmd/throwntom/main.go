@@ -73,28 +73,20 @@ func ensureConfigDir() error {
 	return nil
 }
 
-func configDirPath(filename string) (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("resolve home directory: %w", err)
-	}
-	return filepath.Join(homeDir, ".config", "throwntom", filename), nil
-}
-
 func defaultConfigPath() (string, error) {
-	return configDirPath("config.toml")
+	return config.DirPath("config.toml")
 }
 
 func defaultTasksPath() (string, error) {
-	return configDirPath("tasks.json")
+	return config.DirPath("tasks.json")
 }
 
 func defaultSessionPath() (string, error) {
-	return configDirPath("session.json")
+	return config.DirPath("session.json")
 }
 
 func defaultEventsPath() (string, error) {
-	return configDirPath("events.jsonl")
+	return config.DirPath("events.jsonl")
 }
 
 func printUsage() {

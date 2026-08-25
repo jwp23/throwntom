@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -265,4 +266,13 @@ func expandDays(days []string, concrete map[string]bool) []string {
 		}
 	}
 	return expanded
+}
+
+// DirPath returns the path of filename inside the user's throwntom config directory.
+func DirPath(filename string) (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve home directory: %w", err)
+	}
+	return filepath.Join(homeDir, ".config", "throwntom", filename), nil
 }
