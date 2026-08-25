@@ -10,15 +10,19 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/engine"
 )
 
-func postJSON(t *testing.T, url string, body any) *http.Response {
+func postJSONWith(t *testing.T, client *http.Client, url string, body any) *http.Response {
 	t.Helper()
 	raw, _ := json.Marshal(body)
-	resp, err := http.Post(url, "application/json", bytes.NewReader(raw))
+	resp, err := client.Post(url, "application/json", bytes.NewReader(raw))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = resp.Body.Close() })
 	return resp
+}
+
+func postJSON(t *testing.T, url string, body any) *http.Response {
+	return postJSONWith(t, http.DefaultClient, url, body)
 }
 
 func decode[T any](t *testing.T, resp *http.Response) T {

@@ -72,6 +72,8 @@ type Paths struct {
 	Tasks   string
 	Session string
 	Events  string
+	Socket  string
+	Lock    string
 }
 
 func DefaultPaths() (Paths, error) {
@@ -87,7 +89,15 @@ func DefaultPaths() (Paths, error) {
 	if err != nil {
 		return Paths{}, err
 	}
-	return Paths{Tasks: tasks, Session: sess, Events: events}, nil
+	socket, err := config.DirPath("daemon.sock")
+	if err != nil {
+		return Paths{}, err
+	}
+	lock, err := config.DirPath("daemon.lock")
+	if err != nil {
+		return Paths{}, err
+	}
+	return Paths{Tasks: tasks, Session: sess, Events: events, Socket: socket, Lock: lock}, nil
 }
 
 func New(cfg config.Config, n notifier.Notifier, paths Paths) (*Core, error) {

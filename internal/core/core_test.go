@@ -202,6 +202,12 @@ func TestDefaultPaths(t *testing.T) {
 	if !strings.Contains(paths.Events, "throwntom") {
 		t.Fatalf("expected throwntom in events path, got %s", paths.Events)
 	}
+	if !strings.Contains(paths.Socket, "daemon.sock") {
+		t.Fatalf("expected daemon.sock in path, got %s", paths.Socket)
+	}
+	if !strings.Contains(paths.Lock, "daemon.lock") {
+		t.Fatalf("expected daemon.lock in path, got %s", paths.Lock)
+	}
 }
 
 func TestFriendlyStateName(t *testing.T) {
