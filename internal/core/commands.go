@@ -115,9 +115,9 @@ func (c *Core) handleSnooze(parts []string) commandResult {
 		return commandResult{err: err}
 	}
 	snoozeSecs := int(parsed.Seconds())
-	c.state.setSnoozeUntil(c.now().Add(parsed))
 	if c.state.isMorningPending() {
 		c.state.stopMorningLoop()
+		c.state.setSnoozeUntil(c.now().Add(parsed))
 		state := c.state
 		repeatInterval := c.repeatInterval
 		n := c.notifier

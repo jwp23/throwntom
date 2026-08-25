@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"testing"
 
@@ -37,11 +38,33 @@ func TestTimerSnoozeRequiresMinutes(t *testing.T) {
 	if resp := postJSON(t, srv.URL+"/v1/timer/snooze", map[string]int{}); resp.StatusCode != 400 {
 		t.Fatalf("status %d", resp.StatusCode)
 	}
+	if resp := postJSON(t, srv.URL+"/v1/timer/snooze", map[string]int{"minutes": 0}); resp.StatusCode != 400 {
+		t.Fatalf("status %d", resp.StatusCode)
+	}
 	if resp := postJSON(t, srv.URL+"/v1/timer/snooze", map[string]int{"minutes": 10}); resp.StatusCode != 200 {
 		t.Fatalf("status %d", resp.StatusCode)
 	}
+	// Snooze at idle (no morning pending) doesn't set SnoozeUntil
+	if c.State().SnoozeUntil != nil {
+		t.Fatal("unexpected snooze_until set at idle")
+	}
+}
+
+func TestTimerSnoozeWithMorningPending(t *testing.T) {
+	c := newTestCoreWithMorning(t)
+	srv := httptest.NewServer(NewHandler(c))
+	t.Cleanup(srv.Close)
+
+	// Verify morning is pending before snooze
+	if !c.State().MorningPending {
+		t.Fatal("expected morning reminder pending")
+	}
+	if resp := postJSON(t, srv.URL+"/v1/timer/snooze", map[string]int{"minutes": 10}); resp.StatusCode != 200 {
+		t.Fatalf("snooze status %d", resp.StatusCode)
+	}
+	// Snooze with morning pending sets SnoozeUntil
 	if c.State().SnoozeUntil == nil {
-		t.Fatal("expected snooze_until set")
+		t.Fatal("expected snooze_until set when morning pending")
 	}
 }
 

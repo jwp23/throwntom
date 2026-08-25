@@ -30,6 +30,23 @@ func newTestCore(t *testing.T) *core.Core {
 	return c
 }
 
+func newTestCoreWithMorning(t *testing.T) *core.Core {
+	t.Helper()
+	dir := t.TempDir()
+	cfg := config.Default()
+	cfg.MorningReminderPending = true
+	c, err := core.New(cfg, noopNotifier{}, core.Paths{
+		Tasks:   filepath.Join(dir, "tasks.json"),
+		Session: filepath.Join(dir, "session.json"),
+		Events:  filepath.Join(dir, "events.jsonl"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(c.Stop)
+	return c
+}
+
 func newTestServer(t *testing.T) (*httptest.Server, *core.Core) {
 	t.Helper()
 	c := newTestCore(t)
