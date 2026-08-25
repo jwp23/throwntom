@@ -803,3 +803,32 @@ func TestSessionSavedAfterMidnightResetsOnReload(t *testing.T) {
 		t.Fatalf("expected today's pomodoros=0 after midnight reload, got %s", status)
 	}
 }
+
+func TestOpenTimerCoreWiresStoresAndSession(t *testing.T) {
+	dir := t.TempDir()
+	paths := corePaths{
+		Tasks:   filepath.Join(dir, "tasks.json"),
+		Session: filepath.Join(dir, "session.json"),
+		Events:  filepath.Join(dir, "events.jsonl"),
+	}
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+
+	core, err := openTimerCore(cfg, noopNotifier{}, paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res := core.execute("task add write tests"); res.err != nil {
+		t.Fatal(res.err)
+	}
+	core.executeCommand("new-cycle")
+	if _, err := os.Stat(paths.Session); err != nil {
+		t.Fatalf("expected session file: %v", err)
+	}
+	if events := readEvents(t, paths.Events); len(events) != 1 || events[0].Type != "pomodoro_started" {
+		t.Fatalf("expected one pomodoro_started event, got %+v", events)
+	}
+	if len(core.tasks.Active()) != 1 {
+		t.Fatal("expected task store to persist the added task")
+	}
+}

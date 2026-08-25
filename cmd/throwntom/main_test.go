@@ -148,19 +148,31 @@ func TestPrintUsageIncludesVersionFlag(t *testing.T) {
 	}
 }
 
-func TestDefaultEventsPath(t *testing.T) {
+func TestDefaultCorePaths(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	path, err := defaultEventsPath()
+	paths, err := defaultCorePaths()
 	if err != nil {
-		t.Fatalf("defaultEventsPath: %v", err)
+		t.Fatalf("defaultCorePaths: %v", err)
 	}
-	if !strings.Contains(path, "events.jsonl") {
-		t.Fatalf("expected events.jsonl in path, got %s", path)
+	if !strings.Contains(paths.Tasks, "tasks.json") {
+		t.Fatalf("expected tasks.json in path, got %s", paths.Tasks)
 	}
-	if !strings.Contains(path, "throwntom") {
-		t.Fatalf("expected throwntom in path, got %s", path)
+	if !strings.Contains(paths.Session, "session.json") {
+		t.Fatalf("expected session.json in path, got %s", paths.Session)
+	}
+	if !strings.Contains(paths.Events, "events.jsonl") {
+		t.Fatalf("expected events.jsonl in path, got %s", paths.Events)
+	}
+	if !strings.Contains(paths.Tasks, "throwntom") {
+		t.Fatalf("expected throwntom in tasks path, got %s", paths.Tasks)
+	}
+	if !strings.Contains(paths.Session, "throwntom") {
+		t.Fatalf("expected throwntom in session path, got %s", paths.Session)
+	}
+	if !strings.Contains(paths.Events, "throwntom") {
+		t.Fatalf("expected throwntom in events path, got %s", paths.Events)
 	}
 }
 

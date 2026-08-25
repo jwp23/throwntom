@@ -9,7 +9,6 @@ import (
 
 	"github.com/jwp23/throwntom/v3/internal/config"
 	"github.com/jwp23/throwntom/v3/internal/engine"
-	"github.com/jwp23/throwntom/v3/internal/eventlog"
 	"github.com/jwp23/throwntom/v3/internal/notifier"
 )
 
@@ -96,29 +95,11 @@ func buildTimerCore(cfg config.Config) (*timerCore, error) {
 	if err != nil {
 		return nil, err
 	}
-	core := newTimerCore(cfg, n)
-	tasksPath, err := defaultTasksPath()
+	paths, err := defaultCorePaths()
 	if err != nil {
 		return nil, err
 	}
-	if err := core.initTasks(tasksPath); err != nil {
-		return nil, err
-	}
-	sessPath, err := defaultSessionPath()
-	if err != nil {
-		return nil, err
-	}
-	core.sessionPath = sessPath
-	if err := core.loadSession(); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not load session: %v\n", err)
-	}
-	eventsPath, err := defaultEventsPath()
-	if err != nil {
-		return nil, err
-	}
-	core.eventWriter = eventlog.NewWriter(eventsPath)
-	core.eventsPath = eventsPath
-	return core, nil
+	return openTimerCore(cfg, n, paths)
 }
 
 func requireInteractiveTTY(stdinTTY, stdoutTTY bool) error {

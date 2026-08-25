@@ -139,6 +139,26 @@ func newTimerCore(cfg config.Config, n notifier.Notifier) *timerCore {
 	return core
 }
 
+type corePaths struct {
+	Tasks   string
+	Session string
+	Events  string
+}
+
+func openTimerCore(cfg config.Config, n notifier.Notifier, paths corePaths) (*timerCore, error) {
+	core := newTimerCore(cfg, n)
+	if err := core.initTasks(paths.Tasks); err != nil {
+		return nil, err
+	}
+	core.sessionPath = paths.Session
+	if err := core.loadSession(); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not load session: %v\n", err)
+	}
+	core.eventWriter = eventlog.NewWriter(paths.Events)
+	core.eventsPath = paths.Events
+	return core, nil
+}
+
 func (d *timerCore) start(ctx context.Context) {
 	startMorningScheduler(ctx, d.state, d.scheduler, d.repeatInterval, d.notifier)
 	if d.state.isMorningPending() && d.cycle.State() == engine.Idle && d.scheduler.IsActiveNow(d.now()) {
