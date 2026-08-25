@@ -34,6 +34,7 @@ func NewHandler(c *core.Core) http.Handler {
 	s.registerRoutes(mux)
 	mux.HandleFunc("GET /v1/state", s.getState)
 	mux.HandleFunc("POST /v1/command", s.postCommand)
+	mux.HandleFunc("GET /v1/events", s.getEvents)
 	return &jsonErrorWriter{handler: mux}
 }
 
@@ -99,4 +100,10 @@ func (s *statusCapturingWriter) Write(b []byte) (int, error) {
 		return len(b), nil
 	}
 	return s.ResponseWriter.Write(b)
+}
+
+func (s *statusCapturingWriter) Flush() {
+	if flusher, ok := s.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
 }
