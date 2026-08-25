@@ -95,9 +95,21 @@ func (a *App) Restore(s Snapshot) error {
 
 func (a *App) AdvanceDay(now time.Time) {
 	a.mu.Lock()
-	defer a.notifyChange()
-	defer a.mu.Unlock()
+	before := a.engine.Snapshot()
 	a.engine.AdvanceDay(now)
+	after := a.engine.Snapshot()
+	a.mu.Unlock()
+	if dayRolledOver(before, after) {
+		a.notifyChange()
+	}
+}
+
+// dayRolledOver reports whether AdvanceDay started a new work day and reset the
+// day's counters. Recording the very first work date is not a rollover: nothing
+// an observer can see changes, and notifying on it would make every status read
+// look like a state change.
+func dayRolledOver(before, after engine.Snapshot) bool {
+	return !before.WorkDate.IsZero() && !engine.IsSameDay(before.WorkDate, after.WorkDate)
 }
 
 func (a *App) Start() {

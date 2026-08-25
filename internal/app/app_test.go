@@ -399,3 +399,37 @@ func TestOnChangeFiresOnVerbs(t *testing.T) {
 		t.Fatalf("expected 4 change callbacks, got %d", count)
 	}
 }
+
+func TestAdvanceDayDoesNotNotifyWithoutRollover(t *testing.T) {
+	a := New(25, 5, 15, 4, time.Hour, &fakeNotifier{})
+	now := time.Now()
+	count := 0
+	a.SetOnChange(func() { count++ })
+
+	a.AdvanceDay(now) // records the first work date, nothing observable changes
+	a.AdvanceDay(now.Add(time.Minute))
+	if count != 0 {
+		t.Fatalf("expected no change callbacks within the same day, got %d", count)
+	}
+}
+
+func TestAdvanceDayNotifiesOnRollover(t *testing.T) {
+	a := New(25, 5, 15, 4, time.Hour, &fakeNotifier{})
+	yesterday := time.Now().Add(-24 * time.Hour)
+	snap := a.Snapshot()
+	snap.Engine.WorkDate = yesterday
+	snap.Engine.CompletedToday = 2
+	if err := a.Restore(snap); err != nil {
+		t.Fatalf(fmtRestore, err)
+	}
+	count := 0
+	a.SetOnChange(func() { count++ })
+
+	a.AdvanceDay(time.Now())
+	if count != 1 {
+		t.Fatalf("expected 1 change callback after the day rolled over, got %d", count)
+	}
+	if got := a.Snapshot().Engine.CompletedToday; got != 0 {
+		t.Fatalf("expected completedToday reset, got %d", got)
+	}
+}
