@@ -7,6 +7,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/jwp23/throwntom/v3/internal/analytics"
 	"github.com/jwp23/throwntom/v3/internal/engine"
 )
 
@@ -19,6 +20,7 @@ type commandResponse struct {
 	Exit           bool
 	FocusLines     []string
 	FocusPrompt    string
+	Stats          *analytics.Dashboard
 	StatsView      string
 }
 

@@ -10,14 +10,12 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/eventlog"
 )
 
-func TestStatsReturnsStatsView(t *testing.T) {
+func TestStatsReturnsDashboard(t *testing.T) {
 	dir := t.TempDir()
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
 	core := newTimerCore(cfg, noopNotifier{})
 	core.eventsPath = dir + "/events.jsonl"
-	core.tierLow = cfg.Stats.TierLow
-	core.tierMid = cfg.Stats.TierMid
 
 	result := core.execute("stats")
 	if result.err != nil {
@@ -26,11 +24,11 @@ func TestStatsReturnsStatsView(t *testing.T) {
 	if result.message != "" {
 		t.Fatalf("expected message empty, got: %s", result.message)
 	}
-	if !strings.Contains(result.statsView, "Today") {
-		t.Fatalf("expected Today section in statsView, got: %s", result.statsView)
+	if result.stats == nil {
+		t.Fatal("expected dashboard data in result")
 	}
-	if !strings.Contains(result.statsView, "Pomodoros: 0") {
-		t.Fatalf("expected Pomodoros: 0 in statsView, got: %s", result.statsView)
+	if result.stats.Today.Pomodoros != 0 {
+		t.Fatalf("expected 0 pomodoros, got %d", result.stats.Today.Pomodoros)
 	}
 }
 
@@ -49,15 +47,13 @@ func TestStatsWithEvents(t *testing.T) {
 	cfg.MorningReminderPending = false
 	core := newTimerCore(cfg, noopNotifier{})
 	core.eventsPath = eventsPath
-	core.tierLow = cfg.Stats.TierLow
-	core.tierMid = cfg.Stats.TierMid
 
 	result := core.execute("stats")
 	if result.err != nil {
 		t.Fatalf("stats failed: %v", result.err)
 	}
-	if !strings.Contains(result.statsView, "Pomodoros: 1") {
-		t.Fatalf("expected Pomodoros: 1 in statsView, got: %s", result.statsView)
+	if result.stats == nil || result.stats.Today.Pomodoros != 1 {
+		t.Fatalf("expected 1 pomodoro in dashboard, got %+v", result.stats)
 	}
 }
 
@@ -136,8 +132,6 @@ func newCoreWithEvents(t *testing.T) (*timerCore, string) {
 	core := newTimerCore(cfg, noopNotifier{})
 	core.eventsPath = eventsPath
 	core.eventWriter = eventlog.NewWriter(eventsPath)
-	core.tierLow = cfg.Stats.TierLow
-	core.tierMid = cfg.Stats.TierMid
 	return core, eventsPath
 }
 

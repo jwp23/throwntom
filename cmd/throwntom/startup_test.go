@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/jwp23/throwntom/v3/internal/config"
@@ -85,5 +86,22 @@ func TestBuildCallbacksExecuteDelegatesToCore(t *testing.T) {
 	}
 	if resp.Message != "Pomodoro started -- let's go!" {
 		t.Fatalf("expected start message, got %q", resp.Message)
+	}
+}
+
+func TestBuildCallbacksRendersStatsView(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	core := newTimerCore(cfg, notifier.NewTestNotifier(func(string, ...string) error {
+		return fmt.Errorf("unused")
+	}))
+	core.eventsPath = t.TempDir() + "/events.jsonl"
+
+	resp, err := buildCallbacks(cfg, core).Execute("stats")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(resp.StatsView, "-- Today --") {
+		t.Fatalf("expected rendered stats view, got %q", resp.StatsView)
 	}
 }

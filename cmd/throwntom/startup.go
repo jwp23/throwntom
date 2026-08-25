@@ -63,7 +63,11 @@ func buildCallbacks(cfg config.Config, core *timerCore) interactiveCallbacks {
 			return focusLines, focusPrompt
 		},
 		Execute: func(command string) (commandResponse, error) {
-			return core.executeCommand(command), nil
+			resp := core.executeCommand(command)
+			if resp.Stats != nil {
+				resp.StatsView = renderDashboard(*resp.Stats, core.now(), cfg.Stats.TierLow, cfg.Stats.TierMid)
+			}
+			return resp, nil
 		},
 		CancelFocus: func() commandResponse {
 			result := core.cancelFocusPrompt()
@@ -106,8 +110,6 @@ func buildTimerCore(cfg config.Config) (*timerCore, error) {
 	}
 	core.eventWriter = eventlog.NewWriter(eventsPath)
 	core.eventsPath = eventsPath
-	core.tierLow = cfg.Stats.TierLow
-	core.tierMid = cfg.Stats.TierMid
 	return core, nil
 }
 

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jwp23/throwntom/v3/internal/analytics"
 	"github.com/jwp23/throwntom/v3/internal/app"
 	"github.com/jwp23/throwntom/v3/internal/config"
 	"github.com/jwp23/throwntom/v3/internal/engine"
@@ -114,8 +115,6 @@ type timerCore struct {
 	emoji               bool
 	eventWriter         *eventlog.Writer
 	eventsPath          string
-	tierLow             int
-	tierMid             int
 }
 
 type commandHandler func(parts []string) commandResult
@@ -184,7 +183,7 @@ func (d *timerCore) executeCommand(line string) commandResponse {
 	if d.pendingFocusPrompt {
 		resp.FocusPrompt = d.formatFocusPrompt()
 	}
-	resp.StatsView = result.statsView
+	resp.Stats = result.stats
 	if result.err != nil {
 		resp.Error = result.err.Error()
 	}
@@ -192,10 +191,10 @@ func (d *timerCore) executeCommand(line string) commandResponse {
 }
 
 type commandResult struct {
-	message   string
-	statsView string
-	exit      bool
-	err       error
+	message string
+	stats   *analytics.Dashboard
+	exit    bool
+	err     error
 }
 
 func (d *timerCore) execute(line string) commandResult {
