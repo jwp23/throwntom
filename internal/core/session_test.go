@@ -25,7 +25,7 @@ func TestSaveSessionWritesValidJSON(t *testing.T) {
 	defer c.Stop()
 	c.execute(cmdStart)
 
-	c.saveSessionLocked()
+	c.saveSession()
 
 	raw, err := os.ReadFile(sessPath)
 	if err != nil {
@@ -51,7 +51,7 @@ func TestLoadSessionRestoresState(t *testing.T) {
 	defer c.Stop()
 	c.execute(cmdStart)
 	c.cycle.CompletePeriod()
-	c.saveSessionLocked()
+	c.saveSession()
 
 	c2 := newCore(cfg, noopNotifier{})
 	c2.sessionPath = sessPath
@@ -115,8 +115,8 @@ func TestLoadSessionPreservesFocusedTaskOrder(t *testing.T) {
 	defer c.Stop()
 	c.tasks = store
 	c.execute(cmdStart)
-	c.focused = []task.Task{t3, t1}
-	c.saveSessionLocked()
+	c.setFocused([]task.Task{t3, t1})
+	c.saveSession()
 
 	store2, _ := task.NewFileStore(tasksPath)
 	c2 := newCore(cfg, noopNotifier{})
@@ -218,7 +218,7 @@ func TestLoadSessionSuppressesMorningReminder(t *testing.T) {
 	c.sessionPath = sessPath
 	defer c.Stop()
 	c.execute(cmdStart)
-	c.saveSessionLocked()
+	c.saveSession()
 
 	cfg2 := config.Default()
 	c2 := newCore(cfg2, noopNotifier{})
@@ -246,7 +246,7 @@ func TestSaveLoadExpiredTimerTransitionsToAwaitingConfirm(t *testing.T) {
 	c.sessionPath = sessPath
 	defer c.Stop()
 	c.execute(cmdStart)
-	c.saveSessionLocked()
+	c.saveSession()
 
 	data, err := session.Load(sessPath)
 	if err != nil {
@@ -279,7 +279,7 @@ func TestSaveLoadPausedPreservesRemainingDuration(t *testing.T) {
 	defer c.Stop()
 	c.execute(cmdStart)
 	c.execute("pause")
-	c.saveSessionLocked()
+	c.saveSession()
 
 	c2 := newCore(cfg, noopNotifier{})
 	c2.sessionPath = sessPath
@@ -321,7 +321,7 @@ func TestSaveLoadCompletedTodayPersists(t *testing.T) {
 	if !strings.Contains(status, "Today: 3") {
 		t.Fatalf("expected Today: 3 before save, got %s", status)
 	}
-	c.saveSessionLocked()
+	c.saveSession()
 
 	c2 := newCore(cfg, noopNotifier{})
 	c2.sessionPath = sessPath
