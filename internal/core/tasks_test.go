@@ -247,3 +247,18 @@ func TestHelpIncludesTaskCommands(t *testing.T) {
 		}
 	}
 }
+
+func TestTasksListsActiveAndCompleted(t *testing.T) {
+	c := newTestCoreWithTasks(t)
+	c.execute("task add first")
+	c.execute("task add second")
+	c.execute("task done 1")
+
+	list := c.Tasks()
+	if len(list.Active) != 1 || list.Active[0].Description != "second" {
+		t.Fatalf("active = %+v", list.Active)
+	}
+	if len(list.Completed) != 1 || list.Completed[0].Description != "first" {
+		t.Fatalf("completed = %+v", list.Completed)
+	}
+}

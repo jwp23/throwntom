@@ -10,6 +10,11 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/task"
 )
 
+type TaskList struct {
+	Active    []task.Task `json:"active"`
+	Completed []task.Task `json:"completed"`
+}
+
 const (
 	fmtInvalidTaskNumber = "invalid task number: %s"
 	fmtInvalidPosition   = "invalid position: %s"
@@ -344,4 +349,14 @@ func (c *Core) initTasks(path string) error {
 	}
 	c.tasks = store
 	return nil
+}
+
+// Tasks returns a copy of the active and completed task lists.
+func (c *Core) Tasks() TaskList {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.tasks == nil {
+		return TaskList{}
+	}
+	return TaskList{Active: c.tasks.Active(), Completed: c.tasks.Completed()}
 }
