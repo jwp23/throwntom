@@ -133,10 +133,12 @@ Schedule supports day aliases: `"weekday"` expands to Mon-Fri, `"weekend"` to Sa
 ## Project Layout
 
 - `cmd/throwntom/` — main binary: CLI entry point, Bubble Tea model, rendering
+- `cmd/throwntomd/` — daemon binary: background process serving the JSON API
 - `internal/analytics/` — productivity dashboard computation
 - `internal/app/` — application logic
 - `internal/config/` — TOML config parsing
 - `internal/core/` — timer/task/reminder orchestration shared by the TUI and daemon
+- `internal/daemon/` — daemon HTTP API, socket lifecycle and shutdown
 - `internal/engine/` — pomodoro state machine
 - `internal/eventlog/` — append-only event log
 - `internal/notifier/` — desktop notifications and sound
@@ -144,6 +146,7 @@ Schedule supports day aliases: `"weekday"` expands to Mon-Fri, `"weekend"` to Sa
 - `internal/scheduler/` — work schedule (days/times)
 - `internal/session/` — session persistence
 - `internal/task/` — task store
+- `tools/tomctl/` — command-line client for the daemon API
 - `e2e/` — end-to-end tests (build tag: `e2e`)
 - `integration/` — integration tests (build tag: `integration`)
 
