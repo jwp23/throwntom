@@ -351,14 +351,22 @@ func (c *Core) initTasks(path string) error {
 	return nil
 }
 
-// Tasks returns a copy of the active and completed task lists.
+// Tasks returns a copy of the active and completed task lists. Both are
+// non-nil, so an empty list encodes as [] rather than null.
 func (c *Core) Tasks() TaskList {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.tasks == nil {
-		return TaskList{}
+		return TaskList{Active: []task.Task{}, Completed: []task.Task{}}
 	}
-	return TaskList{Active: c.tasks.Active(), Completed: c.tasks.Completed()}
+	return TaskList{Active: orEmpty(c.tasks.Active()), Completed: orEmpty(c.tasks.Completed())}
+}
+
+func orEmpty(tasks []task.Task) []task.Task {
+	if tasks == nil {
+		return []task.Task{}
+	}
+	return tasks
 }
 
 // AddTask creates a new task with the given description and publishes the change.

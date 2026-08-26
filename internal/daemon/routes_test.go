@@ -1,9 +1,11 @@
 package daemon
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/jwp23/throwntom/v3/internal/analytics"
@@ -104,6 +106,25 @@ func TestTasksCRUD(t *testing.T) {
 	listResp, _ = http.Get(srv.URL + "/v1/tasks")
 	if list = decode[core.TaskList](t, listResp); len(list.Active)+len(list.Completed) != 0 {
 		t.Fatalf("expected empty lists, got %+v", list)
+	}
+}
+
+func TestTasksEmptyListsEncodeAsArrays(t *testing.T) {
+	srv, _ := newTestServer(t)
+	resp, err := http.Get(srv.URL + "/v1/tasks")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(raw)
+	for _, want := range []string{`"active":[]`, `"completed":[]`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("expected body to contain %s, got %s", want, body)
+		}
 	}
 }
 

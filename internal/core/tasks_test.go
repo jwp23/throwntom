@@ -288,3 +288,20 @@ func TestAddTaskRejectsEmpty(t *testing.T) {
 		t.Fatal("expected error for empty description")
 	}
 }
+
+func TestTasksReturnsEmptySlicesNotNil(t *testing.T) {
+	c := newTestCoreWithTasks(t)
+	list := c.Tasks()
+	if list.Active == nil || list.Completed == nil {
+		t.Fatalf("expected empty slices, got %#v", list)
+	}
+}
+
+func TestTasksWithoutStoreReturnsEmptySlices(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	list := newCore(cfg, noopNotifier{}).Tasks()
+	if list.Active == nil || list.Completed == nil {
+		t.Fatalf("expected empty slices, got %#v", list)
+	}
+}
