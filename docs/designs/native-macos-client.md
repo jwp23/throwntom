@@ -152,7 +152,7 @@ Every action exists graphically and has a shortcut, discoverable in the
 application menu bar:
 
 - *Timer*: Start `⌘R`, Confirm `⏎`, Pause/Resume `⌘P`, Snooze `⌘⇧S`,
-  Skip Today.
+  Skip Today, New Cycle.
 - *Tasks*: New Task `⌘N` (inserts an editable row at the top; `⏎`
   commits), Complete `⌘⏎`, Delete `⌘⌫`, Focus `⌘F`, Move Up/Down
   `⌥↑/⌥↓`.
@@ -160,7 +160,7 @@ application menu bar:
   window. `⌘,` opens the config file in the default editor.
 
 Each action resolves to a command string sent to `POST /v1/command`
-(selecting row 3 and pressing `⌘⏎` sends `done 3`). The popover and the
+(selecting row 3 and pressing `⌘⏎` sends `task done 3`). The popover and the
 window share one `Commands` definition.
 
 ### Data flow
