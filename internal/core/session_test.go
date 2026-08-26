@@ -242,8 +242,14 @@ func TestSaveLoadExpiredTimerTransitionsToAwaitingConfirm(t *testing.T) {
 
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
+	// Both cores run on an injected clock pinned to midday so the save and the
+	// restore always fall on the same calendar day (loadSession discards a
+	// session saved on a different day); a real wall clock near midnight
+	// would otherwise make the restore look like a new day.
+	savedAt := time.Date(2026, 3, 2, 12, 0, 0, 0, time.Local)
 	c := newCore(cfg, noopNotifier{})
 	c.sessionPath = sessPath
+	c.setNow(func() time.Time { return savedAt })
 	defer c.Stop()
 	c.execute(cmdStart)
 	c.saveSession()
@@ -252,14 +258,13 @@ func TestSaveLoadExpiredTimerTransitionsToAwaitingConfirm(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	// now is deliberately offset from the real wall clock: PhaseEndAt sits 5s
-	// before it, but over an hour in the real future. If the expiry check
-	// used the real clock instead of the injected one, PhaseEndAt would look
-	// not-yet-expired and this test would fail — proving Restore honors the
-	// injected clock rather than depending on real elapsed time between save
-	// and restore (see throwntom-tm1: a CI runner's clock stepping mid-test
-	// could otherwise flip a negative "remaining" positive).
-	now := time.Now().Add(time.Hour)
+	// now is deliberately offset from the save clock: PhaseEndAt sits 5s
+	// before it, but over an hour in the future relative to the save. If the
+	// expiry check used the real clock instead of the injected one, PhaseEndAt
+	// would look not-yet-expired and this test would fail — proving Restore
+	// honors the injected clock rather than depending on real elapsed time
+	// between save and restore.
+	now := savedAt.Add(time.Hour)
 	data.App.PhaseEndAt = now.Add(-5 * time.Second)
 	_ = session.Save(sessPath, data)
 
