@@ -16,6 +16,8 @@ public final class UnixSocketTransport: DaemonTransport {
 
     /// Races the exchange against the deadline; whichever finishes first decides the outcome, and the
     /// loser is cancelled. A stalled daemon therefore fails the call instead of parking it forever.
+    /// The deadline only throws: cancelling the group is what closes the connection, so the timeout
+    /// cannot lose the race to the socket error its own close would raise.
     public func request(_ method: String, _ path: String, body: Data?) async throws -> HTTPResponse {
         let connection = SocketConnection(path: socketPath)
         defer { connection.close() }
@@ -25,7 +27,6 @@ public final class UnixSocketTransport: DaemonTransport {
             group.addTask { try await Self.exchange(bytes, over: connection) }
             group.addTask {
                 try await Task.sleep(for: timeout)
-                connection.close()
                 throw DaemonError.timedOut(after: timeout)
             }
             defer { group.cancelAll() }

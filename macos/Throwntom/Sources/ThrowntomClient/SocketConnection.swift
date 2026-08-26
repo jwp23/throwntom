@@ -20,8 +20,11 @@ final class SocketConnection: @unchecked Sendable {
                 case .ready:
                     gate.finish(.success(()))
                 case .waiting(let error), .failed(let error):
-                    connection.cancel()
-                    gate.finish(.failure(DaemonError.transport(String(describing: error))))
+                    // Only tear the connection down while `open` is still pending; the handler stays
+                    // installed afterwards, and a later state change belongs to an in-flight receive.
+                    if gate.finish(.failure(DaemonError.transport(String(describing: error)))) {
+                        connection.cancel()
+                    }
                 case .cancelled:
                     gate.finish(.failure(DaemonError.transport("connection cancelled")))
                 default:
@@ -105,17 +108,23 @@ private final class ResumeOnce<T>: @unchecked Sendable {
         return false
     }
 
-    func finish(_ result: Result<T, Error>) {
+    /// Delivers `result` unless the call is already settled. Returns true when this call settled it.
+    @discardableResult
+    func finish(_ result: Result<T, Error>) -> Bool {
         lock.lock()
-        guard !isFinished else { return lock.unlock() }
+        guard !isFinished, resultBeforeAttach == nil else {
+            lock.unlock()
+            return false
+        }
         guard let continuation else {
             resultBeforeAttach = result
             lock.unlock()
-            return
+            return true
         }
         isFinished = true
         self.continuation = nil
         lock.unlock()
         continuation.resume(with: result)
+        return true
     }
 }
