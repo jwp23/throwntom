@@ -109,4 +109,4 @@ jobs:
 
       - name: Swift tests
         working-directory: macos/Throwntom
-        run: xcodebuild test -scheme Throwntom-Package -destination 'platform=macOS' | tail -50; test "${PIPESTATUS[0]}" -eq 0
+        run: xcodebuild test -scheme Throwntom -destination 'platform=macOS' | tail -50; test "${PIPESTATUS[0]}" -eq 0
