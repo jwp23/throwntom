@@ -26,6 +26,14 @@ struct TaskWindow: View {
             }
         }
         .listStyle(.inset)
+        .overlay {
+            if client.state == nil {
+                ContentUnavailableView(
+                    MenuBarTitle.text(state: client.state, connection: client.connection, now: .now),
+                    systemImage: "bolt.horizontal.circle"
+                )
+            }
+        }
         .frame(minWidth: 360, minHeight: 240)
         .toolbar {
             if let state = client.state {
