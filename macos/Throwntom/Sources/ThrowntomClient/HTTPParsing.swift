@@ -63,6 +63,7 @@ public struct ChunkedDecoder {
 
     public private(set) var isFinished = false
 
+    /// Empty: all state starts at its declared default (phase .size, empty buffer).
     public init() {}
 
     /// Feeds raw bytes and returns whatever decoded body bytes became available.

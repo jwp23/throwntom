@@ -28,7 +28,7 @@ struct ThrowntomApp: App {
         }
         .menuBarExtraStyle(.window)
 
-        Window("Tasks", id: TaskWindowID) {
+        Window("Tasks", id: taskWindowID) {
             TaskWindow(client: client, model: model)
         }
         .windowStyle(.hiddenTitleBar)

@@ -10,6 +10,7 @@ public final class TaskWindowModel {
     /// Text of the inline new-task row; nil when the row is closed.
     public var draft: String?
 
+    /// Empty: all state starts at its declared default (empty task list, no selection).
     public init() {}
 
     public var isEditing: Bool { draft != nil }

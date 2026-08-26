@@ -1,7 +1,7 @@
 import SwiftUI
 import ThrowntomClient
 
-let TaskWindowID = "tasks"
+let taskWindowID = "tasks"
 
 struct TaskWindow: View {
     let client: DaemonClient
