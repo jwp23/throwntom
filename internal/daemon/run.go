@@ -21,12 +21,15 @@ const shutdownGrace = time.Second
 // Run serves the daemon API on paths.Socket until ctx is cancelled, then
 // shuts the server down and stops the core, which saves the session.
 func Run(ctx context.Context, cfg config.Config, n notifier.Notifier, paths core.Paths) error {
-	c, err := core.New(cfg, n, paths)
+	// The lock comes first: building the core loads and rewrites the session
+	// and can fire notifications, which a losing second instance must not do.
+	ln, err := Listen(paths)
 	if err != nil {
 		return err
 	}
-	ln, err := Listen(paths)
+	c, err := core.New(cfg, n, paths)
 	if err != nil {
+		_ = ln.Close()
 		return err
 	}
 	c.Start(ctx)
