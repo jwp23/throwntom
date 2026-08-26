@@ -114,7 +114,7 @@ func TestSnoozeDoesNotChangePhase(t *testing.T) {
 	if e.State() != AwaitingConfirm {
 		t.Fatalf("expected AwaitingConfirm")
 	}
-	e.Snooze(10 * time.Second)
+	e.Snooze(time.Now(), 10*time.Second)
 	if e.State() != AwaitingConfirm {
 		t.Fatalf("expected AwaitingConfirm after snooze")
 	}
