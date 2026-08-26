@@ -85,6 +85,17 @@ Pomodoro counts are color-coded by tier (configurable):
 | Warm | 3–5 | amber |
 | Hot | 6+ | green |
 
+## Daemon (`throwntomd`)
+
+`throwntomd` runs the timer, reminders and task store as a background
+process and serves a JSON API over `~/.config/throwntom/daemon.sock`
+(see `docs/designs/native-macos-client.md` for the routes). Only one
+instance runs at a time (`daemon.lock`). Do not run the daemon and the
+interactive `throwntom` TUI at the same time: they share `session.json`.
+
+Control the daemon from the command line with `tools/tomctl` (see
+`tools/tomctl/README.md` for usage and build instructions).
+
 ## Config
 
 Config file location: `~/.config/throwntom/config.toml`
@@ -118,6 +129,26 @@ tier_mid = 5
 ```
 
 Schedule supports day aliases: `"weekday"` expands to Mon-Fri, `"weekend"` to Sat-Sun. Specific-day entries automatically carve out from alias expansions.
+
+## Project Layout
+
+- `cmd/throwntom/` — main binary: CLI entry point, Bubble Tea model, rendering
+- `cmd/throwntomd/` — daemon binary: background process serving the JSON API
+- `internal/analytics/` — productivity dashboard computation
+- `internal/app/` — application logic
+- `internal/config/` — TOML config parsing
+- `internal/core/` — timer/task/reminder orchestration shared by the TUI and daemon
+- `internal/daemon/` — daemon HTTP API, socket lifecycle and shutdown
+- `internal/engine/` — pomodoro state machine
+- `internal/eventlog/` — append-only event log
+- `internal/notifier/` — desktop notifications and sound
+- `internal/reminder/` — reminder scheduling
+- `internal/scheduler/` — work schedule (days/times)
+- `internal/session/` — session persistence
+- `internal/task/` — task store
+- `tools/tomctl/` — command-line client for the daemon API
+- `e2e/` — end-to-end tests (build tag: `e2e`)
+- `integration/` — integration tests (build tag: `integration`)
 
 ## Verify
 

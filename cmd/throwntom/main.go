@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -34,31 +33,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg, err := loadConfig(*configPath)
+	cfg, err := config.LoadDefault(*configPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "config error: %v\n", err)
 		os.Exit(1)
 	}
 
 	run(cfg)
-}
-
-func loadConfig(path string) (config.Config, error) {
-	if path == "" {
-		defaultPath, err := defaultConfigPath()
-		if err != nil {
-			return config.Config{}, err
-		}
-		cfg, err := config.LoadFile(defaultPath)
-		if err == nil {
-			return cfg, nil
-		}
-		if errors.Is(err, os.ErrNotExist) {
-			return config.Default(), nil
-		}
-		return config.Config{}, err
-	}
-	return config.LoadFile(path)
 }
 
 func ensureConfigDir() error {
@@ -71,30 +52,6 @@ func ensureConfigDir() error {
 		return fmt.Errorf("create config directory: %w", err)
 	}
 	return nil
-}
-
-func configDirPath(filename string) (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("resolve home directory: %w", err)
-	}
-	return filepath.Join(homeDir, ".config", "throwntom", filename), nil
-}
-
-func defaultConfigPath() (string, error) {
-	return configDirPath("config.toml")
-}
-
-func defaultTasksPath() (string, error) {
-	return configDirPath("tasks.json")
-}
-
-func defaultSessionPath() (string, error) {
-	return configDirPath("session.json")
-}
-
-func defaultEventsPath() (string, error) {
-	return configDirPath("events.jsonl")
 }
 
 func printUsage() {

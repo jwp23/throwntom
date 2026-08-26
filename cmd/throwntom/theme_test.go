@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jwp23/throwntom/v3/internal/engine"
+	"github.com/jwp23/throwntom/v3/internal/task"
 )
 
 const testBellEmoji = "\U0001F514"
@@ -151,5 +152,15 @@ func TestClampANSILineZeroWidthPassthrough(t *testing.T) {
 	line := "some long line"
 	if got := clampANSILine(line, 0); got != line {
 		t.Fatalf("expected passthrough at width 0, got %q", got)
+	}
+}
+
+func TestFormatFocusLines(t *testing.T) {
+	lines := formatFocusLines([]task.Task{{ID: 7, Description: "write ADR"}}, false)
+	if len(lines) != 2 || lines[0] != "* Focus:" || lines[1] != "  1. write ADR" {
+		t.Fatalf("unexpected lines %q", lines)
+	}
+	if formatFocusLines(nil, false) != nil {
+		t.Fatal("expected nil for no focused tasks")
 	}
 }

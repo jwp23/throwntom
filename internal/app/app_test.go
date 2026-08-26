@@ -362,3 +362,117 @@ func TestSnapshotRestoreRoundTrip(t *testing.T) {
 	}
 	a2.Stop()
 }
+
+func TestOnChangeFiresWhenPhaseTimerExpires(t *testing.T) {
+	a := New(25, 5, 15, 4, time.Hour, &fakeNotifier{})
+	fired := make(chan struct{}, 4)
+	a.SetOnChange(func() { fired <- struct{}{} })
+
+	snap := a.Snapshot()
+	snap.Engine.State = engine.Work
+	snap.PhaseEndAt = time.Now().Add(20 * time.Millisecond)
+	if err := a.Restore(snap); err != nil {
+		t.Fatal(err)
+	}
+	<-fired // Restore itself
+
+	select {
+	case <-fired:
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected OnChange when the phase timer expired")
+	}
+	if a.State() != engine.AwaitingConfirm {
+		t.Fatalf("state = %s", a.State())
+	}
+	a.Stop()
+}
+
+func TestOnChangeFiresOnVerbs(t *testing.T) {
+	a := New(25, 5, 15, 4, time.Hour, &fakeNotifier{})
+	count := 0
+	a.SetOnChange(func() { count++ })
+	a.Start()
+	a.Pause()
+	a.Resume()
+	a.Stop()
+	if count != 4 {
+		t.Fatalf("expected 4 change callbacks, got %d", count)
+	}
+}
+
+func TestAdvanceDayDoesNotNotifyWithoutRollover(t *testing.T) {
+	a := New(25, 5, 15, 4, time.Hour, &fakeNotifier{})
+	now := time.Now()
+	count := 0
+	a.SetOnChange(func() { count++ })
+
+	a.AdvanceDay(now) // records the first work date, nothing observable changes
+	a.AdvanceDay(now.Add(time.Minute))
+	if count != 0 {
+		t.Fatalf("expected no change callbacks within the same day, got %d", count)
+	}
+}
+
+func TestAdvanceDayNotifiesOnRollover(t *testing.T) {
+	a := New(25, 5, 15, 4, time.Hour, &fakeNotifier{})
+	yesterday := time.Now().Add(-24 * time.Hour)
+	snap := a.Snapshot()
+	snap.Engine.WorkDate = yesterday
+	snap.Engine.CompletedToday = 2
+	if err := a.Restore(snap); err != nil {
+		t.Fatalf(fmtRestore, err)
+	}
+	count := 0
+	a.SetOnChange(func() { count++ })
+
+	a.AdvanceDay(time.Now())
+	if count != 1 {
+		t.Fatalf("expected 1 change callback after the day rolled over, got %d", count)
+	}
+	if got := a.Snapshot().Engine.CompletedToday; got != 0 {
+		t.Fatalf("expected completedToday reset, got %d", got)
+	}
+}
+
+func TestPauseReportsRefusalWhenIdle(t *testing.T) {
+	a := New(25, 5, 15, 4, time.Hour, &fakeNotifier{})
+	if a.Pause() {
+		t.Fatal("expected Pause to report false when idle")
+	}
+	a.Start()
+	if !a.Pause() {
+		t.Fatal("expected Pause to report true during work")
+	}
+	if !a.Resume() {
+		t.Fatal("expected Resume to report true when paused")
+	}
+	if a.Resume() {
+		t.Fatal("expected Resume to report false when not paused")
+	}
+	a.Stop()
+}
+
+func TestRefusedPauseAndResumeDoNotNotify(t *testing.T) {
+	a := New(25, 5, 15, 4, time.Hour, &fakeNotifier{})
+	count := 0
+	a.SetOnChange(func() { count++ })
+
+	if a.Pause() {
+		t.Fatal("expected Pause to report false when idle")
+	}
+	if a.Resume() {
+		t.Fatal("expected Resume to report false when idle")
+	}
+	if count != 0 {
+		t.Fatalf("expected no change callbacks for refused verbs, got %d", count)
+	}
+
+	a.Start()
+	if !a.Pause() {
+		t.Fatal("expected Pause to report true during work")
+	}
+	if count != 2 {
+		t.Fatalf("expected 2 change callbacks after start and pause, got %d", count)
+	}
+	a.Stop()
+}

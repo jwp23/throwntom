@@ -7,18 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jwp23/throwntom/v3/internal/analytics"
-	"github.com/jwp23/throwntom/v3/internal/eventlog"
 )
-
-func (d *timerCore) handleStats(_ []string) commandResult {
-	events, err := eventlog.ReadAll(d.eventsPath)
-	if err != nil {
-		return commandResult{err: fmt.Errorf("read events: %w", err)}
-	}
-	dash := analytics.Compute(events, d.now())
-	msg := renderDashboard(dash, d.now(), d.tierLow, d.tierMid)
-	return commandResult{statsView: msg}
-}
 
 func renderDashboard(dash analytics.Dashboard, now time.Time, tierLow, tierMid int) string {
 	var sections []string

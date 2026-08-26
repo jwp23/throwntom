@@ -6,10 +6,11 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/jwp23/throwntom/v3/internal/config"
+	"github.com/jwp23/throwntom/v3/internal/core"
 	"github.com/jwp23/throwntom/v3/internal/engine"
-	"github.com/jwp23/throwntom/v3/internal/eventlog"
 	"github.com/jwp23/throwntom/v3/internal/notifier"
 )
 
@@ -21,7 +22,7 @@ func run(cfg config.Config) {
 		os.Exit(1)
 	}
 
-	core, err := buildTimerCore(cfg)
+	c, err := buildTimerCore(cfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "notifier error: %v\n", err)
 		os.Exit(1)
@@ -29,10 +30,10 @@ func run(cfg config.Config) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	core.start(ctx)
-	defer core.stop()
+	c.Start(ctx)
+	defer c.Stop()
 
-	err = runInteractiveCallbacks(buildCallbacks(cfg, core))
+	err = runInteractiveCallbacks(buildCallbacks(cfg, c))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "input error: %v\n", err)
 	}
@@ -42,73 +43,57 @@ func runInteractiveCallbacks(callbacks interactiveCallbacks) error {
 	return runInteractiveUI(os.Stdout, os.Stdin, callbacks)
 }
 
-func buildCallbacks(cfg config.Config, core *timerCore) interactiveCallbacks {
+func buildCallbacks(cfg config.Config, c *core.Core) interactiveCallbacks {
 	header := []string{
 		fmt.Sprintf("%s throwntom (%s)", stateIcon(engine.Idle, cfg.Emoji), formatScheduleHeader(cfg.Schedule)),
 		fmt.Sprintf("%dm work / %dm short / %dm long / every %d", cfg.Pomodoro.WorkMinutes, cfg.Pomodoro.ShortBreakMinutes, cfg.Pomodoro.LongBreakMinutes, cfg.Pomodoro.LongBreakEvery),
 	}
 
+	render := func(r core.Response) commandResponse {
+		resp := commandResponse{Response: r, FocusLines: formatFocusLines(r.Focused, cfg.Emoji)}
+		if r.Stats != nil {
+			resp.StatsView = renderDashboard(*r.Stats, time.Now(), cfg.Stats.TierLow, cfg.Stats.TierMid)
+		}
+		return resp
+	}
 	return interactiveCallbacks{
-		HeaderLines:     header,
-		HelpLines:       strings.Split(commandsHelp(), "\n"),
-		Emoji:           cfg.Emoji,
-		StatusSnapshot:  core.snapshot,
-		SecondaryStatus: core.secondaryStatus,
-		FocusSnapshot: func() ([]string, string) {
-			focusLines := core.formatFocusLines()
-			focusPrompt := ""
-			if core.isFocusPromptPending() {
-				focusPrompt = core.formatFocusPrompt()
+		HeaderLines:    header,
+		HelpLines:      strings.Split(core.Help(), "\n"),
+		Emoji:          cfg.Emoji,
+		StatusSnapshot: c.Status,
+		SecondaryStatus: func() string {
+			next, dur, ok := c.NextStage()
+			if !ok {
+				return ""
 			}
-			return focusLines, focusPrompt
+			return nextStageLabel(next, dur)
+		},
+		FocusSnapshot: func() ([]string, string) {
+			focusPrompt := ""
+			if c.FocusPromptPending() {
+				focusPrompt = c.FocusPrompt()
+			}
+			return formatFocusLines(c.Focused(), cfg.Emoji), focusPrompt
 		},
 		Execute: func(command string) (commandResponse, error) {
-			return core.executeCommand(command), nil
+			return render(c.Execute(command)), nil
 		},
 		CancelFocus: func() commandResponse {
-			result := core.cancelFocusPrompt()
-			statusLine, engineState, morningPending := core.snapshot()
-			return commandResponse{
-				StatusLine:     statusLine,
-				EngineState:    engineState,
-				MorningPending: morningPending,
-				Message:        result.message,
-				FocusLines:     core.formatFocusLines(),
-			}
+			return render(c.CancelFocus())
 		},
 	}
 }
 
-func buildTimerCore(cfg config.Config) (*timerCore, error) {
+func buildTimerCore(cfg config.Config) (*core.Core, error) {
 	n, err := notifier.NewSystemNotifier(runtime.GOOS, os.Stdout, cfg.SoundCommand)
 	if err != nil {
 		return nil, err
 	}
-	core := newTimerCore(cfg, n)
-	tasksPath, err := defaultTasksPath()
+	paths, err := core.DefaultPaths()
 	if err != nil {
 		return nil, err
 	}
-	if err := core.initTasks(tasksPath); err != nil {
-		return nil, err
-	}
-	sessPath, err := defaultSessionPath()
-	if err != nil {
-		return nil, err
-	}
-	core.sessionPath = sessPath
-	if err := core.loadSession(); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not load session: %v\n", err)
-	}
-	eventsPath, err := defaultEventsPath()
-	if err != nil {
-		return nil, err
-	}
-	core.eventWriter = eventlog.NewWriter(eventsPath)
-	core.eventsPath = eventsPath
-	core.tierLow = cfg.Stats.TierLow
-	core.tierMid = cfg.Stats.TierMid
-	return core, nil
+	return core.New(cfg, n, paths)
 }
 
 func requireInteractiveTTY(stdinTTY, stdoutTTY bool) error {

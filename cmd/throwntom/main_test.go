@@ -7,10 +7,13 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jwp23/throwntom/v3/internal/config"
+	"github.com/jwp23/throwntom/v3/internal/core"
 )
 
 func TestCommandHelpIncludesAllCommands(t *testing.T) {
-	help := commandsHelp()
+	help := core.Help()
 	for _, cmd := range []string{"new-cycle", "pause", "resume", "stop", "status", "test-sound", "quit"} {
 		if !strings.Contains(help, cmd) {
 			t.Fatalf("expected %q in command help: %s", cmd, help)
@@ -39,9 +42,9 @@ func TestConfigDirPathReturnsPathWithoutCreating(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	path, err := configDirPath("tasks.json")
+	path, err := config.DirPath("tasks.json")
 	if err != nil {
-		t.Fatalf("configDirPath: %v", err)
+		t.Fatalf("config.DirPath: %v", err)
 	}
 	dir := filepath.Dir(path)
 	if _, err := os.Stat(dir); err == nil {
@@ -56,9 +59,9 @@ func TestEnsureConfigDirCreatesDirectory(t *testing.T) {
 	if err := ensureConfigDir(); err != nil {
 		t.Fatalf("ensureConfigDir: %v", err)
 	}
-	path, err := configDirPath("tasks.json")
+	path, err := config.DirPath("tasks.json")
 	if err != nil {
-		t.Fatalf("configDirPath: %v", err)
+		t.Fatalf("config.DirPath: %v", err)
 	}
 	dir := filepath.Dir(path)
 	info, err := os.Stat(dir)
@@ -146,22 +149,6 @@ func TestPrintUsageIncludesVersionFlag(t *testing.T) {
 	}
 }
 
-func TestDefaultEventsPath(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-
-	path, err := defaultEventsPath()
-	if err != nil {
-		t.Fatalf("defaultEventsPath: %v", err)
-	}
-	if !strings.Contains(path, "events.jsonl") {
-		t.Fatalf("expected events.jsonl in path, got %s", path)
-	}
-	if !strings.Contains(path, "throwntom") {
-		t.Fatalf("expected throwntom in path, got %s", path)
-	}
-}
-
 func TestLoadConfigUsesDefaultHomeConfigFile(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -174,7 +161,7 @@ func TestLoadConfigUsesDefaultHomeConfigFile(t *testing.T) {
 		t.Fatalf("write default config file: %v", err)
 	}
 
-	cfg, err := loadConfig("")
+	cfg, err := config.LoadDefault("")
 	if err != nil {
 		t.Fatalf("load default config: %v", err)
 	}

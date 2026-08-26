@@ -7,19 +7,14 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/jwp23/throwntom/v3/internal/core"
 	"github.com/jwp23/throwntom/v3/internal/engine"
 )
 
 type commandResponse struct {
-	StatusLine     string
-	EngineState    engine.State
-	MorningPending bool
-	Message        string
-	Error          string
-	Exit           bool
-	FocusLines     []string
-	FocusPrompt    string
-	StatsView      string
+	core.Response
+	FocusLines []string
+	StatsView  string
 }
 
 type interactiveCallbacks struct {

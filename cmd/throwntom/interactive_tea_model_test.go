@@ -6,6 +6,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/jwp23/throwntom/v3/internal/core"
 	"github.com/jwp23/throwntom/v3/internal/engine"
 )
 
@@ -26,9 +27,11 @@ func TestInteractiveTeaModelEnterExecutesAndClearsPrompt(t *testing.T) {
 		Execute: func(command string) (commandResponse, error) {
 			submitted = command
 			return commandResponse{
-				StatusLine:     testStatusIdle,
-				MorningPending: false,
-				Message:        "ok",
+				Response: core.Response{
+					StatusLine:     testStatusIdle,
+					MorningPending: false,
+					Message:        "ok",
+				},
 			}, nil
 		},
 	})
@@ -64,10 +67,12 @@ func TestInteractiveTeaModelEnterInAwaitingConfirmSubmitsEmpty(t *testing.T) {
 			calls++
 			submitted = command
 			return commandResponse{
-				StatusLine:     "Short break  04:59  Today: 1  Cycle: 1/4",
-				EngineState:    engine.ShortBreak,
-				MorningPending: false,
-				Message:        "Confirmed -- short break",
+				Response: core.Response{
+					StatusLine:     "Short break  04:59  Today: 1  Cycle: 1/4",
+					EngineState:    engine.ShortBreak,
+					MorningPending: false,
+					Message:        "Confirmed -- short break",
+				},
 			}, nil
 		},
 	})
@@ -151,9 +156,11 @@ func TestInteractiveTeaModelSpaceKeyIncludedInSubmittedCommand(t *testing.T) {
 		Execute: func(command string) (commandResponse, error) {
 			submitted = command
 			return commandResponse{
-				StatusLine:     testStatusIdle,
-				MorningPending: false,
-				Message:        "ok",
+				Response: core.Response{
+					StatusLine:     testStatusIdle,
+					MorningPending: false,
+					Message:        "ok",
+				},
 			}, nil
 		},
 	})
@@ -280,7 +287,7 @@ func TestInteractiveTeaModelViewIncludesPersistentHeaderLines(t *testing.T) {
 func TestInteractiveTeaModelHelpHiddenByDefault(t *testing.T) {
 	model := newInteractiveTeaModel(interactiveCallbacks{
 		HeaderLines: []string{"throwntom run mode started"},
-		HelpLines:   strings.Split(commandsHelp(), "\n"),
+		HelpLines:   strings.Split(core.Help(), "\n"),
 		StatusSnapshot: func() (string, engine.State, bool) {
 			return testStatusIdle, engine.Idle, false
 		},
@@ -300,7 +307,7 @@ func TestInteractiveTeaModelHelpHiddenByDefault(t *testing.T) {
 
 func TestInteractiveTeaModelQuestionMarkTogglesHelp(t *testing.T) {
 	model := newInteractiveTeaModel(interactiveCallbacks{
-		HelpLines: strings.Split(commandsHelp(), "\n"),
+		HelpLines: strings.Split(core.Help(), "\n"),
 		StatusSnapshot: func() (string, engine.State, bool) {
 			return testStatusIdle, engine.Idle, false
 		},
@@ -338,7 +345,7 @@ func TestInteractiveTeaModelQuestionMarkTogglesHelp(t *testing.T) {
 
 func TestInteractiveTeaModelQuestionMarkTypedWhenInputNonEmpty(t *testing.T) {
 	model := newInteractiveTeaModel(interactiveCallbacks{
-		HelpLines: strings.Split(commandsHelp(), "\n"),
+		HelpLines: strings.Split(core.Help(), "\n"),
 		StatusSnapshot: func() (string, engine.State, bool) {
 			return testStatusIdle, engine.Idle, false
 		},
@@ -417,8 +424,10 @@ func TestEnterInFocusPromptCallsExecuteWithEmptyString(t *testing.T) {
 		Execute: func(command string) (commandResponse, error) {
 			executedCommand = &command
 			return commandResponse{
-				StatusLine: "pomodoro | 25:00",
-				Message:    "Pomodoro started -- let's go!",
+				Response: core.Response{
+					StatusLine: "pomodoro | 25:00",
+					Message:    "Pomodoro started -- let's go!",
+				},
 			}, nil
 		},
 	})
@@ -453,8 +462,10 @@ func TestEscCancelsFocusPrompt(t *testing.T) {
 		CancelFocus: func() commandResponse {
 			cancelCalled = true
 			return commandResponse{
-				StatusLine: testStatusIdle,
-				Message:    "task selection cancelled",
+				Response: core.Response{
+					StatusLine: testStatusIdle,
+					Message:    "task selection cancelled",
+				},
 			}
 		},
 	})
@@ -479,8 +490,10 @@ func TestStatsViewRenderedFullScreen(t *testing.T) {
 		},
 		Execute: func(string) (commandResponse, error) {
 			return commandResponse{
-				StatusLine: testStatusIdle,
-				StatsView:  "-- Today --\nPomodoros: 5",
+				Response: core.Response{
+					StatusLine: testStatusIdle,
+				},
+				StatsView: "-- Today --\nPomodoros: 5",
 			}, nil
 		},
 	})
@@ -512,8 +525,10 @@ func TestEscDismissesStatsView(t *testing.T) {
 		},
 		Execute: func(string) (commandResponse, error) {
 			return commandResponse{
-				StatusLine: testStatusIdle,
-				StatsView:  "-- Today --\nPomodoros: 5",
+				Response: core.Response{
+					StatusLine: testStatusIdle,
+				},
+				StatsView: "-- Today --\nPomodoros: 5",
 			}, nil
 		},
 	})

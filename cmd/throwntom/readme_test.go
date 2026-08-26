@@ -76,3 +76,22 @@ func TestGolangCILintConfigUsesV2Schema(t *testing.T) {
 		}
 	}
 }
+
+func TestREADMELayoutListsDaemonPackages(t *testing.T) {
+	content, err := os.ReadFile("../../README.md")
+	if err != nil {
+		t.Fatalf("read README.md: %v", err)
+	}
+
+	readme := string(content)
+
+	for _, expected := range []string{
+		"`cmd/throwntomd/`",
+		"`internal/daemon/`",
+		"`tools/tomctl/`",
+	} {
+		if !strings.Contains(readme, expected) {
+			t.Fatalf("expected README project layout to include %q", expected)
+		}
+	}
+}

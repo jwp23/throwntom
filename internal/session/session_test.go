@@ -78,3 +78,49 @@ func TestLoadCorruptFileReturnsError(t *testing.T) {
 		t.Fatal("expected error for corrupt file")
 	}
 }
+
+func TestSaveIsAtomicForConcurrentReaders(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "session.json")
+	d := Data{SavedAt: time.Now(), FocusedTaskIDs: []int{1, 2, 3}}
+	if err := Save(path, d); err != nil {
+		t.Fatalf("seed save: %v", err)
+	}
+
+	stop := make(chan struct{})
+	saveErr := make(chan error, 1)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			d.SavedAt = time.Now()
+			if err := Save(path, d); err != nil {
+				saveErr <- err
+				return
+			}
+		}
+	}()
+	defer func() {
+		close(stop)
+		<-done
+		select {
+		case err := <-saveErr:
+			t.Errorf("save: %v", err)
+		default:
+		}
+	}()
+
+	for i := 0; i < 200; i++ {
+		loaded, err := Load(path)
+		if err != nil {
+			t.Fatalf("load during concurrent save: %v", err)
+		}
+		if loaded.SavedAt.IsZero() {
+			t.Fatal("loaded a session with no saved_at while a save was in flight")
+		}
+	}
+}
