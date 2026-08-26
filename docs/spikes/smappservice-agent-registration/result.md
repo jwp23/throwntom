@@ -131,8 +131,11 @@ unsigned build takes deliberate effort.
   BTM re-resolves the app by bundle identifier.
 - **Rebuilding in place does not restart the agent.** After a rebuild the
   status stays `.enabled` and the *old* process keeps running the deleted
-  binary (same pid). An iteration script must `unregister()`/`register()`
-  or `launchctl kickstart -k` to pick up a new agent build.
+  binary (same pid). Measured later (2026-08-26, throwntom-3pt): launchd pins
+  the agent's code signature at registration, so `launchctl kickstart -k`
+  on a re-signed binary fails with `OS_REASON_CODESIGNING`, and
+  `unregister()`/`register()` from the running app does not refresh it
+  either. Unloading the job (`launchctl bootout`) and registering again does.
 
 ## Consequences for throwntom-s9z.4
 
@@ -142,7 +145,7 @@ unsigned build takes deliberate effort.
 - The app must still handle `register()` throwing and must read `status`
   rather than assuming success — the user can disable the item in System
   Settings at any time, which yields `.requiresApproval`.
-- Any dev iteration script needs the unregister/re-register step above.
+- Any dev iteration needs the bootout-then-register step above.
 
 ## Cleanup
 

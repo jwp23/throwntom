@@ -27,5 +27,5 @@ codesign --force --sign - --timestamp=none "$APP"
 
 echo "built $APP (version $VERSION)"
 echo "run:      open \"$APP\""
-echo "if the agent was already registered, load the new daemon with:"
-echo "          launchctl kickstart -k gui/$(id -u)/$LABEL"
+echo "if the agent was already registered, launchd will refuse the re-signed daemon;"
+echo "reload it:  quit the app; launchctl bootout gui/$(id -u)/$LABEL; open \"$APP\""

@@ -21,6 +21,10 @@ agent appears in System Settings → General → Login Items.
 The app never spawns the daemon itself. If the socket is unreachable it
 reconnects with backoff and, after three failures, re-registers the agent.
 
+If the agent is enabled in Login Items but launchd has no job for it (after a
+`bootout`, or a rebuild), the app unregisters and re-registers it after three
+failed connection attempts; the menu bar shows "Starting timer…" meanwhile.
+
 ## Tests
 
     cd macos/Throwntom && swift test
@@ -30,8 +34,11 @@ built by the tests with `go build` and run with `HOME` under `/tmp`.
 
 ## Development loop
 
-- After `macos/build.sh`, a registered agent keeps running the *old* daemon.
-  Reload it: `launchctl kickstart -k gui/$(id -u)/com.jwp23.throwntom.daemon`.
+- After `macos/build.sh`, launchd refuses the re-signed daemon (it pins the
+  agent's code signature at registration; `kickstart -k` fails with
+  `OS_REASON_CODESIGNING`). Reload it: quit the app,
+  `launchctl bootout gui/$(id -u)/com.jwp23.throwntom.daemon`, then reopen the
+  app — it re-registers the new binary.
 - To develop without the app: `macos/agent.sh install` runs
   `macos/.build/throwntomd` under a separate label (`com.jwp23.throwntom.dev`)
   logging to `~/.config/throwntom/daemon.log`; `restart` reloads it after a
