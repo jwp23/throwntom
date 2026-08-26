@@ -30,12 +30,19 @@ jobs:
       - name: Generate code coverage
         run: go test -timeout 30s -coverprofile=coverage.out ./...
 
-      - name: Build Swift package
-        run: swift build --package-path macos/Throwntom
+      - name: Test Swift package
+        run: swift test --package-path macos/Throwntom --enable-code-coverage --force-resolved-versions
 
-      # Pinned by version tag rather than SHA: a 40-hex SHA next to "sonarqube"
-      # trips Semgrep's generic SonarQube-token detector. Dependabot tracks the tag.
+      - name: Generate Swift coverage report
+        run: |
+          BIN_PATH="$(swift build --package-path macos/Throwntom --show-bin-path)"
+          xcrun llvm-cov show \
+            "$BIN_PATH/ThrowntomPackageTests.xctest/Contents/MacOS/ThrowntomPackageTests" \
+            -instr-profile "$BIN_PATH/codecov/default.profdata" \
+            -ignore-filename-regex='\.build|Tests/' \
+            > swift-coverage.txt
+
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v8
+        uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
