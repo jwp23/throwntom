@@ -1,7 +1,10 @@
 # Native macOS client
 
 Design for a native macOS front end to throwntom, built on a Go daemon.
-Decision record: [ADR-001](../adr/001-native-macos-client-over-daemon-api.md).
+Decision records: [ADR-001](../adr/001-native-macos-client-over-daemon-api.md)
+(daemon + native client), [ADR-002](../adr/002-macos-client-transport-over-unix-socket.md)
+(client transport), [SwiftPM bundle](../decisions/macos-app-swiftpm-bundle.md)
+(build system).
 
 ## Goals
 
@@ -126,7 +129,10 @@ silent no-ops.
 
 ## macOS app
 
-`LSUIElement` SwiftUI app in `macos/Throwntom/` (Xcode project).
+`LSUIElement` SwiftUI app in `macos/Throwntom/`, a Swift Package with a
+library target (`ThrowntomClient`: transport, `DaemonClient`, `State`,
+`Commands`) and an executable target (`Throwntom`: views). `macos/build.sh`
+assembles and ad-hoc signs the bundle; there is no Xcode project.
 
 ### Surfaces
 
@@ -146,7 +152,7 @@ Every action exists graphically and has a shortcut, discoverable in the
 application menu bar:
 
 - *Timer*: Start `⌘R`, Confirm `⏎`, Pause/Resume `⌘P`, Snooze `⌘⇧S`,
-  Skip Today.
+  Skip Today, New Cycle.
 - *Tasks*: New Task `⌘N` (inserts an editable row at the top; `⏎`
   commits), Complete `⌘⏎`, Delete `⌘⌫`, Focus `⌘F`, Move Up/Down
   `⌥↑/⌥↓`.
@@ -154,16 +160,26 @@ application menu bar:
   window. `⌘,` opens the config file in the default editor.
 
 Each action resolves to a command string sent to `POST /v1/command`
-(selecting row 3 and pressing `⌘⏎` sends `done 3`). The popover and the
+(selecting row 3 and pressing `⌘⏎` sends `task done 3`). The popover and the
 window share one `Commands` definition.
 
 ### Data flow
 
-One `@Observable` `DaemonClient` owns the SSE `URLSession` stream and
-publishes `State`. It reconnects with backoff; on failure it registers
-the launchd agent and shows "Starting timer…" in the menu bar. Views are
-pure functions of `State`; the only local UI state is the selected row
-and in-progress edit text.
+One `@Observable` `DaemonClient` owns the SSE stream and publishes
+`State`. It reconnects with backoff; on failure it registers the launchd
+agent and shows "Starting timer…" in the menu bar. Views are pure
+functions of `State`; the only local UI state is the selected row and
+in-progress edit text.
+
+`URLSession` cannot reach a Unix socket, so the client carries its own
+transport (ADR-002): a `DaemonTransport` protocol (`request` returning
+`(status, body)`, `events` returning `AsyncThrowingStream<Data, Error>`)
+with one implementation, `UnixSocketTransport`, built on `NWConnection`
+to `NWEndpoint.unix(path:)` plus a minimal HTTP/1.1 parser (status line,
+headers, `Content-Length` and chunked bodies) and an SSE frame splitter.
+The parser is pure over `Data`, bounds header and frame sizes, and throws
+on malformed input. The app is not sandboxed. A TCP transport with
+authentication is a later addition behind the same protocol.
 
 ## Repository layout
 
@@ -172,8 +188,8 @@ cmd/throwntom/        TUI
 cmd/throwntomd/       daemon
 internal/core/        Core + Subscribe
 internal/daemon/      HTTP handlers, State, SSE
-macos/Throwntom/      Xcode project
-macos/build.sh        go build throwntomd → copy into bundle → xcodebuild
+macos/Throwntom/      Swift package (ThrowntomClient lib + Throwntom app)
+macos/build.sh        go build throwntomd → swift build → assemble + sign .app
 macos/agent.sh        standalone launchd plist install/uninstall
 macos/README.md       build/run/register instructions
 tools/tomctl/         daemon CLI
@@ -188,10 +204,11 @@ tools/tomctl/         daemon CLI
   real `Core` — no mocks of `Core`.
 - Integration (`integration/`): socket + lock lifecycle, `tomctl`
   against a real daemon on a temp socket.
-- Swift: `DaemonClient` decoding and reconnect under XCTest against a
-  real `throwntomd` on a temp socket. No UI automation initially.
+- Swift: HTTP/SSE parsing as pure unit tests; `UnixSocketTransport` and
+  `DaemonClient` decoding and reconnect under XCTest against a real
+  `throwntomd` on a temp socket. No UI automation initially.
 - CI: existing Go workflow unchanged; a macOS job (`macos/build.sh` +
-  `xcodebuild test`) is added once the app exists.
+  `xcodebuild test` on the package) is added once the app exists.
 
 ## Delivery order
 

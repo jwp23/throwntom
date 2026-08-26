@@ -76,6 +76,22 @@ func TestListenReplacesStaleSocket(t *testing.T) {
 	}
 }
 
+func TestListenRestrictsSocketToOwner(t *testing.T) {
+	paths := tempPaths(t)
+	ln, err := Listen(paths)
+	if err != nil {
+		t.Fatalf("Listen: %v", err)
+	}
+	defer func() { _ = ln.Close() }()
+	info, err := os.Stat(paths.Socket)
+	if err != nil {
+		t.Fatalf("stat socket: %v", err)
+	}
+	if got := info.Mode().Perm(); got != 0o600 {
+		t.Fatalf("socket mode = %o, want 600", got)
+	}
+}
+
 func unixClient(socket string) *http.Client {
 	return &http.Client{Transport: &http.Transport{
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
