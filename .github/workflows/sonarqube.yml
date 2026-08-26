@@ -35,7 +35,7 @@ jobs:
 
       - name: Generate Swift coverage report
         run: |
-          BIN_PATH="$(swift build --package-path macos/Throwntom --show-bin-path)"
+          BIN_PATH="$(swift build --package-path macos/Throwntom --show-bin-path --force-resolved-versions)"
           xcrun llvm-cov show \
             "$BIN_PATH/ThrowntomPackageTests.xctest/Contents/MacOS/ThrowntomPackageTests" \
             -instr-profile "$BIN_PATH/codecov/default.profdata" \
