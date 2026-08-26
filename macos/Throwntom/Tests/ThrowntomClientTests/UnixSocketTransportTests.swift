@@ -12,7 +12,7 @@ final class UnixSocketTransportTests: XCTestCase {
     }
 
     override func tearDown() {
-        daemon.cleanup()
+        daemon?.cleanup()
     }
 
     func testGetStateReturnsDecodableJSON() async throws {
