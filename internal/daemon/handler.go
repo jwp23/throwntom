@@ -71,8 +71,10 @@ func isQuitLine(line string) bool {
 	return len(fields) > 0 && (fields[0] == "quit" || fields[0] == "exit")
 }
 
+const contentTypeJSON = "application/json"
+
 func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", contentTypeJSON)
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
 }
@@ -81,6 +83,9 @@ func writeError(w http.ResponseWriter, status int, err error) {
 	writeJSON(w, status, errorResponse{Error: err.Error()})
 }
 
+// jsonErrorWriter replaces the mux's plain-text 404 and 405 bodies with JSON.
+// Routes that answer 404 themselves already write JSON and keep their own,
+// more specific message.
 type jsonErrorWriter struct {
 	handler http.Handler
 }
@@ -88,6 +93,9 @@ type jsonErrorWriter struct {
 func (j *jsonErrorWriter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	wrapped := &statusCapturingWriter{ResponseWriter: w}
 	j.handler.ServeHTTP(wrapped, r)
+	if !wrapped.suppressed {
+		return
+	}
 	switch wrapped.status {
 	case http.StatusNotFound:
 		writeError(w, http.StatusNotFound, errors.New("not found"))
@@ -98,18 +106,26 @@ func (j *jsonErrorWriter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 type statusCapturingWriter struct {
 	http.ResponseWriter
-	status int
+	status     int
+	suppressed bool
 }
 
 func (s *statusCapturingWriter) WriteHeader(status int) {
 	s.status = status
-	if status != http.StatusNotFound && status != http.StatusMethodNotAllowed {
+	s.suppressed = isMuxError(status) && s.Header().Get("Content-Type") != contentTypeJSON
+	if !s.suppressed {
 		s.ResponseWriter.WriteHeader(status)
 	}
 }
 
+// isMuxError reports the statuses ServeMux itself answers with: an unknown
+// path and a path matched by a different method.
+func isMuxError(status int) bool {
+	return status == http.StatusNotFound || status == http.StatusMethodNotAllowed
+}
+
 func (s *statusCapturingWriter) Write(b []byte) (int, error) {
-	if s.status == http.StatusNotFound || s.status == http.StatusMethodNotAllowed {
+	if s.suppressed {
 		return len(b), nil
 	}
 	return s.ResponseWriter.Write(b)

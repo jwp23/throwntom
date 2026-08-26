@@ -72,8 +72,23 @@ func TestTimerSnoozeWithMorningPending(t *testing.T) {
 
 func TestTimerUnknownVerbIs404(t *testing.T) {
 	srv, _ := newTestServer(t)
-	if resp := postJSON(t, srv.URL+"/v1/timer/dance", nil); resp.StatusCode != 404 {
+	resp := postJSON(t, srv.URL+"/v1/timer/dance", nil)
+	if resp.StatusCode != 404 {
 		t.Fatalf("status %d", resp.StatusCode)
+	}
+	if e := decode[errorResponse](t, resp); !strings.Contains(e.Error, "dance") {
+		t.Fatalf("error %q does not name the verb", e.Error)
+	}
+}
+
+func TestTaskCompleteUnknownIDKeeps404Message(t *testing.T) {
+	srv, _ := newTestServer(t)
+	resp := postJSON(t, srv.URL+"/v1/tasks/999/complete", nil)
+	if resp.StatusCode != 404 {
+		t.Fatalf("status %d", resp.StatusCode)
+	}
+	if e := decode[errorResponse](t, resp); !strings.Contains(e.Error, "999") {
+		t.Fatalf("error %q does not name the task id", e.Error)
 	}
 }
 
