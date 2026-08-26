@@ -38,19 +38,19 @@ func Listen(paths core.Paths) (net.Listener, error) {
 		return nil, fmt.Errorf("open lock file: %w", err)
 	}
 	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		lock.Close()
+		_ = lock.Close()
 		if errors.Is(err, syscall.EWOULDBLOCK) {
 			return nil, ErrAlreadyRunning
 		}
 		return nil, fmt.Errorf("lock %s: %w", paths.Lock, err)
 	}
 	if err := os.Remove(paths.Socket); err != nil && !os.IsNotExist(err) {
-		lock.Close()
+		_ = lock.Close()
 		return nil, fmt.Errorf("remove stale socket: %w", err)
 	}
 	ln, err := net.Listen("unix", paths.Socket)
 	if err != nil {
-		lock.Close()
+		_ = lock.Close()
 		return nil, fmt.Errorf("listen on %s: %w", paths.Socket, err)
 	}
 	return &lockedListener{Listener: ln, lock: lock, sock: paths.Socket}, nil

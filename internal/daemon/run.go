@@ -29,6 +29,13 @@ func Run(ctx context.Context, cfg config.Config, n notifier.Notifier, paths core
 		ReadHeaderTimeout: 5 * time.Second,
 		BaseContext:       func(net.Listener) context.Context { return ctx },
 	}
+	// Keep-alive connections over the unix socket can sit idle and, on this
+	// platform, are not reliably detected/closed by Shutdown's idle-connection
+	// sweep, which then blocks for the full grace period below. Since every
+	// client here is local (CLI/TUI/native client over one socket), the cost
+	// of a fresh connection per request is negligible, so disable keep-alives
+	// outright rather than depend on Shutdown to reclaim idle connections.
+	srv.SetKeepAlivesEnabled(false)
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.Serve(ln) }()
 

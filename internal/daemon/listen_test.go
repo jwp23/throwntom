@@ -45,7 +45,7 @@ func TestListenRejectsSecondInstance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer first.Close()
+	defer func() { _ = first.Close() }()
 	if _, err := Listen(paths); !errors.Is(err, ErrAlreadyRunning) {
 		t.Fatalf("expected ErrAlreadyRunning, got %v", err)
 	}
@@ -60,14 +60,14 @@ func TestListenReplacesStaleSocket(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected stale socket to be replaced: %v", err)
 	}
-	l.Close()
+	_ = l.Close()
 	if _, err := os.Stat(paths.Socket); !os.IsNotExist(err) {
 		t.Fatal("expected socket removed on close")
 	}
 	if l2, err := Listen(paths); err != nil {
 		t.Fatalf("expected relisten after close: %v", err)
 	} else {
-		l2.Close()
+		_ = l2.Close()
 	}
 }
 
@@ -100,7 +100,7 @@ func TestRunServesUntilCancelledAndSavesSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("daemon never came up: %v", err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	postJSONWith(t, client, "http://throwntomd/v1/timer/new-cycle", nil)
 
 	cancel()
@@ -138,7 +138,7 @@ func TestRunReturnsPromptlyWithOpenSSEClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("daemon never came up: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	cancel()
 	select {

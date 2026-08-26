@@ -85,6 +85,14 @@ Pomodoro counts are color-coded by tier (configurable):
 | Warm | 3–5 | amber |
 | Hot | 6+ | green |
 
+## Daemon (`throwntomd`)
+
+`throwntomd` runs the timer, reminders and task store as a background
+process and serves a JSON API over `~/.config/throwntom/daemon.sock`
+(see `docs/designs/native-macos-client.md` for the routes). Only one
+instance runs at a time (`daemon.lock`). Do not run the daemon and the
+interactive `throwntom` TUI at the same time: they share `session.json`.
+
 ## Config
 
 Config file location: `~/.config/throwntom/config.toml`
