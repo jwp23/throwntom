@@ -188,13 +188,16 @@ func (a *App) SkipToday() {
 	a.engine.SkipToday()
 }
 
+// Pause reports whether the timer was running. A refused pause changes
+// nothing, so it does not notify.
 func (a *App) Pause() bool {
 	a.mu.Lock()
-	defer a.notifyChange()
-	defer a.mu.Unlock()
 	if !a.engine.Pause() {
+		a.mu.Unlock()
 		return false
 	}
+	defer a.notifyChange()
+	defer a.mu.Unlock()
 	if !a.phaseEndAt.IsZero() {
 		a.pausedRemaining = time.Until(a.phaseEndAt)
 		if a.pausedRemaining < 0 {
@@ -206,13 +209,16 @@ func (a *App) Pause() bool {
 	return true
 }
 
+// Resume reports whether a paused phase was restarted. A refused resume
+// changes nothing, so it does not notify.
 func (a *App) Resume() bool {
 	a.mu.Lock()
-	defer a.notifyChange()
-	defer a.mu.Unlock()
 	if !a.engine.Resume() {
+		a.mu.Unlock()
 		return false
 	}
+	defer a.notifyChange()
+	defer a.mu.Unlock()
 	d := a.pausedRemaining
 	if d <= 0 {
 		switch a.engine.State() {

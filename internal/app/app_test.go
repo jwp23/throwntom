@@ -451,3 +451,28 @@ func TestPauseReportsRefusalWhenIdle(t *testing.T) {
 	}
 	a.Stop()
 }
+
+func TestRefusedPauseAndResumeDoNotNotify(t *testing.T) {
+	a := New(25, 5, 15, 4, time.Hour, &fakeNotifier{})
+	count := 0
+	a.SetOnChange(func() { count++ })
+
+	if a.Pause() {
+		t.Fatal("expected Pause to report false when idle")
+	}
+	if a.Resume() {
+		t.Fatal("expected Resume to report false when idle")
+	}
+	if count != 0 {
+		t.Fatalf("expected no change callbacks for refused verbs, got %d", count)
+	}
+
+	a.Start()
+	if !a.Pause() {
+		t.Fatal("expected Pause to report true during work")
+	}
+	if count != 2 {
+		t.Fatalf("expected 2 change callbacks after start and pause, got %d", count)
+	}
+	a.Stop()
+}
