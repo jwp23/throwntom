@@ -15,23 +15,28 @@ final class SocketConnection: @unchecked Sendable {
     /// `.waiting`, which is reported as a failure so callers can retry with backoff.
     func open() async throws {
         try await perform { (gate: ResumeOnce<Void>) in
-            connection.stateUpdateHandler = { [connection] state in
-                switch state {
-                case .ready:
-                    gate.finish(.success(()))
-                case .waiting(let error), .failed(let error):
-                    // Only tear the connection down while `open` is still pending; the handler stays
-                    // installed afterwards, and a later state change belongs to an in-flight receive.
-                    if gate.finish(.failure(DaemonError.transport(String(describing: error)))) {
-                        connection.cancel()
-                    }
-                case .cancelled:
-                    gate.finish(.failure(DaemonError.transport("connection cancelled")))
-                default:
-                    break
-                }
-            }
+            connection.stateUpdateHandler = openStateHandler(gate: gate)
             connection.start(queue: queue)
+        }
+    }
+
+    /// Builds the `stateUpdateHandler` for a pending `open()` call.
+    private func openStateHandler(gate: ResumeOnce<Void>) -> @Sendable (NWConnection.State) -> Void {
+        { [connection] state in
+            switch state {
+            case .ready:
+                gate.finish(.success(()))
+            case .waiting(let error), .failed(let error):
+                // Only tear the connection down while `open` is still pending; the handler stays
+                // installed afterwards, and a later state change belongs to an in-flight receive.
+                if gate.finish(.failure(DaemonError.transport(String(describing: error)))) {
+                    connection.cancel()
+                }
+            case .cancelled:
+                gate.finish(.failure(DaemonError.transport("connection cancelled")))
+            default:
+                break
+            }
         }
     }
 
