@@ -16,7 +16,6 @@ type commandRequest struct {
 
 type commandResponse struct {
 	Message string               `json:"message"`
-	Exit    bool                 `json:"exit"`
 	Stats   *analytics.Dashboard `json:"stats,omitempty"`
 }
 

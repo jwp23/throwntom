@@ -107,5 +107,5 @@ func writeCommandOutcome(w http.ResponseWriter, resp core.Response) {
 		writeError(w, status, errors.New(resp.Error))
 		return
 	}
-	writeJSON(w, http.StatusOK, commandResponse{Message: resp.Message, Exit: resp.Exit, Stats: resp.Stats})
+	writeJSON(w, http.StatusOK, commandResponse{Message: resp.Message, Stats: resp.Stats})
 }
