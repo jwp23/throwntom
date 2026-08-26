@@ -147,6 +147,8 @@ Schedule supports day aliases: `"weekday"` expands to Mon-Fri, `"weekend"` to Sa
 - `internal/session/` — session persistence
 - `internal/task/` — task store
 - `tools/tomctl/` — command-line client for the daemon API
+- `macos/Throwntom/` — Swift package: menu bar app and daemon client
+- `macos/build.sh` — builds `Throwntom.app` with `throwntomd` embedded (see `macos/README.md`)
 - `e2e/` — end-to-end tests (build tag: `e2e`)
 - `integration/` — integration tests (build tag: `integration`)
 
