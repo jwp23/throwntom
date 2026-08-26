@@ -10,6 +10,7 @@ public struct SSEFrameSplitter {
 
     private var buffer = Data()
 
+    /// Empty: all state starts at its declared default (empty buffer).
     public init() {}
 
     /// Feeds raw body bytes and returns the data payload of every frame completed so far.
