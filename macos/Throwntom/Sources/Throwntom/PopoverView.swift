@@ -30,7 +30,7 @@ struct PopoverView: View {
             Divider()
             Button("Open Tasks…") {
                 NSApp.activate()
-                openWindow(id: TaskWindowID)
+                openWindow(id: taskWindowID)
             }
             .keyboardShortcut("t")
             Divider()
