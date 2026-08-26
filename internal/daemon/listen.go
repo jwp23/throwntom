@@ -53,5 +53,10 @@ func Listen(paths core.Paths) (net.Listener, error) {
 		_ = lock.Close()
 		return nil, fmt.Errorf("listen on %s: %w", paths.Socket, err)
 	}
+	if err := os.Chmod(paths.Socket, 0o600); err != nil {
+		_ = ln.Close()
+		_ = lock.Close()
+		return nil, fmt.Errorf("restrict socket permissions: %w", err)
+	}
 	return &lockedListener{Listener: ln, lock: lock, sock: paths.Socket}, nil
 }
