@@ -206,6 +206,10 @@ tools/tomctl/         daemon CLI
 
 - Step 1 is the largest diff and touches working code; mitigated by
   being a move with the existing tests following it.
-- `SMAppService` registration from an unsigned development build may
-  prompt or require the app to live in `/Applications`; verify in step 4
-  before building on it.
+- `SMAppService` agent registration from a development build is safe:
+  an ad-hoc signature is enough, the bundle need not live in
+  `/Applications`, and the user sees a notification rather than a prompt.
+  Measured in
+  [docs/spikes/smappservice-agent-registration](../spikes/smappservice-agent-registration/result.md),
+  which also records the dev-loop caveat that rebuilding in place does not
+  restart the agent.
