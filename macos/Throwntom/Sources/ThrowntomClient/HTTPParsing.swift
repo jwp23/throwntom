@@ -32,7 +32,7 @@ public enum HTTPParser {
             if data.count > maxHeadBytes { throw HTTPParseError.headTooLarge }
             return nil
         }
-        if range.lowerBound > maxHeadBytes { throw HTTPParseError.headTooLarge }
+        if range.lowerBound - data.startIndex > maxHeadBytes { throw HTTPParseError.headTooLarge }
         let headText = String(decoding: data[data.startIndex..<range.lowerBound], as: UTF8.self)
         var lines = headText.components(separatedBy: "\r\n")
         let statusLine = lines.removeFirst()

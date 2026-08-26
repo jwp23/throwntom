@@ -53,4 +53,14 @@ final class HTTPParsingTests: XCTestCase {
             XCTAssertEqual(error as? HTTPParseError, .malformedChunkSize("zz"))
         }
     }
+
+    func testParsesHeadFromNonZeroOffsetSlice() throws {
+        let raw = Data("XXXX".utf8) + Data("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n{}".utf8)
+        let slice = raw[4...]
+        let parsed = try XCTUnwrap(try HTTPParser.parseHead(slice))
+        XCTAssertEqual(parsed.head.status, 200)
+        // The head ends with "\r\n\r\n", which is 38 bytes into the HTTP response portion.
+        // bodyStart is the offset from the slice's start, so it's 38.
+        XCTAssertEqual(parsed.bodyStart, 38)
+    }
 }
