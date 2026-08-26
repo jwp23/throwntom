@@ -250,9 +250,6 @@ type commandResult struct {
 // or mutates Core state.
 func (c *Core) executeLocked(line string) commandResult {
 	trimmed := strings.TrimSpace(line)
-	if trimmed == "_cancel_focus" && c.pendingFocusPrompt {
-		return c.cancelFocusPrompt()
-	}
 	if c.pendingFocusPrompt {
 		return c.handleFocusPromptInput(trimmed)
 	}
