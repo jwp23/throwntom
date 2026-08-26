@@ -8,6 +8,7 @@ struct PopoverView: View {
 
     @State private var loginItem = false
     @State private var registrarMessage: String?
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -26,6 +27,12 @@ struct PopoverView: View {
             if let error = client.lastError, client.connection != .connected {
                 Text(error).font(.caption).foregroundStyle(.secondary).lineLimit(2)
             }
+            Divider()
+            Button("Open Tasks…") {
+                NSApp.activate()
+                openWindow(id: TaskWindowID)
+            }
+            .keyboardShortcut("t")
             Divider()
             Toggle("Launch at login", isOn: $loginItem)
                 .onChange(of: loginItem) { _, enabled in setLoginItem(enabled) }

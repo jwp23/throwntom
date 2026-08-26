@@ -5,6 +5,7 @@ import ThrowntomClient
 struct ThrowntomApp: App {
     @State private var client: DaemonClient
     @State private var ticker: Ticker
+    @State private var model = TaskWindowModel()
     private let registrar = SMAppServiceRegistrar()
 
     /// Client and ticker start here, not in a view's onAppear: the popover content only appears when opened.
@@ -26,5 +27,11 @@ struct ThrowntomApp: App {
             Text(MenuBarTitle.text(state: client.state, connection: client.connection, now: ticker.now))
         }
         .menuBarExtraStyle(.window)
+
+        Window("Tasks", id: TaskWindowID) {
+            TaskWindow(client: client, model: model)
+        }
+        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 420, height: 360)
     }
 }
