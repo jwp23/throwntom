@@ -38,9 +38,6 @@ func Save(path string, d Data) error {
 	if err := tmp.Close(); err != nil {
 		return fmt.Errorf("write session: %w", err)
 	}
-	if err := os.Chmod(tmpName, 0o644); err != nil {
-		return fmt.Errorf("write session: %w", err)
-	}
 	if err := os.Rename(tmpName, path); err != nil {
 		return fmt.Errorf("replace session: %w", err)
 	}

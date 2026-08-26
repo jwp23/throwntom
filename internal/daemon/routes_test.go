@@ -104,6 +104,7 @@ func TestTasksCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() { _ = listResp.Body.Close() }()
 	list := decode[core.TaskList](t, listResp)
 	if len(list.Active) != 1 || list.Active[0].ID != tk.ID {
 		t.Fatalf("active = %+v", list.Active)
@@ -171,6 +172,7 @@ func TestStatsReturnsDashboard(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status %d", resp.StatusCode)
 	}
