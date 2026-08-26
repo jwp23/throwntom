@@ -47,7 +47,11 @@ func Run(ctx context.Context, cfg config.Config, n notifier.Notifier, paths core
 		c.Stop()
 		return err
 	}
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownGrace)
+	// WithoutCancel: ctx is already Done here (see the select above), so a plain
+	// child of ctx would inherit that cancellation and skip the shutdown grace
+	// period entirely. Detaching from ctx's cancellation keeps that grace period
+	// while still rooting the timeout in the caller's context per Sonar S8239.
+	shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownGrace)
 	defer cancel()
 	err = srv.Shutdown(shutdownCtx)
 	c.Stop()
