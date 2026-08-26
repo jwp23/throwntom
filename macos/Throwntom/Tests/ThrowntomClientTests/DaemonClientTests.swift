@@ -73,15 +73,14 @@ final class DaemonClientTests: XCTestCase {
         XCTAssertEqual(client.state?.state, .idle)
     }
 
-    func testRegistersAgentOnceAfterRepeatedFailures() async throws {
+    func testRegistersAgentPeriodicallyDuringPersistentOutage() async throws {
         let missing = UnixSocketTransport(socketPath: daemon.home.appendingPathComponent("nope.sock").path)
         let client = DaemonClient(transport: missing, registrar: registrar, backoff: [.milliseconds(30)])
         client.start()
         defer { client.stop() }
         try await waitUntil { self.registrar.calls == 1 }
         XCTAssertEqual(client.connection, .startingDaemon)
-        try await Task.sleep(for: .milliseconds(300))
-        XCTAssertEqual(registrar.calls, 1, "registration happens once per outage")
+        try await waitUntil(timeout: 3) { self.registrar.calls >= 3 }
         XCTAssertEqual(client.connection, .startingDaemon)
     }
 }
