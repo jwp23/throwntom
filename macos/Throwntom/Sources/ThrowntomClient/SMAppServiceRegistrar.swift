@@ -10,11 +10,18 @@ public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
 
     private var agent: SMAppService { SMAppService.agent(plistName: Self.agentPlistName) }
 
+    /// Ensures the launchd agent is registered, reloading if necessary.
+    /// If unregister fails, we defer the error and attempt register anyway, since a stale
+    /// BTM entry may refuse to unregister while register still succeeds. Only throw if both
+    /// unregister and register fail, or if register fails alone.
     public func ensureAgentRegistered() throws {
+        var unregisterError: Error?
         for step in AgentRegistrationPlan.steps(for: AgentStatus(agent.status)) {
             switch step {
-            case .unregister: try agent.unregister()
-            case .register: try agent.register()
+            case .unregister:
+                do { try agent.unregister() } catch { unregisterError = error }
+            case .register:
+                do { try agent.register() } catch { throw unregisterError ?? error }
             }
         }
     }
