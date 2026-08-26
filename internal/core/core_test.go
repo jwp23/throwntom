@@ -134,6 +134,7 @@ func TestNewWiresStoresAndSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer c.Stop()
 	if res := c.execute("task add write tests"); res.err != nil {
 		t.Fatal(res.err)
 	}
