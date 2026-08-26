@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/jwp23/throwntom/v3/internal/core"
@@ -89,6 +90,24 @@ func TestPostCommandRefusedTransitionIs409(t *testing.T) {
 	resp := postJSON(t, srv.URL+"/v1/command", commandRequest{Line: "pause"})
 	if resp.StatusCode != 409 {
 		t.Fatalf("status %d", resp.StatusCode)
+	}
+}
+
+func TestPostCommandRejectsQuit(t *testing.T) {
+	for _, line := range []string{"quit", "exit", "quit now"} {
+		c := newTestCoreWithMorning(t)
+		srv := httptest.NewServer(NewHandler(c))
+		resp := postJSON(t, srv.URL+"/v1/command", commandRequest{Line: line})
+		if resp.StatusCode != 400 {
+			t.Fatalf("%q: status %d", line, resp.StatusCode)
+		}
+		if e := decode[errorResponse](t, resp); e.Error != "quit is not available over the API" {
+			t.Fatalf("%q: error %q", line, e.Error)
+		}
+		if !c.State().MorningPending {
+			t.Fatalf("%q: morning reminder was stopped", line)
+		}
+		srv.Close()
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/jwp23/throwntom/v3/internal/analytics"
 	"github.com/jwp23/throwntom/v3/internal/core"
@@ -54,8 +55,20 @@ func (s *server) postCommand(w http.ResponseWriter, r *http.Request) {
 // runCommand executes one command line and writes the outcome; shared by
 // the command endpoint and the verb/task routes.
 func (s *server) runCommand(w http.ResponseWriter, line string) {
+	if isQuitLine(line) {
+		writeError(w, http.StatusBadRequest, errors.New("quit is not available over the API"))
+		return
+	}
 	resp := s.core.Execute(line)
 	writeCommandOutcome(w, resp)
+}
+
+// isQuitLine reports whether line asks the core to exit. The API has no notion
+// of exiting: running quit would stop the morning reminder and leave the daemon
+// serving a half-stopped core.
+func isQuitLine(line string) bool {
+	fields := strings.Fields(line)
+	return len(fields) > 0 && (fields[0] == "quit" || fields[0] == "exit")
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
