@@ -93,6 +93,9 @@ process and serves a JSON API over `~/.config/throwntom/daemon.sock`
 instance runs at a time (`daemon.lock`). Do not run the daemon and the
 interactive `throwntom` TUI at the same time: they share `session.json`.
 
+Control the daemon from the command line with `tools/tomctl` (see
+`tools/tomctl/README.md` for usage and build instructions).
+
 ## Config
 
 Config file location: `~/.config/throwntom/config.toml`
