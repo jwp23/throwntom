@@ -41,7 +41,7 @@ func (c *Core) loadSession() error {
 	if !engine.IsSameDay(data.SavedAt, c.now()) {
 		return nil
 	}
-	if err := c.cycle.Restore(data.App); err != nil {
+	if err := c.cycle.Restore(data.App, c.now()); err != nil {
 		return err
 	}
 	if c.tasks != nil && len(data.FocusedTaskIDs) > 0 {
