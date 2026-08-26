@@ -12,6 +12,20 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/reminder"
 )
 
+// timer cancels a callback scheduled with afterFunc.
+type timer interface {
+	Stop() bool
+}
+
+// afterFunc schedules fn to run once after d and returns a handle to cancel
+// it. It is the only way App schedules work in the future, so a test clock can
+// replace both it and App's now to make timer-driven behavior deterministic.
+type afterFunc func(d time.Duration, fn func()) timer
+
+func realAfterFunc(d time.Duration, fn func()) timer {
+	return time.AfterFunc(d, fn)
+}
+
 type App struct {
 	mu                 sync.Mutex
 	engine             *engine.Engine
@@ -20,8 +34,10 @@ type App struct {
 	workDuration       time.Duration
 	shortBreakDuration time.Duration
 	longBreakDuration  time.Duration
+	now                func() time.Time
+	after              afterFunc
 	reminderCancel     context.CancelFunc
-	periodTimer        *time.Timer
+	periodTimer        timer
 	phaseEndAt         time.Time
 	pausedRemaining    time.Duration
 	onChange           func()
@@ -35,6 +51,8 @@ func New(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery int, r
 		workDuration:       time.Duration(workMinutes) * time.Minute,
 		shortBreakDuration: time.Duration(shortBreakMinutes) * time.Minute,
 		longBreakDuration:  time.Duration(longBreakMinutes) * time.Minute,
+		now:                time.Now,
+		after:              realAfterFunc,
 	}
 }
 
@@ -158,23 +176,23 @@ func (a *App) Confirm() {
 func (a *App) Snooze(d time.Duration) {
 	a.mu.Lock()
 	defer a.notifyChange()
-	a.engine.Snooze(d)
+	a.engine.Snooze(a.now(), d)
 	a.stopReminderLocked()
 	state := a.engine.State()
+	after := a.after
 	a.mu.Unlock()
 
 	if state != engine.AwaitingConfirm {
 		return
 	}
 
-	go func() {
-		time.Sleep(d)
+	after(d, func() {
 		a.mu.Lock()
 		defer a.mu.Unlock()
 		if a.engine.State() == engine.AwaitingConfirm {
 			a.startReminderLocked()
 		}
-	}()
+	})
 }
 
 func (a *App) SkipToday() {
@@ -199,7 +217,7 @@ func (a *App) Pause() bool {
 	defer a.notifyChange()
 	defer a.mu.Unlock()
 	if !a.phaseEndAt.IsZero() {
-		a.pausedRemaining = time.Until(a.phaseEndAt)
+		a.pausedRemaining = a.phaseEndAt.Sub(a.now())
 		if a.pausedRemaining < 0 {
 			a.pausedRemaining = 0
 		}
@@ -293,7 +311,7 @@ func (a *App) StatusLine() string {
 	default:
 		remaining := "00:00"
 		if !a.phaseEndAt.IsZero() {
-			remaining = formatRemaining(time.Until(a.phaseEndAt))
+			remaining = formatRemaining(a.phaseEndAt.Sub(a.now()))
 		}
 		return fmt.Sprintf("%s  %s  %s  %s", label, remaining, today, cycle)
 	}
@@ -341,8 +359,8 @@ func (a *App) stopReminderLocked() {
 
 func (a *App) startPhaseTimerLocked(d time.Duration) {
 	a.stopTimerLocked()
-	a.phaseEndAt = time.Now().Add(d)
-	a.periodTimer = time.AfterFunc(d, func() {
+	a.phaseEndAt = a.now().Add(d)
+	a.periodTimer = a.after(d, func() {
 		a.mu.Lock()
 		a.completePeriodLocked()
 		a.mu.Unlock()

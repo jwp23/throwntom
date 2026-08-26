@@ -145,8 +145,8 @@ func (e *Engine) NextPhase() State {
 	return Work
 }
 
-func (e *Engine) Snooze(d time.Duration) {
-	e.snoozeUntil = time.Now().Add(d)
+func (e *Engine) Snooze(now time.Time, d time.Duration) {
+	e.snoozeUntil = now.Add(d)
 }
 
 func (e *Engine) CompletedToday() int {
