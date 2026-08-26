@@ -59,6 +59,17 @@ final class TaskWindowModelTests: XCTestCase {
         XCTAssertNil(m.draft)
     }
 
+    func testCommitNewTaskRejectsControlCharactersAndClosesRow() {
+        let m = model(ids: [5])
+        m.beginNewTask()
+        m.draft = "a\nb"
+        XCTAssertThrowsError(try m.commitNewTask()) { error in
+            XCTAssertEqual(error as? TaskCommandError, .controlCharacters)
+        }
+        XCTAssertFalse(m.isEditing)
+        XCTAssertNil(m.draft)
+    }
+
     func testCommandsUseSelectedPositionAndFocusState() {
         let m = model(ids: [5, 6, 7], focused: [6])
         m.selectedID = 6
