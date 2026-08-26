@@ -1,0 +1,37 @@
+name: SonarQube
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions: {}
+
+jobs:
+  sonarqube:
+    # Dependabot runs don't receive Actions secrets, so SONAR_TOKEN is empty and
+    # the scan can't authenticate; skip — dependency bumps carry no analyzable code.
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Generate code coverage
+        run: go test -timeout 30s -coverprofile=coverage.out ./...
+
+      # Pinned by version tag rather than SHA: a 40-hex SHA next to "sonarqube"
+      # trips Semgrep's generic SonarQube-token detector. Dependabot tracks the tag.
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v8
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
