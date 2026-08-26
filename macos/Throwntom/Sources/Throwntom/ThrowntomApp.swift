@@ -24,7 +24,7 @@ struct ThrowntomApp: App {
         MenuBarExtra {
             PopoverView(client: client, ticker: ticker, registrar: registrar)
         } label: {
-            Text(MenuBarTitle.text(state: client.state, connection: client.connection, now: ticker.now))
+            Text(ConnectionStatus.text(state: client.state, connection: client.connection, now: ticker.now))
         }
         .menuBarExtraStyle(.window)
 

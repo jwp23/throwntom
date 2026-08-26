@@ -29,16 +29,23 @@ struct TaskWindow: View {
         .overlay {
             if client.state == nil {
                 ContentUnavailableView(
-                    MenuBarTitle.text(state: client.state, connection: client.connection, now: .now),
+                    ConnectionStatus.text(state: client.state, connection: client.connection, now: .now),
                     systemImage: "bolt.horizontal.circle"
                 )
             }
         }
         .frame(minWidth: 360, minHeight: 240)
         .toolbar {
-            if let state = client.state {
-                ForEach(TimerActions.available(for: state), id: \.self) { action in
-                    TimerActionButton(action: action, client: client)
+            ToolbarItem(placement: .principal) {
+                if client.state == nil {
+                    Text(ConnectionStatus.text(state: client.state, connection: client.connection, now: .now))
+                }
+            }
+            ToolbarItemGroup {
+                if let state = client.state {
+                    ForEach(TimerActions.available(for: state), id: \.self) { action in
+                        TimerActionButton(action: action, client: client)
+                    }
                 }
             }
         }
