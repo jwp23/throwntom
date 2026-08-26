@@ -238,7 +238,8 @@ func TestLoadSessionSuppressesMorningReminder(t *testing.T) {
 
 func TestSaveLoadExpiredTimerTransitionsToAwaitingConfirm(t *testing.T) {
 	dir := t.TempDir()
-	sessPath := filepath.Join(dir, testSessionFile)
+	savedPath := filepath.Join(dir, testSessionFile)
+	restoredPath := filepath.Join(dir, "restored-session.json")
 
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
@@ -248,13 +249,13 @@ func TestSaveLoadExpiredTimerTransitionsToAwaitingConfirm(t *testing.T) {
 	// would otherwise make the restore look like a new day.
 	savedAt := time.Date(2026, 3, 2, 12, 0, 0, 0, time.Local)
 	c := newCore(cfg, noopNotifier{})
-	c.sessionPath = sessPath
+	c.sessionPath = savedPath
 	c.setNow(func() time.Time { return savedAt })
 	defer c.Stop()
 	c.execute(cmdStart)
 	c.saveSession()
 
-	data, err := session.Load(sessPath)
+	data, err := session.Load(savedPath)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -266,10 +267,16 @@ func TestSaveLoadExpiredTimerTransitionsToAwaitingConfirm(t *testing.T) {
 	// between save and restore.
 	now := savedAt.Add(time.Hour)
 	data.App.PhaseEndAt = now.Add(-5 * time.Second)
-	_ = session.Save(sessPath, data)
+	// The doctored session gets a file of its own. The first core is still
+	// alive and every change it publishes rewrites its own session file
+	// asynchronously, which would otherwise restore the live, unexpired phase
+	// end over the expired one this test wrote.
+	if err := session.Save(restoredPath, data); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
 
 	c2 := newCore(cfg, noopNotifier{})
-	c2.sessionPath = sessPath
+	c2.sessionPath = restoredPath
 	c2.setNow(func() time.Time { return now })
 	defer c2.Stop()
 	if err := c2.loadSession(); err != nil {
