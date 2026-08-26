@@ -33,5 +33,6 @@ struct ThrowntomApp: App {
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 420, height: 360)
+        .commands { AppMenus(client: client, model: model) }
     }
 }
