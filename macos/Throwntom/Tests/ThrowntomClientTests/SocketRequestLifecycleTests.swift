@@ -14,6 +14,20 @@ final class SocketRequestLifecycleTests: XCTestCase {
         server = nil
     }
 
+    func testRequestTimesOutWhenPeerNeverReplies() async throws {
+        let server = try XCTUnwrap(self.server)
+        let timeout = Duration.milliseconds(150)
+        let transport = UnixSocketTransport(socketPath: server.path, requestTimeout: timeout)
+        let started = Date()
+        do {
+            _ = try await transport.request("GET", "/v1/state", body: nil)
+            XCTFail("expected a timeout error")
+        } catch let error as DaemonError {
+            XCTAssertEqual(error, .timedOut(after: timeout))
+        }
+        XCTAssertLessThan(Date().timeIntervalSince(started), 2)
+    }
+
     func testCancellingRequestUnblocksTheCaller() async throws {
         let server = try XCTUnwrap(self.server)
         let transport = UnixSocketTransport(socketPath: server.path)
