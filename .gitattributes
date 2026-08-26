@@ -1,0 +1,3 @@
+# Append-only audit log: parallel branches always append distinct lines, so
+# the correct resolution is to keep both sides rather than raise a conflict.
+.beads/interactions.jsonl merge=union
