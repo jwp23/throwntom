@@ -16,7 +16,7 @@ DOMAIN="gui/$(id -u)"
 
 case "${1:-}" in
   install)
-    [ -x "$BIN" ] || { echo "missing $BIN; run macos/build.sh first" >&2; exit 1; }
+    [[ -x "$BIN" ]] || { echo "missing $BIN; run macos/build.sh first" >&2; exit 1; }
     mkdir -p "$(dirname "$PLIST")" "$(dirname "$LOG")"
     cat > "$PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
