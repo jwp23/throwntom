@@ -16,6 +16,8 @@ public enum DaemonError: Error, Equatable {
     case transport(String)
     case malformedResponse(String)
     case http(status: Int, message: String)
+    /// The daemon accepted the connection but did not complete the response in time.
+    case timedOut(after: Duration)
 }
 
 /// How the client reaches throwntomd. One implementation today (Unix socket); a TCP one can be added behind this.
