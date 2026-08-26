@@ -63,4 +63,18 @@ final class HTTPParsingTests: XCTestCase {
         // bodyStart is the offset from the slice's start, so it's 38.
         XCTAssertEqual(parsed.bodyStart, 38)
     }
+
+    func testChunkedDecoderRejectsNegativeSize() {
+        var decoder = ChunkedDecoder()
+        XCTAssertThrowsError(try decoder.feed(Data("-1\r\nab\r\n".utf8))) { error in
+            XCTAssertEqual(error as? HTTPParseError, .malformedChunkSize("-1"))
+        }
+    }
+
+    func testChunkedDecoderRejectsOversizedChunk() {
+        var decoder = ChunkedDecoder()
+        XCTAssertThrowsError(try decoder.feed(Data("FFFFFFFF\r\n".utf8))) { error in
+            XCTAssertEqual(error as? HTTPParseError, .malformedChunkSize("FFFFFFFF"))
+        }
+    }
 }

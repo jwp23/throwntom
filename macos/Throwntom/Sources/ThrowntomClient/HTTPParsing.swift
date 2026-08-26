@@ -59,6 +59,7 @@ public struct ChunkedDecoder {
     private var buffer = Data()
     private static let crlf = Data("\r\n".utf8)
     private static let maxSizeLineBytes = 64
+    public static let maxChunkBytes = 1_048_576
 
     public private(set) var isFinished = false
 
@@ -80,6 +81,9 @@ public struct ChunkedDecoder {
                 let line = String(decoding: buffer[buffer.startIndex..<range.lowerBound], as: UTF8.self)
                 let sizeText = line.split(separator: ";", maxSplits: 1).first.map(String.init) ?? ""
                 guard let size = Int(sizeText.trimmingCharacters(in: .whitespaces), radix: 16) else {
+                    throw HTTPParseError.malformedChunkSize(line)
+                }
+                guard size >= 0, size <= Self.maxChunkBytes else {
                     throw HTTPParseError.malformedChunkSize(line)
                 }
                 buffer = Data(buffer[range.upperBound...])
