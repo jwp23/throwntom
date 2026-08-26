@@ -12,7 +12,8 @@ jobs:
     # Dependabot runs don't receive Actions secrets, so SONAR_TOKEN is empty and
     # the scan can't authenticate; skip — dependency bumps carry no analyzable code.
     if: github.actor != 'dependabot[bot]'
-    runs-on: ubuntu-latest
+    # macos-latest: the Swift analyzer needs a completed `swift build` before it can scan.
+    runs-on: macos-latest
     permissions:
       contents: read
     steps:
@@ -28,6 +29,9 @@ jobs:
 
       - name: Generate code coverage
         run: go test -timeout 30s -coverprofile=coverage.out ./...
+
+      - name: Build Swift package
+        run: swift build --package-path macos/Throwntom
 
       # Pinned by version tag rather than SHA: a 40-hex SHA next to "sonarqube"
       # trips Semgrep's generic SonarQube-token detector. Dependabot tracks the tag.
