@@ -126,3 +126,44 @@ func TestParseSnoozeDurationBareNumber(t *testing.T) {
 		})
 	}
 }
+
+func TestExecuteClassifiesErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		line string
+		want ErrorKind
+	}{
+		{"unknown command", "bogus", ErrorUsage},
+		{"bad snooze duration", "snooze bogus", ErrorUsage},
+		{"missing task argument", "task done", ErrorUsage},
+		{"task out of range", "task done 99", ErrorUsage},
+		{"unknown task subcommand", "task bogus", ErrorUsage},
+		{"pause while idle", "pause", ErrorRefused},
+		{"resume while idle", "resume", ErrorRefused},
+		{"focus outside work session", "task focus 1", ErrorRefused},
+		{"successful command", "status", ErrorNone},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := newTestCoreWithTasks(t)
+			resp := c.Execute(tt.line)
+			if resp.ErrorKind != tt.want {
+				t.Fatalf("kind = %v (error %q), want %v", resp.ErrorKind, resp.Error, tt.want)
+			}
+		})
+	}
+}
+
+func TestExecuteClassifiesAlreadyFocusedAsRefused(t *testing.T) {
+	c := newTestCoreWithTasks(t)
+	c.execute(cmdTaskAddImportant)
+	c.execute("start") // enters focus prompt
+	c.execute("")      // skip prompt, start pomodoro
+	if resp := c.Execute(cmdTaskFocus1); resp.ErrorKind != ErrorNone {
+		t.Fatalf("first focus: kind = %v error %q", resp.ErrorKind, resp.Error)
+	}
+	resp := c.Execute(cmdTaskFocus1)
+	if resp.ErrorKind != ErrorRefused {
+		t.Fatalf("kind = %v (error %q), want ErrorRefused", resp.ErrorKind, resp.Error)
+	}
+}

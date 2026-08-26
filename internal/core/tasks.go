@@ -22,7 +22,7 @@ const (
 
 func (c *Core) requireWorkSession(name string) (commandResult, bool) {
 	if !c.isWorkSession() {
-		return commandResult{err: fmt.Errorf("%s is only available during a work session", name)}, false
+		return commandResult{err: fmt.Errorf("%s is %w", name, errNotWorkSession)}, false
 	}
 	return commandResult{}, true
 }
@@ -170,7 +170,7 @@ func (c *Core) handleTaskFocus(parts []string) commandResult {
 	}
 	for _, f := range c.focused {
 		if f.ID == id {
-			return commandResult{err: fmt.Errorf("task %d is already focused", pos)}
+			return commandResult{err: fmt.Errorf("task %d %w", pos, errAlreadyFocused)}
 		}
 	}
 	active := c.tasks.Active()

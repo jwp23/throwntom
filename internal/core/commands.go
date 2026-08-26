@@ -11,9 +11,15 @@ import (
 )
 
 var (
-	errNotRunning = errors.New("nothing to pause: timer is not running")
-	errNotPaused  = errors.New("nothing to resume: timer is not paused")
+	errNotRunning     = errors.New("nothing to pause: timer is not running")
+	errNotPaused      = errors.New("nothing to resume: timer is not paused")
+	errNotWorkSession = errors.New("only available during a work session")
+	errAlreadyFocused = errors.New("is already focused")
 )
+
+// refusals are the sentinels for commands the current state does not allow;
+// classifyError maps them to ErrorRefused.
+var refusals = []error{errNotRunning, errNotPaused, errNotWorkSession, errAlreadyFocused}
 
 func (c *Core) buildCommandHandlers() map[string]commandHandler {
 	return map[string]commandHandler{

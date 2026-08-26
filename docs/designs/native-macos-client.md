@@ -103,8 +103,12 @@ morning snooze is active). `status_line` is the same string the TUI shows; the c
 presentation strings. Clients compute the live countdown locally from
 `phase_end_at`; the daemon never emits per-second events.
 
-Errors: `4xx` with `{"error": "..."}`. Invalid transitions (e.g. pause
-while idle) return `409`. No silent no-ops.
+Errors: `4xx` with `{"error": "..."}`. The core classifies every command
+failure as usage (unknown command, missing or unparseable argument,
+out-of-range position) or refused (a valid command the current state does not
+allow), and the daemon maps usage to `400` and refused to `409`. Invalid
+transitions (e.g. pause while idle) are refusals, so they return `409`. No
+silent no-ops.
 
 ## Daemon lifecycle on macOS
 

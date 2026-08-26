@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -161,12 +162,26 @@ func (c *Core) nextStageLocked() (engine.State, time.Duration, bool) {
 	return next, duration, true
 }
 
+// ErrorKind tells a caller why a command failed: a malformed request or a
+// valid command the current state refuses.
+type ErrorKind int
+
+const (
+	ErrorNone ErrorKind = iota
+	// ErrorUsage is an unknown command, a missing or unparseable argument or
+	// an out-of-range position.
+	ErrorUsage
+	// ErrorRefused is a well-formed command the current state does not allow.
+	ErrorRefused
+)
+
 type Response struct {
 	StatusLine     string
 	EngineState    engine.State
 	MorningPending bool
 	Message        string
 	Error          string
+	ErrorKind      ErrorKind
 	Exit           bool
 	Focused        []task.Task
 	FocusPrompt    string
@@ -208,8 +223,20 @@ func (c *Core) responseLocked(result commandResult) Response {
 	}
 	if result.err != nil {
 		resp.Error = result.err.Error()
+		resp.ErrorKind = classifyError(result.err)
 	}
 	return resp
+}
+
+// classifyError separates state refusals, which the sentinels in commands.go
+// and tasks.go mark, from everything else: malformed input.
+func classifyError(err error) ErrorKind {
+	for _, refusal := range refusals {
+		if errors.Is(err, refusal) {
+			return ErrorRefused
+		}
+	}
+	return ErrorUsage
 }
 
 type commandResult struct {

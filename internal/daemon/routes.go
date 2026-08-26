@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/jwp23/throwntom/v3/internal/core"
 )
@@ -101,9 +100,9 @@ func (s *server) getStats(w http.ResponseWriter, _ *http.Request) {
 
 func writeCommandOutcome(w http.ResponseWriter, resp core.Response) {
 	if resp.Error != "" {
-		status := http.StatusConflict
-		if strings.HasPrefix(resp.Error, "unknown command") {
-			status = http.StatusBadRequest
+		status := http.StatusBadRequest
+		if resp.ErrorKind == core.ErrorRefused {
+			status = http.StatusConflict
 		}
 		writeError(w, status, errors.New(resp.Error))
 		return

@@ -74,6 +74,16 @@ func TestPostCommandUnknownIs400(t *testing.T) {
 	}
 }
 
+func TestPostCommandUsageErrorIs400(t *testing.T) {
+	srv, _ := newTestServer(t)
+	for _, line := range []string{"snooze bogus", "task done 99", "task bogus"} {
+		resp := postJSON(t, srv.URL+"/v1/command", commandRequest{Line: line})
+		if resp.StatusCode != 400 {
+			t.Fatalf("%q: status %d", line, resp.StatusCode)
+		}
+	}
+}
+
 func TestPostCommandRefusedTransitionIs409(t *testing.T) {
 	srv, _ := newTestServer(t)
 	resp := postJSON(t, srv.URL+"/v1/command", commandRequest{Line: "pause"})
