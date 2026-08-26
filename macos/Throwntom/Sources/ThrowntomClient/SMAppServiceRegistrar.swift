@@ -11,8 +11,12 @@ public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
     private var agent: SMAppService { SMAppService.agent(plistName: Self.agentPlistName) }
 
     public func ensureAgentRegistered() throws {
-        guard agent.status != .enabled else { return }
-        try agent.register()
+        for step in AgentRegistrationPlan.steps(for: AgentStatus(agent.status)) {
+            switch step {
+            case .unregister: try agent.unregister()
+            case .register: try agent.register()
+            }
+        }
     }
 
     public var agentStatusDescription: String {
@@ -39,5 +43,17 @@ public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
 
     public func openLoginItemsSettings() {
         SMAppService.openSystemSettingsLoginItems()
+    }
+}
+
+extension AgentStatus {
+    init(_ status: SMAppService.Status) {
+        switch status {
+        case .notRegistered: self = .notRegistered
+        case .enabled: self = .enabled
+        case .requiresApproval: self = .requiresApproval
+        case .notFound: self = .notFound
+        @unknown default: self = .notFound
+        }
     }
 }
