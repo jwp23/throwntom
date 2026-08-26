@@ -2,6 +2,7 @@ import Foundation
 import Network
 
 /// One NWConnection to a Unix socket, exposed as async open/send/receive.
+/// Every call honours Task cancellation: the connection is closed and the caller resumes immediately.
 final class SocketConnection: @unchecked Sendable {
     private let connection: NWConnection
     private let queue = DispatchQueue(label: "throwntom.socket")
@@ -13,19 +14,16 @@ final class SocketConnection: @unchecked Sendable {
     /// Resolves once the connection is ready. A missing or refused socket parks NWConnection in
     /// `.waiting`, which is reported as a failure so callers can retry with backoff.
     func open() async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            let once = ResumeOnce()
+        try await perform { (gate: ResumeOnce<Void>) in
             connection.stateUpdateHandler = { [connection] state in
                 switch state {
                 case .ready:
-                    once.run { continuation.resume() }
+                    gate.finish(.success(()))
                 case .waiting(let error), .failed(let error):
-                    once.run {
-                        connection.cancel()
-                        continuation.resume(throwing: DaemonError.transport(String(describing: error)))
-                    }
+                    connection.cancel()
+                    gate.finish(.failure(DaemonError.transport(String(describing: error))))
                 case .cancelled:
-                    once.run { continuation.resume(throwing: DaemonError.transport("connection cancelled")) }
+                    gate.finish(.failure(DaemonError.transport("connection cancelled")))
                 default:
                     break
                 }
@@ -35,12 +33,12 @@ final class SocketConnection: @unchecked Sendable {
     }
 
     func send(_ data: Data) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+        try await perform { (gate: ResumeOnce<Void>) in
             connection.send(content: data, completion: .contentProcessed { error in
                 if let error {
-                    continuation.resume(throwing: DaemonError.transport(String(describing: error)))
+                    gate.finish(.failure(DaemonError.transport(String(describing: error))))
                 } else {
-                    continuation.resume()
+                    gate.finish(.success(()))
                 }
             })
         }
@@ -48,16 +46,16 @@ final class SocketConnection: @unchecked Sendable {
 
     /// Returns the next bytes, an empty Data when nothing arrived yet, or nil at end of stream.
     func receive() async throws -> Data? {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data?, Error>) in
+        try await perform { (gate: ResumeOnce<Data?>) in
             connection.receive(minimumIncompleteLength: 1, maximumLength: 65_536) { data, _, isComplete, error in
                 if let error {
-                    continuation.resume(throwing: DaemonError.transport(String(describing: error)))
+                    gate.finish(.failure(DaemonError.transport(String(describing: error))))
                 } else if let data, !data.isEmpty {
-                    continuation.resume(returning: data)
+                    gate.finish(.success(data))
                 } else if isComplete {
-                    continuation.resume(returning: nil)
+                    gate.finish(.success(nil))
                 } else {
-                    continuation.resume(returning: Data())
+                    gate.finish(.success(Data()))
                 }
             }
         }
@@ -66,18 +64,58 @@ final class SocketConnection: @unchecked Sendable {
     func close() {
         connection.cancel()
     }
+
+    /// Runs one Network.framework operation as a cancellable async call. Cancellation resumes the
+    /// caller with `CancellationError` before closing the connection, so the reported error is the
+    /// cancellation rather than whichever socket error the close happens to produce.
+    private func perform<T>(_ operation: (ResumeOnce<T>) -> Void) async throws -> T {
+        let gate = ResumeOnce<T>()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<T, Error>) in
+                guard gate.attach(continuation) else { return }
+                operation(gate)
+            }
+        } onCancel: { [self] in
+            gate.finish(.failure(CancellationError()))
+            close()
+        }
+    }
 }
 
-/// Guards a continuation against NWConnection reporting more than one terminal state.
-private final class ResumeOnce: @unchecked Sendable {
+/// Resumes a continuation exactly once, no matter how many terminal states NWConnection reports,
+/// and copes with cancellation arriving before the continuation has been installed.
+private final class ResumeOnce<T>: @unchecked Sendable {
     private let lock = NSLock()
-    private var done = false
+    private var continuation: CheckedContinuation<T, Error>?
+    private var resultBeforeAttach: Result<T, Error>?
+    private var isFinished = false
 
-    func run(_ body: () -> Void) {
+    /// Installs the continuation. Returns false when a result already arrived and was delivered,
+    /// meaning the caller must not start the underlying operation.
+    func attach(_ continuation: CheckedContinuation<T, Error>) -> Bool {
         lock.lock()
-        defer { lock.unlock() }
-        guard !done else { return }
-        done = true
-        body()
+        guard let result = resultBeforeAttach else {
+            self.continuation = continuation
+            lock.unlock()
+            return true
+        }
+        isFinished = true
+        lock.unlock()
+        continuation.resume(with: result)
+        return false
+    }
+
+    func finish(_ result: Result<T, Error>) {
+        lock.lock()
+        guard !isFinished else { return lock.unlock() }
+        guard let continuation else {
+            resultBeforeAttach = result
+            lock.unlock()
+            return
+        }
+        isFinished = true
+        self.continuation = nil
+        lock.unlock()
+        continuation.resume(with: result)
     }
 }
