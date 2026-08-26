@@ -54,7 +54,7 @@ func TestSubscribeDeliversTimerExpiry(t *testing.T) {
 	snap := c.cycle.Snapshot()
 	snap.Engine.State = engine.Work
 	snap.PhaseEndAt = time.Now().Add(20 * time.Millisecond)
-	if err := c.cycle.Restore(snap); err != nil {
+	if err := c.cycle.Restore(snap, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	deadline := time.After(2 * time.Second)

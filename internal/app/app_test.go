@@ -231,6 +231,7 @@ func TestStartNewCycleResetsCycleProgressButPreservesDailyTotal(t *testing.T) {
 func TestRestoreWorkWithTimeRemaining(t *testing.T) {
 	n := &fakeNotifier{}
 	a := New(25, 5, 15, 4, 20*time.Millisecond, n)
+	now := time.Now()
 	snap := Snapshot{
 		Engine: engine.Snapshot{
 			State:          engine.Work,
@@ -239,9 +240,9 @@ func TestRestoreWorkWithTimeRemaining(t *testing.T) {
 			CompletedToday: 2,
 			WorkDayStarted: true,
 		},
-		PhaseEndAt: time.Now().Add(10 * time.Minute),
+		PhaseEndAt: now.Add(10 * time.Minute),
 	}
-	if err := a.Restore(snap); err != nil {
+	if err := a.Restore(snap, now); err != nil {
 		t.Fatalf(fmtRestore, err)
 	}
 	if got := a.State(); got != engine.Work {
@@ -256,6 +257,7 @@ func TestRestoreWorkWithTimeRemaining(t *testing.T) {
 func TestRestoreWorkExpiredTransitionsToAwaitingConfirm(t *testing.T) {
 	n := &fakeNotifier{}
 	a := New(25, 5, 15, 4, 20*time.Millisecond, n)
+	now := time.Now()
 	snap := Snapshot{
 		Engine: engine.Snapshot{
 			State:          engine.Work,
@@ -264,9 +266,9 @@ func TestRestoreWorkExpiredTransitionsToAwaitingConfirm(t *testing.T) {
 			CompletedToday: 0,
 			WorkDayStarted: true,
 		},
-		PhaseEndAt: time.Now().Add(-1 * time.Second),
+		PhaseEndAt: now.Add(-1 * time.Second),
 	}
-	if err := a.Restore(snap); err != nil {
+	if err := a.Restore(snap, now); err != nil {
 		t.Fatalf(fmtRestore, err)
 	}
 	if got := a.State(); got != engine.AwaitingConfirm {
@@ -285,7 +287,7 @@ func TestRestorePausedPreservesRemaining(t *testing.T) {
 		},
 		PausedRemaining: 12 * time.Minute,
 	}
-	if err := a.Restore(snap); err != nil {
+	if err := a.Restore(snap, time.Now()); err != nil {
 		t.Fatalf(fmtRestore, err)
 	}
 	if got := a.State(); got != engine.Paused {
@@ -306,7 +308,7 @@ func TestRestoreAwaitingConfirmStartsReminder(t *testing.T) {
 			LastPhase: engine.Work,
 		},
 	}
-	if err := a.Restore(snap); err != nil {
+	if err := a.Restore(snap, time.Now()); err != nil {
 		t.Fatalf(fmtRestore, err)
 	}
 	if got := a.State(); got != engine.AwaitingConfirm {
@@ -329,7 +331,7 @@ func TestRestoreIdleIsClean(t *testing.T) {
 			WorkDayStarted: true,
 		},
 	}
-	if err := a.Restore(snap); err != nil {
+	if err := a.Restore(snap, time.Now()); err != nil {
 		t.Fatalf(fmtRestore, err)
 	}
 	if got := a.State(); got != engine.Idle {
@@ -350,7 +352,7 @@ func TestSnapshotRestoreRoundTrip(t *testing.T) {
 
 	snap := a.Snapshot()
 	a2 := New(25, 5, 15, 4, 20*time.Millisecond, n)
-	if err := a2.Restore(snap); err != nil {
+	if err := a2.Restore(snap, time.Now()); err != nil {
 		t.Fatalf(fmtRestore, err)
 	}
 	if got := a2.State(); got != engine.ShortBreak {
@@ -371,7 +373,7 @@ func TestOnChangeFiresWhenPhaseTimerExpires(t *testing.T) {
 	snap := a.Snapshot()
 	snap.Engine.State = engine.Work
 	snap.PhaseEndAt = time.Now().Add(20 * time.Millisecond)
-	if err := a.Restore(snap); err != nil {
+	if err := a.Restore(snap, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	<-fired // Restore itself
@@ -419,7 +421,7 @@ func TestAdvanceDayNotifiesOnRollover(t *testing.T) {
 	snap := a.Snapshot()
 	snap.Engine.WorkDate = yesterday
 	snap.Engine.CompletedToday = 2
-	if err := a.Restore(snap); err != nil {
+	if err := a.Restore(snap, time.Now()); err != nil {
 		t.Fatalf(fmtRestore, err)
 	}
 	count := 0

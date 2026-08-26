@@ -71,7 +71,7 @@ func (a *App) Snapshot() Snapshot {
 	}
 }
 
-func (a *App) Restore(s Snapshot) error {
+func (a *App) Restore(s Snapshot, now time.Time) error {
 	a.mu.Lock()
 	defer a.notifyChange()
 	defer a.mu.Unlock()
@@ -79,7 +79,7 @@ func (a *App) Restore(s Snapshot) error {
 
 	switch s.Engine.State {
 	case engine.Work, engine.ShortBreak, engine.LongBreak:
-		remaining := time.Until(s.PhaseEndAt)
+		remaining := s.PhaseEndAt.Sub(now)
 		if remaining > 0 {
 			a.startPhaseTimerLocked(remaining)
 		} else {

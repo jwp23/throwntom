@@ -252,11 +252,20 @@ func TestSaveLoadExpiredTimerTransitionsToAwaitingConfirm(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	data.App.PhaseEndAt = time.Now().Add(-5 * time.Second)
+	// now is deliberately offset from the real wall clock: PhaseEndAt sits 5s
+	// before it, but over an hour in the real future. If the expiry check
+	// used the real clock instead of the injected one, PhaseEndAt would look
+	// not-yet-expired and this test would fail — proving Restore honors the
+	// injected clock rather than depending on real elapsed time between save
+	// and restore (see throwntom-tm1: a CI runner's clock stepping mid-test
+	// could otherwise flip a negative "remaining" positive).
+	now := time.Now().Add(time.Hour)
+	data.App.PhaseEndAt = now.Add(-5 * time.Second)
 	_ = session.Save(sessPath, data)
 
 	c2 := newCore(cfg, noopNotifier{})
 	c2.sessionPath = sessPath
+	c2.setNow(func() time.Time { return now })
 	defer c2.Stop()
 	if err := c2.loadSession(); err != nil {
 		t.Fatalf(fmtLoadSession, err)
