@@ -87,7 +87,7 @@ public final class DaemonClient {
                 if Task.isCancelled { return }
                 failures += 1
                 lastError = String(describing: error)
-                if failures == Self.failuresBeforeRegistering {
+                if failures > 0 && failures % Self.failuresBeforeRegistering == 0 {
                     registerAgent()
                 }
                 connection = failures >= Self.failuresBeforeRegistering ? .startingDaemon : .reconnecting(attempt: failures)
