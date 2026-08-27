@@ -10,16 +10,17 @@ struct TaskWindow: View {
     @State private var showCompleted = false
 
     var body: some View {
+        let content = TaskWindowContent(state: client.state, connection: client.connection, model: model, now: .now)
         List(selection: Binding(get: { model.selectedID }, set: { model.selectedID = $0 })) {
-            if model.isEditing {
+            if content.isEditing {
                 NewTaskRow(model: model) { line in send(line) }
             }
-            ForEach(model.tasks.active) { task in
-                TaskRow(task: task, focused: model.focusedIDs.contains(task.id)).tag(task.id)
+            ForEach(content.active) { task in
+                TaskRow(task: task, focused: content.focusedIDs.contains(task.id)).tag(task.id)
             }
-            if !model.tasks.completed.isEmpty {
-                DisclosureGroup(model.completedSectionTitle, isExpanded: $showCompleted) {
-                    ForEach(model.tasks.completed) { task in
+            if let completed = content.completed {
+                DisclosureGroup(completed.title, isExpanded: $showCompleted) {
+                    ForEach(completed.tasks) { task in
                         TaskRow(task: task, focused: false)
                     }
                 }
@@ -27,16 +28,14 @@ struct TaskWindow: View {
         }
         .listStyle(.inset)
         .overlay {
-            if let text = ConnectionStatus.placeholderText(state: client.state, connection: client.connection, now: .now) {
+            if let text = content.placeholder {
                 ContentUnavailableView(text, systemImage: "bolt.horizontal.circle")
             }
         }
         .frame(minWidth: 360, minHeight: 240)
         .toolbar {
-            if let state = client.state {
-                ForEach(TimerActions.available(for: state), id: \.self) { action in
-                    TimerActionButton(action: action, client: client)
-                }
+            ForEach(content.toolbarActions, id: \.self) { action in
+                TimerActionButton(action: action, client: client)
             }
         }
         .onChange(of: client.tasks, initial: true) { syncModel() }

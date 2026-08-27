@@ -12,52 +12,42 @@ struct AppMenus: Commands {
     let client: DaemonClient
     let model: TaskWindowModel
 
-    private var phase: DaemonState.Phase? { client.state?.state }
-    private var available: [TimerAction] { client.state.map(TimerActions.available(for:)) ?? [] }
-
     var body: some Commands {
         CommandGroup(replacing: .appSettings) {
             Button("Open Config File…") { ConfigFile.open() }.keyboardShortcut(",")
         }
         CommandMenu("Timer") {
-            timerItem(.start, key: "r", modifiers: .command)
-            timerItem(.confirm, key: .return, modifiers: [])
-                .disabled(!available.contains(.confirm) || model.isEditing)
-            timerItem(TimerActions.pauseOrResume(for: phase), key: "p", modifiers: .command)
-            timerItem(.snooze, key: "s", modifiers: [.command, .shift])
-            Divider()
-            Button(TimerAction.skipToday.title) { perform(.skipToday) }.disabled(!available.contains(.skipToday))
-            Button(TimerAction.newCycle.title) { perform(.newCycle) }.disabled(!available.contains(.newCycle))
+            menu(MenuModel.timer(state: client.state, isEditing: model.isEditing), run: perform)
         }
         CommandMenu("Tasks") {
-            Button(TaskAction.newTask.title) { model.beginNewTask() }
-                .keyboardShortcut("n").disabled(!model.canPerform(.newTask))
-            taskItem(.complete, key: .return, modifiers: .command)
-            taskItem(.delete, key: .delete, modifiers: .command)
-            taskItem(.focus, key: "f", modifiers: .command)
-            Divider()
-            taskItem(.moveUp, key: .upArrow, modifiers: .option)
-            taskItem(.moveDown, key: .downArrow, modifiers: .option)
+            menu(MenuModel.tasks(model: model), run: run)
         }
     }
 
-    private func timerItem(_ action: TimerAction, key: KeyEquivalent, modifiers: EventModifiers) -> some View {
-        Button(action.title) { perform(action) }
-            .keyboardShortcut(key, modifiers: modifiers)
-            .disabled(!available.contains(action))
-    }
-
-    private func taskItem(_ action: TaskAction, key: KeyEquivalent, modifiers: EventModifiers) -> some View {
-        Button(action.title) {
-            if let line = model.command(for: action) { send(line) }
+    @ViewBuilder
+    private func menu<Action>(_ menu: MenuModel<Action>, run: @escaping (Action) -> Void) -> some View {
+        ForEach(Array(menu.groups.enumerated()), id: \.offset) { index, group in
+            if index > 0 { Divider() }
+            ForEach(group) { item in
+                Button(item.title) { run(item.action) }
+                    .keyboardShortcut(item.shortcut?.keyboardShortcut)
+                    .disabled(!item.isEnabled)
+            }
         }
-        .keyboardShortcut(key, modifiers: modifiers)
-        .disabled(!model.canPerform(action))
     }
 
     private func perform(_ action: TimerAction) {
         Task {
             do { try await client.perform(action) } catch { NSSound.beep() }
+        }
+    }
+
+    /// New Task opens the inline editor; every other verb is a command line for the selection.
+    private func run(_ action: TaskAction) {
+        if action == .newTask {
+            model.beginNewTask()
+        } else if let line = model.command(for: action) {
+            send(line)
         }
     }
 

@@ -1,39 +1,19 @@
 import SwiftUI
-import ThrowntomClient
 
-/// The app's entry point, built here rather than in the executable target so everything it
-/// wires together stays in a library the tests can import.
+/// The app's entry point. The executable target does nothing but call `main()` on this, so
+/// everything it wires together lives in a library the tests can import.
 public struct ThrowntomApp: App {
-    @State private var client: DaemonClient
-    @State private var ticker: Ticker
-    @State private var model = TaskWindowModel()
-    private let registrar = SMAppServiceRegistrar()
+    @State private var environment: AppEnvironment
 
-    /// Client and ticker start here, not in a view's onAppear: the popover content only appears when opened.
+    /// The daemon connection and the clock start here, not in a view's onAppear: the popover
+    /// content only appears when opened.
     public init() {
-        let client = DaemonClient(
-            transport: UnixSocketTransport(socketPath: DaemonPaths.socketPath),
-            registrar: SMAppServiceRegistrar())
-        let ticker = Ticker()
-        client.start()
-        ticker.start()
-        _client = State(initialValue: client)
-        _ticker = State(initialValue: ticker)
+        let environment = AppEnvironment.live()
+        environment.start()
+        _environment = State(initialValue: environment)
     }
 
     public var body: some Scene {
-        MenuBarExtra {
-            PopoverView(client: client, ticker: ticker, registrar: registrar)
-        } label: {
-            Text(ConnectionStatus.text(state: client.state, connection: client.connection, now: ticker.now))
-        }
-        .menuBarExtraStyle(.window)
-
-        Window("Tasks", id: taskWindowID) {
-            TaskWindow(client: client, model: model)
-        }
-        .windowStyle(.hiddenTitleBar)
-        .defaultSize(width: 420, height: 360)
-        .commands { AppMenus(client: client, model: model) }
+        ThrowntomScenes(environment: environment)
     }
 }
