@@ -4,6 +4,14 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
+# bd rewrites the interaction log as beads change, and it records why each bead
+# moved. That reasoning belongs in the same commit as the work it describes, so
+# it is staged here rather than left to drift behind the code it explains.
+if ! git diff --quiet -- .beads/interactions.jsonl; then
+  echo "pre-commit: staging .beads/interactions.jsonl"
+  git add .beads/interactions.jsonl
+fi
+
 echo "pre-commit: checking gofmt"
 unformatted="$(gofmt -l .)"
 if [ -n "$unformatted" ]; then
