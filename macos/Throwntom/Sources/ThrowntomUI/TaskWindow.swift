@@ -35,7 +35,7 @@ struct TaskWindow: View {
         .frame(minWidth: 360, minHeight: 240)
         .toolbar {
             ForEach(content.toolbarActions, id: \.self) { action in
-                TimerActionButton(action: action, client: client)
+                TimerActionButton(action: action, client: client, layout: .toolbar)
             }
         }
         .onChange(of: client.tasks, initial: true) { syncModel() }
