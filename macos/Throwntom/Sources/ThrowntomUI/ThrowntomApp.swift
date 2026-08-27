@@ -9,8 +9,8 @@ public struct ThrowntomApp: App {
     /// content only appears when opened.
     public init() {
         let environment = AppEnvironment.live()
-        environment.start()
         environment.startReminderResponder()
+        environment.start()
         _environment = State(initialValue: environment)
     }
 

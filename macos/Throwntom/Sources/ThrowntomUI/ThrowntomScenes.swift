@@ -8,7 +8,11 @@ struct ThrowntomScenes: Scene {
 
     var body: some Scene {
         MenuBarExtra {
-            PopoverView(client: environment.client, ticker: environment.ticker, registrar: environment.registrar)
+            PopoverView(
+                client: environment.client,
+                ticker: environment.ticker,
+                registrar: environment.registrar,
+                responder: environment.responder)
         } label: {
             Text(ConnectionStatus.text(
                 state: environment.client.state,

@@ -5,6 +5,7 @@ struct PopoverView: View {
     let client: DaemonClient
     let ticker: Ticker
     let registrar: SMAppServiceRegistrar
+    let responder: ReminderResponder
 
     @State private var loginItem = LoginItemSetting(isOn: false, message: nil)
     @Environment(\.openWindow) private var openWindow
@@ -24,7 +25,11 @@ struct PopoverView: View {
                 }
             }
             if let error = client.unresolvedError {
-                Text(error).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                PopoverCaption(text: error)
+            }
+            if let problem = responder.authorization.problem {
+                PopoverCaption(text: problem)
+                Button("Open Notification Settings…") { responder.openNotificationSettings() }
             }
             Divider()
             Button("Open Tasks…") {
@@ -42,6 +47,7 @@ struct PopoverView: View {
         .padding(12)
         .frame(width: 280)
         .onAppear { loginItem.isOn = registrar.loginItemEnabled }
+        .task { await responder.refreshAuthorization() }
     }
 
     @ViewBuilder
@@ -57,5 +63,19 @@ struct PopoverView: View {
 
     private func setLoginItem(_ enabled: Bool) {
         loginItem = .afterSetting(enabled, in: registrar)
+    }
+}
+
+/// A note under the popover's controls. Its text is a sentence rather than a label, so it wraps to
+/// as many lines as it needs: at the popover's width a daemon error or a permission warning runs
+/// past two lines, and truncating it hides the part that says what to do.
+struct PopoverCaption: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
