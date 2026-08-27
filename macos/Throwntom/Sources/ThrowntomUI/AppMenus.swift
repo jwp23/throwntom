@@ -36,14 +36,14 @@ struct AppMenus: Commands {
         }
     }
 
-    private func perform(_ action: TimerAction) {
+    func perform(_ action: TimerAction) {
         Task {
             do { try await client.perform(action) } catch { NSSound.beep() }
         }
     }
 
     /// New Task opens the inline editor; every other verb is a command line for the selection.
-    private func run(_ action: TaskAction) {
+    func run(_ action: TaskAction) {
         if action == .newTask {
             model.beginNewTask()
         } else if let line = model.command(for: action) {

@@ -21,7 +21,7 @@ struct TimerActionButton: View {
         .help(action.helpText)
     }
 
-    private func perform() async {
+    func perform() async {
         do { try await client.perform(action) } catch { NSSound.beep() }
     }
 }
