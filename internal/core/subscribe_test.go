@@ -220,3 +220,63 @@ func TestPublishSuppressedAfterStop(t *testing.T) {
 	}
 	c.cycle.Stop()
 }
+
+// stopWindowWait bounds the wait for a publish that starts inside Stop's
+// window. Stop must shut that publish out, so the wait is expected to expire.
+const stopWindowWait = 100 * time.Millisecond
+
+// TestStopShutsOutPublishInFinalWindow forces the interleaving Stop's contract
+// forbids: a publish begins after the final publish delivered and before Stop
+// returns. It must neither save the session nor reach a subscriber. The
+// afterFinalPublish seam makes the ordering deterministic instead of hoping a
+// background goroutine lands in the window.
+func TestStopShutsOutPublishInFinalWindow(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+	c.sessionPath = filepath.Join(t.TempDir(), testSessionFile)
+
+	stopAt := time.Date(2026, 3, 4, 10, 0, 0, 0, time.Local)
+	lateAt := stopAt.Add(time.Hour)
+	c.setNow(func() time.Time { return stopAt })
+
+	sub := make(chan State)
+	unsubscribe := c.subscribeSync(sub)
+	delivered := make(chan State, 2)
+	drained := make(chan struct{})
+	go func() {
+		defer close(drained)
+		for s := range sub {
+			delivered <- s
+		}
+	}()
+
+	latePublished := make(chan struct{})
+	c.afterFinalPublish = func() {
+		<-delivered // the final publish reached the subscriber
+		c.setNow(func() time.Time { return lateAt })
+		go func() {
+			defer close(latePublished)
+			c.publish() // exactly what a queued publishAsync runs
+		}()
+		select {
+		case s := <-delivered:
+			t.Errorf("publish reached a subscriber inside Stop's window: %s", s.State)
+		case <-time.After(stopWindowWait):
+		}
+	}
+
+	c.Stop()
+	<-latePublished
+	unsubscribe()
+	close(sub)
+	<-drained
+
+	data, err := session.Load(c.sessionPath)
+	if err != nil {
+		t.Fatalf("load session: %v", err)
+	}
+	if !data.SavedAt.Equal(stopAt) {
+		t.Fatalf("session saved inside Stop's window: saved_at = %s, want %s", data.SavedAt, stopAt)
+	}
+}
