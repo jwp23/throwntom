@@ -6,6 +6,7 @@ struct ThrowntomApp: App {
     @State private var client: DaemonClient
     @State private var ticker: Ticker
     @State private var model = TaskWindowModel()
+    @State private var responder: ReminderResponder
     private let registrar = SMAppServiceRegistrar()
 
     /// Client and ticker start here, not in a view's onAppear: the popover content only appears when opened.
@@ -14,10 +15,13 @@ struct ThrowntomApp: App {
             transport: UnixSocketTransport(socketPath: DaemonPaths.socketPath),
             registrar: SMAppServiceRegistrar())
         let ticker = Ticker()
+        let responder = ReminderResponder(client: client)
         client.start()
         ticker.start()
+        responder.start()
         _client = State(initialValue: client)
         _ticker = State(initialValue: ticker)
+        _responder = State(initialValue: responder)
     }
 
     var body: some Scene {
