@@ -81,29 +81,6 @@ final class ReminderNotificationAnswerTests: XCTestCase {
     }
 }
 
-/// Records what each action puts on the wire. Reaching awaiting-confirm against a
-/// real daemon would take a whole work period, so the request itself is the seam.
-private final class RecordingTransport: DaemonTransport, @unchecked Sendable {
-    struct Call: Equatable {
-        var method: String
-        var path: String
-        var body: Data?
-    }
-
-    private let lock = NSLock()
-    private var _calls: [Call] = []
-    var calls: [Call] { lock.withLock { _calls } }
-
-    func request(_ method: String, _ path: String, body: Data?) async throws -> HTTPResponse {
-        lock.withLock { _calls.append(Call(method: method, path: path, body: body)) }
-        return HTTPResponse(status: 200, headers: [:], body: Data())
-    }
-
-    func events(_ path: String) -> AsyncThrowingStream<Data, Error> {
-        AsyncThrowingStream { $0.finish(throwing: DaemonError.transport("no events")) }
-    }
-}
-
 @MainActor
 final class ReminderNotificationRequestTests: XCTestCase {
     private func client(_ transport: RecordingTransport) -> DaemonClient {
@@ -114,17 +91,17 @@ final class ReminderNotificationRequestTests: XCTestCase {
         let transport = RecordingTransport()
         try await ReminderNotification.answer(.confirm, using: client(transport))
 
-        XCTAssertEqual(transport.calls.map(\.method), ["POST"])
-        XCTAssertEqual(transport.calls.map(\.path), ["/v1/timer/confirm"])
-        XCTAssertNil(transport.calls.first?.body)
+        XCTAssertEqual(transport.requests.map(\.method), ["POST"])
+        XCTAssertEqual(transport.requests.map(\.path), ["/v1/timer/confirm"])
+        XCTAssertNil(transport.requests.first?.body)
     }
 
     func testSnoozePostsTheDefaultSnoozeMinutes() async throws {
         let transport = RecordingTransport()
         try await ReminderNotification.answer(.snooze, using: client(transport))
 
-        XCTAssertEqual(transport.calls.map(\.path), ["/v1/timer/snooze"])
-        let body = try XCTUnwrap(transport.calls.first?.body)
+        XCTAssertEqual(transport.requests.map(\.path), ["/v1/timer/snooze"])
+        let body = try XCTUnwrap(transport.requests.first?.body)
         let decoded = try JSONSerialization.jsonObject(with: body) as? [String: Int]
         XCTAssertEqual(decoded, ["minutes": TimerActions.defaultSnoozeMinutes])
     }
