@@ -12,27 +12,6 @@ protocol ReminderPresenter {
     func withdrawReminder()
 }
 
-/// The real notification centre. `UNUserNotificationCenter.current()` is reached only inside the
-/// methods, so building one is harmless in a process that is not an app bundle.
-struct SystemReminderPresenter: ReminderPresenter {
-    func registerReminderButtons() {
-        UNUserNotificationCenter.current().setNotificationCategories([ReminderAlert.category])
-    }
-
-    func postReminder(title: String, body: String) async throws {
-        try await UNUserNotificationCenter.current().add(ReminderAlert.request(title: title, body: body))
-    }
-
-    /// Takes the banner off screen whether the user has seen it or not: a reminder that has been
-    /// answered must stop offering answers to it.
-    func withdrawReminder() {
-        let center = UNUserNotificationCenter.current()
-        let pending = [ReminderNotification.requestIdentifier]
-        center.removePendingNotificationRequests(withIdentifiers: pending)
-        center.removeDeliveredNotifications(withIdentifiers: pending)
-    }
-}
-
 /// What a change in the daemon's state means for the reminder banner. Deciding it from the two
 /// states rather than from the latest one is what keeps a wait that lasts many frames to one banner.
 enum ReminderBanner: Equatable {

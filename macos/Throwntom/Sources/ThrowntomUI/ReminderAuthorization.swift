@@ -9,18 +9,6 @@ protocol NotificationAuthorizer {
     func requestAuthorization() async throws -> Bool
 }
 
-/// The real notification centre. `UNUserNotificationCenter.current()` is reached only inside the
-/// methods, so building one is harmless in a process that is not an app bundle.
-struct SystemNotificationAuthorizer: NotificationAuthorizer {
-    func authorizationStatus() async -> UNAuthorizationStatus {
-        await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
-    }
-
-    func requestAuthorization() async throws -> Bool {
-        try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
-    }
-}
-
 /// What the user is told about reminders macOS will not deliver. An unauthorized reminder is
 /// accepted without complaint and then never appears, so this text is its only trace: without it
 /// the user hears the sound, sees no banner, and has nothing to look at.
