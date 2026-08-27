@@ -42,7 +42,8 @@ done
 [[ -n "${GH_TOKEN:-}" ]] || report_only=1
 
 sonar_get() {
-  curl -sSf -H "Authorization: Bearer $SONAR_TOKEN" "$HOST/$1"
+  local path="$1"
+  curl -sSf -H "Authorization: Bearer $SONAR_TOKEN" "$HOST/$path"
 }
 
 # strip the "projectKey:" prefix from a component to leave the file path
