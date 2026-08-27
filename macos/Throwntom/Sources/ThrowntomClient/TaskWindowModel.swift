@@ -17,10 +17,14 @@ public final class TaskWindowModel {
 
     public var isEditing: Bool { draft != nil }
 
+    /// Label of the collapsed completed section, e.g. "Completed (3)".
+    public var completedSectionTitle: String { "Completed (\(tasks.completed.count))" }
+
     /// Applies fresh daemon state, keeping the selection on the same task when it still exists.
-    public func sync(tasks: TaskList, focusedIDs: Set<Int>) {
+    /// No focus list at all — no daemon state yet — means nothing is focused.
+    public func sync(tasks: TaskList, focusedTaskIDs: [Int]?) {
         self.tasks = tasks
-        self.focusedIDs = focusedIDs
+        focusedIDs = Set(focusedTaskIDs ?? [])
         if let id = selectedID, tasks.active.contains(where: { $0.id == id }) { return }
         selectedID = tasks.active.first?.id
     }

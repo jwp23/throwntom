@@ -20,6 +20,11 @@ public final class DaemonClient {
     public private(set) var connection = Connection.connecting
     public private(set) var lastError: String?
 
+    /// The last error while it still matters: reconnecting hides it without forgetting it.
+    public var unresolvedError: String? {
+        if connection == .connected { nil } else { lastError }
+    }
+
     private let transport: DaemonTransport
     private let registrar: LaunchAgentRegistrar
     private let backoff: [Duration]
@@ -52,6 +57,15 @@ public final class DaemonClient {
 
     public func timer(_ verb: TimerVerb) async throws {
         _ = try await post(DaemonAPI.timer(verb), body: nil)
+    }
+
+    /// Runs a timer action: every action but snooze is a verb path with no body.
+    public func perform(_ action: TimerAction) async throws {
+        if let verb = action.verb {
+            try await timer(verb)
+        } else {
+            try await snooze(minutes: TimerActions.defaultSnoozeMinutes)
+        }
     }
 
     public func snooze(minutes: Int) async throws {

@@ -34,6 +34,11 @@ public enum TimerAction: CaseIterable, Sendable {
         }
     }
 
+    /// Tooltip text: the title, and the shortcut in parentheses when the action has one.
+    public var helpText: String {
+        if shortcutHint.isEmpty { title } else { "\(title) (\(shortcutHint))" }
+    }
+
     /// nil for snooze, which posts to /v1/timer/snooze with a minutes body instead.
     public var verb: TimerVerb? {
         switch self {
@@ -63,5 +68,10 @@ public enum TimerActions {
         case .awaitingConfirm:
             return [.confirm, .snooze, .newCycle]
         }
+    }
+
+    /// The single play/pause control: resuming is only on offer while the timer is paused.
+    public static func pauseOrResume(for phase: DaemonState.Phase?) -> TimerAction {
+        if phase == .paused { .resume } else { .pause }
     }
 }

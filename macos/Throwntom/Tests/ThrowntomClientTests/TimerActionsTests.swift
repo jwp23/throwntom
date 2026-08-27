@@ -39,4 +39,18 @@ final class TimerActionsTests: XCTestCase {
         XCTAssertEqual(TimerAction.skipToday.shortcutHint, "")
         XCTAssertEqual(TimerAction.snooze.title, "Snooze \(TimerActions.defaultSnoozeMinutes) min")
     }
+
+    func testHelpTextAppendsTheShortcutOnlyWhenThereIsOne() {
+        XCTAssertEqual(TimerAction.start.helpText, "Start (⌘R)")
+        XCTAssertEqual(TimerAction.snooze.helpText, "Snooze 10 min (⌘⇧S)")
+        XCTAssertEqual(TimerAction.skipToday.helpText, "Skip Today")
+        XCTAssertEqual(TimerAction.newCycle.helpText, "New Cycle")
+    }
+
+    func testPauseOrResumeOffersResumeOnlyWhilePaused() {
+        XCTAssertEqual(TimerActions.pauseOrResume(for: .paused), .resume)
+        XCTAssertEqual(TimerActions.pauseOrResume(for: .work), .pause)
+        XCTAssertEqual(TimerActions.pauseOrResume(for: .idle), .pause)
+        XCTAssertEqual(TimerActions.pauseOrResume(for: nil), .pause, "no state yet reads as not paused")
+    }
 }

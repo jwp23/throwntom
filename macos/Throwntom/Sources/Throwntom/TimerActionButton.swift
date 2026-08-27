@@ -18,18 +18,10 @@ struct TimerActionButton: View {
                 }
             }
         }
-        .help(action.shortcutHint.isEmpty ? action.title : "\(action.title) (\(action.shortcutHint))")
+        .help(action.helpText)
     }
 
     private func perform() async {
-        do {
-            if let verb = action.verb {
-                try await client.timer(verb)
-            } else {
-                try await client.snooze(minutes: TimerActions.defaultSnoozeMinutes)
-            }
-        } catch {
-            NSSound.beep()
-        }
+        do { try await client.perform(action) } catch { NSSound.beep() }
     }
 }
