@@ -45,18 +45,33 @@ func makeTask(id: Int, description: String = "task", done: Bool = false) -> Task
     TaskItem(id: id, description: description, done: done, createdAt: Date(), completedAt: Date())
 }
 
-/// Replays a fixed set of SSE frames and then holds the stream open, the way a live daemon
-/// does between state changes.
+/// Replays a fixed set of SSE frames and then holds the stream open, the way a live daemon does
+/// between state changes. Records what the client sends so tests can assert on it.
 final class StubTransport: DaemonTransport, @unchecked Sendable {
+    struct Request: Equatable {
+        let method: String
+        let path: String
+        let body: String
+    }
+
     private let frames: [Data]
-    private let emptyTaskList = Data(#"{"active":[],"completed":[]}"#.utf8)
+    private let lock = NSLock()
+    private var recorded: [Request] = []
+
+    var requests: [Request] { lock.withLock { recorded } }
+
+    /// Everything but the task-list refresh the client runs after each frame.
+    var commands: [Request] { requests.filter { $0.path != Self.tasksPath } }
 
     init(states: [DaemonState]) throws {
         frames = try states.map { try DaemonJSON.encoder.encode($0) }
     }
 
     func request(_ method: String, _ path: String, body: Data?) async throws -> HTTPResponse {
-        HTTPResponse(status: 200, headers: [:], body: emptyTaskList)
+        let request = Request(
+            method: method, path: path, body: body.map { String(decoding: $0, as: UTF8.self) } ?? "")
+        lock.withLock { recorded.append(request) }
+        return HTTPResponse(status: 200, headers: [:], body: Self.reply(for: path))
     }
 
     func events(_ path: String) -> AsyncThrowingStream<Data, Error> {
@@ -65,5 +80,11 @@ final class StubTransport: DaemonTransport, @unchecked Sendable {
                 continuation.yield(frame)
             }
         }
+    }
+
+    private static let tasksPath = "/v1/tasks"
+
+    private static func reply(for path: String) -> Data {
+        path == tasksPath ? Data(#"{"active":[],"completed":[]}"#.utf8) : Data(#"{"message":"ok"}"#.utf8)
     }
 }
