@@ -2,26 +2,40 @@ import Foundation
 import ServiceManagement
 
 /// Registers the bundled launchd agent and toggles the app's own login item.
-/// Every decision lives in `AgentRegistrationPlan`; what remains here is the SMAppService calls.
 public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
     public static let bundleIdentifier = "com.jwp23.throwntom"
     public static let agentPlistName = "com.jwp23.throwntom.daemon.plist"
 
-    public init() {
-        // No stored properties to initialize; this exists only so callers outside
-        // the module can construct one.
+    private let agent: LaunchAgentService
+
+    public init(agent: LaunchAgentService = BundledAgentService()) {
+        self.agent = agent
     }
 
-    private var agent: SMAppService { SMAppService.agent(plistName: Self.agentPlistName) }
-
     /// Ensures the launchd agent is registered, reloading if necessary.
+    /// If unregister fails, we defer the error and attempt register anyway, since a stale
+    /// BTM entry may refuse to unregister while register still succeeds. Only throw if both
+    /// unregister and register fail, or if register fails alone.
     public func ensureAgentRegistered() throws {
-        let agent = self.agent
-        try AgentRegistrationPlan.execute(for: AgentStatus(agent.status)) { try agent.perform($0) }
+        var unregisterError: Error?
+        for step in AgentRegistrationPlan.steps(for: agent.status) {
+            switch step {
+            case .unregister:
+                do { try agent.unregister() } catch { unregisterError = error }
+            case .register:
+                do { try agent.register() } catch { throw unregisterError ?? error }
+            }
+        }
     }
 
     public var agentStatusDescription: String {
-        AgentRegistrationPlan.statusDescription(for: AgentStatus(agent.status))
+        switch agent.status {
+        case .enabled: return "Timer agent enabled"
+        case .requiresApproval: return "Timer agent needs approval in Login Items"
+        case .notRegistered: return "Timer agent not registered"
+        case .notFound: return "Timer agent plist not found in bundle"
+        case .unknown: return "Timer agent status unknown"
+        }
     }
 
     public var loginItemEnabled: Bool {
@@ -29,12 +43,33 @@ public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
     }
 
     public func setLoginItem(_ enabled: Bool) throws {
-        try SMAppService.mainApp.perform(AgentRegistrationPlan.loginItemStep(isEnabled: enabled))
+        if enabled {
+            try SMAppService.mainApp.register()
+        } else {
+            try SMAppService.mainApp.unregister()
+        }
     }
 
     public func openLoginItemsSettings() {
         SMAppService.openSystemSettingsLoginItems()
     }
+}
+
+/// The launchd agent shipped inside the app bundle. Every call here changes the machine's
+/// registered agents, so this wrapper is deliberately thin and left to manual verification.
+public struct BundledAgentService: LaunchAgentService {
+    private var service: SMAppService {
+        SMAppService.agent(plistName: SMAppServiceRegistrar.agentPlistName)
+    }
+
+    public init() {
+        // No stored properties to initialize; this exists only so callers outside
+        // the module can construct one.
+    }
+
+    public var status: AgentStatus { AgentStatus(service.status) }
+    public func register() throws { try service.register() }
+    public func unregister() throws { try service.unregister() }
 }
 
 extension AgentStatus {
@@ -45,15 +80,6 @@ extension AgentStatus {
         case .requiresApproval: self = .requiresApproval
         case .notFound: self = .notFound
         @unknown default: self = .unknown
-        }
-    }
-}
-
-private extension SMAppService {
-    func perform(_ step: AgentRegistrationStep) throws {
-        switch step {
-        case .unregister: try unregister()
-        case .register: try register()
         }
     }
 }
