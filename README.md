@@ -133,6 +133,35 @@ tier_mid = 5
 reminder nobody is around to acknowledge stops on its own rather than ringing
 until the daemon is stopped.
 
+### `sound_command`
+
+`sound_command` is an optional TOML string array: the first item is the
+executable, the rest are its arguments. Setting it changes how throwntom
+makes noise:
+
+- **On macOS**, it *replaces* the built-in sound entirely — throwntom runs
+  your command instead of `afplay`, for every sound (morning nudge, confirm
+  reminder, `test-sound`) with no way to tell them apart by ear.
+- **On Linux**, it is tried first and, if it fails, throwntom falls back to
+  `paplay`, `canberra-gtk-play`, `aplay`, then the terminal bell.
+
+To silence sound entirely (e.g. while testing or in a meeting), set:
+
+```toml
+sound_command = ["true"]
+```
+
+`/usr/bin/true` exits 0 immediately and prints nothing, so throwntom reports
+success with no audio.
+
+Both `throwntom` and `throwntomd` read config once at startup, so a config
+change — including `sound_command` — needs a restart to take effect.
+
+If you only need to silence *one* running reminder rather than sound in
+general (for example, ducking out of a meeting), don't edit the config —
+run `tools/tomctl cmd snooze` or `tools/tomctl cmd stop` against the running
+daemon instead.
+
 Schedule supports day aliases: `"weekday"` expands to Mon-Fri, `"weekend"` to Sat-Sun. Specific-day entries automatically carve out from alias expansions.
 
 ## Project Layout
@@ -153,6 +182,7 @@ Schedule supports day aliases: `"weekday"` expands to Mon-Fri, `"weekend"` to Sa
 - `internal/task/` — task store
 - `tools/tomctl/` — command-line client for the daemon API
 - `tools/sonar-audit.sh` — reports SonarCloud issues/hotspots on a branch; CI runs it on main to flag drift
+- `tools/dev-quiet.sh` — runs throwntom against an isolated, silent config for manual testing (see [Dev tools](#dev-tools))
 - `macos/Throwntom/` — Swift package: menu bar app and daemon client
 - `macos/build.sh` — builds `Throwntom.app` with `throwntomd` embedded (see `macos/README.md`)
 - `e2e/` — end-to-end tests (build tag: `e2e`)
@@ -186,8 +216,22 @@ Heavier checks intentionally kept out of pre-commit and run in CI:
 - e2e tests (`go test -timeout 30s -tags=e2e ./e2e`)
 - security scan (`govulncheck`)
 
+## Dev tools
+
+```bash
+tools/dev-quiet.sh [throwntom args...]
+```
+
+Runs `throwntom` with `HOME` pointed at a throwaway directory (cleaned up on
+exit) and a `config.toml` there setting `sound_command = ["true"]`. It
+neither plays sound nor reads or writes your real `~/.config/throwntom`, so
+it's safe to use while working or in a meeting without disturbing a real
+session. Extra arguments (e.g. `--config`) are forwarded to `throwntom`.
+
 ## Notes
 
-- On macOS, notifier uses `afplay` with system sound `Glass.aiff`.
+- On macOS, notifier uses `afplay` with a system sound chosen by name
+  (`morning`→Blow, `default`→Glass, `test`→Tink), unless `sound_command` is
+  set, in which case that command replaces `afplay` for all of them.
 - On Linux, notifier first tries `sound_command` (if configured), then `paplay`, `canberra-gtk-play`, `aplay`, and finally terminal bell (`\a`).
-- `sound_command` is optional and must be a TOML string array where the first item is the executable, and remaining items are args.
+- `sound_command` is optional and must be a TOML string array where the first item is the executable, and remaining items are args. See [Config](#config) for the silent-testing recipe.
