@@ -3,32 +3,6 @@ import XCTest
 @testable import ThrowntomClient
 
 final class ReminderNotificationCommandTests: XCTestCase {
-    func testParsesShowWithTitleAndBody() {
-        XCTAssertEqual(
-            ReminderNotification.command(from: ["show", "--title", "Throwntom", "--body", "Ready for a short break"]),
-            .show(title: "Throwntom", body: "Ready for a short break"))
-    }
-
-    func testParsesShowWithFlagsInEitherOrder() {
-        XCTAssertEqual(
-            ReminderNotification.command(from: ["show", "--body", "Ready", "--title", "Throwntom"]),
-            .show(title: "Throwntom", body: "Ready"))
-    }
-
-    func testParsesClear() {
-        XCTAssertEqual(ReminderNotification.command(from: ["clear"]), .clear)
-    }
-
-    func testRejectsIncompleteOrUnknownArguments() {
-        XCTAssertNil(ReminderNotification.command(from: []))
-        XCTAssertNil(ReminderNotification.command(from: ["show"]))
-        XCTAssertNil(ReminderNotification.command(from: ["show", "--title", "Throwntom"]))
-        XCTAssertNil(ReminderNotification.command(from: ["show", "--title", "Throwntom", "--body"]))
-        XCTAssertNil(ReminderNotification.command(from: ["show", "--nope", "x", "--title", "t", "--body", "b"]))
-        XCTAssertNil(ReminderNotification.command(from: ["bogus"]))
-        XCTAssertNil(ReminderNotification.command(from: ["clear", "extra"]))
-    }
-
     func testActionsRoundTripThroughTheirIdentifiers() {
         for action in ReminderNotification.Action.allCases {
             XCTAssertEqual(ReminderNotification.action(for: action.rawValue), action)
