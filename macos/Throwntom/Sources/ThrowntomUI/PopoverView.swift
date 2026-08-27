@@ -28,7 +28,10 @@ struct PopoverView: View {
                 Text(error).font(.caption).foregroundStyle(.secondary).lineLimit(2)
             }
             if let problem = responder.authorization.problem {
-                Text(problem).font(.caption).foregroundStyle(.secondary).lineLimit(3)
+                Text(problem)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
                 Button("Open Notification Settings…") { responder.openNotificationSettings() }
             }
             Divider()
