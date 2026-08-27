@@ -31,6 +31,21 @@ func (c *Core) setFocused(focused []task.Task) {
 	c.focused = focused
 }
 
+// subscribeSync registers ch as a subscriber without seeding it. Tests pass an
+// unbuffered channel, so every fan-out hands its State straight to a receiver
+// and the test can order itself against publishes. The returned func
+// unregisters ch.
+func (c *Core) subscribeSync(ch chan State) func() {
+	c.mu.Lock()
+	c.subscribers[ch] = struct{}{}
+	c.mu.Unlock()
+	return func() {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		delete(c.subscribers, ch)
+	}
+}
+
 // saveSession saves the session under the Core lock, the way publish does.
 func (c *Core) saveSession() {
 	c.mu.Lock()
