@@ -24,7 +24,7 @@ func (c *Core) Subscribe() (<-chan State, func()) {
 	return ch, cancel
 }
 
-// publish snapshots State, saves the session and fans out to subscribers.
+// publish serialises one save and fan-out on publishMu.
 // Callers must not hold c.mu (State takes it), so verbs do their work under the
 // lock, release it, then publish. Change callbacks from app.App and
 // reminderState fire from code paths that already hold c.mu, so they go through
@@ -32,10 +32,17 @@ func (c *Core) Subscribe() (<-chan State, func()) {
 //
 // publishMu serialises publishes: a State is read and delivered while it is
 // held, so a subscriber never receives a State older than one it already got.
+// Stop holds it too, which is how it can end publishing for good.
 func (c *Core) publish() {
 	c.publishMu.Lock()
 	defer c.publishMu.Unlock()
+	c.saveAndFanOut()
+}
 
+// saveAndFanOut snapshots State, saves the session and hands the snapshot to
+// every subscriber. Callers must hold publishMu and must not hold c.mu; the
+// lock order is publishMu then c.mu.
+func (c *Core) saveAndFanOut() {
 	s := c.State()
 	c.mu.Lock()
 	defer c.mu.Unlock()

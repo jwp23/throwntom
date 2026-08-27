@@ -73,6 +73,24 @@ final class DaemonClientTests: XCTestCase {
         XCTAssertEqual(client.state?.state, .idle)
     }
 
+    func testConnectedClientHasNoErrorToShow() async throws {
+        let client = try await connectedClient()
+        defer { client.stop() }
+        XCTAssertNil(client.unresolvedError)
+    }
+
+    func testOutageReasonStaysVisibleUntilReconnect() async throws {
+        let client = try await connectedClient()
+        defer { client.stop() }
+        daemon.stop()
+        try await waitUntil { client.unresolvedError != nil }
+        XCTAssertEqual(client.unresolvedError, client.lastError)
+
+        try await daemon.start()
+        try await waitUntil(timeout: 10) { client.unresolvedError == nil }
+        XCTAssertNotNil(client.lastError, "the error is only hidden, not forgotten")
+    }
+
     func testRegistersAgentPeriodicallyDuringPersistentOutage() async throws {
         let missing = UnixSocketTransport(socketPath: daemon.home.appendingPathComponent("nope.sock").path)
         let client = DaemonClient(transport: missing, registrar: registrar, backoff: [.milliseconds(30)])

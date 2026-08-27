@@ -7,9 +7,9 @@ final class TaskWindowModelTests: XCTestCase {
         TaskItem(id: id, description: "t\(id)", done: false, createdAt: Date(), completedAt: Date())
     }
 
-    private func model(ids: [Int], focused: Set<Int> = []) -> TaskWindowModel {
+    private func model(ids: [Int], focused: [Int] = []) -> TaskWindowModel {
         let m = TaskWindowModel()
-        m.sync(tasks: TaskList(active: ids.map(item), completed: [item(99)]), focusedIDs: focused)
+        m.sync(tasks: TaskList(active: ids.map(item), completed: [item(99)]), focusedTaskIDs: focused)
         return m
     }
 
@@ -17,11 +17,11 @@ final class TaskWindowModelTests: XCTestCase {
         let m = model(ids: [5, 6, 7])
         XCTAssertEqual(m.selectedID, 5)
         m.selectedID = 7
-        m.sync(tasks: TaskList(active: [item(7), item(5)]), focusedIDs: [])
+        m.sync(tasks: TaskList(active: [item(7), item(5)]), focusedTaskIDs: [])
         XCTAssertEqual(m.selectedID, 7, "selection follows the task, not the row")
-        m.sync(tasks: TaskList(active: [item(5)]), focusedIDs: [])
+        m.sync(tasks: TaskList(active: [item(5)]), focusedTaskIDs: [])
         XCTAssertEqual(m.selectedID, 5, "vanished selection falls back to the first task")
-        m.sync(tasks: TaskList(), focusedIDs: [])
+        m.sync(tasks: TaskList(), focusedTaskIDs: [])
         XCTAssertNil(m.selectedID)
     }
 
@@ -93,5 +93,18 @@ final class TaskWindowModelTests: XCTestCase {
         XCTAssertFalse(n.canPerform(.complete))
         XCTAssertFalse(n.canPerform(.newTask))
         XCTAssertNil(n.command(for: .complete))
+    }
+
+    func testCompletedSectionTitleCountsCompletedTasks() {
+        XCTAssertEqual(TaskWindowModel().completedSectionTitle, "Completed (0)")
+        XCTAssertEqual(model(ids: [5]).completedSectionTitle, "Completed (1)")
+    }
+
+    func testSyncTreatsAnAbsentFocusListAsNothingFocused() {
+        let m = TaskWindowModel()
+        m.sync(tasks: TaskList(active: [item(5), item(6)]), focusedTaskIDs: [6, 6])
+        XCTAssertEqual(m.focusedIDs, [6])
+        m.sync(tasks: TaskList(active: [item(5), item(6)]), focusedTaskIDs: nil)
+        XCTAssertTrue(m.focusedIDs.isEmpty)
     }
 }

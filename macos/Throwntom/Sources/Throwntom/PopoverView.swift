@@ -16,7 +16,7 @@ struct PopoverView: View {
                 .font(.headline)
             if let state = client.state {
                 if let next = state.nextStage {
-                    Text("Next: \(phaseName(next.state)) \(next.duration / 60) min").foregroundStyle(.secondary)
+                    Text("Next: \(next.summary)").foregroundStyle(.secondary)
                 }
                 focusedTasks(state)
                 Divider()
@@ -24,7 +24,7 @@ struct PopoverView: View {
                     TimerActionButton(action: action, client: client)
                 }
             }
-            if let error = client.lastError, client.connection != .connected {
+            if let error = client.unresolvedError {
                 Text(error).font(.caption).foregroundStyle(.secondary).lineLimit(2)
             }
             Divider()
@@ -47,7 +47,7 @@ struct PopoverView: View {
 
     @ViewBuilder
     private func focusedTasks(_ state: DaemonState) -> some View {
-        let focused = client.tasks.active.filter { state.focusedTaskIds.contains($0.id) }
+        let focused = client.tasks.focused(ids: state.focusedTaskIds)
         if !focused.isEmpty {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Focus").font(.caption).foregroundStyle(.secondary)
@@ -63,17 +63,6 @@ struct PopoverView: View {
         } catch {
             registrarMessage = "Login item: \(error.localizedDescription)"
             loginItem = registrar.loginItemEnabled
-        }
-    }
-
-    private func phaseName(_ phase: DaemonState.Phase) -> String {
-        switch phase {
-        case .idle: return "Idle"
-        case .work: return "Pomodoro"
-        case .shortBreak: return "Short break"
-        case .longBreak: return "Long break"
-        case .awaitingConfirm: return "Confirm"
-        case .paused: return "Paused"
         }
     }
 }
