@@ -172,6 +172,9 @@ TERM=dumb exec "$1"`
 	if !strings.Contains(output, "?: help") {
 		t.Fatalf("expected help hint in interactive output, got %q", output)
 	}
+	if !strings.Contains(output, "33m work") {
+		t.Fatalf("expected header from the test-owned config, got %q", output)
+	}
 }
 
 func scriptCommandInvocation(goos, scriptCmd, bin string) []string {
