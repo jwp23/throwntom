@@ -6,8 +6,10 @@ public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
     public static let bundleIdentifier = "com.jwp23.throwntom"
     public static let agentPlistName = "com.jwp23.throwntom.daemon.plist"
 
-    /// Empty: a public memberwise-free initializer so callers outside the module can construct one.
-    public init() {}
+    public init() {
+        // No stored properties to initialize; this exists only so callers outside
+        // the module can construct one.
+    }
 
     private var agent: SMAppService { SMAppService.agent(plistName: Self.agentPlistName) }
 

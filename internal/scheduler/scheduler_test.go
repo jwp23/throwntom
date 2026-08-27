@@ -57,7 +57,7 @@ func TestIsActiveNowOnNonAllowedDay(t *testing.T) {
 
 func TestNewPanicsOnUnknownWeekday(t *testing.T) {
 	defer func() {
-		if r := recover(); r == nil {
+		if recover() == nil {
 			t.Fatal("expected panic for unknown weekday")
 		}
 	}()
