@@ -107,19 +107,6 @@ func TestNextPhaseDoesNotMutateState(t *testing.T) {
 	}
 }
 
-func TestSnoozeDoesNotChangePhase(t *testing.T) {
-	e := New(25, 5, 15, 4)
-	e.StartWork()
-	e.MarkPeriodComplete()
-	if e.State() != AwaitingConfirm {
-		t.Fatalf("expected AwaitingConfirm")
-	}
-	e.Snooze(10 * time.Second)
-	if e.State() != AwaitingConfirm {
-		t.Fatalf("expected AwaitingConfirm after snooze")
-	}
-}
-
 func TestCompletedTodayResetsOnFirstStart(t *testing.T) {
 	e := New(25, 5, 15, 4)
 	e.StartWork()

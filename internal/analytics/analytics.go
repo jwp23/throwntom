@@ -6,6 +6,9 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/eventlog"
 )
 
+// dayLayout is the time.Format layout used as the map key for a calendar day.
+const dayLayout = "2006-01-02"
+
 type Dashboard struct {
 	Today     PeriodStats
 	ThisWeek  PeriodStats
@@ -85,7 +88,7 @@ func Compute(events []eventlog.Event, now time.Time) Dashboard {
 
 func (a *accumulator) processEvent(ev eventlog.Event, b periodBounds) {
 	day := startOfDay(ev.Timestamp)
-	dayKey := day.Format("2006-01-02")
+	dayKey := day.Format(dayLayout)
 	periods := []*PeriodStats{&a.dash.Today, &a.dash.ThisWeek, &a.dash.ThisMonth}
 	active := [3]bool{
 		!day.Before(b.todayStart) && day.Before(b.endOfToday),
@@ -171,7 +174,7 @@ func computePatterns(hourCounts [24]int, weekdayCounts map[time.Weekday]int, wee
 func buildDailyCounts(pomDays map[string]int, from, to time.Time) []DayCount {
 	var counts []DayCount
 	for d := from; !d.After(to); d = d.AddDate(0, 0, 1) {
-		key := d.Format("2006-01-02")
+		key := d.Format(dayLayout)
 		if c, ok := pomDays[key]; ok {
 			counts = append(counts, DayCount{Date: d, Count: c})
 		}
@@ -192,7 +195,7 @@ func computeStreaks(pomDays map[string]int, now time.Time) StreakStats {
 	today := startOfDay(now)
 	current := 0
 	for d := today; ; d = d.AddDate(0, 0, -1) {
-		if daySet[d.Format("2006-01-02")] {
+		if daySet[d.Format(dayLayout)] {
 			current++
 		} else {
 			break
@@ -201,7 +204,7 @@ func computeStreaks(pomDays map[string]int, now time.Time) StreakStats {
 
 	var sorted []time.Time
 	for k := range pomDays {
-		t, _ := time.ParseInLocation("2006-01-02", k, now.Location())
+		t, _ := time.ParseInLocation(dayLayout, k, now.Location())
 		sorted = append(sorted, t)
 	}
 	sortDates(sorted)

@@ -40,6 +40,10 @@ type Core struct {
 	eventWriter         *eventlog.Writer
 	eventsPath          string
 	longBreakEvery      int
+	// afterFinalPublish runs between Stop's final publish and the flag that
+	// ends publishing. It is the seam a test uses to drive a publish into that
+	// window; nothing in production sets it.
+	afterFinalPublish func()
 }
 
 type commandHandler func(parts []string) commandResult
@@ -125,13 +129,22 @@ func (c *Core) Start(ctx context.Context) {
 }
 
 // Stop publishes a final state and then stops publishing: once it returns, no
-// background change can save the session or reach a subscriber.
+// background change can save the session or reach a subscriber. Holding
+// publishMu across the final publish and the stopped flag is what makes that
+// true: every other publish takes publishMu first, so one already queued
+// cannot slip between them.
 func (c *Core) Stop() {
 	c.mu.Lock()
 	c.cycle.AdvanceDay(c.now())
 	c.state.stopMorningLoop()
 	c.mu.Unlock()
-	c.publish()
+
+	c.publishMu.Lock()
+	defer c.publishMu.Unlock()
+	c.saveAndFanOut()
+	if c.afterFinalPublish != nil {
+		c.afterFinalPublish()
+	}
 	c.mu.Lock()
 	c.stopped = true
 	c.mu.Unlock()
@@ -250,9 +263,6 @@ type commandResult struct {
 // or mutates Core state.
 func (c *Core) executeLocked(line string) commandResult {
 	trimmed := strings.TrimSpace(line)
-	if trimmed == "_cancel_focus" && c.pendingFocusPrompt {
-		return c.cancelFocusPrompt()
-	}
 	if c.pendingFocusPrompt {
 		return c.handleFocusPromptInput(trimmed)
 	}

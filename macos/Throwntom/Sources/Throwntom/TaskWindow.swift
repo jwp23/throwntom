@@ -1,7 +1,7 @@
 import SwiftUI
 import ThrowntomClient
 
-let TaskWindowID = "tasks"
+let taskWindowID = "tasks"
 
 struct TaskWindow: View {
     let client: DaemonClient
@@ -18,7 +18,7 @@ struct TaskWindow: View {
                 TaskRow(task: task, focused: model.focusedIDs.contains(task.id)).tag(task.id)
             }
             if !model.tasks.completed.isEmpty {
-                DisclosureGroup("Completed (\(model.tasks.completed.count))", isExpanded: $showCompleted) {
+                DisclosureGroup(model.completedSectionTitle, isExpanded: $showCompleted) {
                     ForEach(model.tasks.completed) { task in
                         TaskRow(task: task, focused: false)
                     }
@@ -54,7 +54,7 @@ struct TaskWindow: View {
     }
 
     private func syncModel() {
-        model.sync(tasks: client.tasks, focusedIDs: Set(client.state?.focusedTaskIds ?? []))
+        model.sync(tasks: client.tasks, focusedTaskIDs: client.state?.focusedTaskIds)
     }
 
     /// Sends a command line to the daemon; a refusal beeps, the list updates from the event stream.

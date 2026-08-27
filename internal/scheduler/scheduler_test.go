@@ -27,24 +27,21 @@ func TestNextTriggerSkipsWeekend(t *testing.T) {
 
 func TestIsActiveNowBeforeScheduledTime(t *testing.T) {
 	s := New(map[string]string{"Mon": "09:15"})
-	now := time.Date(2026, 3, 2, 9, 14, 0, 0, time.Local)
-	if s.IsActiveNow(now) {
+	if s.IsActiveNow(time.Date(2026, 3, 2, 9, 14, 0, 0, time.Local)) {
 		t.Fatal("expected IsActiveNow=false before scheduled time")
 	}
 }
 
 func TestIsActiveNowAtScheduledTime(t *testing.T) {
 	s := New(map[string]string{"Mon": "09:15"})
-	now := time.Date(2026, 3, 2, 9, 15, 0, 0, time.Local)
-	if !s.IsActiveNow(now) {
+	if !s.IsActiveNow(time.Date(2026, 3, 2, 9, 15, 0, 0, time.Local)) {
 		t.Fatal("expected IsActiveNow=true at scheduled time")
 	}
 }
 
 func TestIsActiveNowAfterScheduledTime(t *testing.T) {
 	s := New(map[string]string{"Mon": "09:15"})
-	now := time.Date(2026, 3, 2, 10, 0, 0, 0, time.Local)
-	if !s.IsActiveNow(now) {
+	if !s.IsActiveNow(time.Date(2026, 3, 2, 10, 0, 0, 0, time.Local)) {
 		t.Fatal("expected IsActiveNow=true after scheduled time")
 	}
 }
@@ -53,15 +50,14 @@ func TestIsActiveNowOnNonAllowedDay(t *testing.T) {
 	s := New(map[string]string{
 		"Mon": "09:15", "Tue": "09:15", "Wed": "09:15", "Thu": "09:15", "Fri": "09:15",
 	})
-	now := time.Date(2026, 2, 28, 10, 0, 0, 0, time.Local) // Saturday
-	if s.IsActiveNow(now) {
+	if s.IsActiveNow(time.Date(2026, 2, 28, 10, 0, 0, 0, time.Local)) { // Saturday
 		t.Fatal("expected IsActiveNow=false on non-allowed day")
 	}
 }
 
 func TestNewPanicsOnUnknownWeekday(t *testing.T) {
 	defer func() {
-		if r := recover(); r == nil {
+		if recover() == nil {
 			t.Fatal("expected panic for unknown weekday")
 		}
 	}()

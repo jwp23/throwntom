@@ -238,33 +238,45 @@ func TestLoadSessionSuppressesMorningReminder(t *testing.T) {
 
 func TestSaveLoadExpiredTimerTransitionsToAwaitingConfirm(t *testing.T) {
 	dir := t.TempDir()
-	sessPath := filepath.Join(dir, testSessionFile)
+	savedPath := filepath.Join(dir, testSessionFile)
+	restoredPath := filepath.Join(dir, "restored-session.json")
 
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
+	// Both cores run on an injected clock pinned to midday so the save and the
+	// restore always fall on the same calendar day (loadSession discards a
+	// session saved on a different day); a real wall clock near midnight
+	// would otherwise make the restore look like a new day.
+	savedAt := time.Date(2026, 3, 2, 12, 0, 0, 0, time.Local)
 	c := newCore(cfg, noopNotifier{})
-	c.sessionPath = sessPath
+	c.sessionPath = savedPath
+	c.setNow(func() time.Time { return savedAt })
 	defer c.Stop()
 	c.execute(cmdStart)
 	c.saveSession()
 
-	data, err := session.Load(sessPath)
+	data, err := session.Load(savedPath)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	// now is deliberately offset from the real wall clock: PhaseEndAt sits 5s
-	// before it, but over an hour in the real future. If the expiry check
-	// used the real clock instead of the injected one, PhaseEndAt would look
-	// not-yet-expired and this test would fail — proving Restore honors the
-	// injected clock rather than depending on real elapsed time between save
-	// and restore (see throwntom-tm1: a CI runner's clock stepping mid-test
-	// could otherwise flip a negative "remaining" positive).
-	now := time.Now().Add(time.Hour)
+	// now is deliberately offset from the save clock: PhaseEndAt sits 5s
+	// before it, but over an hour in the future relative to the save. If the
+	// expiry check used the real clock instead of the injected one, PhaseEndAt
+	// would look not-yet-expired and this test would fail — proving Restore
+	// honors the injected clock rather than depending on real elapsed time
+	// between save and restore.
+	now := savedAt.Add(time.Hour)
 	data.App.PhaseEndAt = now.Add(-5 * time.Second)
-	_ = session.Save(sessPath, data)
+	// The doctored session gets a file of its own. The first core is still
+	// alive and every change it publishes rewrites its own session file
+	// asynchronously, which would otherwise restore the live, unexpired phase
+	// end over the expired one this test wrote.
+	if err := session.Save(restoredPath, data); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
 
 	c2 := newCore(cfg, noopNotifier{})
-	c2.sessionPath = sessPath
+	c2.sessionPath = restoredPath
 	c2.setNow(func() time.Time { return now })
 	defer c2.Stop()
 	if err := c2.loadSession(); err != nil {

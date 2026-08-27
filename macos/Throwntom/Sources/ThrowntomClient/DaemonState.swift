@@ -9,6 +9,18 @@ public struct DaemonState: Codable, Equatable, Sendable {
         case longBreak = "long_break"
         case awaitingConfirm = "awaiting_confirm"
         case paused
+
+        /// How the phase is named in the menu bar app.
+        public var displayName: String {
+            switch self {
+            case .idle: return "Idle"
+            case .work: return "Pomodoro"
+            case .shortBreak: return "Short break"
+            case .longBreak: return "Long break"
+            case .awaitingConfirm: return "Confirm"
+            case .paused: return "Paused"
+            }
+        }
     }
 
     public struct NextStage: Codable, Equatable, Sendable {
@@ -20,6 +32,9 @@ public struct DaemonState: Codable, Equatable, Sendable {
             self.state = state
             self.duration = duration
         }
+
+        /// One-line preview of the upcoming stage, e.g. "Pomodoro 25 min". Minutes truncate.
+        public var summary: String { "\(state.displayName) \(duration / 60) min" }
     }
 
     public var state: Phase

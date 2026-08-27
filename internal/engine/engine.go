@@ -69,7 +69,6 @@ type Engine struct {
 	state             State
 	lastPhase         State
 	pausedFrom        State
-	snoozeUntil       time.Time
 	workSessionsBlock int
 	completedToday    int
 	workDayStarted    bool
@@ -143,10 +142,6 @@ func (e *Engine) NextPhase() State {
 		return ShortBreak
 	}
 	return Work
-}
-
-func (e *Engine) Snooze(d time.Duration) {
-	e.snoozeUntil = time.Now().Add(d)
 }
 
 func (e *Engine) CompletedToday() int {
@@ -245,5 +240,4 @@ func (e *Engine) Stop() {
 	e.state = Idle
 	e.lastPhase = Idle
 	e.pausedFrom = Idle
-	e.snoozeUntil = time.Time{}
 }

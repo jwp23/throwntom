@@ -83,11 +83,25 @@ final class DaemonHarness {
         try await waitUntil { FileManager.default.fileExists(atPath: socketPath) }
     }
 
+    /// Asks the daemon to exit and escalates to SIGKILL rather than waiting on it forever,
+    /// so a wedged daemon fails one test instead of hanging the whole suite.
     func stop() {
         guard let p = process else { return }
         p.terminate()
+        if !Self.waitForExit(p, timeout: 5) {
+            kill(p.processIdentifier, SIGKILL)
+        }
         p.waitUntilExit()
         process = nil
+    }
+
+    private static func waitForExit(_ p: Process, timeout: Double) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if !p.isRunning { return true }
+            Thread.sleep(forTimeInterval: 0.02)
+        }
+        return false
     }
 
     func cleanup() {

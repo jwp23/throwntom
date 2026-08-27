@@ -20,6 +20,11 @@ public final class DaemonClient {
     public private(set) var connection = Connection.connecting
     public private(set) var lastError: String?
 
+    /// The last error while it still matters: reconnecting hides it without forgetting it.
+    public var unresolvedError: String? {
+        if connection == .connected { nil } else { lastError }
+    }
+
     private let transport: DaemonTransport
     private let registrar: LaunchAgentRegistrar
     private let backoff: [Duration]
@@ -46,22 +51,31 @@ public final class DaemonClient {
 
     public func command(_ line: String) async throws -> String {
         let body = try JSONSerialization.data(withJSONObject: ["line": line])
-        let response = try await post("/v1/command", body: body)
+        let response = try await post(DaemonAPI.command, body: body)
         return try DaemonJSON.decoder.decode(CommandReply.self, from: response.body).message
     }
 
     public func timer(_ verb: TimerVerb) async throws {
-        _ = try await post("/v1/timer/\(verb.rawValue)", body: nil)
+        _ = try await post(DaemonAPI.timer(verb), body: nil)
+    }
+
+    /// Runs a timer action: every action but snooze is a verb path with no body.
+    public func perform(_ action: TimerAction) async throws {
+        if let verb = action.verb {
+            try await timer(verb)
+        } else {
+            try await snooze(minutes: TimerActions.defaultSnoozeMinutes)
+        }
     }
 
     public func snooze(minutes: Int) async throws {
         let body = try JSONSerialization.data(withJSONObject: ["minutes": minutes])
-        _ = try await post("/v1/timer/snooze", body: body)
+        _ = try await post(DaemonAPI.snooze, body: body)
     }
 
     public func refreshTasks() async {
         do {
-            let response = try await transport.request("GET", "/v1/tasks", body: nil)
+            let response = try await transport.request("GET", DaemonAPI.tasks, body: nil)
             try Self.check(response)
             tasks = try DaemonJSON.decoder.decode(TaskList.self, from: response.body)
         } catch {
@@ -75,7 +89,7 @@ public final class DaemonClient {
         var failures = 0
         while !Task.isCancelled {
             do {
-                for try await frame in transport.events("/v1/events") {
+                for try await frame in transport.events(DaemonAPI.events) {
                     let decoded = try DaemonJSON.decoder.decode(DaemonState.self, from: frame)
                     failures = 0
                     connection = .connected
@@ -87,7 +101,7 @@ public final class DaemonClient {
                 if Task.isCancelled { return }
                 failures += 1
                 lastError = String(describing: error)
-                if failures == Self.failuresBeforeRegistering {
+                if failures > 0 && failures % Self.failuresBeforeRegistering == 0 {
                     registerAgent()
                 }
                 connection = failures >= Self.failuresBeforeRegistering ? .startingDaemon : .reconnecting(attempt: failures)
@@ -123,6 +137,16 @@ public final class DaemonClient {
         (try? DaemonJSON.decoder.decode(ErrorReply.self, from: body))?.error
             ?? String(decoding: body, as: UTF8.self)
     }
+}
+
+/// Fixed daemon HTTP API paths, named in one place instead of scattered string literals.
+private enum DaemonAPI {
+    static let command = "/v1/command"
+    static let tasks = "/v1/tasks"
+    static let events = "/v1/events"
+    static let snooze = "/v1/timer/snooze"
+
+    static func timer(_ verb: TimerVerb) -> String { "/v1/timer/\(verb.rawValue)" }
 }
 
 private struct CommandReply: Decodable {

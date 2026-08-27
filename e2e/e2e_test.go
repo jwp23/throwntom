@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -13,6 +14,15 @@ import (
 	"testing"
 	"time"
 )
+
+// smokeConfig overrides work_minutes so the interactive output proves which
+// config the binary read, and disables the morning reminder so the run does
+// not depend on the weekday or the time of day.
+const smokeConfig = `morning_reminder_pending = false
+
+[pomodoro]
+work_minutes = 33
+`
 
 func buildBinary(t *testing.T) string {
 	t.Helper()
@@ -29,6 +39,27 @@ func buildBinary(t *testing.T) string {
 		t.Fatalf("build binary: %v\n%s", err, out)
 	}
 	return binPath
+}
+
+// isolatedHomeEnv points the binary under test at a throwntom config directory
+// owned by the test. Without it the binary reads and rewrites the developer's
+// real ~/.config/throwntom, so live session state leaks into assertions and a
+// test run can clobber a running pomodoro. An empty configTOML leaves the
+// directory absent so the binary falls back to its built-in defaults.
+func isolatedHomeEnv(t *testing.T, configTOML string) []string {
+	t.Helper()
+
+	home := t.TempDir()
+	if configTOML != "" {
+		dir := filepath.Join(home, ".config", "throwntom")
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatalf("create isolated config dir: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte(configTOML), 0o600); err != nil {
+			t.Fatalf("write isolated config: %v", err)
+		}
+	}
+	return append(os.Environ(), "HOME="+home)
 }
 
 func TestScriptCommandInvocationLinuxUsesDashC(t *testing.T) {
@@ -59,6 +90,7 @@ func TestUnexpectedPositionalArgExitsNonZero(t *testing.T) {
 	bin := buildBinary(t)
 
 	cmd := exec.Command(bin, "bogus")
+	cmd.Env = isolatedHomeEnv(t, "")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	err := cmd.Run()
@@ -76,6 +108,7 @@ func TestNonInteractiveRejected(t *testing.T) {
 	bin := buildBinary(t)
 
 	cmd := exec.Command(bin)
+	cmd.Env = isolatedHomeEnv(t, "")
 	cmd.Stdin = strings.NewReader("")
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
@@ -95,6 +128,7 @@ func TestMissingConfigFileFails(t *testing.T) {
 	missingPath := filepath.Join(t.TempDir(), "missing.toml")
 
 	cmd := exec.Command(bin, "--config", missingPath)
+	cmd.Env = isolatedHomeEnv(t, "")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	err := cmd.Run()
@@ -133,6 +167,7 @@ TERM=dumb exec "$1"`
 
 	args := scriptCommandInvocation(runtime.GOOS, scriptCmd, bin)
 	cmd := exec.CommandContext(ctx, "script", args...)
+	cmd.Env = isolatedHomeEnv(t, smokeConfig)
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out
@@ -171,6 +206,9 @@ TERM=dumb exec "$1"`
 	}
 	if !strings.Contains(output, "?: help") {
 		t.Fatalf("expected help hint in interactive output, got %q", output)
+	}
+	if !strings.Contains(output, "33m work") {
+		t.Fatalf("expected header from the test-owned config, got %q", output)
 	}
 }
 

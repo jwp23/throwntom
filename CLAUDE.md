@@ -63,6 +63,21 @@
 - Verify: briefly note how you validated; optionally record trade-offs and directly related follow-ups.
 - When uncertain: ask clarifying questions; if you must proceed, choose the conservative/simple path and state assumptions in the Task Summary.
 
+## SonarCloud Drift (Required)
+- PRs are gated on new code only (SonarCloud's free plan has no custom quality gate).
+- Overall-code drift on `main` is caught by the `audit` job in `.github/workflows/sonarqube.yml`
+  (`tools/sonar-audit.sh`): it fails the run and opens or refreshes one GitHub issue titled
+  "SonarCloud drift on main", then closes that issue once the branch is clean.
+- Run `SONAR_TOKEN=... tools/sonar-audit.sh --report-only` for an on-demand local check.
+- When fixing drift:
+  1. File a bead for the round first: `bd create --title="Sonar drift <date>: <summary>"`.
+  2. Fix real findings on a branch. Never weaken or silence a rule to make it pass.
+  3. For a false positive, mark it in SonarCloud instead of contorting the code, and record the
+     rationale with `bd remember` so a later session does not re-fix it.
+  4. Close the bead with what was fixed, what was accepted and why, and the PR number.
+- The GitHub tracking issue is transient; the bead is the durable record. CI cannot run `bd`
+  (local Dolt DB), so this capture happens in the fix pass, not in the audit job.
+
 ## Branching & Worktree Workflow (Required)
 - Never develop on `main` or another long-lived branch.
 - Every task must use a dedicated branch.

@@ -367,26 +367,105 @@ func TestSnapshotRestoreRoundTrip(t *testing.T) {
 
 func TestOnChangeFiresWhenPhaseTimerExpires(t *testing.T) {
 	a := New(25, 5, 15, 4, time.Hour, &fakeNotifier{})
+	clk := newFakeClock(time.Now())
+	a.setClock(clk)
 	fired := make(chan struct{}, 4)
 	a.SetOnChange(func() { fired <- struct{}{} })
 
 	snap := a.Snapshot()
 	snap.Engine.State = engine.Work
-	snap.PhaseEndAt = time.Now().Add(20 * time.Millisecond)
-	if err := a.Restore(snap, time.Now()); err != nil {
+	snap.PhaseEndAt = clk.Now().Add(20 * time.Minute)
+	if err := a.Restore(snap, clk.Now()); err != nil {
 		t.Fatal(err)
 	}
 	<-fired // Restore itself
 
+	clk.Advance(20 * time.Minute)
 	select {
 	case <-fired:
-	case <-time.After(2 * time.Second):
+	default:
 		t.Fatal("expected OnChange when the phase timer expired")
 	}
 	if a.State() != engine.AwaitingConfirm {
 		t.Fatalf("state = %s", a.State())
 	}
 	a.Stop()
+}
+
+func TestStatusLineCountdownFollowsInjectedClock(t *testing.T) {
+	a := New(25, 5, 15, 4, time.Hour, &fakeNotifier{})
+	clk := newFakeClock(time.Now())
+	a.setClock(clk)
+	a.Start()
+
+	if line := a.StatusLine(); !strings.Contains(line, "25:00") {
+		t.Fatalf("expected a full countdown at start, got %s", line)
+	}
+	clk.Advance(90 * time.Second)
+	if line := a.StatusLine(); !strings.Contains(line, "23:30") {
+		t.Fatalf("expected the countdown to follow the clock, got %s", line)
+	}
+	a.Stop()
+}
+
+func TestPauseCapturesRemainingFromInjectedClock(t *testing.T) {
+	a := New(25, 5, 15, 4, time.Hour, &fakeNotifier{})
+	clk := newFakeClock(time.Now())
+	a.setClock(clk)
+	a.Start()
+
+	clk.Advance(5 * time.Minute)
+	if !a.Pause() {
+		t.Fatal("expected Pause to report true during work")
+	}
+	if got := a.Snapshot().PausedRemaining; got != 20*time.Minute {
+		t.Fatalf("expected 20m remaining at pause, got %s", got)
+	}
+
+	clk.Advance(time.Hour) // paused time must not count against the phase
+	if !a.Resume() {
+		t.Fatal("expected Resume to report true when paused")
+	}
+	if line := a.StatusLine(); !strings.Contains(line, "20:00") {
+		t.Fatalf("expected the paused remainder to resume, got %s", line)
+	}
+	a.Stop()
+}
+
+func TestSnoozeRestartsReminderAfterInterval(t *testing.T) {
+	n := &fakeNotifier{}
+	// A one-hour repeat interval means each reminder loop notifies once, so a
+	// second notification can only come from a loop the snooze restarted.
+	a := New(25, 5, 15, 4, time.Hour, n)
+	clk := newFakeClock(time.Now())
+	a.setClock(clk)
+	a.Start()
+	a.CompletePeriod()
+	if got := a.State(); got != engine.AwaitingConfirm {
+		t.Fatalf(fmtExpectedAwaitingConfirm, got)
+	}
+
+	a.Snooze(10 * time.Minute)
+	if got := a.State(); got != engine.AwaitingConfirm {
+		t.Fatalf("expected phase unchanged by snooze, got %s", got)
+	}
+	clk.Advance(10 * time.Minute)
+	waitForNotifications(t, n, 2)
+	a.Stop()
+}
+
+// waitForNotifications waits for the reminder goroutines to deliver want
+// notifications. The schedule is deterministic; only goroutine start-up is not.
+func waitForNotifications(t *testing.T, n *fakeNotifier, want int32) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if n.calls.Load() >= want {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatalf("expected %d reminder notifications, got %d", want, n.calls.Load())
 }
 
 func TestOnChangeFiresOnVerbs(t *testing.T) {
