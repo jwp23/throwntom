@@ -17,6 +17,9 @@ type Data struct {
 	FocusedTaskIDs []int        `json:"focused_task_ids"`
 }
 
+// sessionFileMode keeps the session readable only by its owner.
+const sessionFileMode = 0o600
+
 // Save writes the session atomically: readers either see the previous file or
 // the new one, never a half-written one. The core saves from a background
 // goroutine, so a reader can hit any moment of a save.
@@ -31,6 +34,13 @@ func Save(path string, d Data) error {
 	}
 	tmpName := tmp.Name()
 	defer func() { _ = os.Remove(tmpName) }()
+	// Set the mode explicitly rather than inheriting whatever os.CreateTemp
+	// happens to use: the session records how the user spends their day, so
+	// owner-only is a choice, not an accident of the temp-file API.
+	if err := tmp.Chmod(sessionFileMode); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("set session file mode: %w", err)
+	}
 	if _, err := tmp.Write(raw); err != nil {
 		_ = tmp.Close()
 		return fmt.Errorf("write session: %w", err)
