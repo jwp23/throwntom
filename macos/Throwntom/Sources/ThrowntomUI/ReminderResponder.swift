@@ -14,6 +14,10 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
         super.init()
     }
 
+    /// How the reminder is shown while Throwntom is frontmost; otherwise macOS
+    /// suppresses the banner and hides the only buttons the user has.
+    nonisolated static var presentationOptions: UNNotificationPresentationOptions { [.banner, .list] }
+
     /// Claims the delegate and asks for permission to alert. Called from the
     /// app's initialiser: a response queued by a notification-triggered launch
     /// is only delivered once a delegate is in place.
@@ -23,24 +27,29 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
         center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
-                                            didReceive response: UNNotificationResponse,
-                                            withCompletionHandler completionHandler: @escaping () -> Void) {
-        guard let action = ReminderNotification.action(for: response.actionIdentifier) else {
-            completionHandler()
+    /// Sends the daemon the command behind a reminder button, then reports back to macOS.
+    /// Identifiers that name no button of ours — a plain click, a dismissal — still report
+    /// back: macOS keeps the process alive until the handler runs.
+    nonisolated func respond(to actionIdentifier: String, then completion: @escaping () -> Void) {
+        guard let action = ReminderNotification.action(for: actionIdentifier) else {
+            completion()
             return
         }
         Task { @MainActor in
             try? await ReminderNotification.answer(action, using: client)
-            completionHandler()
+            completion()
         }
     }
 
-    /// Shows the reminder even while Throwntom is frontmost; otherwise macOS
-    /// suppresses the banner and hides the only buttons the user has.
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                            didReceive response: UNNotificationResponse,
+                                            withCompletionHandler completionHandler: @escaping () -> Void) {
+        respond(to: response.actionIdentifier, then: completionHandler)
+    }
+
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
                                             willPresent notification: UNNotification,
                                             withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        completionHandler([.banner, .list])
+        completionHandler(Self.presentationOptions)
     }
 }
