@@ -384,7 +384,7 @@ func TestSnapshotInvalidRejectsIncidentSnapshot(t *testing.T) {
 		CompletedToday: 0,
 		WorkDayStarted: false,
 	}
-	if reason := snap.Invalid(); reason == "" {
+	if snap.Invalid() == "" {
 		t.Fatal("expected the incident snapshot to be reported invalid")
 	}
 }
@@ -396,7 +396,7 @@ func TestSnapshotInvalidRejectsBreakWithNoCompletions(t *testing.T) {
 		CompletedToday: 0,
 		WorkDayStarted: true,
 	}
-	if reason := snap.Invalid(); reason == "" {
+	if snap.Invalid() == "" {
 		t.Fatal("expected a break with completed_today=0 to be reported invalid")
 	}
 }
@@ -407,7 +407,7 @@ func TestSnapshotInvalidRejectsPausedFromUnreachablePhase(t *testing.T) {
 		PausedFrom:     Idle,
 		WorkDayStarted: true,
 	}
-	if reason := snap.Invalid(); reason == "" {
+	if snap.Invalid() == "" {
 		t.Fatal("expected paused_from=idle to be reported invalid")
 	}
 }
