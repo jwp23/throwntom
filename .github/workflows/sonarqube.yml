@@ -46,3 +46,26 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # SonarCloud's free plan has no custom quality gate, so overall-code drift on
+  # main isn't enforced by the gate. This job runs after the scan (which waits
+  # for analysis via sonar.qualitygate.wait), queries the API, and fails while
+  # opening/refreshing a tracking issue whenever main has any open issue or
+  # unreviewed hotspot. PRs stay governed by the free new-code gate.
+  audit:
+    name: SonarCloud drift audit
+    needs: sonarqube
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Audit SonarCloud issues on main
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: tools/sonar-audit.sh --branch main
