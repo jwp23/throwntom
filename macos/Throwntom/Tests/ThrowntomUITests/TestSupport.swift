@@ -96,11 +96,17 @@ final class StubTransport: DaemonTransport, @unchecked Sendable {
 
 /// A transport that refuses the event stream, the way it does when the daemon is not running.
 final class UnreachableDaemonTransport: DaemonTransport, @unchecked Sendable {
+    private let message: String
+
+    init(message: String = "no daemon") {
+        self.message = message
+    }
+
     func request(_ method: String, _ path: String, body: Data?) async throws -> HTTPResponse {
-        throw DaemonError.transport("no daemon")
+        throw DaemonError.transport(message)
     }
 
     func events(_ path: String) -> AsyncThrowingStream<Data, Error> {
-        AsyncThrowingStream { $0.finish(throwing: DaemonError.transport("no daemon")) }
+        AsyncThrowingStream { $0.finish(throwing: DaemonError.transport(self.message)) }
     }
 }
