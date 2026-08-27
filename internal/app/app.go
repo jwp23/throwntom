@@ -335,31 +335,43 @@ func (a *App) completePeriodLocked() {
 	}
 }
 
-// reminderTitle heads the actionable alert; the body says which phase is waiting.
+// reminderTitle heads every actionable reminder.
 const reminderTitle = "Throwntom"
 
 func (a *App) startReminderLocked() {
 	a.stopReminderLocked()
 	ctx, cancel := context.WithCancel(context.Background())
 	a.reminderCancel = cancel
-	// Best effort: the repeating sound is the reminder itself, the alert is
-	// only how the user answers it without the menu bar app.
-	_ = a.notifier.ShowReminder(reminderTitle, a.reminderBodyLocked())
+	n := a.notifier
+	body := a.reminderBodyLocked()
 	loop := reminder.New(a.reminderPolicy, func() error {
-		if err := a.notifier.PlaySound("default"); err != nil {
+		if err := n.PlaySound("default"); err != nil {
 			_, _ = os.Stdout.WriteString("\a")
 			return fmt.Errorf("notifier failure: %w", err)
 		}
 		return nil
 	})
-	go loop.Run(ctx)
+	// Posting and withdrawing the alert shells out to a helper process, so it
+	// runs here rather than under the App lock. One goroutine owns the whole
+	// reminder, which is what keeps the withdrawal after the posting.
+	go func() {
+		// Best effort: the repeating sound is the reminder itself, the alert
+		// is only how the user answers it without the menu bar app.
+		_ = n.ShowReminder(reminderTitle, body)
+		loop.Run(ctx)
+		// Withdraw only a reminder that was answered or replaced. One that
+		// merely ran out of alerts stays on screen: its buttons are still the
+		// user's way back in.
+		if ctx.Err() != nil {
+			_ = n.ClearReminder()
+		}
+	}()
 }
 
 func (a *App) stopReminderLocked() {
 	if a.reminderCancel != nil {
 		a.reminderCancel()
 		a.reminderCancel = nil
-		_ = a.notifier.ClearReminder()
 	}
 }
 

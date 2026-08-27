@@ -588,17 +588,30 @@ func TestRefusedPauseAndResumeDoNotNotify(t *testing.T) {
 	a.Stop()
 }
 
+// waitFor polls until cond holds, for reminder work that runs off the App lock.
+func waitFor(t *testing.T, what string, cond func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if cond() {
+			return
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %s", what)
+}
+
 func TestReminderPostsAnActionableAlertNamingTheNextPhase(t *testing.T) {
 	n := &fakeNotifier{}
 	a := New(25, 5, 15, 4, testPolicy(time.Hour), n)
 	a.Start()
 	a.CompletePeriod()
 
-	shown, cleared := n.reminders()
-	if len(shown) != 1 || shown[0] != "Throwntom|Ready for a short break" {
-		t.Fatalf("expected one short-break alert, got %v", shown)
-	}
-	if cleared != 0 {
+	waitFor(t, "the short-break alert", func() bool {
+		shown, _ := n.reminders()
+		return len(shown) == 1 && shown[0] == "Throwntom|Ready for a short break"
+	})
+	if _, cleared := n.reminders(); cleared != 0 {
 		t.Fatalf("expected no withdrawal yet, got %d", cleared)
 	}
 }
@@ -610,8 +623,22 @@ func TestConfirmWithdrawsTheActionableAlert(t *testing.T) {
 	a.CompletePeriod()
 	a.Confirm()
 
-	if _, cleared := n.reminders(); cleared != 1 {
-		t.Fatalf("expected the alert to be withdrawn once, got %d", cleared)
+	waitFor(t, "the alert to be withdrawn", func() bool {
+		_, cleared := n.reminders()
+		return cleared == 1
+	})
+}
+
+func TestReminderThatRunsOutOfAlertsStaysOnScreen(t *testing.T) {
+	n := &fakeNotifier{}
+	a := New(25, 5, 15, 4, reminder.Policy{Interval: 5 * time.Millisecond, MaxAlerts: 2}, n)
+	a.Start()
+	a.CompletePeriod()
+
+	waitFor(t, "the reminder to run out of alerts", func() bool { return n.calls.Load() == 2 })
+	time.Sleep(50 * time.Millisecond)
+	if _, cleared := n.reminders(); cleared != 0 {
+		t.Fatalf("expected an exhausted reminder to stay posted, got %d withdrawals", cleared)
 	}
 }
 
