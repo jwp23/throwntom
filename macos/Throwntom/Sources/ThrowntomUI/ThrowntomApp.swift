@@ -1,15 +1,16 @@
 import SwiftUI
 import ThrowntomClient
 
-@main
-struct ThrowntomApp: App {
+/// The app's entry point, built here rather than in the executable target so everything it
+/// wires together stays in a library the tests can import.
+public struct ThrowntomApp: App {
     @State private var client: DaemonClient
     @State private var ticker: Ticker
     @State private var model = TaskWindowModel()
     private let registrar = SMAppServiceRegistrar()
 
     /// Client and ticker start here, not in a view's onAppear: the popover content only appears when opened.
-    init() {
+    public init() {
         let client = DaemonClient(
             transport: UnixSocketTransport(socketPath: DaemonPaths.socketPath),
             registrar: SMAppServiceRegistrar())
@@ -20,7 +21,7 @@ struct ThrowntomApp: App {
         _ticker = State(initialValue: ticker)
     }
 
-    var body: some Scene {
+    public var body: some Scene {
         MenuBarExtra {
             PopoverView(client: client, ticker: ticker, registrar: registrar)
         } label: {
