@@ -19,4 +19,10 @@ public struct TaskList: Codable, Equatable, Sendable {
         self.active = active
         self.completed = completed
     }
+
+    /// The active tasks named by `ids`, in list order. Ids that name no active task are dropped.
+    public func focused(ids: [Int]) -> [TaskItem] {
+        let wanted = Set(ids)
+        return active.filter { wanted.contains($0.id) }
+    }
 }

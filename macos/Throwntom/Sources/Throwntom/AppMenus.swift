@@ -3,9 +3,7 @@ import ThrowntomClient
 
 enum ConfigFile {
     static func open() {
-        let dir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".config/throwntom")
-        let file = dir.appendingPathComponent("config.toml")
-        NSWorkspace.shared.open(FileManager.default.fileExists(atPath: file.path) ? file : dir)
+        NSWorkspace.shared.open(DaemonPaths.configFileToOpen())
     }
 }
 
@@ -25,11 +23,7 @@ struct AppMenus: Commands {
             timerItem(.start, key: "r", modifiers: .command)
             timerItem(.confirm, key: .return, modifiers: [])
                 .disabled(!available.contains(.confirm) || model.isEditing)
-            if phase == .paused {
-                timerItem(.resume, key: "p", modifiers: .command)
-            } else {
-                timerItem(.pause, key: "p", modifiers: .command)
-            }
+            timerItem(TimerActions.pauseOrResume(for: phase), key: "p", modifiers: .command)
             timerItem(.snooze, key: "s", modifiers: [.command, .shift])
             Divider()
             Button(TimerAction.skipToday.title) { perform(.skipToday) }.disabled(!available.contains(.skipToday))
@@ -63,15 +57,7 @@ struct AppMenus: Commands {
 
     private func perform(_ action: TimerAction) {
         Task {
-            do {
-                if let verb = action.verb {
-                    try await client.timer(verb)
-                } else {
-                    try await client.snooze(minutes: TimerActions.defaultSnoozeMinutes)
-                }
-            } catch {
-                NSSound.beep()
-            }
+            do { try await client.perform(action) } catch { NSSound.beep() }
         }
     }
 
