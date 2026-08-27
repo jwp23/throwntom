@@ -7,7 +7,7 @@ final class AgentRegistrationPlanTests: XCTestCase {
     }
 
     func testUnregisteredStatesJustRegister() {
-        for status in [AgentStatus.notRegistered, .notFound, .requiresApproval] {
+        for status in [AgentStatus.notRegistered, .notFound, .requiresApproval, .unknown] {
             XCTAssertEqual(AgentRegistrationPlan.steps(for: status), [.register], "\(status)")
         }
     }

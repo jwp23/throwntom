@@ -6,12 +6,11 @@ public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
     public static let bundleIdentifier = "com.jwp23.throwntom"
     public static let agentPlistName = "com.jwp23.throwntom.daemon.plist"
 
-    public init() {
-        // No stored properties to initialize; this exists only so callers outside
-        // the module can construct one.
-    }
+    private let agent: LaunchAgentService
 
-    private var agent: SMAppService { SMAppService.agent(plistName: Self.agentPlistName) }
+    public init(agent: LaunchAgentService = BundledAgentService()) {
+        self.agent = agent
+    }
 
     /// Ensures the launchd agent is registered, reloading if necessary.
     /// If unregister fails, we defer the error and attempt register anyway, since a stale
@@ -19,7 +18,7 @@ public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
     /// unregister and register fail, or if register fails alone.
     public func ensureAgentRegistered() throws {
         var unregisterError: Error?
-        for step in AgentRegistrationPlan.steps(for: AgentStatus(agent.status)) {
+        for step in AgentRegistrationPlan.steps(for: agent.status) {
             switch step {
             case .unregister:
                 do { try agent.unregister() } catch { unregisterError = error }
@@ -35,7 +34,7 @@ public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
         case .requiresApproval: return "Timer agent needs approval in Login Items"
         case .notRegistered: return "Timer agent not registered"
         case .notFound: return "Timer agent plist not found in bundle"
-        @unknown default: return "Timer agent status unknown"
+        case .unknown: return "Timer agent status unknown"
         }
     }
 
@@ -56,6 +55,23 @@ public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
     }
 }
 
+/// The launchd agent shipped inside the app bundle. Every call here changes the machine's
+/// registered agents, so this wrapper is deliberately thin and left to manual verification.
+public struct BundledAgentService: LaunchAgentService {
+    private var service: SMAppService {
+        SMAppService.agent(plistName: SMAppServiceRegistrar.agentPlistName)
+    }
+
+    public init() {
+        // No stored properties to initialize; this exists only so callers outside
+        // the module can construct one.
+    }
+
+    public var status: AgentStatus { AgentStatus(service.status) }
+    public func register() throws { try service.register() }
+    public func unregister() throws { try service.unregister() }
+}
+
 extension AgentStatus {
     init(_ status: SMAppService.Status) {
         switch status {
@@ -63,7 +79,7 @@ extension AgentStatus {
         case .enabled: self = .enabled
         case .requiresApproval: self = .requiresApproval
         case .notFound: self = .notFound
-        @unknown default: self = .notFound
+        @unknown default: self = .unknown
         }
     }
 }

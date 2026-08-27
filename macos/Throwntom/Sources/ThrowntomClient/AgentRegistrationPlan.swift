@@ -2,7 +2,7 @@ import Foundation
 
 /// SMAppService.Status without the framework dependency, so the plan is testable.
 public enum AgentStatus: Equatable, Sendable {
-    case notRegistered, enabled, requiresApproval, notFound
+    case notRegistered, enabled, requiresApproval, notFound, unknown
 }
 
 public enum AgentRegistrationStep: Equatable, Sendable {
@@ -18,7 +18,7 @@ public enum AgentRegistrationPlan {
     public static func steps(for status: AgentStatus) -> [AgentRegistrationStep] {
         switch status {
         case .enabled: return [.unregister, .register]
-        case .notRegistered, .notFound, .requiresApproval: return [.register]
+        case .notRegistered, .notFound, .requiresApproval, .unknown: return [.register]
         }
     }
 }
