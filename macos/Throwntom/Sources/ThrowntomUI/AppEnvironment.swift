@@ -14,14 +14,15 @@ final class AppEnvironment {
     init(
         transport: DaemonTransport,
         ticker: Ticker? = nil,
-        authorizer: NotificationAuthorizer = SystemNotificationAuthorizer()
+        authorizer: NotificationAuthorizer = SystemNotificationAuthorizer(),
+        presenter: ReminderPresenter = SystemReminderPresenter()
     ) {
         let registrar = SMAppServiceRegistrar()
         let client = DaemonClient(transport: transport, registrar: registrar)
         self.registrar = registrar
         self.ticker = ticker ?? Ticker()
         self.client = client
-        responder = ReminderResponder(client: client, authorizer: authorizer)
+        responder = ReminderResponder(client: client, authorizer: authorizer, presenter: presenter)
     }
 
     /// What the app launches with: the daemon's Unix socket at its well-known path.
@@ -35,9 +36,9 @@ final class AppEnvironment {
         ticker.start()
     }
 
-    /// Claims the notification delegate, so a reminder answered while the menu bar app was not
-    /// running still reaches the daemon. Kept apart from `start()` because it reaches for
-    /// `UNUserNotificationCenter.current()`, which no process without an app bundle may do.
+    /// Claims the notification delegate and begins raising the reminder banner. Kept apart from
+    /// `start()` because it reaches for `UNUserNotificationCenter.current()`, which no process
+    /// without an app bundle may do.
     func startReminderResponder() {
         responder.start()
     }
