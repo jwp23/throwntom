@@ -206,6 +206,35 @@ func (e *Engine) Snapshot() Snapshot {
 	}
 }
 
+// Invalid reports why s is not reachable from the engine's own transitions,
+// or "" if it is. A hand-edited or concurrently-written session file can hold
+// combinations no sequence of StartWork/MarkPeriodComplete/ConfirmNext/Pause
+// ever produces; restoring one verbatim can resurrect a reminder loop with
+// nothing behind it.
+func (s Snapshot) Invalid() string {
+	if !s.WorkDayStarted && (s.State != Idle || s.LastPhase != Idle) {
+		return "work_day_started is false but state/last_phase is not idle"
+	}
+	if (s.LastPhase == ShortBreak || s.LastPhase == LongBreak) && s.CompletedToday == 0 {
+		return "last_phase is a break but completed_today is 0"
+	}
+	if s.State == AwaitingConfirm {
+		switch s.LastPhase {
+		case Work, ShortBreak, LongBreak:
+		default:
+			return "awaiting_confirm with an unreachable last_phase"
+		}
+	}
+	if s.State == Paused {
+		switch s.PausedFrom {
+		case Work, ShortBreak, LongBreak:
+		default:
+			return "paused with an unreachable paused_from"
+		}
+	}
+	return ""
+}
+
 func (e *Engine) Restore(s Snapshot) {
 	e.state = s.State
 	e.lastPhase = s.LastPhase
