@@ -12,11 +12,13 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/app"
 	"github.com/jwp23/throwntom/v3/internal/config"
 	"github.com/jwp23/throwntom/v3/internal/engine"
+	"github.com/jwp23/throwntom/v3/internal/notifier"
 	"github.com/jwp23/throwntom/v3/internal/session"
 	"github.com/jwp23/throwntom/v3/internal/task"
 )
 
 type countingNotifier struct {
+	notifier.NoReminder
 	calls atomic.Int64
 }
 
