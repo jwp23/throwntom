@@ -12,7 +12,7 @@ struct PopoverView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(MenuBarTitle.text(state: client.state, connection: client.connection, now: ticker.now))
+            Text(ConnectionStatus.text(state: client.state, connection: client.connection, now: ticker.now))
                 .font(.headline)
             if let state = client.state {
                 if let next = state.nextStage {
