@@ -15,6 +15,8 @@ struct NewTaskRow: View {
 
     let model: TaskWindowModel
     let onCommit: (String) -> Void
+    /// The refusal alert. Injectable so tests can assert it fired without making a noise.
+    var alert: () -> Void = { NSSound.beep() }
 
     @FocusState private var focused: Bool
 
@@ -45,7 +47,7 @@ struct NewTaskRow: View {
         switch commit() {
         case let .send(line): onCommit(line)
         case .nothing: break
-        case .refused: NSSound.beep()
+        case .refused: alert()
         }
     }
 }

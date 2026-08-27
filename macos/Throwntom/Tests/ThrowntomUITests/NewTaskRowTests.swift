@@ -44,16 +44,20 @@ final class NewTaskRowTests: XCTestCase {
         XCTAssertEqual(committed, ["task add write the report"])
     }
 
-    /// The refusal is the system alert sound, which is why this is the one test in the suite
-    /// that makes a noise. What it asserts is that nothing reaches the daemon.
-    func testSubmittingTextTheGrammarRefusesSendsNothing() {
+    /// Refused text alerts the user and sends nothing. The alert is injected so the suite
+    /// stays silent and the alert itself can be asserted rather than merely heard.
+    func testSubmittingTextTheGrammarRefusesAlertsAndSendsNothing() {
         let model = TaskWindowModel()
         model.beginNewTask()
         model.draft = "bell\u{7}"
         var committed: [String] = []
+        var alerts = 0
 
-        NewTaskRow(model: model) { committed.append($0) }.submit()
+        var row = NewTaskRow(model: model) { committed.append($0) }
+        row.alert = { alerts += 1 }
+        row.submit()
 
+        XCTAssertEqual(alerts, 1)
         XCTAssertTrue(committed.isEmpty)
         XCTAssertFalse(model.isEditing)
     }
