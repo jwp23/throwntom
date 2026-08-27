@@ -6,8 +6,10 @@ let package = Package(
     platforms: [.macOS(.v14)],
     targets: [
         .target(name: "ThrowntomClient"),
-        .executableTarget(name: "Throwntom", dependencies: ["ThrowntomClient"]),
+        .target(name: "ThrowntomUI", dependencies: ["ThrowntomClient"]),
+        .executableTarget(name: "Throwntom", dependencies: ["ThrowntomUI"]),
         .executableTarget(name: "ThrowntomAlert", dependencies: ["ThrowntomClient"]),
         .testTarget(name: "ThrowntomClientTests", dependencies: ["ThrowntomClient"]),
+        .testTarget(name: "ThrowntomUITests", dependencies: ["ThrowntomUI", "ThrowntomClient"]),
     ]
 )

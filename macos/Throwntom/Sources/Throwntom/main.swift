@@ -1,0 +1,3 @@
+import ThrowntomUI
+
+ThrowntomApp.main()
