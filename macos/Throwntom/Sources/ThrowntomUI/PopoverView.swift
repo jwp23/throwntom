@@ -6,8 +6,7 @@ struct PopoverView: View {
     let ticker: Ticker
     let registrar: SMAppServiceRegistrar
 
-    @State private var loginItem = false
-    @State private var registrarMessage: String?
+    @State private var loginItem = LoginItemSetting(isOn: false, message: nil)
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -34,15 +33,15 @@ struct PopoverView: View {
             }
             .keyboardShortcut("t")
             Divider()
-            Toggle("Launch at login", isOn: $loginItem)
-                .onChange(of: loginItem) { _, enabled in setLoginItem(enabled) }
-            Text(registrarMessage ?? registrar.agentStatusDescription).font(.caption).foregroundStyle(.secondary)
+            Toggle("Launch at login", isOn: $loginItem.isOn)
+                .onChange(of: loginItem.isOn) { _, enabled in setLoginItem(enabled) }
+            Text(loginItem.message ?? registrar.agentStatusDescription).font(.caption).foregroundStyle(.secondary)
             Button("Open Login Items Settings…") { registrar.openLoginItemsSettings() }
             Button("Quit Throwntom") { NSApp.terminate(nil) }.keyboardShortcut("q")
         }
         .padding(12)
         .frame(width: 280)
-        .onAppear { loginItem = registrar.loginItemEnabled }
+        .onAppear { loginItem.isOn = registrar.loginItemEnabled }
     }
 
     @ViewBuilder
@@ -57,12 +56,6 @@ struct PopoverView: View {
     }
 
     private func setLoginItem(_ enabled: Bool) {
-        do {
-            try registrar.setLoginItem(enabled)
-            registrarMessage = nil
-        } catch {
-            registrarMessage = "Login item: \(error.localizedDescription)"
-            loginItem = registrar.loginItemEnabled
-        }
+        loginItem = .afterSetting(enabled, in: registrar)
     }
 }

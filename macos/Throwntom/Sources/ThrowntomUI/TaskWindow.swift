@@ -42,7 +42,9 @@ struct TaskWindow: View {
         .onChange(of: client.state?.focusedTaskIds, initial: true) { syncModel() }
     }
 
-    private func syncModel() {
+    /// Copies the daemon's task list and focus into the model the list and menus read from.
+    /// No focus list at all — no daemon state yet — means nothing is focused.
+    func syncModel() {
         model.sync(tasks: client.tasks, focusedTaskIDs: client.state?.focusedTaskIds)
     }
 
