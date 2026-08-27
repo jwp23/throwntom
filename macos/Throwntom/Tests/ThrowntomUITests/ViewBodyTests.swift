@@ -15,14 +15,25 @@ final class ViewBodyTests: XCTestCase {
     }
 
     func testBodiesBuildWithTasksAndAConfirmationPending() async throws {
-        let environment = AppEnvironment(
-            transport: try StubTransport(states: [makeState(phase: .awaitingConfirm, focusedTaskIds: [1])]))
+        let tasks = TaskList(active: [makeTask(id: 1), makeTask(id: 2)], completed: [makeTask(id: 3, done: true)])
+        let state = makeState(
+            phase: .awaitingConfirm,
+            nextStage: DaemonState.NextStage(state: .shortBreak, duration: 300),
+            focusedTaskIds: [1])
+        let environment = AppEnvironment(transport: try StubTransport(states: [state], tasks: tasks))
         defer { shutDown(environment) }
         environment.start()
-        try await waitUntil { environment.client.connection == .connected }
-        environment.model.sync(
-            tasks: TaskList(active: [makeTask(id: 1), makeTask(id: 2)], completed: [makeTask(id: 3, done: true)]),
-            focusedTaskIDs: [1])
+        try await waitUntil { environment.client.tasks.active.map(\.id) == [1, 2] }
+        environment.model.sync(tasks: environment.client.tasks, focusedTaskIDs: [1])
+
+        buildEveryBody(of: environment)
+    }
+
+    func testBodiesBuildWhileTheDaemonIsUnreachable() async throws {
+        let environment = AppEnvironment(transport: UnreachableDaemonTransport())
+        defer { shutDown(environment) }
+        environment.start()
+        try await waitUntil { environment.client.unresolvedError != nil }
 
         buildEveryBody(of: environment)
     }

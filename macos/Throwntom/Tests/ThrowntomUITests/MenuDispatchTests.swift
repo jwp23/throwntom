@@ -2,7 +2,7 @@ import XCTest
 @testable import ThrowntomClient
 @testable import ThrowntomUI
 
-/// What picking a menu item or a toolbar button actually sends to the daemon.
+/// What choosing a menu item, a toolbar button or the inline editor sends to the daemon.
 @MainActor
 final class MenuDispatchTests: XCTestCase {
     func testTimerItemPostsTheDaemonVerb() async throws {
@@ -60,6 +60,19 @@ final class MenuDispatchTests: XCTestCase {
         XCTAssertEqual(
             transport.commands,
             [StubTransport.Request(method: "POST", path: "/v1/timer/snooze", body: #"{"minutes":10}"#)])
+    }
+
+    func testTaskWindowSendsTheLineTheInlineEditorCommits() async throws {
+        let transport = try StubTransport(states: [])
+        let environment = AppEnvironment(transport: transport)
+
+        TaskWindow(client: environment.client, model: environment.model).send("task add write it down")
+
+        try await waitUntil { !transport.commands.isEmpty }
+        XCTAssertEqual(
+            transport.commands,
+            [StubTransport.Request(
+                method: "POST", path: "/v1/command", body: #"{"line":"task add write it down"}"#)])
     }
 
     private func makeMenus(_ transport: StubTransport) throws -> AppMenus {

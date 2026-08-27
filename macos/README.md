@@ -51,6 +51,8 @@ built by the tests with `go build` and run with `HOME` under `/tmp`.
 ## Layout
 
 - `Throwntom/` — Swift package: `ThrowntomClient` (transport, `DaemonClient`,
-  `DaemonState`, actions) and the `Throwntom` app target.
+  `DaemonState`, actions), `ThrowntomUI` (scenes, views and the menu model) and
+  the `Throwntom` executable, which only calls `ThrowntomApp.main()`. The views
+  live in a library so `swift test --enable-code-coverage` reaches them.
 - `bundle/` — `Info.plist` and the launchd agent plist copied into the app.
 - `build.sh`, `agent.sh` — build and dev-agent scripts.
