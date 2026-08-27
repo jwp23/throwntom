@@ -7,6 +7,7 @@ let package = Package(
     targets: [
         .target(name: "ThrowntomClient"),
         .executableTarget(name: "Throwntom", dependencies: ["ThrowntomClient"]),
+        .executableTarget(name: "ThrowntomAlert", dependencies: ["ThrowntomClient"]),
         .testTarget(name: "ThrowntomClientTests", dependencies: ["ThrowntomClient"]),
     ]
 )

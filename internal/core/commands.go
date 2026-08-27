@@ -125,7 +125,7 @@ func (c *Core) handleSnooze(parts []string) commandResult {
 		c.state.stopMorningLoop()
 		c.state.setSnoozeUntil(c.now().Add(parsed))
 		state := c.state
-		repeatInterval := c.repeatInterval
+		policy := c.reminderPolicy
 		n := c.notifier
 		cycle := c.cycle
 		go func() {
@@ -134,7 +134,7 @@ func (c *Core) handleSnooze(parts []string) commandResult {
 				return
 			}
 			state.clearSnooze()
-			startMorningLoop(state, repeatInterval, n)
+			startMorningLoop(state, policy, n)
 		}()
 		c.logEvent("snoozed", map[string]any{"duration_secs": snoozeSecs})
 		return commandResult{message: fmt.Sprintf("morning reminder snoozed for %s", parsed)}

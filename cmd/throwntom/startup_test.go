@@ -11,10 +11,11 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/config"
 	"github.com/jwp23/throwntom/v3/internal/core"
 	"github.com/jwp23/throwntom/v3/internal/engine"
+	"github.com/jwp23/throwntom/v3/internal/notifier"
 	"github.com/jwp23/throwntom/v3/internal/session"
 )
 
-type noopNotifier struct{}
+type noopNotifier struct{ notifier.NoReminder }
 
 func (noopNotifier) PlaySound(string) error {
 	return nil

@@ -119,6 +119,7 @@ days = ["Fri"]
 time = "10:00"
 
 repeat_secs = 20
+repeat_limit_secs = 300
 sound_command = ["paplay", "/usr/share/sounds/freedesktop/stereo/bell.oga"]
 morning_reminder_pending = true
 emoji = true
@@ -127,6 +128,10 @@ emoji = true
 tier_low = 2
 tier_mid = 5
 ```
+
+`repeat_limit_secs` bounds how long an unanswered reminder keeps alerting, so a
+reminder nobody is around to acknowledge stops on its own rather than ringing
+until the daemon is stopped.
 
 Schedule supports day aliases: `"weekday"` expands to Mon-Fri, `"weekend"` to Sat-Sun. Specific-day entries automatically carve out from alias expansions.
 

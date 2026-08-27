@@ -15,6 +15,7 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/engine"
 	"github.com/jwp23/throwntom/v3/internal/eventlog"
 	"github.com/jwp23/throwntom/v3/internal/notifier"
+	"github.com/jwp23/throwntom/v3/internal/reminder"
 	"github.com/jwp23/throwntom/v3/internal/scheduler"
 	"github.com/jwp23/throwntom/v3/internal/task"
 )
@@ -28,7 +29,7 @@ type Core struct {
 	notifier            notifier.Notifier
 	state               *reminderState
 	scheduler           *scheduler.Scheduler
-	repeatInterval      time.Duration
+	reminderPolicy      reminder.Policy
 	now                 func() time.Time
 	handlers            map[string]commandHandler
 	tasks               *task.FileStore
@@ -49,20 +50,23 @@ type Core struct {
 type commandHandler func(parts []string) commandResult
 
 func newCore(cfg config.Config, n notifier.Notifier) *Core {
-	repeatInterval := time.Duration(cfg.RepeatSecs) * time.Second
+	reminderPolicy := reminder.NewPolicy(
+		time.Duration(cfg.RepeatSecs)*time.Second,
+		time.Duration(cfg.RepeatLimitSecs)*time.Second,
+	)
 	c := &Core{
 		cycle: app.New(
 			cfg.Pomodoro.WorkMinutes,
 			cfg.Pomodoro.ShortBreakMinutes,
 			cfg.Pomodoro.LongBreakMinutes,
 			cfg.Pomodoro.LongBreakEvery,
-			repeatInterval,
+			reminderPolicy,
 			n,
 		),
 		notifier:       n,
 		state:          &reminderState{morningPending: cfg.MorningReminderPending},
 		scheduler:      scheduler.New(config.ScheduleDayTimes(cfg.Schedule)),
-		repeatInterval: repeatInterval,
+		reminderPolicy: reminderPolicy,
 		now:            time.Now,
 		longBreakEvery: cfg.Pomodoro.LongBreakEvery,
 		subscribers:    make(map[chan State]struct{}),
@@ -122,9 +126,9 @@ func New(cfg config.Config, n notifier.Notifier, paths Paths) (*Core, error) {
 func (c *Core) Start(ctx context.Context) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	startMorningScheduler(ctx, c.state, c.scheduler, c.repeatInterval, c.notifier)
+	startMorningScheduler(ctx, c.state, c.scheduler, c.reminderPolicy, c.notifier)
 	if c.state.isMorningPending() && c.cycle.State() == engine.Idle && c.scheduler.IsActiveNow(c.now()) {
-		startMorningLoop(c.state, c.repeatInterval, c.notifier)
+		startMorningLoop(c.state, c.reminderPolicy, c.notifier)
 	}
 }
 

@@ -118,18 +118,18 @@ func (s *reminderState) snoozeDeadline() (time.Time, bool) {
 	return s.snoozeUntil, !s.snoozeUntil.IsZero()
 }
 
-func startMorningLoop(state *reminderState, repeatInterval time.Duration, n notifier.Notifier) {
+func startMorningLoop(state *reminderState, policy reminder.Policy, n notifier.Notifier) {
 	ctx, shouldStart := state.beginMorningLoop()
 	if !shouldStart {
 		return
 	}
-	loop := reminder.New(repeatInterval, func() error {
+	loop := reminder.New(policy, func() error {
 		return n.PlaySound("morning")
 	})
 	go loop.Run(ctx)
 }
 
-func startMorningScheduler(ctx context.Context, state *reminderState, sched *scheduler.Scheduler, repeatInterval time.Duration, n notifier.Notifier) {
+func startMorningScheduler(ctx context.Context, state *reminderState, sched *scheduler.Scheduler, policy reminder.Policy, n notifier.Notifier) {
 	go func() {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
@@ -141,7 +141,7 @@ func startMorningScheduler(ctx context.Context, state *reminderState, sched *sch
 				if !state.shouldStartMorning(now, sched) {
 					continue
 				}
-				startMorningLoop(state, repeatInterval, n)
+				startMorningLoop(state, policy, n)
 			}
 		}
 	}()
