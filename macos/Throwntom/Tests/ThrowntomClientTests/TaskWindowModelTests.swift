@@ -94,4 +94,17 @@ final class TaskWindowModelTests: XCTestCase {
         XCTAssertFalse(n.canPerform(.newTask))
         XCTAssertNil(n.command(for: .complete))
     }
+
+    func testCompletedSectionTitleCountsCompletedTasks() {
+        XCTAssertEqual(TaskWindowModel().completedSectionTitle, "Completed (0)")
+        XCTAssertEqual(model(ids: [5]).completedSectionTitle, "Completed (1)")
+    }
+
+    func testSyncTreatsAnAbsentFocusListAsNothingFocused() {
+        let m = TaskWindowModel()
+        m.sync(tasks: TaskList(active: [item(5), item(6)]), focusedTaskIDs: [6, 6])
+        XCTAssertEqual(m.focusedIDs, [6])
+        m.sync(tasks: TaskList(active: [item(5), item(6)]), focusedTaskIDs: nil)
+        XCTAssertTrue(m.focusedIDs.isEmpty)
+    }
 }
