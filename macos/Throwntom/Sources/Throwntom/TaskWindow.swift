@@ -27,20 +27,12 @@ struct TaskWindow: View {
         }
         .listStyle(.inset)
         .overlay {
-            if client.state == nil {
-                ContentUnavailableView(
-                    ConnectionStatus.text(state: client.state, connection: client.connection, now: .now),
-                    systemImage: "bolt.horizontal.circle"
-                )
+            if let text = ConnectionStatus.placeholderText(state: client.state, connection: client.connection, now: .now) {
+                ContentUnavailableView(text, systemImage: "bolt.horizontal.circle")
             }
         }
         .frame(minWidth: 360, minHeight: 240)
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                if client.state == nil {
-                    Text(ConnectionStatus.text(state: client.state, connection: client.connection, now: .now))
-                }
-            }
             ToolbarItemGroup {
                 if let state = client.state {
                     ForEach(TimerActions.available(for: state), id: \.self) { action in
