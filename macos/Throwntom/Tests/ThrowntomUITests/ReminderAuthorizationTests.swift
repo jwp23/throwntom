@@ -67,7 +67,9 @@ final class ReminderAuthorizationTests: XCTestCase {
         let url = try XCTUnwrap(ReminderResponder.notificationSettingsURL)
 
         XCTAssertEqual(url.scheme, "x-apple.systempreferences")
-        XCTAssertEqual(url.opaque, "com.apple.Notifications-Settings.extension")
+        XCTAssertEqual(
+            url.absoluteString,
+            "x-apple.systempreferences:com.apple.Notifications-Settings.extension")
     }
 }
 

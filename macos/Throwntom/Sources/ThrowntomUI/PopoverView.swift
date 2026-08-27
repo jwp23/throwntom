@@ -5,6 +5,7 @@ struct PopoverView: View {
     let client: DaemonClient
     let ticker: Ticker
     let registrar: SMAppServiceRegistrar
+    let responder: ReminderResponder
 
     @State private var loginItem = LoginItemSetting(isOn: false, message: nil)
     @Environment(\.openWindow) private var openWindow
@@ -26,6 +27,10 @@ struct PopoverView: View {
             if let error = client.unresolvedError {
                 Text(error).font(.caption).foregroundStyle(.secondary).lineLimit(2)
             }
+            if let problem = responder.authorization.problem {
+                Text(problem).font(.caption).foregroundStyle(.secondary).lineLimit(3)
+                Button("Open Notification Settings…") { responder.openNotificationSettings() }
+            }
             Divider()
             Button("Open Tasks…") {
                 NSApp.activate()
@@ -42,6 +47,7 @@ struct PopoverView: View {
         .padding(12)
         .frame(width: 280)
         .onAppear { loginItem.isOn = registrar.loginItemEnabled }
+        .task { await responder.refreshAuthorization() }
     }
 
     @ViewBuilder

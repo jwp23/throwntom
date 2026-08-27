@@ -11,13 +11,17 @@ final class AppEnvironment {
     let responder: ReminderResponder
     let model = TaskWindowModel()
 
-    init(transport: DaemonTransport, ticker: Ticker? = nil) {
+    init(
+        transport: DaemonTransport,
+        ticker: Ticker? = nil,
+        authorizer: NotificationAuthorizer = SystemNotificationAuthorizer()
+    ) {
         let registrar = SMAppServiceRegistrar()
         let client = DaemonClient(transport: transport, registrar: registrar)
         self.registrar = registrar
         self.ticker = ticker ?? Ticker()
         self.client = client
-        responder = ReminderResponder(client: client)
+        responder = ReminderResponder(client: client, authorizer: authorizer)
     }
 
     /// What the app launches with: the daemon's Unix socket at its well-known path.

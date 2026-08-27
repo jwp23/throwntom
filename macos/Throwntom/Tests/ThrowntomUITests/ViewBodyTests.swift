@@ -38,6 +38,16 @@ final class ViewBodyTests: XCTestCase {
         buildEveryBody(of: environment)
     }
 
+    func testBodiesBuildWhileMacOSRefusesToDeliverReminders() async throws {
+        let environment = AppEnvironment(
+            transport: try StubTransport(states: []),
+            authorizer: StubAuthorizer(refusal: notificationsNotAllowed))
+        await environment.responder.requestAuthorization()
+        XCTAssertNotNil(environment.responder.authorization.problem)
+
+        buildEveryBody(of: environment)
+    }
+
     func testBodiesBuildWhileTheInlineEditorIsOpen() throws {
         let environment = AppEnvironment(transport: try StubTransport(states: []))
         environment.model.beginNewTask()
@@ -49,7 +59,11 @@ final class ViewBodyTests: XCTestCase {
         _ = ThrowntomScenes(environment: environment).body
         _ = AppMenus(client: environment.client, model: environment.model).body
         _ = TaskWindow(client: environment.client, model: environment.model).body
-        _ = PopoverView(client: environment.client, ticker: environment.ticker, registrar: environment.registrar).body
+        _ = PopoverView(
+            client: environment.client,
+            ticker: environment.ticker,
+            registrar: environment.registrar,
+            responder: environment.responder).body
         _ = NewTaskRow(model: environment.model) { _ in }.body
         _ = TimerActionButton(action: .start, client: environment.client).body
         _ = TimerActionButton(action: .skipToday, client: environment.client).body
