@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/images/throwntom.png" alt="throwntom" width="200">
+</p>
+
 # throwntom
 
 thrown tomatos => throwntom
