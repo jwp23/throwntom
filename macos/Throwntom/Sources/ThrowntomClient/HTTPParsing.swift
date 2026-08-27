@@ -63,8 +63,10 @@ public struct ChunkedDecoder {
 
     public private(set) var isFinished = false
 
-    /// Empty: all state starts at its declared default (phase .size, empty buffer).
-    public init() {}
+    public init() {
+        // No initialization needed: every stored property has a declared default
+        // (phase .size, empty buffer).
+    }
 
     /// Feeds raw bytes and returns whatever decoded body bytes became available.
     public mutating func feed(_ data: Data) throws -> Data {

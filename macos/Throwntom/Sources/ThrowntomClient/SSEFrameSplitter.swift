@@ -10,8 +10,9 @@ public struct SSEFrameSplitter {
 
     private var buffer = Data()
 
-    /// Empty: all state starts at its declared default (empty buffer).
-    public init() {}
+    public init() {
+        // No initialization needed: the buffer defaults to empty.
+    }
 
     /// Feeds raw body bytes and returns the data payload of every frame completed so far.
     public mutating func feed(_ data: Data) throws -> [Data] {
