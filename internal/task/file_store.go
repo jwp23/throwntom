@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/jwp23/throwntom/v3/internal/atomicfile"
 )
 
 type Task struct {
@@ -137,12 +139,14 @@ func (fs *FileStore) load() error {
 	return nil
 }
 
+// save writes the task file atomically: readers either see the previous file
+// or the new one, never a half-written one.
 func (fs *FileStore) save() error {
 	raw, err := json.MarshalIndent(fs.data, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshaling task data: %w", err)
 	}
-	if err := os.WriteFile(fs.path, raw, 0o644); err != nil {
+	if err := atomicfile.Write(fs.path, raw, 0o644); err != nil {
 		return fmt.Errorf("writing task file: %w", err)
 	}
 	return nil
