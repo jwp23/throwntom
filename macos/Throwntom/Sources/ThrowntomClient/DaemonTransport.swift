@@ -28,11 +28,12 @@ public protocol DaemonTransport: Sendable {
 }
 
 public enum DaemonPaths {
-    /// Mirrors core.DefaultPaths() on the Go side.
+    /// Where the daemon keeps its config and state. Mirrors config.DirPath on the Go side.
     public static func configDirectory(inHome home: URL = FileManager.default.homeDirectoryForCurrentUser) -> URL {
         home.appendingPathComponent(".config/throwntom")
     }
 
+    /// Mirrors core.DefaultPaths().Socket on the Go side.
     public static var socketPath: String {
         configDirectory().appendingPathComponent("daemon.sock").path
     }
