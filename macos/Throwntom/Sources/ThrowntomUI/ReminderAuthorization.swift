@@ -42,7 +42,8 @@ struct ReminderAuthorization: Equatable {
         switch status {
         case .authorized, .provisional, .ephemeral: return ReminderAuthorization()
         case .notDetermined: return ReminderAuthorization(problem: notAsked)
-        default: return ReminderAuthorization(problem: turnedOff)
+        case .denied: return ReminderAuthorization(problem: turnedOff)
+        @unknown default: return ReminderAuthorization(problem: turnedOff)
         }
     }
 
