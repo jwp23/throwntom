@@ -176,7 +176,6 @@ func (a *App) Confirm() {
 func (a *App) Snooze(d time.Duration) {
 	a.mu.Lock()
 	defer a.notifyChange()
-	a.engine.Snooze(a.now(), d)
 	a.stopReminderLocked()
 	state := a.engine.State()
 	after := a.after

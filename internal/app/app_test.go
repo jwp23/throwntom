@@ -446,6 +446,9 @@ func TestSnoozeRestartsReminderAfterInterval(t *testing.T) {
 	}
 
 	a.Snooze(10 * time.Minute)
+	if got := a.State(); got != engine.AwaitingConfirm {
+		t.Fatalf("expected phase unchanged by snooze, got %s", got)
+	}
 	clk.Advance(10 * time.Minute)
 	waitForNotifications(t, n, 2)
 	a.Stop()
