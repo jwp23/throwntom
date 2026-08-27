@@ -35,6 +35,7 @@
 - Never consider backwards-compatibility, legacy or similar concerns, I'm the only user, and it's a new greenfield project, we can freely make any changes we want.
 - Make sure you never introduce any new compilation warnings, address them if you encounter them.
 - When updating dependencies, always pin to explicit versions (e.g. `go get pkg@v1.2.3`), never use `@latest`. When bumping one dep in a family (e.g. charmbracelet), bump all related deps together to avoid transitive incompatibilities.
+- `throwntomd` and everything under `internal/` are portable Go and must stay OS-agnostic. The daemon owns timing and state; user-facing presentation — notifications, sound, windows — belongs to the client for that platform. See `docs/adr/003-clients-own-user-facing-notification.md`.
 
 ## Mindset & Principles
 - Flag missing info and unsupported assumptions.
@@ -174,6 +175,7 @@
 - No source code file should be larger than 500 lines of code, refactor as needed (use cloc --by-file src to verify)
 - Modularize your code like a professional software developer
 - When applicable, our implementation should conform with idiomatic use of the language we use
+- Conform to the platform's intended architecture, not only the language's idioms. When a platform API refuses to work in a given process, treat that refusal as design guidance: smuggling a capability into a process the OS withholds it from means the responsibility sits in the wrong place. Move the responsibility rather than working around the refusal.
 - Write small/short developer/debugging tools/binaries as needed, document them, and leave them for future use
 
 
