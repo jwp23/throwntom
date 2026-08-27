@@ -38,13 +38,44 @@ func makeState(
     phase: DaemonState.Phase = .idle,
     morningPending: Bool = false,
     nextStage: DaemonState.NextStage? = nil,
+    snoozeUntil: Date? = nil,
+    phaseEndAt: Date? = nil,
     focusedTaskIds: [Int] = []
 ) -> DaemonState {
     DaemonState(
-        state: phase, phaseEndAt: nil, pausedRemaining: 0, completedToday: 0,
+        state: phase, phaseEndAt: phaseEndAt, pausedRemaining: 0, completedToday: 0,
         workSessionsInBlock: 0, longBreakEvery: 4, nextStage: nextStage,
-        morningPending: morningPending, snoozeUntil: nil, statusLine: phase.displayName,
+        morningPending: morningPending, snoozeUntil: snoozeUntil, statusLine: phase.displayName,
         focusedTaskIds: focusedTaskIds)
+}
+
+/// Records what the app asked macOS to show, so posting and withdrawing can be checked without the
+/// real notification centre, which no test process may reach.
+final class StubReminderPresenter: ReminderPresenter {
+    struct Post: Equatable {
+        let title: String
+        let body: String
+    }
+
+    /// What macOS answers when it will not accept the reminder; nil when it accepts.
+    var refusal: Error?
+
+    private(set) var registeredButtons = false
+    private(set) var posts: [Post] = []
+    private(set) var withdrawals = 0
+
+    func registerReminderButtons() {
+        registeredButtons = true
+    }
+
+    func postReminder(title: String, body: String) async throws {
+        if let refusal { throw refusal }
+        posts.append(Post(title: title, body: body))
+    }
+
+    func withdrawReminder() {
+        withdrawals += 1
+    }
 }
 
 func makeTask(id: Int, description: String = "task", done: Bool = false) -> TaskItem {
