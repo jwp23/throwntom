@@ -9,5 +9,6 @@ let package = Package(
         .target(name: "ThrowntomUI", dependencies: ["ThrowntomClient"]),
         .executableTarget(name: "Throwntom", dependencies: ["ThrowntomUI"]),
         .testTarget(name: "ThrowntomClientTests", dependencies: ["ThrowntomClient"]),
+        .testTarget(name: "ThrowntomUITests", dependencies: ["ThrowntomUI", "ThrowntomClient"]),
     ]
 )
