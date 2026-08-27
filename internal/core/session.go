@@ -41,6 +41,10 @@ func (c *Core) loadSession() error {
 	if !engine.IsSameDay(data.SavedAt, c.now()) {
 		return nil
 	}
+	if reason := data.App.Engine.Invalid(); reason != "" {
+		fmt.Fprintf(os.Stderr, "warning: discarding inconsistent session: %s\n", reason)
+		return nil
+	}
 	if err := c.cycle.Restore(data.App, c.now()); err != nil {
 		return err
 	}

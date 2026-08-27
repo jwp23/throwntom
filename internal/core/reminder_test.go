@@ -8,6 +8,7 @@ import (
 
 	"github.com/jwp23/throwntom/v3/internal/config"
 	"github.com/jwp23/throwntom/v3/internal/engine"
+	"github.com/jwp23/throwntom/v3/internal/reminder"
 )
 
 func TestBeginMorningLoopStartsWhenPendingTrue(t *testing.T) {
@@ -140,7 +141,7 @@ func TestMorningSnoozeRestartsLoopAfterExpiry(t *testing.T) {
 	c.setNow(func() time.Time { return time.Date(2026, 3, 2, 10, 0, 0, 0, time.Local) })
 
 	// Start morning loop manually to simulate scheduler trigger
-	startMorningLoop(c.state, c.repeatInterval, c.notifier)
+	startMorningLoop(c.state, c.reminderPolicy, c.notifier)
 
 	// Snooze for a tiny duration
 	result := c.execute("snooze 1ms")
@@ -177,7 +178,7 @@ func TestMorningSnoozeSkipsRestartIfNotIdle(t *testing.T) {
 	c.setNow(func() time.Time { return time.Date(2026, 3, 2, 10, 0, 0, 0, time.Local) })
 
 	// Start morning loop manually
-	startMorningLoop(c.state, c.repeatInterval, c.notifier)
+	startMorningLoop(c.state, c.reminderPolicy, c.notifier)
 
 	// Snooze for a tiny duration
 	result := c.execute("snooze 1ms")
@@ -210,7 +211,7 @@ func TestMorningSnoozeStopMidSnooze(t *testing.T) {
 	c.setNow(func() time.Time { return time.Date(2026, 3, 2, 10, 0, 0, 0, time.Local) })
 
 	// Start morning loop manually
-	startMorningLoop(c.state, c.repeatInterval, c.notifier)
+	startMorningLoop(c.state, c.reminderPolicy, c.notifier)
 
 	// Snooze for a longer duration
 	result := c.execute("snooze 100ms")
@@ -232,4 +233,17 @@ func TestMorningSnoozeStopMidSnooze(t *testing.T) {
 		t.Fatal("expected no morning loop interference after start during snooze")
 	}
 	c.cycle.Stop()
+}
+
+func TestMorningReminderPolicyComesFromConfig(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	cfg.RepeatSecs = 30
+	cfg.RepeatLimitSecs = 120
+	c := newCore(cfg, noopNotifier{})
+
+	want := reminder.Policy{Interval: 30 * time.Second, MaxAlerts: 5}
+	if c.reminderPolicy != want {
+		t.Fatalf("expected %+v, got %+v", want, c.reminderPolicy)
+	}
 }

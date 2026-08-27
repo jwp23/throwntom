@@ -16,6 +16,7 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/config"
 	"github.com/jwp23/throwntom/v3/internal/core"
 	"github.com/jwp23/throwntom/v3/internal/engine"
+	"github.com/jwp23/throwntom/v3/internal/notifier"
 	"github.com/jwp23/throwntom/v3/internal/session"
 )
 
@@ -173,6 +174,7 @@ func TestRunReturnsPromptlyWithOpenSSEClient(t *testing.T) {
 }
 
 type recordingNotifier struct {
+	notifier.NoReminder
 	mu     sync.Mutex
 	sounds int
 }

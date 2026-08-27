@@ -7,6 +7,7 @@ import (
 
 	"github.com/jwp23/throwntom/v3/internal/config"
 	"github.com/jwp23/throwntom/v3/internal/engine"
+	"github.com/jwp23/throwntom/v3/internal/reminder"
 	"github.com/jwp23/throwntom/v3/internal/session"
 )
 
@@ -118,7 +119,7 @@ func TestSubscribeDeliversMorningPending(t *testing.T) {
 	defer cancel()
 	recv(t, ch)
 
-	startMorningLoop(c.state, time.Hour, noopNotifier{})
+	startMorningLoop(c.state, reminder.Policy{Interval: time.Hour, MaxAlerts: 2}, noopNotifier{})
 	if s := recv(t, ch); !s.MorningPending {
 		t.Fatal("expected morning_pending after loop start")
 	}

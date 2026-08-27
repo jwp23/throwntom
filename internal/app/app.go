@@ -30,7 +30,7 @@ type App struct {
 	mu                 sync.Mutex
 	engine             *engine.Engine
 	notifier           notifier.Notifier
-	repeatInterval     time.Duration
+	reminderPolicy     reminder.Policy
 	workDuration       time.Duration
 	shortBreakDuration time.Duration
 	longBreakDuration  time.Duration
@@ -43,11 +43,11 @@ type App struct {
 	onChange           func()
 }
 
-func New(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery int, repeatInterval time.Duration, n notifier.Notifier) *App {
+func New(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery int, reminderPolicy reminder.Policy, n notifier.Notifier) *App {
 	return &App{
 		engine:             engine.New(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery),
 		notifier:           n,
-		repeatInterval:     repeatInterval,
+		reminderPolicy:     reminderPolicy,
 		workDuration:       time.Duration(workMinutes) * time.Minute,
 		shortBreakDuration: time.Duration(shortBreakMinutes) * time.Minute,
 		longBreakDuration:  time.Duration(longBreakMinutes) * time.Minute,
@@ -335,24 +335,56 @@ func (a *App) completePeriodLocked() {
 	}
 }
 
+// reminderTitle heads every actionable reminder.
+const reminderTitle = "Throwntom"
+
 func (a *App) startReminderLocked() {
 	a.stopReminderLocked()
 	ctx, cancel := context.WithCancel(context.Background())
 	a.reminderCancel = cancel
-	loop := reminder.New(a.repeatInterval, func() error {
-		if err := a.notifier.PlaySound("default"); err != nil {
+	n := a.notifier
+	body := a.reminderBodyLocked()
+	loop := reminder.New(a.reminderPolicy, func() error {
+		if err := n.PlaySound("default"); err != nil {
 			_, _ = os.Stdout.WriteString("\a")
 			return fmt.Errorf("notifier failure: %w", err)
 		}
 		return nil
 	})
-	go loop.Run(ctx)
+	// Posting and withdrawing the alert shells out to a helper process, so it
+	// runs here rather than under the App lock. One goroutine owns the whole
+	// reminder, which is what keeps the withdrawal after the posting.
+	go func() {
+		// Best effort: the repeating sound is the reminder itself, the alert
+		// is only how the user answers it without the menu bar app.
+		_ = n.ShowReminder(reminderTitle, body)
+		loop.Run(ctx)
+		// Withdraw only a reminder that was answered or replaced. One that
+		// merely ran out of alerts stays on screen: its buttons are still the
+		// user's way back in.
+		if ctx.Err() != nil {
+			_ = n.ClearReminder()
+		}
+	}()
 }
 
 func (a *App) stopReminderLocked() {
 	if a.reminderCancel != nil {
 		a.reminderCancel()
 		a.reminderCancel = nil
+	}
+}
+
+func (a *App) reminderBodyLocked() string {
+	switch a.engine.NextPhase() {
+	case engine.Work:
+		return "Ready to start a pomodoro"
+	case engine.ShortBreak:
+		return "Ready for a short break"
+	case engine.LongBreak:
+		return "Ready for a long break"
+	default:
+		return "Confirm to continue"
 	}
 }
 

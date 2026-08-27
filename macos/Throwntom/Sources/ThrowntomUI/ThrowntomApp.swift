@@ -10,6 +10,7 @@ public struct ThrowntomApp: App {
     public init() {
         let environment = AppEnvironment.live()
         environment.start()
+        environment.startReminderResponder()
         _environment = State(initialValue: environment)
     }
 
