@@ -24,7 +24,9 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
     func start() {
         let center = UNUserNotificationCenter.current()
         center.delegate = self
-        center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        center.requestAuthorization(options: [.alert, .sound]) { _, _ in
+            // We don't need to handle the authorization result; the delegate is already set.
+        }
     }
 
     /// Sends the daemon the command behind a reminder button, then reports back to macOS.
@@ -41,14 +43,14 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
+    nonisolated func userNotificationCenter(_ _: UNUserNotificationCenter,
                                             didReceive response: UNNotificationResponse,
                                             withCompletionHandler completionHandler: @escaping () -> Void) {
         respond(to: response.actionIdentifier, then: completionHandler)
     }
 
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
-                                            willPresent notification: UNNotification,
+    nonisolated func userNotificationCenter(_ _: UNUserNotificationCenter,
+                                            willPresent _: UNNotification,
                                             withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         completionHandler(Self.presentationOptions)
     }
