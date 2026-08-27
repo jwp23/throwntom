@@ -13,4 +13,11 @@ public enum ConnectionStatus {
         case .connected: return "Throwntom"
         }
     }
+
+    /// The text for the task window's disconnected placeholder, or nil once daemon state has
+    /// arrived and there is nothing to overlay.
+    public static func placeholderText(state: DaemonState?, connection: DaemonClient.Connection, now: Date) -> String? {
+        guard state == nil else { return nil }
+        return text(state: state, connection: connection, now: now)
+    }
 }
