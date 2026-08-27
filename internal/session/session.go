@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/jwp23/throwntom/v3/internal/app"
+	"github.com/jwp23/throwntom/v3/internal/atomicfile"
 )
 
 type Data struct {
@@ -16,6 +16,11 @@ type Data struct {
 	App            app.Snapshot `json:"app"`
 	FocusedTaskIDs []int        `json:"focused_task_ids"`
 }
+
+// sessionFileMode keeps the session readable only by its owner: the session
+// records how the user spends their day, so owner-only is a choice, not an
+// accident of the temp-file API's default mode.
+const sessionFileMode = 0o600
 
 // Save writes the session atomically: readers either see the previous file or
 // the new one, never a half-written one. The core saves from a background
@@ -25,21 +30,8 @@ func Save(path string, d Data) error {
 	if err != nil {
 		return fmt.Errorf("marshal session: %w", err)
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".tmp*")
-	if err != nil {
-		return fmt.Errorf("create session temp file: %w", err)
-	}
-	tmpName := tmp.Name()
-	defer func() { _ = os.Remove(tmpName) }()
-	if _, err := tmp.Write(raw); err != nil {
-		_ = tmp.Close()
+	if err := atomicfile.Write(path, raw, sessionFileMode); err != nil {
 		return fmt.Errorf("write session: %w", err)
-	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("write session: %w", err)
-	}
-	if err := os.Rename(tmpName, path); err != nil {
-		return fmt.Errorf("replace session: %w", err)
 	}
 	return nil
 }

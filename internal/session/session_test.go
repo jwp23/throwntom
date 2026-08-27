@@ -79,6 +79,26 @@ func TestLoadCorruptFileReturnsError(t *testing.T) {
 	}
 }
 
+func TestSaveKeepsSessionOwnerOnly(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.json")
+	if err := os.WriteFile(path, []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Save(path, Data{SavedAt: time.Now()}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got != sessionFileMode {
+		t.Fatalf("session mode: got %o, want %o", got, sessionFileMode)
+	}
+}
+
 func TestSaveIsAtomicForConcurrentReaders(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "session.json")
 	d := Data{SavedAt: time.Now(), FocusedTaskIDs: []int{1, 2, 3}}

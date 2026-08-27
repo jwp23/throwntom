@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
+
+	"github.com/jwp23/throwntom/v3/internal/atomicfile"
 )
 
 type Task struct {
@@ -145,24 +146,7 @@ func (fs *FileStore) save() error {
 	if err != nil {
 		return fmt.Errorf("marshaling task data: %w", err)
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(fs.path), filepath.Base(fs.path)+".tmp*")
-	if err != nil {
-		return fmt.Errorf("create task temp file: %w", err)
-	}
-	tmpName := tmp.Name()
-	defer func() { _ = os.Remove(tmpName) }()
-	if err := tmp.Chmod(0o644); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("writing task file: %w", err)
-	}
-	if _, err := tmp.Write(raw); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("writing task file: %w", err)
-	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("writing task file: %w", err)
-	}
-	if err := os.Rename(tmpName, fs.path); err != nil {
+	if err := atomicfile.Write(fs.path, raw, 0o644); err != nil {
 		return fmt.Errorf("writing task file: %w", err)
 	}
 	return nil
