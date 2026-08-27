@@ -51,8 +51,11 @@ built by the tests with `go build` and run with `HOME` under `/tmp`.
 ## Layout
 
 - `Throwntom/` — Swift package: `ThrowntomClient` (transport, `DaemonClient`,
-  `DaemonState`, actions), `ThrowntomUI` (scenes, views and the menu model) and
-  the `Throwntom` executable, which only calls `ThrowntomApp.main()`. The views
-  live in a library so `swift test --enable-code-coverage` reaches them.
+  `DaemonState`, actions, the reminder notification), `ThrowntomUI` (scenes,
+  views, the menu model and the reminder responder), and two thin executables —
+  `Throwntom`, which only calls `ThrowntomApp.main()`, and `ThrowntomAlert`,
+  which only adapts `UNUserNotificationCenter` and calls `ReminderAlert.run`.
+  Logic lives in the libraries so `swift test --enable-code-coverage` reaches it;
+  an executable target is never linked into the test bundle.
 - `bundle/` — `Info.plist` and the launchd agent plist copied into the app.
 - `build.sh`, `agent.sh` — build and dev-agent scripts.
