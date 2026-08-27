@@ -377,3 +377,26 @@ time = "10:30"
 		t.Fatal("expected error when alias is fully overridden")
 	}
 }
+
+func TestDefaultRepeatLimit(t *testing.T) {
+	cfg := Default()
+	if cfg.RepeatLimitSecs != 300 {
+		t.Fatalf("expected default repeat limit of 300s, got %d", cfg.RepeatLimitSecs)
+	}
+}
+
+func TestLoadBytesParsesRepeatLimit(t *testing.T) {
+	cfg, err := LoadBytes([]byte("repeat_limit_secs = 90"))
+	if err != nil {
+		t.Fatalf(fmtUnexpectedErr, err)
+	}
+	if cfg.RepeatLimitSecs != 90 {
+		t.Fatalf("expected repeat limit 90, got %d", cfg.RepeatLimitSecs)
+	}
+}
+
+func TestLoadRejectsNonPositiveRepeatLimit(t *testing.T) {
+	if _, err := LoadBytes([]byte("repeat_limit_secs = 0")); err == nil {
+		t.Fatal("expected repeat_limit_secs validation error")
+	}
+}

@@ -11,10 +11,13 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/app"
 	"github.com/jwp23/throwntom/v3/internal/config"
 	"github.com/jwp23/throwntom/v3/internal/engine"
+	"github.com/jwp23/throwntom/v3/internal/notifier"
+	"github.com/jwp23/throwntom/v3/internal/reminder"
 	"github.com/jwp23/throwntom/v3/internal/scheduler"
 )
 
 type fakeNotifier struct {
+	notifier.NoReminder
 	calls atomic.Int32
 }
 
@@ -25,7 +28,7 @@ func (f *fakeNotifier) PlaySound(string) error {
 
 func TestCycleTransitionAndReminderAck(t *testing.T) {
 	notifier := &fakeNotifier{}
-	cycle := app.New(25, 5, 15, 4, 20*time.Millisecond, notifier)
+	cycle := app.New(25, 5, 15, 4, reminder.NewPolicy(20*time.Millisecond, time.Hour), notifier)
 
 	cycle.Start()
 	cycle.CompletePeriod()
@@ -72,7 +75,7 @@ time = "09:15"
 
 func TestStatusIncludesPomodoroProgress(t *testing.T) {
 	notifier := &fakeNotifier{}
-	cycle := app.New(25, 5, 15, 4, 30*time.Millisecond, notifier)
+	cycle := app.New(25, 5, 15, 4, reminder.NewPolicy(30*time.Millisecond, time.Hour), notifier)
 	cycle.Start()
 
 	if status := cycle.StatusLine(); !strings.Contains(status, "Cycle: 0/4") {

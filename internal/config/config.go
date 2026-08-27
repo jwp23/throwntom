@@ -28,6 +28,7 @@ type Config struct {
 	} `toml:"pomodoro"`
 	Schedule               []ScheduleEntry `toml:"schedule"`
 	RepeatSecs             int             `toml:"repeat_secs"`
+	RepeatLimitSecs        int             `toml:"repeat_limit_secs"`
 	SoundCommand           []string        `toml:"sound_command"`
 	MorningReminderPending bool            `toml:"morning_reminder_pending"`
 	Emoji                  bool            `toml:"emoji"`
@@ -48,6 +49,7 @@ func Default() Config {
 	cfg.Pomodoro.LongBreakMinutes = 15
 	cfg.Pomodoro.LongBreakEvery = 4
 	cfg.RepeatSecs = 20
+	cfg.RepeatLimitSecs = 300
 	cfg.MorningReminderPending = true
 	cfg.Emoji = true
 	cfg.Stats.TierLow = 2
@@ -115,6 +117,9 @@ func validate(cfg Config) error {
 	}
 	if cfg.RepeatSecs <= 0 {
 		return fmt.Errorf("repeat_secs must be > 0")
+	}
+	if cfg.RepeatLimitSecs <= 0 {
+		return fmt.Errorf("repeat_limit_secs must be > 0")
 	}
 	if len(cfg.Schedule) == 0 {
 		return fmt.Errorf("at least one [[schedule]] entry is required")

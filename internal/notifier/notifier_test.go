@@ -3,6 +3,7 @@ package notifier
 import (
 	"bytes"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -115,7 +116,108 @@ func TestNewSystemNotifierUsesConfiguredCommandOnDarwin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new system notifier: %v", err)
 	}
-	if _, ok := n.(*commandNotifier); !ok {
-		t.Fatalf("expected command notifier, got %T", n)
+	darwin, ok := n.(*darwinNotifier)
+	if !ok {
+		t.Fatalf("expected darwin notifier, got %T", n)
+	}
+	if _, ok := darwin.soundPlayer.(*commandNotifier); !ok {
+		t.Fatalf("expected command sound player, got %T", darwin.soundPlayer)
+	}
+}
+
+func TestMacOSNotifierPlaysTheNamedSystemSound(t *testing.T) {
+	tests := []struct {
+		name string
+		want string
+	}{
+		{name: "morning", want: "/System/Library/Sounds/Blow.aiff"},
+		{name: "default", want: "/System/Library/Sounds/Glass.aiff"},
+		{name: "test", want: "/System/Library/Sounds/Tink.aiff"},
+		{name: "no-such-sound", want: "/System/Library/Sounds/Glass.aiff"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var gotArgs []string
+			n := &macOSNotifier{run: func(name string, args ...string) error {
+				gotArgs = append([]string{name}, args...)
+				return nil
+			}}
+			if err := n.PlaySound(tc.name); err != nil {
+				t.Fatalf("play sound: %v", err)
+			}
+			if len(gotArgs) != 2 || gotArgs[0] != "afplay" || gotArgs[1] != tc.want {
+				t.Fatalf("expected afplay %s, got %v", tc.want, gotArgs)
+			}
+		})
+	}
+}
+
+func TestDarwinNotifierRunsTheAlertHelper(t *testing.T) {
+	var calls [][]string
+	n := &darwinNotifier{
+		soundPlayer: &macOSNotifier{run: func(string, ...string) error { return nil }},
+		alert:       "/Apps/Throwntom.app/Contents/MacOS/throwntom-alert",
+		run: func(name string, args ...string) error {
+			calls = append(calls, append([]string{name}, args...))
+			return nil
+		},
+	}
+
+	if err := n.ShowReminder("Throwntom", "Ready to start a pomodoro"); err != nil {
+		t.Fatalf("show reminder: %v", err)
+	}
+	if err := n.ClearReminder(); err != nil {
+		t.Fatalf("clear reminder: %v", err)
+	}
+
+	want := [][]string{
+		{"/Apps/Throwntom.app/Contents/MacOS/throwntom-alert", "show", "--title", "Throwntom", "--body", "Ready to start a pomodoro"},
+		{"/Apps/Throwntom.app/Contents/MacOS/throwntom-alert", "clear"},
+	}
+	if !reflect.DeepEqual(calls, want) {
+		t.Fatalf("expected %v, got %v", want, calls)
+	}
+}
+
+func TestDarwinNotifierWithoutAHelperIsSilentlyInert(t *testing.T) {
+	n := &darwinNotifier{
+		soundPlayer: &macOSNotifier{run: func(string, ...string) error { return nil }},
+		run: func(name string, args ...string) error {
+			t.Fatalf("unexpected helper call: %s %v", name, args)
+			return nil
+		},
+	}
+
+	if err := n.ShowReminder("Throwntom", "Ready"); err != nil {
+		t.Fatalf("show reminder: %v", err)
+	}
+	if err := n.ClearReminder(); err != nil {
+		t.Fatalf("clear reminder: %v", err)
+	}
+}
+
+func TestDarwinNotifierReportsHelperFailure(t *testing.T) {
+	n := &darwinNotifier{
+		soundPlayer: &macOSNotifier{run: func(string, ...string) error { return nil }},
+		alert:       "/Apps/Throwntom.app/Contents/MacOS/throwntom-alert",
+		run:         func(string, ...string) error { return errors.New("helper missing") },
+	}
+
+	if err := n.ShowReminder("Throwntom", "Ready"); err == nil {
+		t.Fatal("expected show reminder error")
+	}
+	if err := n.ClearReminder(); err == nil {
+		t.Fatal("expected clear reminder error")
+	}
+}
+
+func TestLinuxNotifierHasNoActionableReminder(t *testing.T) {
+	n := NewLinuxNotifier(&bytes.Buffer{}, nil)
+	if err := n.ShowReminder("Throwntom", "Ready"); err != nil {
+		t.Fatalf("show reminder: %v", err)
+	}
+	if err := n.ClearReminder(); err != nil {
+		t.Fatalf("clear reminder: %v", err)
 	}
 }
