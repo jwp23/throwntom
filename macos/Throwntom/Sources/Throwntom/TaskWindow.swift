@@ -33,11 +33,9 @@ struct TaskWindow: View {
         }
         .frame(minWidth: 360, minHeight: 240)
         .toolbar {
-            ToolbarItemGroup {
-                if let state = client.state {
-                    ForEach(TimerActions.available(for: state), id: \.self) { action in
-                        TimerActionButton(action: action, client: client)
-                    }
+            if let state = client.state {
+                ForEach(TimerActions.available(for: state), id: \.self) { action in
+                    TimerActionButton(action: action, client: client)
                 }
             }
         }
