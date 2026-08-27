@@ -3,31 +3,10 @@ package notifier
 import (
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"strings"
 )
 
 type Notifier interface {
-	PlaySound(name string) error
-	// ShowReminder posts a reminder the user can answer without the menu bar
-	// app running. Platforms with nowhere to post one do nothing and report
-	// no error.
-	ShowReminder(title, body string) error
-	// ClearReminder withdraws a reminder posted by ShowReminder.
-	ClearReminder() error
-}
-
-// NoReminder is the do-nothing half of Notifier for platforms and tests that
-// only care about sound.
-type NoReminder struct{}
-
-func (NoReminder) ShowReminder(title, body string) error { return nil }
-
-func (NoReminder) ClearReminder() error { return nil }
-
-// soundPlayer is the per-platform half of Notifier that makes noise.
-type soundPlayer interface {
 	PlaySound(name string) error
 }
 
@@ -42,23 +21,14 @@ type commandNotifier struct {
 	command []string
 }
 
-// darwinNotifier pairs any sound player with the bundled alert helper, so a
-// user who overrides the sound still gets an actionable reminder.
-type darwinNotifier struct {
-	soundPlayer
-	run   runner
-	alert string
-}
-
 type linuxTerminalNotifier struct {
-	NoReminder
 	out          io.Writer
 	run          runner
 	soundCommand []string
 }
 
 func NewMacOSNotifier() Notifier {
-	return newDarwinNotifier(runCommand, &macOSNotifier{run: runCommand})
+	return &macOSNotifier{run: runCommand}
 }
 
 func NewLinuxNotifier(out io.Writer, soundCommand []string) Notifier {
@@ -69,8 +39,7 @@ func NewCommandNotifier(command []string) (Notifier, error) {
 	if len(command) == 0 || strings.TrimSpace(command[0]) == "" {
 		return nil, fmt.Errorf("sound_command requires at least a command name")
 	}
-	player := &commandNotifier{run: runCommand, command: append([]string(nil), command...)}
-	return newDarwinNotifier(runCommand, player), nil
+	return &commandNotifier{run: runCommand, command: append([]string(nil), command...)}, nil
 }
 
 func NewSystemNotifier(goos string, out io.Writer, soundCommand []string) (Notifier, error) {
@@ -88,51 +57,7 @@ func NewSystemNotifier(goos string, out io.Writer, soundCommand []string) (Notif
 }
 
 func NewTestNotifier(run runner) Notifier {
-	return newDarwinNotifier(run, &macOSNotifier{run: run})
-}
-
-func newDarwinNotifier(run runner, player soundPlayer) *darwinNotifier {
-	return &darwinNotifier{soundPlayer: player, run: run, alert: findAlertHelper()}
-}
-
-// alertHelperName is the notification helper shipped beside throwntomd inside
-// Throwntom.app. It is a separate executable because macOS only grants
-// notification identity to code signed with the app's bundle identifier.
-const alertHelperName = "throwntom-alert"
-
-// findAlertHelper returns the helper's path, or "" when this build is not
-// running out of the app bundle — a plain `go build` has no helper to call.
-func findAlertHelper() string {
-	exe, err := os.Executable()
-	if err != nil {
-		return ""
-	}
-	path := filepath.Join(filepath.Dir(exe), alertHelperName)
-	info, err := os.Stat(path)
-	if err != nil || info.IsDir() {
-		return ""
-	}
-	return path
-}
-
-func (n *darwinNotifier) ShowReminder(title, body string) error {
-	if n.alert == "" {
-		return nil
-	}
-	if err := n.run(n.alert, "show", "--title", title, "--body", body); err != nil {
-		return fmt.Errorf("show reminder %q: %w", title, err)
-	}
-	return nil
-}
-
-func (n *darwinNotifier) ClearReminder() error {
-	if n.alert == "" {
-		return nil
-	}
-	if err := n.run(n.alert, "clear"); err != nil {
-		return fmt.Errorf("clear reminder: %w", err)
-	}
-	return nil
+	return &macOSNotifier{run: run}
 }
 
 // systemSounds maps throwntom's sound names to macOS system sounds so the

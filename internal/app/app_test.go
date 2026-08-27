@@ -2,7 +2,6 @@ package app
 
 import (
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -23,36 +22,13 @@ const (
 )
 
 type fakeNotifier struct {
-	calls   atomic.Int32
-	err     error
-	mu      sync.Mutex
-	shown   []string
-	cleared int
+	calls atomic.Int32
+	err   error
 }
 
 func (f *fakeNotifier) PlaySound(string) error {
 	f.calls.Add(1)
 	return f.err
-}
-
-func (f *fakeNotifier) ShowReminder(title, body string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.shown = append(f.shown, title+"|"+body)
-	return nil
-}
-
-func (f *fakeNotifier) ClearReminder() error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.cleared++
-	return nil
-}
-
-func (f *fakeNotifier) reminders() ([]string, int) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return append([]string(nil), f.shown...), f.cleared
 }
 
 func TestNextStageWhenAwaitingAfterWork(t *testing.T) {
@@ -586,60 +562,6 @@ func TestRefusedPauseAndResumeDoNotNotify(t *testing.T) {
 		t.Fatalf("expected 2 change callbacks after start and pause, got %d", count)
 	}
 	a.Stop()
-}
-
-// waitFor polls until cond holds, for reminder work that runs off the App lock.
-func waitFor(t *testing.T, what string, cond func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) {
-		if cond() {
-			return
-		}
-		time.Sleep(2 * time.Millisecond)
-	}
-	t.Fatalf("timed out waiting for %s", what)
-}
-
-func TestReminderPostsAnActionableAlertNamingTheNextPhase(t *testing.T) {
-	n := &fakeNotifier{}
-	a := New(25, 5, 15, 4, testPolicy(time.Hour), n)
-	a.Start()
-	a.CompletePeriod()
-
-	waitFor(t, "the short-break alert", func() bool {
-		shown, _ := n.reminders()
-		return len(shown) == 1 && shown[0] == "Throwntom|Ready for a short break"
-	})
-	if _, cleared := n.reminders(); cleared != 0 {
-		t.Fatalf("expected no withdrawal yet, got %d", cleared)
-	}
-}
-
-func TestConfirmWithdrawsTheActionableAlert(t *testing.T) {
-	n := &fakeNotifier{}
-	a := New(25, 5, 15, 4, testPolicy(time.Hour), n)
-	a.Start()
-	a.CompletePeriod()
-	a.Confirm()
-
-	waitFor(t, "the alert to be withdrawn", func() bool {
-		_, cleared := n.reminders()
-		return cleared == 1
-	})
-}
-
-func TestReminderThatRunsOutOfAlertsStaysOnScreen(t *testing.T) {
-	n := &fakeNotifier{}
-	a := New(25, 5, 15, 4, reminder.Policy{Interval: 5 * time.Millisecond, MaxAlerts: 2}, n)
-	a.Start()
-	a.CompletePeriod()
-
-	waitFor(t, "the reminder to run out of alerts", func() bool { return n.calls.Load() == 2 })
-	time.Sleep(50 * time.Millisecond)
-	if _, cleared := n.reminders(); cleared != 0 {
-		t.Fatalf("expected an exhausted reminder to stay posted, got %d withdrawals", cleared)
-	}
 }
 
 func TestReminderStopsAtItsAlertBound(t *testing.T) {

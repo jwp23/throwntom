@@ -10,7 +10,6 @@ import (
 
 	"github.com/jwp23/throwntom/v3/internal/config"
 	"github.com/jwp23/throwntom/v3/internal/engine"
-	"github.com/jwp23/throwntom/v3/internal/notifier"
 )
 
 const (
@@ -22,7 +21,7 @@ const (
 	fmtSnoozeFailed       = "snooze failed: %v"
 )
 
-type noopNotifier struct{ notifier.NoReminder }
+type noopNotifier struct{}
 
 func (noopNotifier) PlaySound(string) error {
 	return nil

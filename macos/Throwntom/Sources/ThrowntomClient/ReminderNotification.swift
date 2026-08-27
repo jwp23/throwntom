@@ -1,10 +1,8 @@
 import Foundation
 
-/// The actionable reminder throwntomd raises while the menu bar app may not be
-/// running. throwntomd cannot post it itself: macOS grants notification identity
-/// only to code signed with the app's bundle identifier, so the daemon shells out
-/// to the throwntom-alert helper. Whichever process macOS hands the user's answer
-/// to reads its buttons from here, so both answer the same way.
+/// The reminder notification's identifiers and buttons, and how a button
+/// answers the daemon. The app posts the notification itself and reads the
+/// user's answer from the identifiers defined here.
 public enum ReminderNotification {
     public static let categoryIdentifier = "com.jwp23.throwntom.reminder"
 
@@ -38,40 +36,5 @@ public enum ReminderNotification {
         case .snooze: try await client.snooze(minutes: TimerActions.defaultSnoozeMinutes)
         case .confirm: try await client.timer(.confirm)
         }
-    }
-
-    /// What throwntom-alert was asked to do.
-    public enum Command: Equatable, Sendable {
-        case show(title: String, body: String)
-        case clear
-    }
-
-    /// Parses throwntom-alert's arguments, excluding the executable name. The
-    /// notifier in internal/notifier builds exactly these two forms.
-    public static func command(from arguments: [String]) -> Command? {
-        switch arguments.first {
-        case "clear":
-            return arguments.count == 1 ? .clear : nil
-        case "show":
-            return showCommand(from: Array(arguments.dropFirst()))
-        default:
-            return nil
-        }
-    }
-
-    private static func showCommand(from flags: [String]) -> Command? {
-        var title: String?
-        var body: String?
-        var rest = flags[...]
-        while let flag = rest.popFirst() {
-            guard let value = rest.popFirst() else { return nil }
-            switch flag {
-            case "--title": title = value
-            case "--body": body = value
-            default: return nil
-            }
-        }
-        guard let title, let body else { return nil }
-        return .show(title: title, body: body)
     }
 }

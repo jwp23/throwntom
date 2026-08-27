@@ -335,15 +335,11 @@ func (a *App) completePeriodLocked() {
 	}
 }
 
-// reminderTitle heads every actionable reminder.
-const reminderTitle = "Throwntom"
-
 func (a *App) startReminderLocked() {
 	a.stopReminderLocked()
 	ctx, cancel := context.WithCancel(context.Background())
 	a.reminderCancel = cancel
 	n := a.notifier
-	body := a.reminderBodyLocked()
 	loop := reminder.New(a.reminderPolicy, func() error {
 		if err := n.PlaySound("default"); err != nil {
 			_, _ = os.Stdout.WriteString("\a")
@@ -351,40 +347,13 @@ func (a *App) startReminderLocked() {
 		}
 		return nil
 	})
-	// Posting and withdrawing the alert shells out to a helper process, so it
-	// runs here rather than under the App lock. One goroutine owns the whole
-	// reminder, which is what keeps the withdrawal after the posting.
-	go func() {
-		// Best effort: the repeating sound is the reminder itself, the alert
-		// is only how the user answers it without the menu bar app.
-		_ = n.ShowReminder(reminderTitle, body)
-		loop.Run(ctx)
-		// Withdraw only a reminder that was answered or replaced. One that
-		// merely ran out of alerts stays on screen: its buttons are still the
-		// user's way back in.
-		if ctx.Err() != nil {
-			_ = n.ClearReminder()
-		}
-	}()
+	go loop.Run(ctx)
 }
 
 func (a *App) stopReminderLocked() {
 	if a.reminderCancel != nil {
 		a.reminderCancel()
 		a.reminderCancel = nil
-	}
-}
-
-func (a *App) reminderBodyLocked() string {
-	switch a.engine.NextPhase() {
-	case engine.Work:
-		return "Ready to start a pomodoro"
-	case engine.ShortBreak:
-		return "Ready for a short break"
-	case engine.LongBreak:
-		return "Ready for a long break"
-	default:
-		return "Confirm to continue"
 	}
 }
 
