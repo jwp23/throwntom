@@ -28,9 +28,19 @@ public protocol DaemonTransport: Sendable {
 }
 
 public enum DaemonPaths {
-    /// Mirrors core.DefaultPaths().Socket on the Go side.
+    /// Mirrors core.DefaultPaths() on the Go side.
+    public static func configDirectory(inHome home: URL = FileManager.default.homeDirectoryForCurrentUser) -> URL {
+        home.appendingPathComponent(".config/throwntom")
+    }
+
     public static var socketPath: String {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".config/throwntom/daemon.sock").path
+        configDirectory().appendingPathComponent("daemon.sock").path
+    }
+
+    /// What "Open Config File…" reveals: the config file itself, or its directory when there is no file yet.
+    public static func configFileToOpen(inHome home: URL = FileManager.default.homeDirectoryForCurrentUser) -> URL {
+        let directory = configDirectory(inHome: home)
+        let file = directory.appendingPathComponent("config.toml")
+        return if FileManager.default.fileExists(atPath: file.path) { file } else { directory }
     }
 }

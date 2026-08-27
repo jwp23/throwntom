@@ -9,10 +9,11 @@ final class DaemonPathsTests: XCTestCase {
         let directory = DaemonPaths.configDirectory(inHome: home)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
-        XCTAssertEqual(DaemonPaths.configFileToOpen(inHome: home), directory, "no config file yet, reveal the folder")
+        XCTAssertEqual(
+            DaemonPaths.configFileToOpen(inHome: home).path, directory.path, "no config file yet, reveal the folder")
         let file = directory.appendingPathComponent("config.toml")
         try Data().write(to: file)
-        XCTAssertEqual(DaemonPaths.configFileToOpen(inHome: home), file)
+        XCTAssertEqual(DaemonPaths.configFileToOpen(inHome: home).path, file.path)
     }
 
     func testSocketLivesInTheConfigDirectory() {
