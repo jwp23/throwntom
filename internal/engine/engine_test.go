@@ -373,3 +373,63 @@ func TestStateJSONRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+func TestSnapshotInvalidRejectsIncidentSnapshot(t *testing.T) {
+	// The 2026-08-27 incident: a break finished with no work session ever
+	// recorded and no work day started, yet the engine sat in
+	// awaiting_confirm forever driving the reminder loop.
+	snap := Snapshot{
+		State:          AwaitingConfirm,
+		LastPhase:      ShortBreak,
+		CompletedToday: 0,
+		WorkDayStarted: false,
+	}
+	if reason := snap.Invalid(); reason == "" {
+		t.Fatal("expected the incident snapshot to be reported invalid")
+	}
+}
+
+func TestSnapshotInvalidRejectsBreakWithNoCompletions(t *testing.T) {
+	snap := Snapshot{
+		State:          ShortBreak,
+		LastPhase:      ShortBreak,
+		CompletedToday: 0,
+		WorkDayStarted: true,
+	}
+	if reason := snap.Invalid(); reason == "" {
+		t.Fatal("expected a break with completed_today=0 to be reported invalid")
+	}
+}
+
+func TestSnapshotInvalidRejectsPausedFromUnreachablePhase(t *testing.T) {
+	snap := Snapshot{
+		State:          Paused,
+		PausedFrom:     Idle,
+		WorkDayStarted: true,
+	}
+	if reason := snap.Invalid(); reason == "" {
+		t.Fatal("expected paused_from=idle to be reported invalid")
+	}
+}
+
+func TestSnapshotInvalidAcceptsReachableSnapshots(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartWork()
+	e.MarkPeriodComplete()
+	e.ConfirmNext()
+	e.Pause()
+
+	if reason := e.Snapshot().Invalid(); reason != "" {
+		t.Fatalf("expected a normally-reached snapshot to be valid, got %q", reason)
+	}
+
+	e.Resume()
+	if reason := e.Snapshot().Invalid(); reason != "" {
+		t.Fatalf("expected idle-day-started snapshot to be valid, got %q", reason)
+	}
+
+	idle := Snapshot{State: Idle, LastPhase: Idle}
+	if reason := idle.Invalid(); reason != "" {
+		t.Fatalf("expected zero-value idle snapshot to be valid, got %q", reason)
+	}
+}

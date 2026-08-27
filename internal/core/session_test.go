@@ -5,14 +5,25 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/jwp23/throwntom/v3/internal/app"
 	"github.com/jwp23/throwntom/v3/internal/config"
 	"github.com/jwp23/throwntom/v3/internal/engine"
 	"github.com/jwp23/throwntom/v3/internal/session"
 	"github.com/jwp23/throwntom/v3/internal/task"
 )
+
+type countingNotifier struct {
+	calls atomic.Int64
+}
+
+func (n *countingNotifier) PlaySound(string) error {
+	n.calls.Add(1)
+	return nil
+}
 
 func TestSaveSessionWritesValidJSON(t *testing.T) {
 	dir := t.TempDir()
@@ -92,6 +103,47 @@ func TestLoadSessionDiscardsDifferentDay(t *testing.T) {
 	status, _, _ := c.Status()
 	if !strings.Contains(status, "Idle") {
 		t.Fatalf("expected Idle for different-day session, got %s", status)
+	}
+}
+
+func TestLoadSessionDiscardsInternallyInconsistentState(t *testing.T) {
+	dir := t.TempDir()
+	sessPath := filepath.Join(dir, testSessionFile)
+
+	// The exact 2026-08-27 incident snapshot: awaiting_confirm after a break
+	// that, per completed_today and work_day_started, never happened.
+	data := session.Data{
+		SavedAt: time.Now(),
+		App: app.Snapshot{
+			Engine: engine.Snapshot{
+				State:          engine.AwaitingConfirm,
+				LastPhase:      engine.ShortBreak,
+				CompletedToday: 0,
+				WorkDayStarted: false,
+			},
+		},
+	}
+	if err := session.Save(sessPath, data); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	cfg.RepeatSecs = 1
+	n := &countingNotifier{}
+	c := newCore(cfg, n)
+	c.sessionPath = sessPath
+	defer c.Stop()
+	if err := c.loadSession(); err != nil {
+		t.Fatalf(fmtLoadSession, err)
+	}
+	status, _, _ := c.Status()
+	if !strings.Contains(status, "Idle") {
+		t.Fatalf("expected Idle for internally inconsistent session, got %s", status)
+	}
+	time.Sleep(1200 * time.Millisecond)
+	if got := n.calls.Load(); got != 0 {
+		t.Fatalf("expected no reminder to fire for a discarded session, got %d calls", got)
 	}
 }
 
