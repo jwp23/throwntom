@@ -4,12 +4,24 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
-# bd rewrites the interaction log as beads change, and it records why each bead
-# moved. That reasoning belongs in the same commit as the work it describes, so
-# it is staged here rather than left to drift behind the code it explains.
-if ! git diff --quiet -- .beads/interactions.jsonl; then
-  echo "pre-commit: staging .beads/interactions.jsonl"
-  git add .beads/interactions.jsonl
+# bd records why each bead moved in the interaction log. That reasoning belongs in
+# the same commit as the work it describes, so it is staged here rather than left
+# to drift behind the code it explains.
+#
+# bd keeps one log for the whole repository, beside the Dolt database in the main
+# working tree, so a commit made from a worktree has to reach across to it: the
+# worktree's own checked-out copy never receives the entries bd just wrote.
+interactions=.beads/interactions.jsonl
+common_dir="$(git rev-parse --path-format=absolute --git-common-dir)"
+live="$(dirname "$common_dir")/$interactions"
+if [ -f "$live" ]; then
+  if [ ! "$live" -ef "$interactions" ]; then
+    cp "$live" "$interactions"
+  fi
+  if ! git diff --quiet -- "$interactions"; then
+    echo "pre-commit: staging $interactions"
+    git add "$interactions"
+  fi
 fi
 
 echo "pre-commit: checking gofmt"
