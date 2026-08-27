@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -137,12 +138,31 @@ func (fs *FileStore) load() error {
 	return nil
 }
 
+// save writes the task file atomically: readers either see the previous file
+// or the new one, never a half-written one.
 func (fs *FileStore) save() error {
 	raw, err := json.MarshalIndent(fs.data, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshaling task data: %w", err)
 	}
-	if err := os.WriteFile(fs.path, raw, 0o644); err != nil {
+	tmp, err := os.CreateTemp(filepath.Dir(fs.path), filepath.Base(fs.path)+".tmp*")
+	if err != nil {
+		return fmt.Errorf("create task temp file: %w", err)
+	}
+	tmpName := tmp.Name()
+	defer func() { _ = os.Remove(tmpName) }()
+	if err := tmp.Chmod(0o644); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("writing task file: %w", err)
+	}
+	if _, err := tmp.Write(raw); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("writing task file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("writing task file: %w", err)
+	}
+	if err := os.Rename(tmpName, fs.path); err != nil {
 		return fmt.Errorf("writing task file: %w", err)
 	}
 	return nil

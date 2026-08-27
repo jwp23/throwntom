@@ -1,6 +1,8 @@
 package task
 
 import (
+	"encoding/json"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -329,6 +331,74 @@ func TestFileStoreNextIDSurvivesReload(t *testing.T) {
 	}
 	if t2.ID != 2 {
 		t.Errorf("expected second task ID 2, got %d", t2.ID)
+	}
+}
+
+func TestFileStoreSaveIsAtomicForConcurrentReaders(t *testing.T) {
+	path := filepath.Join(t.TempDir(), testTasksFile)
+	store, err := NewFileStore(path)
+	if err != nil {
+		t.Fatalf(fmtNewFileStore, err)
+	}
+	if _, err := store.Add("seed"); err != nil {
+		t.Fatalf(fmtAdd, err)
+	}
+
+	stop := make(chan struct{})
+	addErr := make(chan error, 1)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			if _, err := store.Add("task"); err != nil {
+				addErr <- err
+				return
+			}
+		}
+	}()
+	defer func() {
+		close(stop)
+		<-done
+		select {
+		case err := <-addErr:
+			t.Errorf("add: %v", err)
+		default:
+		}
+	}()
+
+	for i := 0; i < 500; i++ {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read during concurrent save: %v", err)
+		}
+		var data fileData
+		if err := json.Unmarshal(raw, &data); err != nil {
+			t.Fatalf("unmarshal during concurrent save: %v (raw=%q)", err, raw)
+		}
+	}
+}
+
+func TestFileStoreSavePreservesFilePermissions(t *testing.T) {
+	path := filepath.Join(t.TempDir(), testTasksFile)
+	store, err := NewFileStore(path)
+	if err != nil {
+		t.Fatalf(fmtNewFileStore, err)
+	}
+	if _, err := store.Add(testTaskOne); err != nil {
+		t.Fatalf(fmtAdd, err)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("Stat: %v", err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o644 {
+		t.Errorf("expected file mode 0644, got %o", perm)
 	}
 }
 
