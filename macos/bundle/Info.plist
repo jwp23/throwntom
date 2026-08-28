@@ -3,6 +3,7 @@
 <plist version="1.0">
 <dict>
   <key>CFBundleExecutable</key><string>Throwntom</string>
+  <key>CFBundleIconFile</key><string>Throwntom</string>
   <key>CFBundleIdentifier</key><string>com.jwp23.throwntom</string>
   <key>CFBundleName</key><string>Throwntom</string>
   <key>CFBundlePackageType</key><string>APPL</string>
