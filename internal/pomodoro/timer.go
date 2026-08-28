@@ -113,8 +113,8 @@ func (t *Timer) Snapshot() Snapshot {
 func (t *Timer) Restore(s Snapshot, now time.Time) error {
 	t.mu.Lock()
 	defer t.notifyChange()
-	defer t.transitionLocked()
 	defer t.mu.Unlock()
+	defer t.transitionLocked()
 	t.engine.Restore(s.Engine)
 
 	switch s.Engine.State {
@@ -155,8 +155,8 @@ func dayRolledOver(before, after engine.Snapshot) bool {
 func (t *Timer) Start() {
 	t.mu.Lock()
 	defer t.notifyChange()
-	defer t.transitionLocked()
 	defer t.mu.Unlock()
+	defer t.transitionLocked()
 	t.engine.StartWork()
 	t.startPhaseTimerLocked(t.workDuration)
 }
@@ -164,8 +164,8 @@ func (t *Timer) Start() {
 func (t *Timer) StartNewCycle() {
 	t.mu.Lock()
 	defer t.notifyChange()
-	defer t.transitionLocked()
 	defer t.mu.Unlock()
+	defer t.transitionLocked()
 	t.stopReminderLocked()
 	t.stopTimerLocked()
 	t.phaseEndAt = time.Time{}
@@ -177,16 +177,16 @@ func (t *Timer) StartNewCycle() {
 func (t *Timer) CompletePeriod() {
 	t.mu.Lock()
 	defer t.notifyChange()
-	defer t.transitionLocked()
 	defer t.mu.Unlock()
+	defer t.transitionLocked()
 	t.completePeriodLocked()
 }
 
 func (t *Timer) Confirm() {
 	t.mu.Lock()
 	defer t.notifyChange()
-	defer t.transitionLocked()
 	defer t.mu.Unlock()
+	defer t.transitionLocked()
 	t.stopReminderLocked()
 	t.engine.ConfirmNext()
 	switch t.engine.State() {
@@ -223,8 +223,8 @@ func (t *Timer) Snooze(d time.Duration) {
 func (t *Timer) SkipToday() {
 	t.mu.Lock()
 	defer t.notifyChange()
-	defer t.transitionLocked()
 	defer t.mu.Unlock()
+	defer t.transitionLocked()
 	t.stopReminderLocked()
 	t.stopTimerLocked()
 	t.phaseEndAt = time.Time{}
@@ -241,8 +241,8 @@ func (t *Timer) Pause() bool {
 		return false
 	}
 	defer t.notifyChange()
-	defer t.transitionLocked()
 	defer t.mu.Unlock()
+	defer t.transitionLocked()
 	if !t.phaseEndAt.IsZero() {
 		t.pausedRemaining = t.phaseEndAt.Sub(t.now())
 		if t.pausedRemaining < 0 {
@@ -263,8 +263,8 @@ func (t *Timer) Resume() bool {
 		return false
 	}
 	defer t.notifyChange()
-	defer t.transitionLocked()
 	defer t.mu.Unlock()
+	defer t.transitionLocked()
 	d := t.pausedRemaining
 	if d <= 0 {
 		switch t.engine.State() {
@@ -286,8 +286,8 @@ func (t *Timer) Resume() bool {
 func (t *Timer) Stop() {
 	t.mu.Lock()
 	defer t.notifyChange()
-	defer t.transitionLocked()
 	defer t.mu.Unlock()
+	defer t.transitionLocked()
 	t.stopReminderLocked()
 	t.stopTimerLocked()
 	t.phaseEndAt = time.Time{}

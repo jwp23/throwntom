@@ -692,3 +692,16 @@ func TestOnTransitionSilentForRefusedPauseSnoozeAndAdvanceDay(t *testing.T) {
 	}
 	a.Stop()
 }
+
+func TestOnTransitionRunsUnderTimerLock(t *testing.T) {
+	a := New(25, 5, 15, 4, testPolicy(time.Hour), &fakeNotifier{})
+	locked := make(chan bool, 1)
+	a.SetOnTransition(func(engine.State) {
+		// TryLock fails while the verb still holds the lock, which is the contract.
+		locked <- !a.mu.TryLock()
+	})
+	a.Start()
+	if !<-locked {
+		t.Fatal("expected the transition hook to run while the Timer lock is held")
+	}
+}
