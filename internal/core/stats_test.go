@@ -132,8 +132,8 @@ func TestPauseResumeLogEvents(t *testing.T) {
 
 func TestSnoozeLogsEvent(t *testing.T) {
 	c, path := newCoreWithEvents(t)
-	// Start morning loop to enable morning snooze path
-	startMorningLoop(c.state, c.reminderPolicy, c.notifier)
+	// Raise the morning reminder to enable the morning snooze path
+	c.reminder.raise(reminderMorning)
 	c.execute("snooze 5m")
 	events := readEvents(t, path)
 	if !hasEventType(events, "snoozed") {

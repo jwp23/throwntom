@@ -135,6 +135,7 @@ func TestExecuteClassifiesErrors(t *testing.T) {
 	}{
 		{"unknown command", "bogus", ErrorUsage},
 		{"bad snooze duration", "snooze bogus", ErrorUsage},
+		{"snooze with nothing outstanding", "snooze 5m", ErrorRefused},
 		{"missing task argument", "task done", ErrorUsage},
 		{"task out of range", "task done 99", ErrorUsage},
 		{"unknown task subcommand", "task bogus", ErrorUsage},

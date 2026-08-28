@@ -61,7 +61,7 @@ func (c *Core) loadSession() error {
 	}
 	c.timer.AdvanceDay(c.now())
 	if data.Timer.Engine.State != engine.Idle {
-		c.state.markSkippedToday(c.now())
+		c.reminder.skipToday(c.now())
 	}
 	return nil
 }

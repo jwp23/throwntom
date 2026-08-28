@@ -2,235 +2,169 @@ package core
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/jwp23/throwntom/v3/internal/config"
-	"github.com/jwp23/throwntom/v3/internal/engine"
 	"github.com/jwp23/throwntom/v3/internal/reminder"
 )
 
-func TestBeginMorningLoopStartsWhenPendingTrue(t *testing.T) {
-	state := &reminderState{morningPending: true}
-	ctx, started := state.beginMorningLoop()
-	if !started {
-		t.Fatal("expected beginMorningLoop to start when morningPending is true but no loop running")
-	}
-	if ctx == nil {
-		t.Fatal("expected non-nil context")
-	}
-	// Clean up
-	state.stopMorningLoop()
+// mondayAt returns a clock set to Monday 2 March 2026 at the given hour, on
+// either side of the default 09:15 schedule.
+func mondayAt(hour, minute int) *fakeClock {
+	return newFakeClock(time.Date(2026, 3, 2, hour, minute, 0, 0, time.Local))
 }
 
-func TestBeginMorningLoopRejectsDuplicateLoop(t *testing.T) {
-	state := &reminderState{}
-	ctx, started := state.beginMorningLoop()
-	if !started {
-		t.Fatal("expected first beginMorningLoop to start")
-	}
-	if ctx == nil {
-		t.Fatal("expected non-nil context from first call")
-	}
-
-	_, startedAgain := state.beginMorningLoop()
-	if startedAgain {
-		t.Fatal("expected second beginMorningLoop to be rejected (duplicate prevention)")
-	}
-	// Clean up
-	state.stopMorningLoop()
-}
-
-func TestStartBeginsMorningLoopWhenPendingAndIdle(t *testing.T) {
-	cfg := config.Default()
+func startedCore(t *testing.T, cfg config.Config, clk *fakeClock) *Core {
+	t.Helper()
 	c := newCore(cfg, noopNotifier{})
-	// Monday at 10:00 — after default schedule 09:15
-	c.setNow(func() time.Time { return time.Date(2026, 3, 2, 10, 0, 0, 0, time.Local) })
-
+	c.setClock(clk)
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	c.Start(ctx)
-	defer c.Stop()
+	t.Cleanup(func() { cancel(); c.Stop() })
+	return c
+}
 
-	c.state.mu.Lock()
-	hasCancel := c.state.morningCancel != nil
-	c.state.mu.Unlock()
-	if !hasCancel {
-		t.Fatal("expected morning loop to be running after start with morningPending=true and idle engine")
+func TestStartRaisesMorningWhenPendingAndIdle(t *testing.T) {
+	c := startedCore(t, config.Default(), mondayAt(10, 0))
+	if c.reminder.outstanding() != reminderMorning {
+		t.Fatal("expected morning reminder after start with morningPending=true and idle timer")
 	}
 }
 
-func TestStartSkipsMorningLoopWhenNotPending(t *testing.T) {
+func TestStartSkipsMorningWhenNotPending(t *testing.T) {
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
-	c := newCore(cfg, noopNotifier{})
+	c := startedCore(t, cfg, mondayAt(10, 0))
+	if c.reminder.outstanding() != reminderNone {
+		t.Fatal("expected no reminder when morningPending=false")
+	}
+}
 
+func TestStartSkipsMorningWhenTimerNotIdle(t *testing.T) {
+	c := newCore(config.Default(), noopNotifier{})
+	c.setClock(mondayAt(10, 0))
+	c.execute(cmdStart)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	c.Start(ctx)
 	defer c.Stop()
-
-	c.state.mu.Lock()
-	hasCancel := c.state.morningCancel != nil
-	c.state.mu.Unlock()
-	if hasCancel {
-		t.Fatal("expected no morning loop when morningPending=false")
+	if c.reminder.outstanding() != reminderNone {
+		t.Fatal("expected no morning reminder when timer is not idle")
 	}
 }
 
-func TestStartSkipsMorningLoopWhenEngineNotIdle(t *testing.T) {
-	cfg := config.Default()
-	c := newCore(cfg, noopNotifier{})
-	c.execute(cmdStart) // engine transitions to Work, stopMorningLoop clears morningPending
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	c.Start(ctx)
-	defer c.Stop()
-
-	c.state.mu.Lock()
-	hasCancel := c.state.morningCancel != nil
-	c.state.mu.Unlock()
-	if hasCancel {
-		t.Fatal("expected no morning loop when engine is not idle")
+func TestStartSkipsMorningBeforeScheduledTime(t *testing.T) {
+	c := startedCore(t, config.Default(), mondayAt(8, 0))
+	if c.reminder.outstanding() != reminderNone {
+		t.Fatal("expected no morning reminder before scheduled time")
 	}
 }
 
-func TestStartSkipsMorningLoopBeforeScheduledTime(t *testing.T) {
-	cfg := config.Default()
-	c := newCore(cfg, noopNotifier{})
-	// Monday at 08:00 — before default schedule 09:15
-	c.setNow(func() time.Time { return time.Date(2026, 3, 2, 8, 0, 0, 0, time.Local) })
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	c.Start(ctx)
-	defer c.Stop()
-
-	c.state.mu.Lock()
-	hasCancel := c.state.morningCancel != nil
-	c.state.mu.Unlock()
-	if hasCancel {
-		t.Fatal("expected no morning loop before scheduled time")
-	}
-}
-
-func TestStartBeginsMorningLoopAfterScheduledTime(t *testing.T) {
-	cfg := config.Default()
-	c := newCore(cfg, noopNotifier{})
-	// Monday at 11:30 — after default schedule 09:15
-	c.setNow(func() time.Time { return time.Date(2026, 3, 2, 11, 30, 0, 0, time.Local) })
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	c.Start(ctx)
-	defer c.Stop()
-
-	c.state.mu.Lock()
-	hasCancel := c.state.morningCancel != nil
-	c.state.mu.Unlock()
-	if !hasCancel {
-		t.Fatal("expected morning loop to be running after scheduled time")
-	}
-}
-
-func TestMorningSnoozeRestartsLoopAfterExpiry(t *testing.T) {
-	cfg := config.Default()
-	c := newCore(cfg, noopNotifier{})
-	c.setNow(func() time.Time { return time.Date(2026, 3, 2, 10, 0, 0, 0, time.Local) })
-
-	// Start morning loop manually to simulate scheduler trigger
-	startMorningLoop(c.state, c.reminderPolicy, c.notifier)
-
-	// Snooze for a tiny duration
-	result := c.execute("snooze 1ms")
+func TestMorningSnoozeKeepsPendingAndResumesAtDeadline(t *testing.T) {
+	clk := mondayAt(10, 0)
+	c := startedCore(t, config.Default(), clk)
+	result := c.execute("snooze 10m")
 	if result.err != nil {
 		t.Fatalf(fmtSnoozeFailed, result.err)
 	}
 	if !strings.Contains(result.message, "morning reminder snoozed") {
 		t.Fatalf("expected morning snooze message, got %q", result.message)
 	}
-
-	// Morning loop should be stopped immediately after snooze
-	c.state.mu.Lock()
-	hasCancel := c.state.morningCancel != nil
-	c.state.mu.Unlock()
-	if hasCancel {
-		t.Fatal("expected morning loop to be stopped during snooze")
+	_, _, pending := c.Status()
+	if !pending {
+		t.Fatal("expected morning_pending to stay true during a snooze")
 	}
-
-	// Wait for snooze to expire and goroutine to re-trigger
-	time.Sleep(50 * time.Millisecond)
-
-	c.state.mu.Lock()
-	hasCancel = c.state.morningCancel != nil
-	c.state.mu.Unlock()
-	if !hasCancel {
-		t.Fatal("expected morning loop to be restarted after snooze expiry")
+	if until, ok := c.reminder.snoozeDeadline(); !ok || !until.Equal(clk.Now().Add(10*time.Minute)) {
+		t.Fatalf("expected deadline 10m ahead, got %v %v", until, ok)
 	}
-	c.state.stopMorningLoop()
+	clk.Advance(10 * time.Minute)
+	if _, ok := c.reminder.snoozeDeadline(); ok {
+		t.Fatal("expected snooze cleared at its deadline")
+	}
+	if c.reminder.outstanding() != reminderMorning {
+		t.Fatal("expected morning reminder still outstanding after resume")
+	}
 }
 
-func TestMorningSnoozeSkipsRestartIfNotIdle(t *testing.T) {
-	cfg := config.Default()
-	c := newCore(cfg, noopNotifier{})
-	c.setNow(func() time.Time { return time.Date(2026, 3, 2, 10, 0, 0, 0, time.Local) })
-
-	// Start morning loop manually
-	startMorningLoop(c.state, c.reminderPolicy, c.notifier)
-
-	// Snooze for a tiny duration
-	result := c.execute("snooze 1ms")
-	if result.err != nil {
+func TestStartDuringMorningSnoozeCancelsIt(t *testing.T) {
+	clk := mondayAt(10, 0)
+	c := startedCore(t, config.Default(), clk)
+	if result := c.execute("snooze 10m"); result.err != nil {
 		t.Fatalf(fmtSnoozeFailed, result.err)
 	}
-
-	// Start a pomodoro before snooze expires
 	c.execute(cmdStart)
-	if c.timer.State() != engine.Work {
-		t.Fatal("expected engine to be in Work state")
+	clk.Advance(10 * time.Minute)
+	if c.reminder.outstanding() != reminderNone {
+		t.Fatal("expected no reminder after start during a snooze")
 	}
-
-	// Wait for snooze goroutine to fire
-	time.Sleep(50 * time.Millisecond)
-
-	// Morning loop should NOT restart since engine is not idle
-	c.state.mu.Lock()
-	hasCancel := c.state.morningCancel != nil
-	c.state.mu.Unlock()
-	if hasCancel {
-		t.Fatal("expected morning loop to NOT restart when engine is not idle")
+	if _, ok := c.reminder.snoozeDeadline(); ok {
+		t.Fatal("expected deadline cleared by start")
 	}
-	c.timer.Stop()
 }
 
-func TestMorningSnoozeStopMidSnooze(t *testing.T) {
+func TestSnoozeWithNothingOutstandingIsRefused(t *testing.T) {
 	cfg := config.Default()
-	c := newCore(cfg, noopNotifier{})
-	c.setNow(func() time.Time { return time.Date(2026, 3, 2, 10, 0, 0, 0, time.Local) })
-
-	// Start morning loop manually
-	startMorningLoop(c.state, c.reminderPolicy, c.notifier)
-
-	// Snooze for a longer duration
-	result := c.execute("snooze 100ms")
-	if result.err != nil {
-		t.Fatalf(fmtSnoozeFailed, result.err)
+	cfg.MorningReminderPending = false
+	c := startedCore(t, cfg, mondayAt(10, 0))
+	result := c.execute("snooze 5m")
+	if !errors.Is(result.err, errNoReminder) {
+		t.Fatalf("expected errNoReminder, got %v", result.err)
 	}
+	if classifyError(result.err) != ErrorRefused {
+		t.Fatal("expected a refusal, not a usage error")
+	}
+}
 
-	// Start a pomodoro (which calls stopMorningLoop + clearSnooze)
+func TestSnoozeRejectsNonPositiveDuration(t *testing.T) {
+	c := startedCore(t, config.Default(), mondayAt(10, 0))
+	for _, arg := range []string{"0", "-5m"} {
+		result := c.execute("snooze " + arg)
+		if result.err == nil || classifyError(result.err) != ErrorUsage {
+			t.Fatalf("snooze %s: expected usage error, got %v", arg, result.err)
+		}
+	}
+}
+
+func TestSkipTodayCancelsMorningReminder(t *testing.T) {
+	c := startedCore(t, config.Default(), mondayAt(10, 0))
+	c.execute("skip-today")
+	if c.reminder.outstanding() != reminderNone {
+		t.Fatal("expected skip-today to cancel the morning reminder")
+	}
+	_, _, pending := c.Status()
+	if pending {
+		t.Fatal("expected morning_pending false after skip-today")
+	}
+}
+
+func TestScheduleTickRaisesMorningOnce(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+	c.setClock(mondayAt(9, 15))
+	c.tickMorning()
+	if c.reminder.outstanding() != reminderMorning {
+		t.Fatal("expected the schedule tick to raise the morning reminder")
+	}
+	c.reminder.cancel()
+	c.tickMorning()
+	if c.reminder.outstanding() != reminderNone {
+		t.Fatal("expected the schedule not to fire twice in one day")
+	}
+}
+
+func TestScheduleTickIgnoresBusyTimer(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+	c.setClock(mondayAt(9, 15))
 	c.execute(cmdStart)
-
-	// Wait for the snooze goroutine to fire
-	time.Sleep(150 * time.Millisecond)
-
-	// The goroutine should not interfere — engine is not idle
-	c.state.mu.Lock()
-	hasCancel := c.state.morningCancel != nil
-	c.state.mu.Unlock()
-	if hasCancel {
-		t.Fatal("expected no morning loop interference after start during snooze")
+	c.tickMorning()
+	if c.reminder.outstanding() != reminderNone {
+		t.Fatal("expected no morning reminder while a pomodoro runs")
 	}
 	c.timer.Stop()
 }
@@ -241,9 +175,8 @@ func TestMorningReminderPolicyComesFromConfig(t *testing.T) {
 	cfg.RepeatSecs = 30
 	cfg.RepeatLimitSecs = 120
 	c := newCore(cfg, noopNotifier{})
-
 	want := reminder.Policy{Interval: 30 * time.Second, MaxAlerts: 5}
-	if c.reminderPolicy != want {
-		t.Fatalf("expected %+v, got %+v", want, c.reminderPolicy)
+	if c.reminder.policy != want {
+		t.Fatalf("expected %+v, got %+v", want, c.reminder.policy)
 	}
 }

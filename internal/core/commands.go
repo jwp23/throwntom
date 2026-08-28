@@ -41,8 +41,7 @@ func (c *Core) buildCommandHandlers() map[string]commandHandler {
 }
 
 func (c *Core) handleStart(_ []string) commandResult {
-	c.state.stopMorningLoop()
-	c.state.clearSnooze()
+	c.reminder.cancel()
 	if c.tasks != nil {
 		return c.enterFocusPrompt("start")
 	}
@@ -52,8 +51,7 @@ func (c *Core) handleStart(_ []string) commandResult {
 }
 
 func (c *Core) handleNewCycle(_ []string) commandResult {
-	c.state.stopMorningLoop()
-	c.state.clearSnooze()
+	c.reminder.cancel()
 	c.timer.StartNewCycle()
 	c.logEvent("pomodoro_started", nil)
 	return commandResult{message: "New cycle started -- fresh start!"}
@@ -120,31 +118,16 @@ func (c *Core) handleSnooze(parts []string) commandResult {
 	if err != nil {
 		return commandResult{err: err}
 	}
-	snoozeSecs := int(parsed.Seconds())
-	if c.state.isMorningPending() {
-		c.state.stopMorningLoop()
-		c.state.setSnoozeUntil(c.now().Add(parsed))
-		state := c.state
-		policy := c.reminderPolicy
-		n := c.notifier
-		timer := c.timer
-		go func() {
-			time.Sleep(parsed)
-			if timer.State() != engine.Idle {
-				return
-			}
-			state.clearSnooze()
-			startMorningLoop(state, policy, n)
-		}()
-		c.logEvent("snoozed", map[string]any{"duration_secs": snoozeSecs})
-		return commandResult{message: fmt.Sprintf("morning reminder snoozed for %s", parsed)}
+	kind := c.reminder.outstanding()
+	if err := c.reminder.suppress(c.now().Add(parsed)); err != nil {
+		return commandResult{err: err}
 	}
-	return commandResult{err: errNoReminder}
+	c.logEvent("snoozed", map[string]any{"duration_secs": int(parsed.Seconds())})
+	return commandResult{message: fmt.Sprintf("%s reminder snoozed for %s", kind.label(), parsed)}
 }
 
 func (c *Core) handleSkipToday(_ []string) commandResult {
-	c.state.stopMorningLoop()
-	c.state.markSkippedToday(c.now())
+	c.reminder.skipToday(c.now())
 	c.timer.SkipToday()
 	c.logEvent("skipped_today", nil)
 	return commandResult{message: "Skipped reminders for today."}
@@ -162,7 +145,7 @@ func (c *Core) handleStatus(_ []string) commandResult {
 }
 
 func (c *Core) handleQuit(_ []string) commandResult {
-	c.state.stopMorningLoop()
+	c.reminder.cancel()
 	return commandResult{message: "See you next time!", exit: true}
 }
 
@@ -177,6 +160,9 @@ func parseSnoozeDuration(parts []string) (time.Duration, error) {
 	d, err := time.ParseDuration(raw)
 	if err != nil {
 		return 0, fmt.Errorf("invalid duration: %v", err)
+	}
+	if d <= 0 {
+		return 0, fmt.Errorf("snooze duration must be positive")
 	}
 	return d, nil
 }

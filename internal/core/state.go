@@ -51,7 +51,7 @@ func (c *Core) stateLocked() State {
 	if next, dur, ok := c.nextStageLocked(); ok {
 		s.NextStage = &NextStage{State: next, DurationSeconds: int(dur / time.Second)}
 	}
-	if until, ok := c.state.snoozeDeadline(); ok {
+	if until, ok := c.reminder.snoozeDeadline(); ok {
 		s.SnoozeUntil = &until
 	}
 	return s

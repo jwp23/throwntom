@@ -80,7 +80,7 @@ func TestStatusLineUnchangedInAwaiting(t *testing.T) {
 
 func TestNewCoreDefaultsMorningPendingTrue(t *testing.T) {
 	c := newCore(config.Default(), noopNotifier{})
-	if !c.state.isMorningPending() {
+	if !c.morningPending {
 		t.Fatal("expected morning reminder pending by default")
 	}
 }
@@ -90,7 +90,7 @@ func TestNewCoreRespectsMorningReminderPendingFalse(t *testing.T) {
 	cfg.MorningReminderPending = false
 
 	c := newCore(cfg, noopNotifier{})
-	if c.state.isMorningPending() {
+	if c.morningPending {
 		t.Fatal("expected morning reminder pending to be false")
 	}
 }

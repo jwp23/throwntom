@@ -280,9 +280,9 @@ func TestLoadSessionSuppressesMorningReminder(t *testing.T) {
 		t.Fatalf(fmtLoadSession, err)
 	}
 	dayKey := time.Now().Format("2006-01-02")
-	c2.state.mu.Lock()
-	gotDay := c2.state.lastTriggerDay
-	c2.state.mu.Unlock()
+	c2.reminder.mu.Lock()
+	gotDay := c2.reminder.lastTriggerDay
+	c2.reminder.mu.Unlock()
 	if gotDay != dayKey {
 		t.Fatalf("expected lastTriggerDay=%s, got %s", dayKey, gotDay)
 	}

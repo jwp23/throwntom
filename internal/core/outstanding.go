@@ -29,6 +29,13 @@ func (k reminderKind) sound() string {
 	return "default"
 }
 
+func (k reminderKind) label() string {
+	if k == reminderMorning {
+		return "morning"
+	}
+	return "cycle"
+}
+
 // stopper cancels a callback scheduled through after.
 type stopper interface {
 	Stop() bool
