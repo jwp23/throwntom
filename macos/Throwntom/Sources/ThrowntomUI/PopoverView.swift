@@ -69,7 +69,7 @@ struct PopoverView: View {
   }
 
   private func setLoginItem(_ enabled: Bool) {
-    loginItem = .afterSetting(enabled, in: registrar)
+    loginItem = .afterSetting(enabled, in: registrar, current: loginItem)
   }
 
 }

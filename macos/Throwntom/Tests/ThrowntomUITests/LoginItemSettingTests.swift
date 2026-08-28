@@ -31,7 +31,11 @@ private struct LoginItemRefused: LocalizedError {
 
 final class LoginItemSettingTests: XCTestCase {
   func testEnablingLeavesTheToggleOnWithNothingToReport() {
-    let setting = LoginItemSetting.afterSetting(true, in: StubLoginItemRegistrar())
+    let setting = LoginItemSetting.afterSetting(
+      true,
+      in: StubLoginItemRegistrar(),
+      current: LoginItemSetting(isOn: false, message: nil),
+    )
 
     XCTAssertEqual(setting, LoginItemSetting(isOn: true, message: nil))
   }
@@ -39,7 +43,11 @@ final class LoginItemSettingTests: XCTestCase {
   func testDisablingLeavesTheToggleOffWithNothingToReport() {
     let registrar = StubLoginItemRegistrar(loginItemEnabled: true)
 
-    let setting = LoginItemSetting.afterSetting(false, in: registrar)
+    let setting = LoginItemSetting.afterSetting(
+      false,
+      in: registrar,
+      current: LoginItemSetting(isOn: true, message: nil),
+    )
 
     XCTAssertEqual(setting, LoginItemSetting(isOn: false, message: nil))
   }
@@ -47,7 +55,11 @@ final class LoginItemSettingTests: XCTestCase {
   func testARefusalIsReportedAndLeavesTheToggleWhereMacOSSaysItIs() {
     let registrar = StubLoginItemRegistrar(loginItemEnabled: true, refusal: LoginItemRefused())
 
-    let setting = LoginItemSetting.afterSetting(false, in: registrar)
+    let setting = LoginItemSetting.afterSetting(
+      false,
+      in: registrar,
+      current: LoginItemSetting(isOn: true, message: nil),
+    )
 
     XCTAssertEqual(setting, LoginItemSetting(isOn: true, message: "Login item: Operation not permitted"))
   }
@@ -55,7 +67,11 @@ final class LoginItemSettingTests: XCTestCase {
   func testARefusalToEnableLeavesTheToggleOff() {
     let registrar = StubLoginItemRegistrar(loginItemEnabled: false, refusal: LoginItemRefused())
 
-    let setting = LoginItemSetting.afterSetting(true, in: registrar)
+    let setting = LoginItemSetting.afterSetting(
+      true,
+      in: registrar,
+      current: LoginItemSetting(isOn: false, message: nil),
+    )
 
     XCTAssertFalse(setting.isOn)
     XCTAssertNotNil(setting.message)
@@ -66,12 +82,16 @@ final class LoginItemSettingTests: XCTestCase {
     // item is not — the way SMAppService behaves.
     let registrar = StubLoginItemRegistrar(loginItemEnabled: false, refusal: LoginItemRefused(), refuses: { $0 })
 
-    let afterFailure = LoginItemSetting.afterSetting(true, in: registrar)
+    let afterFailure = LoginItemSetting.afterSetting(
+      true,
+      in: registrar,
+      current: LoginItemSetting(isOn: false, message: nil),
+    )
     XCTAssertEqual(afterFailure, LoginItemSetting(isOn: false, message: "Login item: Operation not permitted"))
 
     // The toggle's isOn snapped back to false, which changes it again and re-fires onChange with
     // the opposite value, exactly what PopoverView.setLoginItem receives next.
-    let afterBounce = LoginItemSetting.afterSetting(afterFailure.isOn, in: registrar)
+    let afterBounce = LoginItemSetting.afterSetting(afterFailure.isOn, in: registrar, current: afterFailure)
 
     XCTAssertEqual(afterBounce, afterFailure, "the bounce must not erase the failure message")
   }
