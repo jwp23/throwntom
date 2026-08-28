@@ -215,6 +215,28 @@ func TestStopStopsScheduleTick(t *testing.T) {
 	}
 }
 
+// TestStartTwicePanics shows that a second Start is a loud programming
+// error rather than silent corruption: without a guard it replaces
+// stopSchedule and scheduleDone out from under the first schedule goroutine,
+// orphaning it since Stop can no longer reach it.
+func TestStartTwicePanics(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+	c.setClock(mondayAt(9, 15))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c.Start(ctx)
+	defer c.Stop()
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("expected second Start to panic")
+		}
+	}()
+	c.Start(ctx)
+}
+
 // awaitingCore returns a started core sitting at awaiting_confirm with a
 // recorder on the sound, the morning reminder out of the way.
 func awaitingCore(t *testing.T) (*Core, *soundRecorder, *fakeClock) {

@@ -14,3 +14,12 @@ public protocol LaunchAgentService: Sendable {
     func register() throws
     func unregister() throws
 }
+
+/// The app's own login item, in the registrar's own vocabulary. The real implementation is
+/// ServiceManagement; tests substitute a fake so login item decisions can be exercised without
+/// touching the machine's Login Items.
+public protocol MainAppService: Sendable {
+    var status: AgentStatus { get }
+    func register() throws
+    func unregister() throws
+}
