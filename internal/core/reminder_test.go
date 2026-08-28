@@ -230,7 +230,7 @@ func TestStartTwicePanics(t *testing.T) {
 	defer c.Stop()
 
 	defer func() {
-		if r := recover(); r == nil {
+		if recover() == nil {
 			t.Fatal("expected second Start to panic")
 		}
 	}()
