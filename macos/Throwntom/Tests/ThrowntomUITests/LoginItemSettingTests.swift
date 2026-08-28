@@ -8,9 +8,12 @@ import XCTest
 private struct StubLoginItemRegistrar: LoginItemRegistrar {
   var loginItemEnabled = false
   var refusal: Error?
+  /// Which requested values the refusal applies to; defaults to both. Real SMAppService can
+  /// refuse `register()` while still letting `unregister()` no-op on an already-unregistered item.
+  var refuses: (Bool) -> Bool = { _ in true }
 
-  func setLoginItem(_: Bool) throws {
-    if let refusal {
+  func setLoginItem(_ enabled: Bool) throws {
+    if let refusal, refuses(enabled) {
       throw refusal
     }
   }
@@ -56,5 +59,20 @@ final class LoginItemSettingTests: XCTestCase {
 
     XCTAssertFalse(setting.isOn)
     XCTAssertNotNil(setting.message)
+  }
+
+  func testABouncedToggleDoesNotWipeTheFailureMessage() {
+    // Managed/revoked item: registering is refused, but unregistering an already-unregistered
+    // item is not — the way SMAppService behaves.
+    let registrar = StubLoginItemRegistrar(loginItemEnabled: false, refusal: LoginItemRefused(), refuses: { $0 })
+
+    let afterFailure = LoginItemSetting.afterSetting(true, in: registrar)
+    XCTAssertEqual(afterFailure, LoginItemSetting(isOn: false, message: "Login item: Operation not permitted"))
+
+    // The toggle's isOn snapped back to false, which changes it again and re-fires onChange with
+    // the opposite value, exactly what PopoverView.setLoginItem receives next.
+    let afterBounce = LoginItemSetting.afterSetting(afterFailure.isOn, in: registrar)
+
+    XCTAssertEqual(afterBounce, afterFailure, "the bounce must not erase the failure message")
   }
 }
