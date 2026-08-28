@@ -40,9 +40,17 @@ public final class DaemonClient {
   public private(set) var connection = Connection.connecting
   public private(set) var lastError: String?
 
-  /// The last error while it still matters: reconnecting hides it without forgetting it.
+  /// Set when a user-triggered command is refused, cleared by the next one that succeeds.
+  /// Tracked apart from `lastError` because a refusal happens while still connected, so it
+  /// must not be hidden by the connection guard below.
+  public private(set) var commandError: String?
+
+  /// The last error while it still matters: reconnecting hides `lastError` without forgetting
+  /// it, but a refused command is shown regardless of connection state.
   public var unresolvedError: String? {
-    if connection == .connected {
+    if let commandError {
+      commandError
+    } else if connection == .connected {
       nil
     } else {
       lastError
@@ -60,13 +68,17 @@ public final class DaemonClient {
   }
 
   public func command(_ line: String) async throws -> String {
-    let body = try JSONSerialization.data(withJSONObject: ["line": line])
-    let response = try await post(DaemonAPI.command, body: body)
-    return try DaemonJSON.decoder.decode(CommandReply.self, from: response.body).message
+    try await runCommand {
+      let body = try JSONSerialization.data(withJSONObject: ["line": line])
+      let response = try await post(DaemonAPI.command, body: body)
+      return try DaemonJSON.decoder.decode(CommandReply.self, from: response.body).message
+    }
   }
 
   public func timer(_ verb: TimerVerb) async throws {
-    _ = try await post(DaemonAPI.timer(verb), body: nil)
+    try await runCommand {
+      _ = try await post(DaemonAPI.timer(verb), body: nil)
+    }
   }
 
   /// Runs a timer action: every action but snooze is a verb path with no body.
@@ -79,8 +91,10 @@ public final class DaemonClient {
   }
 
   public func snooze(minutes: Int) async throws {
-    let body = try JSONSerialization.data(withJSONObject: ["minutes": minutes])
-    _ = try await post(DaemonAPI.snooze, body: body)
+    try await runCommand {
+      let body = try JSONSerialization.data(withJSONObject: ["minutes": minutes])
+      _ = try await post(DaemonAPI.snooze, body: body)
+    }
   }
 
   public func refreshTasks() async {
@@ -129,6 +143,8 @@ public final class DaemonClient {
         }
         failures += 1
         lastError = String(describing: error)
+        // A real outage matters more than a stale command refusal from before it started.
+        commandError = nil
         if failures > 0 && failures % Self.failuresBeforeRegistering == 0 {
           registerAgent()
         }
@@ -151,6 +167,19 @@ public final class DaemonClient {
     let response = try await transport.request("POST", path, body: body)
     try Self.check(response)
     return response
+  }
+
+  /// Wraps a user-triggered command so every call site records a refusal the same way,
+  /// instead of each catching it separately.
+  private func runCommand<T>(_ operation: () async throws -> T) async throws -> T {
+    do {
+      let result = try await operation()
+      commandError = nil
+      return result
+    } catch {
+      commandError = String(describing: error)
+      throw error
+    }
   }
 
 }

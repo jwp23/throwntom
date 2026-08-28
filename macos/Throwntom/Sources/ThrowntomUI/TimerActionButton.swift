@@ -32,7 +32,7 @@ struct TimerActionButton: View {
         HStack {
           Text(action.title)
           Spacer()
-          Text(action.shortcutHint).foregroundStyle(.secondary)
+          Text(action.shortcutHint).foregroundStyle(.secondary).accessibilityHidden(true)
         }
       } else {
         Text(action.title)
