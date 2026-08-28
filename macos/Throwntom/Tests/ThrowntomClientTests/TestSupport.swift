@@ -6,6 +6,12 @@ import XCTest
 
 struct TimeoutError: Error { }
 
+// MARK: - GoBuildError
+
+struct GoBuildError: Error, CustomStringConvertible {
+  let description: String
+}
+
 /// Polls `condition` every 20 ms until it holds or `timeout` seconds pass.
 /// MainActor-isolated so tests can read DaemonClient's MainActor properties inside `condition`.
 @MainActor
@@ -84,27 +90,20 @@ final class DaemonHarness {
     .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     .deletingLastPathComponent().deletingLastPathComponent()
 
-  static let binary: URL = {
-    let out = repoRoot.appendingPathComponent("macos/Throwntom/.build/throwntomd")
-    let build = Process()
-    build.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-    build.arguments = ["go", "build", "-o", out.path, "./cmd/throwntomd"]
-    build.currentDirectoryURL = repoRoot
-    try! build.run()
-    build.waitUntilExit()
-    precondition(build.terminationStatus == 0, "go build ./cmd/throwntomd failed")
-    return out
-  }()
-
   let home: URL
 
   var socketPath: String {
     home.appendingPathComponent(".config/throwntom/daemon.sock").path
   }
 
+  /// Builds throwntomd once per test process; every later call replays the same result.
+  static func binary() throws -> URL {
+    try binaryResult.get()
+  }
+
   func start() async throws {
     let p = Process()
-    p.executableURL = Self.binary
+    p.executableURL = try Self.binary()
     var env = ProcessInfo.processInfo.environment
     env["HOME"] = home.path
     p.environment = env
@@ -133,6 +132,24 @@ final class DaemonHarness {
   }
 
   // MARK: Private
+
+  private static let binaryResult: Result<URL, Error> = {
+    let out = repoRoot.appendingPathComponent("macos/Throwntom/.build/throwntomd")
+    let build = Process()
+    build.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+    build.arguments = ["go", "build", "-o", out.path, "./cmd/throwntomd"]
+    build.currentDirectoryURL = repoRoot
+    do {
+      try build.run()
+    } catch {
+      return .failure(error)
+    }
+    build.waitUntilExit()
+    guard build.terminationStatus == 0 else {
+      return .failure(GoBuildError(description: "go build ./cmd/throwntomd failed"))
+    }
+    return .success(out)
+  }()
 
   private var process: Process?
 
