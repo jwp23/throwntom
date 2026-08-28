@@ -92,8 +92,6 @@ jobs:
 
   macos:
     name: macOS app
-    # Pinned rather than macos-latest: macos/swift-lint.sh requires the exact SwiftFormat
-    # version this image ships, so a runner bump is a deliberate change.
     runs-on: macos-15
     permissions:
       contents: read
@@ -101,15 +99,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      # The arm64 image ships SwiftFormat but not SwiftLint; install the release
-      # macos/swift-lint.sh pins, verified by checksum.
-      - name: Install SwiftLint 0.65.1
+      # The releases macos/swift-lint.sh pins, verified by checksum, ahead of whatever the
+      # image happens to ship so an image update cannot change the style gate.
+      - name: Install SwiftFormat 0.62.1 and SwiftLint 0.65.1
         run: |
-          curl -fsSL -o swiftlint.zip https://github.com/realm/SwiftLint/releases/download/0.65.1/portable_swiftlint.zip
-          echo "c1e429b0599cf1b516f369a2d9ec04eaf0e436f3c12b637df8851fa52ff694d0  swiftlint.zip" | shasum -a 256 -c -
+          curl -fsSL --proto '=https' --tlsv1.2 -o swiftformat.zip https://github.com/nicklockwood/SwiftFormat/releases/download/0.62.1/swiftformat.zip
+          curl -fsSL --proto '=https' --tlsv1.2 -o swiftlint.zip https://github.com/realm/SwiftLint/releases/download/0.65.1/portable_swiftlint.zip
+          shasum -a 256 -c - <<'SUMS'
+          7cb1cb1fae04932047c7015441c543848e8e60e1572d808d080e0a1f1661114a  swiftformat.zip
+          c1e429b0599cf1b516f369a2d9ec04eaf0e436f3c12b637df8851fa52ff694d0  swiftlint.zip
+          SUMS
           mkdir -p "$HOME/.local/bin"
+          unzip -q -o swiftformat.zip swiftformat -d "$HOME/.local/bin"
           unzip -q -o swiftlint.zip swiftlint -d "$HOME/.local/bin"
-          rm swiftlint.zip
+          rm swiftformat.zip swiftlint.zip
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Swift style (Airbnb SwiftFormat + SwiftLint)
