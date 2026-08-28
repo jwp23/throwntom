@@ -88,6 +88,8 @@ final class SMAppServiceRegistrarTests: XCTestCase {
 
 // MARK: - FakeAgentService
 
+// `calls` is mutated only by the registrar under test on the test actor; LaunchAgentService requires Sendable.
+// swiftlint:disable:next no_unchecked_sendable
 private final class FakeAgentService: LaunchAgentService, @unchecked Sendable {
 
   // MARK: Lifecycle
@@ -126,6 +128,8 @@ private final class FakeAgentService: LaunchAgentService, @unchecked Sendable {
 
 // MARK: - FakeMainAppService
 
+// `calls` is mutated only by the registrar under test on the test actor; MainAppService requires Sendable.
+// swiftlint:disable:next no_unchecked_sendable
 private final class FakeMainAppService: MainAppService, @unchecked Sendable {
 
   // MARK: Lifecycle

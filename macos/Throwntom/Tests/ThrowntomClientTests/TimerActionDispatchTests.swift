@@ -5,6 +5,8 @@ import XCTest
 
 /// Answers every request from memory and remembers what was asked, so the routing a timer
 /// action performs can be checked without a daemon.
+// `recorded` is only touched under `lock`; DaemonTransport requires Sendable.
+// swiftlint:disable:next no_unchecked_sendable
 final class RecordingTransport: DaemonTransport, @unchecked Sendable {
 
   // MARK: Lifecycle

@@ -5,6 +5,8 @@ import Network
 
 /// One NWConnection to a Unix socket, exposed as async open/send/receive.
 /// Every call honours Task cancellation: the connection is closed and the caller resumes immediately.
+// NWConnection serialises its own callbacks on `queue`; every other member is immutable.
+// swiftlint:disable:next no_unchecked_sendable
 final class SocketConnection: @unchecked Sendable {
 
   // MARK: Lifecycle
@@ -108,6 +110,8 @@ final class SocketConnection: @unchecked Sendable {
 
 /// Resumes a continuation exactly once, no matter how many terminal states NWConnection reports,
 /// and copes with cancellation arriving before the continuation has been installed.
+// Every mutable member is read and written under `lock`.
+// swiftlint:disable:next no_unchecked_sendable
 private final class ResumeOnce<T>: @unchecked Sendable {
 
   // MARK: Internal

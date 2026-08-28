@@ -143,6 +143,8 @@ public final class UnixSocketTransport: DaemonTransport {
 
 /// A cancellation handle that can be handed out before the task it refers to exists.
 /// A cancel that lands first is applied as soon as the task arrives.
+// Every mutable member is read and written under `lock`.
+// swiftlint:disable:next no_unchecked_sendable
 private final class PendingTask: @unchecked Sendable {
 
   // MARK: Internal

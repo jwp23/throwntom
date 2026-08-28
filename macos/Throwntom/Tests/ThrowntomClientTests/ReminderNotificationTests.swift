@@ -54,6 +54,8 @@ final class ReminderNotificationAnswerTests: XCTestCase {
 
   // MARK: Private
 
+  // XCTest builds fixtures in setUp, after init, so the property cannot be initialised there.
+  // swiftlint:disable:next implicitly_unwrapped_optional
   private var daemon: DaemonHarness!
 
   private func connectedClient() async throws -> DaemonClient {

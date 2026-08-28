@@ -3,6 +3,8 @@ import XCTest
 
 // MARK: - RecordingRegistrar
 
+// `_calls` is only touched under `lock`; LaunchAgentRegistrar requires Sendable.
+// swiftlint:disable:next no_unchecked_sendable
 final class RecordingRegistrar: LaunchAgentRegistrar, @unchecked Sendable {
 
   // MARK: Internal
@@ -113,7 +115,11 @@ final class DaemonClientTests: XCTestCase {
 
   // MARK: Private
 
+  // XCTest builds fixtures in setUp, after init, so the property cannot be initialised there.
+  // swiftlint:disable:next implicitly_unwrapped_optional
   private var daemon: DaemonHarness!
+  // XCTest builds fixtures in setUp, after init, so the property cannot be initialised there.
+  // swiftlint:disable:next implicitly_unwrapped_optional
   private var registrar: RecordingRegistrar!
 
   private func connectedClient() async throws -> DaemonClient {

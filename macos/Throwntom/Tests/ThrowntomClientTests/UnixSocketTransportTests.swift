@@ -67,7 +67,11 @@ final class UnixSocketTransportTests: XCTestCase {
 
   // MARK: Private
 
+  // XCTest builds fixtures in setUp, after init, so the property cannot be initialised there.
+  // swiftlint:disable:next implicitly_unwrapped_optional
   private var daemon: DaemonHarness!
+  // XCTest builds fixtures in setUp, after init, so the property cannot be initialised there.
+  // swiftlint:disable:next implicitly_unwrapped_optional
   private var transport: UnixSocketTransport!
 
 }

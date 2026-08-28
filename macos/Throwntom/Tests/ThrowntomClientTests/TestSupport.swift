@@ -23,6 +23,8 @@ func waitUntil(timeout: Double = 5, _ condition: () -> Bool) async throws {
 // MARK: - FrameLog
 
 /// Thread-safe log of decoded DaemonState frames received on a background task.
+// Every mutable member is read and written under `lock`.
+// swiftlint:disable:next no_unchecked_sendable
 final class FrameLog: @unchecked Sendable {
 
   // MARK: Internal

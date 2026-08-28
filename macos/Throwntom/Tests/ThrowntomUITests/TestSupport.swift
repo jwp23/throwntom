@@ -112,6 +112,8 @@ func makeTask(id: Int, description: String = "task", done: Bool = false) -> Task
 
 /// Replays a fixed set of SSE frames and then holds the stream open, the way a live daemon does
 /// between state changes. Records what the client sends so tests can assert on it.
+// `recorded` is only touched under `lock`; DaemonTransport requires Sendable.
+// swiftlint:disable:next no_unchecked_sendable
 final class StubTransport: DaemonTransport, @unchecked Sendable {
 
   // MARK: Lifecycle
@@ -171,7 +173,7 @@ final class StubTransport: DaemonTransport, @unchecked Sendable {
 // MARK: - UnreachableDaemonTransport
 
 /// A transport that refuses the event stream, the way it does when the daemon is not running.
-final class UnreachableDaemonTransport: DaemonTransport, @unchecked Sendable {
+final class UnreachableDaemonTransport: DaemonTransport, Sendable {
 
   // MARK: Lifecycle
 

@@ -11,6 +11,8 @@ enum SocketServerError: Error {
 
 /// A Unix socket peer that accepts connections and never replies, so a client parks in `receive`.
 /// Lets transport deadline and cancellation tests run without sleeping against a real daemon.
+// Accepted descriptors and the stop flag are only touched under `lock`.
+// swiftlint:disable:next no_unchecked_sendable
 final class StalledSocketServer: @unchecked Sendable {
 
   // MARK: Lifecycle

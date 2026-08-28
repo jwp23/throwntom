@@ -61,6 +61,8 @@ final class SocketRequestLifecycleTests: XCTestCase {
 // MARK: - RequestOutcome
 
 /// Thread-safe record of how a request Task ended, readable from the test's actor.
+// Every mutable member is read and written under `lock`.
+// swiftlint:disable:next no_unchecked_sendable
 private final class RequestOutcome: @unchecked Sendable {
 
   // MARK: Internal
