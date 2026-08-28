@@ -23,6 +23,16 @@ func (c *Core) setNow(fn func() time.Time) {
 	c.now = fn
 }
 
+// setClock points the Core and its reminder at clk for both the current time
+// and deadline scheduling.
+func (c *Core) setClock(clk *fakeClock) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.now = clk.Now
+	c.reminder.now = clk.Now
+	c.reminder.after = clk.After
+}
+
 // setFocused replaces the focused task list under the Core lock, so tests can
 // seed focus while background publishes are in flight.
 func (c *Core) setFocused(focused []task.Task) {

@@ -26,8 +26,8 @@ func (c *Core) Subscribe() (<-chan State, func()) {
 
 // publish serialises one save and fan-out on publishMu.
 // Callers must not hold c.mu (State takes it), so verbs do their work under the
-// lock, release it, then publish. Change callbacks from app.App and
-// reminderState fire from code paths that already hold c.mu, so they go through
+// lock, release it, then publish. Change callbacks from pomodoro.Timer and
+// outstandingReminder fire from code paths that already hold c.mu, so they go through
 // publishAsync instead.
 //
 // publishMu serialises publishes: a State is read and delivered while it is

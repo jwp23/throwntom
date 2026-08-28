@@ -32,7 +32,7 @@ func TestNextStageWhenAwaiting(t *testing.T) {
 	cfg.MorningReminderPending = false
 	c := newCore(cfg, noopNotifier{})
 	c.execute(cmdStart)
-	c.cycle.CompletePeriod()
+	c.timer.CompletePeriod()
 
 	next, dur, ok := c.NextStage()
 	if !ok {
@@ -61,7 +61,7 @@ func TestStatusLineUnchangedInAwaiting(t *testing.T) {
 	cfg.MorningReminderPending = false
 	c := newCore(cfg, noopNotifier{})
 	c.execute(cmdStart)
-	c.cycle.CompletePeriod()
+	c.timer.CompletePeriod()
 
 	status, state, _ := c.Status()
 	if state != engine.AwaitingConfirm {
@@ -80,7 +80,7 @@ func TestStatusLineUnchangedInAwaiting(t *testing.T) {
 
 func TestNewCoreDefaultsMorningPendingTrue(t *testing.T) {
 	c := newCore(config.Default(), noopNotifier{})
-	if !c.state.isMorningPending() {
+	if !c.morningPending {
 		t.Fatal("expected morning reminder pending by default")
 	}
 }
@@ -90,7 +90,7 @@ func TestNewCoreRespectsMorningReminderPendingFalse(t *testing.T) {
 	cfg.MorningReminderPending = false
 
 	c := newCore(cfg, noopNotifier{})
-	if c.state.isMorningPending() {
+	if c.morningPending {
 		t.Fatal("expected morning reminder pending to be false")
 	}
 }
@@ -104,7 +104,7 @@ func TestStatusResetsCompletedTodayOnDayRollover(t *testing.T) {
 	c.setNow(func() time.Time { return yesterday })
 
 	c.Execute(cmdStart)
-	c.cycle.CompletePeriod()
+	c.timer.CompletePeriod()
 
 	status, _, _ := c.Status()
 	if !strings.Contains(status, statusTodayPomodoros1) {

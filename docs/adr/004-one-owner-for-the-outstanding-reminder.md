@@ -83,21 +83,24 @@ existing hook publishes asynchronously, and hanging reminder lifecycle off it
 would let a cancel overtake a raise and leave a reminder ringing after it was
 answered. Publishing stays asynchronous; reminding does not.
 
-`internal/app` is renamed to `internal/cycle`, and its `App` type to `Cycle`.
-`core` already calls the field `cycle`, `internal/engine` already owns the state
-machine, and this package is the running cycle with wall-clock timers on top of
-it. The present name collides with the macOS app, which is a different program
-in a different language that this ADR's own subject matter is often confused
-with. The persisted session document's `app` key is renamed to `cycle` to
-match; an existing `session.json` loses its saved cycle position once.
+`internal/app` is renamed to `internal/pomodoro`, and its `App` type to
+`Timer`. `internal/engine` already owns the state machine; this package is the
+engine with a wall clock on it, which is what a pomodoro timer is. The present
+name collides with the macOS app, which is a different program in a different
+language that this ADR's own subject matter is often confused with. `cycle`
+was considered and rejected: it names the engine's cadence, not this layer's
+job, and needed explaining. The package's private `timer` interface becomes
+`stopper` so the exported type can take the name. The persisted session
+document's `app` key is renamed to `timer` to match; an existing
+`session.json` loses its saved position once.
 
 ## Trade-offs
 
 We gain one reminder concept with one lifecycle, one clock, and one published
 field, and we remove a dependency and a responsibility from the package that
 should only be keeping time. A third reminder kind — throwntom-8pc wants the
-morning reminder to reach the macOS client as a banner — becomes a source
-registered with the existing owner rather than a third copy of the lifecycle.
+morning reminder to reach the macOS client as a banner — becomes another
+caller of the existing owner rather than a third copy of the lifecycle.
 
 We pay for it with the largest of the three diffs, across `core`, `app` and the
 call sites of both, in code that works today apart from the one bug. The

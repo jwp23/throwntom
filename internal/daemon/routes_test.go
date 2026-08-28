@@ -43,10 +43,10 @@ func TestTimerSnoozeRequiresMinutes(t *testing.T) {
 	if resp := postJSON(t, srv.URL+"/v1/timer/snooze", map[string]int{"minutes": 0}); resp.StatusCode != 400 {
 		t.Fatalf("status %d", resp.StatusCode)
 	}
-	if resp := postJSON(t, srv.URL+"/v1/timer/snooze", map[string]int{"minutes": 10}); resp.StatusCode != 200 {
+	// Snooze at idle (no morning pending, no reminder to snooze) is refused.
+	if resp := postJSON(t, srv.URL+"/v1/timer/snooze", map[string]int{"minutes": 10}); resp.StatusCode != 409 {
 		t.Fatalf("status %d", resp.StatusCode)
 	}
-	// Snooze at idle (no morning pending) doesn't set SnoozeUntil
 	if c.State().SnoozeUntil != nil {
 		t.Fatal("unexpected snooze_until set at idle")
 	}

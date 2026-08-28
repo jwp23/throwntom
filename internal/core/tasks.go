@@ -279,7 +279,7 @@ func (c *Core) finalizeFocusPrompt() commandResult {
 	action := c.pendingFocusAction
 	c.pendingFocusAction = ""
 	if action == "start" {
-		c.cycle.Start()
+		c.timer.Start()
 		c.logEvent("pomodoro_started", nil)
 	}
 	return commandResult{message: "Pomodoro started -- let's go!"}
@@ -339,7 +339,7 @@ func (c *Core) FocusPromptPending() bool {
 }
 
 func (c *Core) isWorkSession() bool {
-	return c.cycle.State() == engine.Work
+	return c.timer.State() == engine.Work
 }
 
 func (c *Core) initTasks(path string) error {

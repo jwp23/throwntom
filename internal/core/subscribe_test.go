@@ -7,7 +7,6 @@ import (
 
 	"github.com/jwp23/throwntom/v3/internal/config"
 	"github.com/jwp23/throwntom/v3/internal/engine"
-	"github.com/jwp23/throwntom/v3/internal/reminder"
 	"github.com/jwp23/throwntom/v3/internal/session"
 )
 
@@ -52,10 +51,10 @@ func TestSubscribeDeliversTimerExpiry(t *testing.T) {
 	recv(t, ch)
 
 	beforeExpiry := time.Now()
-	snap := c.cycle.Snapshot()
+	snap := c.timer.Snapshot()
 	snap.Engine.State = engine.Work
 	snap.PhaseEndAt = time.Now().Add(20 * time.Millisecond)
-	if err := c.cycle.Restore(snap, time.Now()); err != nil {
+	if err := c.timer.Restore(snap, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	deadline := time.After(2 * time.Second)
@@ -77,8 +76,8 @@ func TestSubscribeDeliversTimerExpiry(t *testing.T) {
 	if !data.SavedAt.After(beforeExpiry) {
 		t.Fatalf("expected session saved after expiry, saved_at = %s", data.SavedAt)
 	}
-	if data.App.Engine.State != engine.AwaitingConfirm {
-		t.Fatalf("expected saved session in awaiting_confirm, got %s", data.App.Engine.State)
+	if data.Timer.Engine.State != engine.AwaitingConfirm {
+		t.Fatalf("expected saved session in awaiting_confirm, got %s", data.Timer.Engine.State)
 	}
 }
 
@@ -119,11 +118,11 @@ func TestSubscribeDeliversMorningPending(t *testing.T) {
 	defer cancel()
 	recv(t, ch)
 
-	startMorningLoop(c.state, reminder.Policy{Interval: time.Hour, MaxAlerts: 2}, noopNotifier{})
+	c.reminder.raise(reminderMorning)
 	if s := recv(t, ch); !s.MorningPending {
 		t.Fatal("expected morning_pending after loop start")
 	}
-	c.state.stopMorningLoop()
+	c.reminder.cancel()
 	if s := recv(t, ch); s.MorningPending {
 		t.Fatal("expected morning_pending cleared after loop stop")
 	}
@@ -213,13 +212,13 @@ func TestPublishSuppressedAfterStop(t *testing.T) {
 	c.Stop()
 	recv(t, ch) // Stop's own publish
 
-	c.cycle.Start() // a late change must neither reach subscribers nor save
+	c.timer.Start() // a late change must neither reach subscribers nor save
 	select {
 	case s := <-ch:
 		t.Fatalf("published after Stop: %s", s.State)
 	case <-time.After(200 * time.Millisecond):
 	}
-	c.cycle.Stop()
+	c.timer.Stop()
 }
 
 // stopWindowWait bounds the wait for a publish that starts inside Stop's
@@ -279,5 +278,34 @@ func TestStopShutsOutPublishInFinalWindow(t *testing.T) {
 	}
 	if !data.SavedAt.Equal(stopAt) {
 		t.Fatalf("session saved inside Stop's window: saved_at = %s, want %s", data.SavedAt, stopAt)
+	}
+}
+
+func TestSubscriberSeesCycleSnoozeExpire(t *testing.T) {
+	c, rec, clk := awaitingCore(t)
+	waitForSounds(t, rec, 1)
+	ch := make(chan State, 8)
+	unsubscribe := c.subscribeSync(ch)
+	defer unsubscribe()
+
+	if result := c.execute("snooze 5m"); result.err != nil {
+		t.Fatalf(fmtSnoozeFailed, result.err)
+	}
+	c.publish()
+	seen := <-ch
+	if seen.SnoozeUntil == nil {
+		t.Fatal("expected the snooze deadline to be published")
+	}
+	clk.Advance(5 * time.Minute)
+	deadline := time.After(2 * time.Second)
+	for {
+		select {
+		case s := <-ch:
+			if s.SnoozeUntil == nil && s.State == engine.AwaitingConfirm {
+				return
+			}
+		case <-deadline:
+			t.Fatal("expected a published state with snooze_until null after expiry")
+		}
 	}
 }

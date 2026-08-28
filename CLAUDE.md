@@ -8,7 +8,7 @@
 ## Project Structure
 - `cmd/throwntom/` — main binary: CLI entry point, Bubble Tea model, rendering
 - `cmd/throwntomd/` — daemon binary: background process serving the JSON API
-- `internal/app/` — application logic
+- `internal/pomodoro/` — the pomodoro timer: the engine with a wall clock on it
 - `internal/config/` — TOML config parsing
 - `internal/core/` — timer/task/reminder orchestration shared by the TUI and daemon
 - `internal/daemon/` — daemon HTTP API, socket lifecycle and shutdown

@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/jwp23/throwntom/v3/internal/analytics"
-	"github.com/jwp23/throwntom/v3/internal/app"
 	"github.com/jwp23/throwntom/v3/internal/config"
 	"github.com/jwp23/throwntom/v3/internal/engine"
 	"github.com/jwp23/throwntom/v3/internal/eventlog"
 	"github.com/jwp23/throwntom/v3/internal/notifier"
+	"github.com/jwp23/throwntom/v3/internal/pomodoro"
 	"github.com/jwp23/throwntom/v3/internal/reminder"
 	"github.com/jwp23/throwntom/v3/internal/scheduler"
 	"github.com/jwp23/throwntom/v3/internal/task"
@@ -25,11 +25,10 @@ type Core struct {
 	publishMu           sync.Mutex
 	subscribers         map[chan State]struct{}
 	stopped             bool
-	cycle               *app.App
+	timer               *pomodoro.Timer
 	notifier            notifier.Notifier
-	state               *reminderState
+	reminder            *outstandingReminder
 	scheduler           *scheduler.Scheduler
-	reminderPolicy      reminder.Policy
 	now                 func() time.Time
 	handlers            map[string]commandHandler
 	tasks               *task.FileStore
@@ -41,6 +40,9 @@ type Core struct {
 	eventWriter         *eventlog.Writer
 	eventsPath          string
 	longBreakEvery      int
+	// morningPending is the config's answer to whether today's morning
+	// reminder is still owed at start-up.
+	morningPending bool
 	// afterFinalPublish runs between Stop's final publish and the flag that
 	// ends publishing. It is the seam a test uses to drive a publish into that
 	// window; nothing in production sets it.
@@ -50,31 +52,41 @@ type Core struct {
 type commandHandler func(parts []string) commandResult
 
 func newCore(cfg config.Config, n notifier.Notifier) *Core {
-	reminderPolicy := reminder.NewPolicy(
+	policy := reminder.NewPolicy(
 		time.Duration(cfg.RepeatSecs)*time.Second,
 		time.Duration(cfg.RepeatLimitSecs)*time.Second,
 	)
 	c := &Core{
-		cycle: app.New(
+		timer: pomodoro.New(
 			cfg.Pomodoro.WorkMinutes,
 			cfg.Pomodoro.ShortBreakMinutes,
 			cfg.Pomodoro.LongBreakMinutes,
 			cfg.Pomodoro.LongBreakEvery,
-			reminderPolicy,
-			n,
 		),
 		notifier:       n,
-		state:          &reminderState{morningPending: cfg.MorningReminderPending},
+		reminder:       newOutstandingReminder(policy, n),
 		scheduler:      scheduler.New(config.ScheduleDayTimes(cfg.Schedule)),
-		reminderPolicy: reminderPolicy,
 		now:            time.Now,
+		morningPending: cfg.MorningReminderPending,
 		longBreakEvery: cfg.Pomodoro.LongBreakEvery,
 		subscribers:    make(map[chan State]struct{}),
 	}
 	c.handlers = c.buildCommandHandlers()
-	c.cycle.SetOnChange(c.publishAsync)
-	c.state.onChange = c.publishAsync
+	c.timer.SetOnChange(c.publishAsync)
+	c.timer.SetOnTransition(c.onTransition)
+	c.reminder.onChange = c.publishAsync
 	return c
+}
+
+// onTransition runs inside the timer's lock on every change of engine state.
+// awaiting_confirm is the one state that owes a reminder; leaving any state
+// answers whichever reminder was outstanding, morning included.
+func (c *Core) onTransition(to engine.State) {
+	if to == engine.AwaitingConfirm {
+		c.reminder.raise(reminderCycle)
+		return
+	}
+	c.reminder.cancel()
 }
 
 type Paths struct {
@@ -126,9 +138,9 @@ func New(cfg config.Config, n notifier.Notifier, paths Paths) (*Core, error) {
 func (c *Core) Start(ctx context.Context) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	startMorningScheduler(ctx, c.state, c.scheduler, c.reminderPolicy, c.notifier)
-	if c.state.isMorningPending() && c.cycle.State() == engine.Idle && c.scheduler.IsActiveNow(c.now()) {
-		startMorningLoop(c.state, c.reminderPolicy, c.notifier)
+	go c.runMorningSchedule(ctx)
+	if c.morningPending && c.timer.State() == engine.Idle && c.scheduler.IsActiveNow(c.now()) {
+		c.reminder.raise(reminderMorning)
 	}
 }
 
@@ -139,8 +151,8 @@ func (c *Core) Start(ctx context.Context) {
 // cannot slip between them.
 func (c *Core) Stop() {
 	c.mu.Lock()
-	c.cycle.AdvanceDay(c.now())
-	c.state.stopMorningLoop()
+	c.timer.AdvanceDay(c.now())
+	c.reminder.cancel()
 	c.mu.Unlock()
 
 	c.publishMu.Lock()
@@ -161,8 +173,8 @@ func (c *Core) Status() (statusLine string, state engine.State, morningPending b
 }
 
 func (c *Core) statusLocked() (statusLine string, state engine.State, morningPending bool) {
-	c.cycle.AdvanceDay(c.now())
-	return c.state.statusSnapshot(c.cycle)
+	c.timer.AdvanceDay(c.now())
+	return c.timer.StatusLine(), c.timer.State(), c.reminder.outstanding() == reminderMorning
 }
 
 func (c *Core) NextStage() (engine.State, time.Duration, bool) {
@@ -172,10 +184,10 @@ func (c *Core) NextStage() (engine.State, time.Duration, bool) {
 }
 
 func (c *Core) nextStageLocked() (engine.State, time.Duration, bool) {
-	if c.cycle.State() != engine.AwaitingConfirm {
+	if c.timer.State() != engine.AwaitingConfirm {
 		return engine.Idle, 0, false
 	}
-	next, duration := c.cycle.NextStage()
+	next, duration := c.timer.NextStage()
 	return next, duration, true
 }
 
@@ -207,7 +219,7 @@ type Response struct {
 
 func (c *Core) Execute(line string) Response {
 	c.mu.Lock()
-	c.cycle.AdvanceDay(c.now())
+	c.timer.AdvanceDay(c.now())
 	result := c.executeLocked(line)
 	resp := c.responseLocked(result)
 	c.mu.Unlock()
@@ -271,7 +283,7 @@ func (c *Core) executeLocked(line string) commandResult {
 		return c.handleFocusPromptInput(trimmed)
 	}
 	if trimmed == "" {
-		if c.cycle.State() == engine.AwaitingConfirm {
+		if c.timer.State() == engine.AwaitingConfirm {
 			return c.handleConfirm(nil)
 		}
 		return commandResult{}

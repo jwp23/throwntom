@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jwp23/throwntom/v3/internal/app"
 	"github.com/jwp23/throwntom/v3/internal/config"
 	"github.com/jwp23/throwntom/v3/internal/engine"
+	"github.com/jwp23/throwntom/v3/internal/pomodoro"
 	"github.com/jwp23/throwntom/v3/internal/session"
 	"github.com/jwp23/throwntom/v3/internal/task"
 )
@@ -61,7 +61,7 @@ func TestLoadSessionRestoresState(t *testing.T) {
 	c.sessionPath = sessPath
 	defer c.Stop()
 	c.execute(cmdStart)
-	c.cycle.CompletePeriod()
+	c.timer.CompletePeriod()
 	c.saveSession()
 
 	c2 := newCore(cfg, noopNotifier{})
@@ -114,7 +114,7 @@ func TestLoadSessionDiscardsInternallyInconsistentState(t *testing.T) {
 	// that, per completed_today and work_day_started, never happened.
 	data := session.Data{
 		SavedAt: time.Now(),
-		App: app.Snapshot{
+		Timer: pomodoro.Snapshot{
 			Engine: engine.Snapshot{
 				State:          engine.AwaitingConfirm,
 				LastPhase:      engine.ShortBreak,
@@ -280,9 +280,9 @@ func TestLoadSessionSuppressesMorningReminder(t *testing.T) {
 		t.Fatalf(fmtLoadSession, err)
 	}
 	dayKey := time.Now().Format("2006-01-02")
-	c2.state.mu.Lock()
-	gotDay := c2.state.lastTriggerDay
-	c2.state.mu.Unlock()
+	c2.reminder.mu.Lock()
+	gotDay := c2.reminder.lastTriggerDay
+	c2.reminder.mu.Unlock()
 	if gotDay != dayKey {
 		t.Fatalf("expected lastTriggerDay=%s, got %s", dayKey, gotDay)
 	}
@@ -318,7 +318,7 @@ func TestSaveLoadExpiredTimerTransitionsToAwaitingConfirm(t *testing.T) {
 	// honors the injected clock rather than depending on real elapsed time
 	// between save and restore.
 	now := savedAt.Add(time.Hour)
-	data.App.PhaseEndAt = now.Add(-5 * time.Second)
+	data.Timer.PhaseEndAt = now.Add(-5 * time.Second)
 	// The doctored session gets a file of its own. The first core is still
 	// alive and every change it publishes rewrites its own session file
 	// asynchronously, which would otherwise restore the live, unexpired phase
@@ -334,11 +334,11 @@ func TestSaveLoadExpiredTimerTransitionsToAwaitingConfirm(t *testing.T) {
 	if err := c2.loadSession(); err != nil {
 		t.Fatalf(fmtLoadSession, err)
 	}
-	state := c2.cycle.State()
+	state := c2.timer.State()
 	if state != engine.AwaitingConfirm {
 		t.Fatalf("expected AwaitingConfirm for expired timer, got %s", state)
 	}
-	c2.cycle.Stop()
+	c2.timer.Stop()
 }
 
 func TestSaveLoadPausedPreservesRemainingDuration(t *testing.T) {
@@ -360,16 +360,16 @@ func TestSaveLoadPausedPreservesRemainingDuration(t *testing.T) {
 	if err := c2.loadSession(); err != nil {
 		t.Fatalf(fmtLoadSession, err)
 	}
-	state := c2.cycle.State()
+	state := c2.timer.State()
 	if state != engine.Paused {
 		t.Fatalf("expected Paused, got %s", state)
 	}
 	c2.execute("resume")
-	state = c2.cycle.State()
+	state = c2.timer.State()
 	if state != engine.Work {
 		t.Fatalf("expected Work after resume, got %s", state)
 	}
-	c2.cycle.Stop()
+	c2.timer.Stop()
 }
 
 func TestSaveLoadCompletedTodayPersists(t *testing.T) {
@@ -384,9 +384,9 @@ func TestSaveLoadCompletedTodayPersists(t *testing.T) {
 
 	c.execute(cmdStart)
 	for i := 0; i < 3; i++ {
-		c.cycle.CompletePeriod()
+		c.timer.CompletePeriod()
 		c.execute("confirm")
-		c.cycle.CompletePeriod()
+		c.timer.CompletePeriod()
 		c.execute("confirm")
 	}
 
@@ -406,7 +406,42 @@ func TestSaveLoadCompletedTodayPersists(t *testing.T) {
 	if !strings.Contains(status2, "Today: 3") {
 		t.Fatalf("expected Today: 3 after load, got %s", status2)
 	}
-	c2.cycle.Stop()
+	c2.timer.Stop()
+}
+
+func TestLoadSessionIntoAwaitingConfirmKeepsCycleReminder(t *testing.T) {
+	dir := t.TempDir()
+	sessPath := filepath.Join(dir, testSessionFile)
+
+	savedAt := mondayAt(10, 0).Now()
+	data := session.Data{
+		SavedAt: savedAt,
+		Timer: pomodoro.Snapshot{
+			Engine: engine.Snapshot{State: engine.AwaitingConfirm, LastPhase: engine.Work, WorkDayStarted: true},
+		},
+	}
+	if err := session.Save(sessPath, data); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	cfg.RepeatSecs = 3600
+	rec := &soundRecorder{}
+	c := newCore(cfg, rec)
+	c.setClock(mondayAt(10, 0))
+	c.sessionPath = sessPath
+	defer c.Stop()
+	if err := c.loadSession(); err != nil {
+		t.Fatalf(fmtLoadSession, err)
+	}
+	if c.reminder.outstanding() != reminderCycle {
+		t.Fatal("expected the cycle reminder to survive a restore into awaiting_confirm")
+	}
+	waitForSounds(t, rec, 1)
+	if c.reminder.shouldRaiseMorning(mondayAt(9, 15).Now(), c.scheduler) {
+		t.Fatal("expected the morning reminder to still be marked owed for today")
+	}
 }
 
 func TestSessionSavedAfterMidnightResetsOnReload(t *testing.T) {
@@ -422,7 +457,7 @@ func TestSessionSavedAfterMidnightResetsOnReload(t *testing.T) {
 	c.setNow(func() time.Time { return yesterday })
 
 	c.Execute(cmdStart)
-	c.cycle.CompletePeriod()
+	c.timer.CompletePeriod()
 	c.Execute("pause")
 
 	afterMidnight := time.Date(2026, 3, 6, 0, 5, 0, 0, time.Local)

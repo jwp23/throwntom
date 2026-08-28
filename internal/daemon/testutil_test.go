@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"context"
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
@@ -35,6 +36,12 @@ func newTestCoreWithMorning(t *testing.T) *core.Core {
 	dir := t.TempDir()
 	cfg := config.Default()
 	cfg.MorningReminderPending = true
+	// A schedule active every day at midnight keeps Start raising the
+	// morning reminder deterministically, regardless of when the test runs.
+	cfg.Schedule = []config.ScheduleEntry{{
+		Days: []string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"},
+		Time: "00:00",
+	}}
 	c, err := core.New(cfg, noopNotifier{}, core.Paths{
 		Tasks:   filepath.Join(dir, "tasks.json"),
 		Session: filepath.Join(dir, "session.json"),
@@ -43,7 +50,9 @@ func newTestCoreWithMorning(t *testing.T) *core.Core {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(c.Stop)
+	ctx, cancel := context.WithCancel(context.Background())
+	c.Start(ctx)
+	t.Cleanup(func() { cancel(); c.Stop() })
 	return c
 }
 

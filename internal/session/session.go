@@ -7,14 +7,14 @@ import (
 	"os"
 	"time"
 
-	"github.com/jwp23/throwntom/v3/internal/app"
 	"github.com/jwp23/throwntom/v3/internal/atomicfile"
+	"github.com/jwp23/throwntom/v3/internal/pomodoro"
 )
 
 type Data struct {
-	SavedAt        time.Time    `json:"saved_at"`
-	App            app.Snapshot `json:"app"`
-	FocusedTaskIDs []int        `json:"focused_task_ids"`
+	SavedAt        time.Time         `json:"saved_at"`
+	Timer          pomodoro.Snapshot `json:"timer"`
+	FocusedTaskIDs []int             `json:"focused_task_ids"`
 }
 
 // sessionFileMode keeps the session readable only by its owner: the session

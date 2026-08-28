@@ -15,7 +15,7 @@ func (c *Core) saveSessionLocked() {
 	}
 	data := session.Data{
 		SavedAt:        c.now(),
-		App:            c.cycle.Snapshot(),
+		Timer:          c.timer.Snapshot(),
 		FocusedTaskIDs: c.focusedIDs(),
 	}
 	if err := session.Save(c.sessionPath, data); err != nil {
@@ -23,7 +23,7 @@ func (c *Core) saveSessionLocked() {
 	}
 }
 
-// loadSession takes the Core lock: restoring the app snapshot publishes a
+// loadSession takes the Core lock: restoring the timer snapshot publishes a
 // change, and the publish must not observe the half-restored focus list.
 func (c *Core) loadSession() error {
 	c.mu.Lock()
@@ -41,11 +41,11 @@ func (c *Core) loadSession() error {
 	if !engine.IsSameDay(data.SavedAt, c.now()) {
 		return nil
 	}
-	if reason := data.App.Engine.Invalid(); reason != "" {
+	if reason := data.Timer.Engine.Invalid(); reason != "" {
 		fmt.Fprintf(os.Stderr, "warning: discarding inconsistent session: %s\n", reason)
 		return nil
 	}
-	if err := c.cycle.Restore(data.App, c.now()); err != nil {
+	if err := c.timer.Restore(data.Timer, c.now()); err != nil {
 		return err
 	}
 	if c.tasks != nil && len(data.FocusedTaskIDs) > 0 {
@@ -59,9 +59,9 @@ func (c *Core) loadSession() error {
 			}
 		}
 	}
-	c.cycle.AdvanceDay(c.now())
-	if data.App.Engine.State != engine.Idle {
-		c.state.markSkippedToday(c.now())
+	c.timer.AdvanceDay(c.now())
+	if data.Timer.Engine.State != engine.Idle {
+		c.reminder.markTriggeredToday(c.now())
 	}
 	return nil
 }

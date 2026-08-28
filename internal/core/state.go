@@ -33,7 +33,7 @@ func (c *Core) State() State {
 
 func (c *Core) stateLocked() State {
 	statusLine, state, morningPending := c.statusLocked()
-	snap := c.cycle.Snapshot()
+	snap := c.timer.Snapshot()
 	s := State{
 		State:               state,
 		PausedRemaining:     int(snap.PausedRemaining / time.Second),
@@ -51,7 +51,7 @@ func (c *Core) stateLocked() State {
 	if next, dur, ok := c.nextStageLocked(); ok {
 		s.NextStage = &NextStage{State: next, DurationSeconds: int(dur / time.Second)}
 	}
-	if until, ok := c.state.snoozeDeadline(); ok {
+	if until, ok := c.reminder.snoozeDeadline(); ok {
 		s.SnoozeUntil = &until
 	}
 	return s

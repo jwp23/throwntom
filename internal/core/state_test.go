@@ -44,7 +44,7 @@ func TestStateAwaitingConfirmHasNextStage(t *testing.T) {
 	cfg.MorningReminderPending = false
 	c := newCore(cfg, noopNotifier{})
 	c.execute(cmdStart)
-	c.cycle.CompletePeriod()
+	c.timer.CompletePeriod()
 
 	s := c.State()
 	if s.NextStage == nil || s.NextStage.State != engine.ShortBreak || s.NextStage.DurationSeconds != 300 {
@@ -71,11 +71,15 @@ func TestStatePausedRemaining(t *testing.T) {
 func TestStateSnoozeUntil(t *testing.T) {
 	cfg := config.Default()
 	c := newCore(cfg, noopNotifier{})
+	c.reminder.raise(reminderMorning)
+	defer c.reminder.cancel()
 	c.execute("snooze 10")
-
 	s := c.State()
 	if s.SnoozeUntil == nil || !s.SnoozeUntil.After(time.Now().Add(9*time.Minute)) {
 		t.Fatalf("expected snooze_until ~10m ahead, got %+v", s.SnoozeUntil)
+	}
+	if !s.MorningPending {
+		t.Fatal("expected morning_pending true while the morning reminder is snoozed")
 	}
 }
 

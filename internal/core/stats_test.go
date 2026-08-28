@@ -104,7 +104,7 @@ func TestStartLogsEvent(t *testing.T) {
 func TestConfirmLogsCompletionAndStart(t *testing.T) {
 	c, path := newCoreWithEvents(t)
 	c.execute("start")
-	c.cycle.CompletePeriod()
+	c.timer.CompletePeriod()
 	c.execute("confirm")
 	events := readEvents(t, path)
 	if !hasEventType(events, "pomodoro_completed") {
@@ -132,17 +132,21 @@ func TestPauseResumeLogEvents(t *testing.T) {
 
 func TestSnoozeLogsEvent(t *testing.T) {
 	c, path := newCoreWithEvents(t)
-	// Start morning loop to enable morning snooze path
-	startMorningLoop(c.state, c.reminderPolicy, c.notifier)
+	// Raise the morning reminder to enable the morning snooze path
+	c.reminder.raise(reminderMorning)
 	c.execute("snooze 5m")
 	events := readEvents(t, path)
 	if !hasEventType(events, "snoozed") {
 		t.Fatal("expected snoozed event")
 	}
-	// Also test cycle snooze path
-	c.execute("start")
-	c.cycle.CompletePeriod()
-	c.execute("snooze 5m")
+	// The onTransition hook raises a fresh cycle reminder at awaiting_confirm,
+	// so a second snooze there succeeds and logs its own event.
+	c.execute(cmdStart)
+	c.timer.CompletePeriod()
+	result := c.execute("snooze 5m")
+	if result.err != nil {
+		t.Fatalf(fmtSnoozeFailed, result.err)
+	}
 	events = readEvents(t, path)
 	snoozedCount := 0
 	for _, ev := range events {
@@ -153,6 +157,7 @@ func TestSnoozeLogsEvent(t *testing.T) {
 	if snoozedCount != 2 {
 		t.Fatalf("expected 2 snoozed events, got %d", snoozedCount)
 	}
+	c.reminder.cancel()
 }
 
 func TestSkipTodayLogsEvent(t *testing.T) {

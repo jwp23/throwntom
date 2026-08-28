@@ -19,7 +19,7 @@ var (
 
 // refusals are the sentinels for commands the current state does not allow;
 // classifyError maps them to ErrorRefused.
-var refusals = []error{errNotRunning, errNotPaused, errNotWorkSession, errAlreadyFocused}
+var refusals = []error{errNotRunning, errNotPaused, errNotWorkSession, errAlreadyFocused, errNoReminder}
 
 func (c *Core) buildCommandHandlers() map[string]commandHandler {
 	return map[string]commandHandler{
@@ -41,26 +41,23 @@ func (c *Core) buildCommandHandlers() map[string]commandHandler {
 }
 
 func (c *Core) handleStart(_ []string) commandResult {
-	c.state.stopMorningLoop()
-	c.state.clearSnooze()
+	c.reminder.cancel()
 	if c.tasks != nil {
 		return c.enterFocusPrompt("start")
 	}
-	c.cycle.Start()
+	c.timer.Start()
 	c.logEvent("pomodoro_started", nil)
 	return commandResult{message: "Pomodoro started -- let's go!"}
 }
 
 func (c *Core) handleNewCycle(_ []string) commandResult {
-	c.state.stopMorningLoop()
-	c.state.clearSnooze()
-	c.cycle.StartNewCycle()
+	c.timer.StartNewCycle()
 	c.logEvent("pomodoro_started", nil)
 	return commandResult{message: "New cycle started -- fresh start!"}
 }
 
 func (c *Core) handlePause(_ []string) commandResult {
-	if !c.cycle.Pause() {
+	if !c.timer.Pause() {
 		return commandResult{err: errNotRunning}
 	}
 	c.logEvent("paused", nil)
@@ -68,7 +65,7 @@ func (c *Core) handlePause(_ []string) commandResult {
 }
 
 func (c *Core) handleResume(_ []string) commandResult {
-	if !c.cycle.Resume() {
+	if !c.timer.Resume() {
 		return commandResult{err: errNotPaused}
 	}
 	c.logEvent("resumed", nil)
@@ -76,16 +73,16 @@ func (c *Core) handleResume(_ []string) commandResult {
 }
 
 func (c *Core) handleStop(_ []string) commandResult {
-	c.cycle.Stop()
+	c.timer.Stop()
 	c.focused = nil
 	return commandResult{message: "Stopped. Back to idle."}
 }
 
 func (c *Core) handleConfirm(_ []string) commandResult {
-	snap := c.cycle.Snapshot()
+	snap := c.timer.Snapshot()
 	c.logConfirmCompletion(snap.Engine.LastPhase)
-	c.cycle.Confirm()
-	state := c.cycle.State()
+	c.timer.Confirm()
+	state := c.timer.State()
 	c.logConfirmStart(state)
 	if state == engine.Work && c.tasks != nil && len(c.focused) == 0 {
 		return c.enterFocusPrompt("confirm")
@@ -120,34 +117,17 @@ func (c *Core) handleSnooze(parts []string) commandResult {
 	if err != nil {
 		return commandResult{err: err}
 	}
-	snoozeSecs := int(parsed.Seconds())
-	if c.state.isMorningPending() {
-		c.state.stopMorningLoop()
-		c.state.setSnoozeUntil(c.now().Add(parsed))
-		state := c.state
-		policy := c.reminderPolicy
-		n := c.notifier
-		cycle := c.cycle
-		go func() {
-			time.Sleep(parsed)
-			if cycle.State() != engine.Idle {
-				return
-			}
-			state.clearSnooze()
-			startMorningLoop(state, policy, n)
-		}()
-		c.logEvent("snoozed", map[string]any{"duration_secs": snoozeSecs})
-		return commandResult{message: fmt.Sprintf("morning reminder snoozed for %s", parsed)}
+	kind, err := c.reminder.suppress(c.now().Add(parsed))
+	if err != nil {
+		return commandResult{err: err}
 	}
-	c.cycle.Snooze(parsed)
-	c.logEvent("snoozed", map[string]any{"duration_secs": snoozeSecs})
-	return commandResult{message: fmt.Sprintf("cycle reminder snoozed for %s", parsed)}
+	c.logEvent("snoozed", map[string]any{"duration_secs": int(parsed.Seconds())})
+	return commandResult{message: fmt.Sprintf("%s reminder snoozed for %s", kind.label(), parsed)}
 }
 
 func (c *Core) handleSkipToday(_ []string) commandResult {
-	c.state.stopMorningLoop()
-	c.state.markSkippedToday(c.now())
-	c.cycle.SkipToday()
+	c.reminder.skipToday(c.now())
+	c.timer.SkipToday()
 	c.logEvent("skipped_today", nil)
 	return commandResult{message: "Skipped reminders for today."}
 }
@@ -164,7 +144,7 @@ func (c *Core) handleStatus(_ []string) commandResult {
 }
 
 func (c *Core) handleQuit(_ []string) commandResult {
-	c.state.stopMorningLoop()
+	c.reminder.cancel()
 	return commandResult{message: "See you next time!", exit: true}
 }
 
@@ -179,6 +159,9 @@ func parseSnoozeDuration(parts []string) (time.Duration, error) {
 	d, err := time.ParseDuration(raw)
 	if err != nil {
 		return 0, fmt.Errorf("invalid duration: %v", err)
+	}
+	if d <= 0 {
+		return 0, fmt.Errorf("snooze duration must be positive")
 	}
 	return d, nil
 }

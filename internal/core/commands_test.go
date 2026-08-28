@@ -14,18 +14,18 @@ func TestEmptyInputInAwaitingConfirmAdvances(t *testing.T) {
 	cfg.MorningReminderPending = false
 	c := newCore(cfg, noopNotifier{})
 	c.execute(cmdStart)
-	c.cycle.CompletePeriod()
-	if c.cycle.State() != engine.AwaitingConfirm {
-		t.Fatalf("precondition: expected AwaitingConfirm, got %s", c.cycle.State())
+	c.timer.CompletePeriod()
+	if c.timer.State() != engine.AwaitingConfirm {
+		t.Fatalf("precondition: expected AwaitingConfirm, got %s", c.timer.State())
 	}
 
 	c.execute("")
 
-	if c.cycle.State() == engine.AwaitingConfirm {
+	if c.timer.State() == engine.AwaitingConfirm {
 		t.Fatalf("expected empty input to advance out of AwaitingConfirm")
 	}
-	if c.cycle.State() != engine.ShortBreak {
-		t.Fatalf("expected ShortBreak after confirm, got %s", c.cycle.State())
+	if c.timer.State() != engine.ShortBreak {
+		t.Fatalf("expected ShortBreak after confirm, got %s", c.timer.State())
 	}
 }
 
@@ -34,20 +34,20 @@ func TestEmptyInputOutsideAwaitingConfirmIsNoop(t *testing.T) {
 	cfg.MorningReminderPending = false
 	c := newCore(cfg, noopNotifier{})
 
-	before := c.cycle.State()
+	before := c.timer.State()
 	result := c.execute("")
 	if result.err != nil {
 		t.Fatalf("unexpected error on empty input: %v", result.err)
 	}
-	if c.cycle.State() != before {
-		t.Fatalf("empty input should not change state, got %s → %s", before, c.cycle.State())
+	if c.timer.State() != before {
+		t.Fatalf("empty input should not change state, got %s → %s", before, c.timer.State())
 	}
 
 	c.execute(cmdStart)
-	workBefore := c.cycle.State()
+	workBefore := c.timer.State()
 	c.execute("")
-	if c.cycle.State() != workBefore {
-		t.Fatalf("empty input during work should not change state, got %s → %s", workBefore, c.cycle.State())
+	if c.timer.State() != workBefore {
+		t.Fatalf("empty input during work should not change state, got %s → %s", workBefore, c.timer.State())
 	}
 }
 
@@ -56,12 +56,12 @@ func TestTypedConfirmStillAdvances(t *testing.T) {
 	cfg.MorningReminderPending = false
 	c := newCore(cfg, noopNotifier{})
 	c.execute(cmdStart)
-	c.cycle.CompletePeriod()
+	c.timer.CompletePeriod()
 
 	c.execute("confirm")
 
-	if c.cycle.State() != engine.ShortBreak {
-		t.Fatalf("expected ShortBreak after typed confirm, got %s", c.cycle.State())
+	if c.timer.State() != engine.ShortBreak {
+		t.Fatalf("expected ShortBreak after typed confirm, got %s", c.timer.State())
 	}
 }
 
@@ -71,7 +71,7 @@ func TestNewCycleCommandResetsCycleProgressButKeepsDailyTotal(t *testing.T) {
 	c := newCore(cfg, noopNotifier{})
 
 	c.execute(cmdStart)
-	c.cycle.CompletePeriod()
+	c.timer.CompletePeriod()
 	before, _, _ := c.Status()
 	if !strings.Contains(before, statusTodayPomodoros1) {
 		t.Fatalf("expected baseline daily total, got %s", before)
@@ -135,6 +135,7 @@ func TestExecuteClassifiesErrors(t *testing.T) {
 	}{
 		{"unknown command", "bogus", ErrorUsage},
 		{"bad snooze duration", "snooze bogus", ErrorUsage},
+		{"snooze with nothing outstanding", "snooze 5m", ErrorRefused},
 		{"missing task argument", "task done", ErrorUsage},
 		{"task out of range", "task done 99", ErrorUsage},
 		{"unknown task subcommand", "task bogus", ErrorUsage},
