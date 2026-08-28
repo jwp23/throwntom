@@ -23,11 +23,11 @@ The pomodoro lives in three packages, each with one job:
 
 At most one reminder is outstanding at any moment. The morning reminder only
 fires while idle; the cycle reminder only at `awaiting_confirm`; those states
-are mutually exclusive. So `core` holds a single `reminder` value, not one per
+are mutually exclusive. So `core` holds a single `outstandingReminder` value, not one per
 kind.
 
 ```go
-type reminder struct {
+type outstandingReminder struct {
     mu             sync.Mutex
     kind           reminderKind // none | morning | cycle
     snoozeUntil    time.Time    // non-zero: outstanding but suppressed
