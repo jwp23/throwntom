@@ -151,4 +151,15 @@ final class ReminderBannerTests: XCTestCase {
 
         XCTAssertEqual(banner, .withdraw)
     }
+
+    /// The same stale-banner bug again, without any state transition at all: authorization is
+    /// lost between two frames that report the identical wait, so the early "nothing changed"
+    /// return must not skip the authorization check.
+    func testALostAuthorizationWithdrawsAStaleBannerAcrossRepeatedFramesOfTheSameWait() {
+        let waiting = makeState(phase: .awaitingConfirm, nextStage: shortBreak)
+
+        let banner = decide(from: waiting, to: waiting, authorization: .reported(.denied))
+
+        XCTAssertEqual(banner, .withdraw)
+    }
 }

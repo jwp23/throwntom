@@ -39,12 +39,13 @@ enum ReminderBanner: Equatable {
 
     static func decide(from previous: DaemonState?, to current: DaemonState?,
                        authorization: ReminderAuthorization) -> ReminderBanner {
-        let waiting = waitingKind(current)
-        guard waiting != waitingKind(previous) else { return .unchanged }
-        guard let waiting, let current else { return .withdraw }
+        let previousWaiting = waitingKind(previous)
         guard authorization.willDeliver else {
-            return waitingKind(previous) == nil ? .unchanged : .withdraw
+            return previousWaiting == nil ? .unchanged : .withdraw
         }
+        let waiting = waitingKind(current)
+        guard waiting != previousWaiting else { return .unchanged }
+        guard let waiting, let current else { return .withdraw }
         switch waiting {
         case .cycle:
             return .post(title: title, body: current.nextStage?.summary ?? unnamedStage)
