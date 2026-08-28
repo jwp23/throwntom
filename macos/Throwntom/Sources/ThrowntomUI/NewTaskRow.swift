@@ -22,15 +22,16 @@ struct NewTaskRow: View {
   var alert: () -> Void = { NSSound.beep() }
 
   var body: some View {
-    TextField("New task", text: Binding(
-      get: { model.draft ?? "" },
-      set: { model.draft = $0 },
-    ))
-    .textFieldStyle(.roundedBorder)
-    .focused($focused)
-    .onAppear { focused = true }
-    .onSubmit { submit() }
-    .onExitCommand { model.cancelEdit() }
+    TextField("New task", text: $text)
+      .textFieldStyle(.roundedBorder)
+      .focused($focused)
+      .onAppear {
+        text = model.draft ?? ""
+        focused = true
+      }
+      .onChange(of: text) { model.draft = text }
+      .onSubmit { submit() }
+      .onExitCommand { model.cancelEdit() }
   }
 
   /// Closes the row and says what its draft came to.
@@ -58,5 +59,6 @@ struct NewTaskRow: View {
   // MARK: Private
 
   @FocusState private var focused: Bool
+  @State private var text = ""
 
 }
