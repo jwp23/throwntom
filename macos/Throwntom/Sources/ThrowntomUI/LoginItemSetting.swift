@@ -25,7 +25,14 @@ struct LoginItemSetting: Equatable {
   /// nil while nothing has gone wrong, which leaves the agent's own status showing instead.
   var message: String?
 
-  static func afterSetting(_ enabled: Bool, in registrar: LoginItemRegistrar) -> LoginItemSetting {
+  /// `current` is what the toggle already shows. A failed change snaps `isOn` back to
+  /// `registrar.loginItemEnabled`, which re-fires the toggle's `onChange` with that same value;
+  /// without this guard the bounce would ask the registrar to do nothing and, on success, wipe
+  /// the failure message the first call just set.
+  static func afterSetting(_ enabled: Bool, in registrar: LoginItemRegistrar, current: LoginItemSetting) -> LoginItemSetting {
+    guard enabled != registrar.loginItemEnabled else {
+      return current
+    }
     do {
       try registrar.setLoginItem(enabled)
       return LoginItemSetting(isOn: enabled, message: nil)
