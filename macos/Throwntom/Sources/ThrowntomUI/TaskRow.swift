@@ -9,6 +9,8 @@ struct TaskRow: View {
     HStack {
       Image(systemName: focused ? "star.fill" : "circle")
         .foregroundStyle(focused ? .yellow : .secondary)
+        .accessibilityLabel("Focused")
+        .accessibilityHidden(!focused)
       Text(task.description)
         .strikethrough(task.done)
         .foregroundStyle(task.done ? .secondary : .primary)
