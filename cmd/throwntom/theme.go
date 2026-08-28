@@ -98,7 +98,11 @@ func nextStageLabel(next engine.State, duration time.Duration) string {
 	phrase := core.FriendlyStateName(next)
 	minutes := int(duration / time.Minute)
 	colored := stateStyle(next).Render(fmt.Sprintf("%s (%d min)", phrase, minutes))
-	return fmt.Sprintf("Next: %s — press enter to start", colored)
+	return fmt.Sprintf("Next: %s — press enter to start, or snooze to hold your place", colored)
+}
+
+func morningPendingHint() string {
+	return "Reminder waiting — start to begin, snooze to wait, or skip-today to silence it"
 }
 
 type frameInput struct {
@@ -136,6 +140,8 @@ func renderThemedFrame(f frameInput) string {
 	parts = append(parts, clampANSILine(statusRendered, f.Width))
 	if f.Secondary != "" {
 		parts = append(parts, clampANSILine(f.Secondary, f.Width))
+	} else if f.MorningPending {
+		parts = append(parts, clampANSILine(morningPendingHint(), f.Width))
 	}
 	for _, line := range strings.Split(msgLine, "\n") {
 		parts = append(parts, clampANSILine(line, f.Width))

@@ -9,6 +9,26 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/engine"
 )
 
+func TestHelpExplainsSnoozeIsNonDestructive(t *testing.T) {
+	help := Help()
+	snoozeLine := ""
+	stopLine := ""
+	for _, line := range strings.Split(help, "\n") {
+		if strings.Contains(line, "snooze <duration>") {
+			snoozeLine = line
+		}
+		if strings.HasPrefix(strings.TrimSpace(line), "stop ") {
+			stopLine = line
+		}
+	}
+	if !strings.Contains(snoozeLine, "keep") {
+		t.Fatalf("expected snooze help to say what it keeps, got %q", snoozeLine)
+	}
+	if !strings.Contains(stopLine, "forget") {
+		t.Fatalf("expected stop help to warn it forgets the owed phase, got %q", stopLine)
+	}
+}
+
 func TestEmptyInputInAwaitingConfirmAdvances(t *testing.T) {
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
