@@ -17,7 +17,7 @@ import (
 // mondayAt returns a clock set to Monday 2 March 2026 at the given hour, on
 // either side of the default 09:15 schedule.
 func mondayAt(hour, minute int) *fakeClock {
-	return newFakeClock(time.Date(2026, 3, 2, hour, minute, 0, 0, time.Local))
+	return newFakeClock(time.Date(2026, 3, 2, hour, minute, 0, 0, time.UTC))
 }
 
 func startedCore(t *testing.T, cfg config.Config, clk *fakeClock) *Core {
@@ -230,7 +230,7 @@ func TestStartTwicePanics(t *testing.T) {
 	defer c.Stop()
 
 	defer func() {
-		if r := recover(); r == nil {
+		if recover() == nil {
 			t.Fatal("expected second Start to panic")
 		}
 	}()
