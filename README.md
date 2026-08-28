@@ -173,13 +173,13 @@ Schedule supports day aliases: `"weekday"` expands to Mon-Fri, `"weekend"` to Sa
 - `cmd/throwntom/` — main binary: CLI entry point, Bubble Tea model, rendering
 - `cmd/throwntomd/` — daemon binary: background process serving the JSON API
 - `internal/analytics/` — productivity dashboard computation
-- `internal/pomodoro/` — the pomodoro timer: the engine with a wall clock on it
 - `internal/config/` — TOML config parsing
 - `internal/core/` — timer/task/reminder orchestration shared by the TUI and daemon
 - `internal/daemon/` — daemon HTTP API, socket lifecycle and shutdown
 - `internal/engine/` — pomodoro state machine
 - `internal/eventlog/` — append-only event log
 - `internal/notifier/` — desktop notifications and sound
+- `internal/pomodoro/` — the pomodoro timer: the engine with a wall clock on it
 - `internal/reminder/` — reminder scheduling
 - `internal/scheduler/` — work schedule (days/times)
 - `internal/session/` — session persistence

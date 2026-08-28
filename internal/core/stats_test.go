@@ -157,6 +157,8 @@ func TestSnoozeLogsEvent(t *testing.T) {
 	if snoozedCount != 2 {
 		t.Fatalf("expected 2 snoozed events, got %d", snoozedCount)
 	}
+	// Cancel the outstanding snooze deadline so its timer doesn't fire
+	// and log another event after the test has finished.
 	c.reminder.cancel()
 }
 
