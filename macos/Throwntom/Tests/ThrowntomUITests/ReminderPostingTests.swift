@@ -81,6 +81,16 @@ final class ReminderPostingTests: XCTestCase {
         XCTAssertEqual(presenter.posts, [.init(title: "Throwntom", body: "Short break 5 min")])
     }
 
+    func testTheAppPostsTheMorningNudgeTheDaemonIsWaitingOn() async throws {
+        let presenter = StubReminderPresenter()
+        let responder = try makeResponder(presenter)
+
+        await responder.present(makeState(phase: .idle, morningPending: true))
+
+        XCTAssertEqual(presenter.morningPosts, [.init(title: "Throwntom", body: "Ready to start your day?")])
+        XCTAssertTrue(presenter.posts.isEmpty)
+    }
+
     private func makeResponder(_ presenter: StubReminderPresenter) throws -> ReminderResponder {
         AppEnvironment(transport: try StubTransport(states: []), presenter: presenter).responder
     }
