@@ -9,8 +9,15 @@ public enum ConnectionStatus {
     }
     switch connection {
     case .startingDaemon: return "Starting timer…"
+
     case .connecting,
-         .reconnecting: return state.map { Countdown.tickedStatusLine($0, now: now) + " (reconnecting)" } ?? "Throwntom…"
+         .reconnecting:
+      return if let state {
+        Countdown.tickedStatusLine(state, now: now) + " (reconnecting)"
+      } else {
+        "Throwntom…"
+      }
+
     case .connected: return "Throwntom"
     }
   }

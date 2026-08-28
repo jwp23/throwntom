@@ -83,13 +83,20 @@ public enum TimerActions {
   public static func available(for state: DaemonState) -> [TimerAction] {
     switch state.state {
     case .idle:
-      state.morningPending ? [.start, .newCycle, .snooze, .skipToday] : [.start, .newCycle, .skipToday]
+      if state.morningPending {
+        [.start, .newCycle, .snooze, .skipToday]
+      } else {
+        [.start, .newCycle, .skipToday]
+      }
+
     case .work,
          .shortBreak,
          .longBreak:
       [.pause]
+
     case .paused:
       [.resume]
+
     case .awaitingConfirm:
       [.confirm, .snooze, .newCycle]
     }
