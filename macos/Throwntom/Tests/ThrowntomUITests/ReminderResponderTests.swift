@@ -41,6 +41,19 @@ final class ReminderResponderTests: XCTestCase {
     XCTAssertTrue(transport.commands.isEmpty)
   }
 
+  func testRefusedButtonSurfacesOnTheClientInsteadOfBeingSwallowed() async throws {
+    let transport = try StubTransport(states: [])
+    transport.commandStatus = 409
+    let environment = AppEnvironment(transport: transport)
+    let responder = environment.responder
+    let reported = expectation(description: "macOS is told the answer was handled")
+
+    responder.respond(to: ReminderNotification.Action.confirm.rawValue) { reported.fulfill() }
+
+    await fulfillment(of: [reported], timeout: 5)
+    XCTAssertNotNil(environment.client.unresolvedError)
+  }
+
   func testTheReminderIsShownEvenWhileThrowntomIsFrontmost() {
     XCTAssertTrue(ReminderResponder.presentationOptions.contains(.banner))
   }

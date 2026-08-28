@@ -140,7 +140,11 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
       return
     }
     Task { @MainActor in
-      try? await ReminderNotification.answer(action, using: client)
+      do {
+        try await ReminderNotification.answer(action, using: client)
+      } catch {
+        // Already recorded on `client` for the popover caption; nothing more to do here.
+      }
       completion()
     }
   }
