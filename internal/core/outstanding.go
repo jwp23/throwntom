@@ -145,10 +145,17 @@ func (r *outstandingReminder) cancel() {
 
 // skipToday cancels and marks the morning reminder as already fired today.
 func (r *outstandingReminder) skipToday(now time.Time) {
+	r.markTriggeredToday(now)
+	r.cancel()
+}
+
+// markTriggeredToday records that the morning reminder is owed no more
+// today, without touching whatever reminder is outstanding. Restoring a
+// session that was already past the morning uses it.
+func (r *outstandingReminder) markTriggeredToday(now time.Time) {
 	r.mu.Lock()
 	r.lastTriggerDay = dayKey(now)
 	r.mu.Unlock()
-	r.cancel()
 }
 
 // shouldRaiseMorning reports whether the schedule wants the morning reminder

@@ -409,6 +409,41 @@ func TestSaveLoadCompletedTodayPersists(t *testing.T) {
 	c2.timer.Stop()
 }
 
+func TestLoadSessionIntoAwaitingConfirmKeepsCycleReminder(t *testing.T) {
+	dir := t.TempDir()
+	sessPath := filepath.Join(dir, testSessionFile)
+
+	savedAt := mondayAt(10, 0).Now()
+	data := session.Data{
+		SavedAt: savedAt,
+		Timer: pomodoro.Snapshot{
+			Engine: engine.Snapshot{State: engine.AwaitingConfirm, LastPhase: engine.Work, WorkDayStarted: true},
+		},
+	}
+	if err := session.Save(sessPath, data); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	cfg.RepeatSecs = 3600
+	rec := &soundRecorder{}
+	c := newCore(cfg, rec)
+	c.setClock(mondayAt(10, 0))
+	c.sessionPath = sessPath
+	defer c.Stop()
+	if err := c.loadSession(); err != nil {
+		t.Fatalf(fmtLoadSession, err)
+	}
+	if c.reminder.outstanding() != reminderCycle {
+		t.Fatal("expected the cycle reminder to survive a restore into awaiting_confirm")
+	}
+	waitForSounds(t, rec, 1)
+	if c.reminder.shouldRaiseMorning(mondayAt(9, 15).Now(), c.scheduler) {
+		t.Fatal("expected the morning reminder to still be marked owed for today")
+	}
+}
+
 func TestSessionSavedAfterMidnightResetsOnReload(t *testing.T) {
 	dir := t.TempDir()
 	sessPath := filepath.Join(dir, testSessionFile)

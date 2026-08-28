@@ -126,7 +126,8 @@ snapshot under `timer`; on load, `Timer.Restore` fires the transition hook,
 and landing in `awaiting_confirm` raises the cycle reminder. The morning
 reminder is raised by `Core.Start` when the config marks it pending, the timer
 is idle, and the schedule is active; a session restored in any other state
-marks today skipped.
+marks the morning reminder as already owed for today, without cancelling the
+reminder the restore itself raised.
 
 A snooze does not survive a restart: the reminder rings again as soon as the
 daemon is back. Persisting the deadline is one field on the session document
