@@ -128,4 +128,27 @@ final class ReminderBannerTests: XCTestCase {
 
         XCTAssertEqual(banner, .unchanged)
     }
+
+    /// If authorization is withdrawn while a cycle banner is showing and the daemon jumps
+    /// straight to the morning wait, the stale cycle banner must come down even though nothing
+    /// new can be posted in its place.
+    func testALostAuthorizationWithdrawsAStaleCycleBannerBeforeTheMorningWait() {
+        let banner = decide(
+            from: makeState(phase: .awaitingConfirm, nextStage: shortBreak),
+            to: makeState(phase: .idle, morningPending: true),
+            authorization: .reported(.denied))
+
+        XCTAssertEqual(banner, .withdraw)
+    }
+
+    /// The same stale-banner bug, the other direction: a morning banner is showing when
+    /// authorization is lost and the daemon moves straight to the cycle wait.
+    func testALostAuthorizationWithdrawsAStaleMorningBannerBeforeTheCycleWait() {
+        let banner = decide(
+            from: makeState(phase: .idle, morningPending: true),
+            to: makeState(phase: .awaitingConfirm, nextStage: shortBreak),
+            authorization: .reported(.denied))
+
+        XCTAssertEqual(banner, .withdraw)
+    }
 }

@@ -42,7 +42,9 @@ enum ReminderBanner: Equatable {
         let waiting = waitingKind(current)
         guard waiting != waitingKind(previous) else { return .unchanged }
         guard let waiting, let current else { return .withdraw }
-        guard authorization.willDeliver else { return .unchanged }
+        guard authorization.willDeliver else {
+            return waitingKind(previous) == nil ? .unchanged : .withdraw
+        }
         switch waiting {
         case .cycle:
             return .post(title: title, body: current.nextStage?.summary ?? unnamedStage)
