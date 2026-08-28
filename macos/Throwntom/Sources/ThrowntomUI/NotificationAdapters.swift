@@ -23,11 +23,15 @@ struct SystemNotificationAuthorizer: NotificationAuthorizer {
 /// The real notification centre's reminder banner.
 struct SystemReminderPresenter: ReminderPresenter {
     func registerReminderButtons() {
-        UNUserNotificationCenter.current().setNotificationCategories([ReminderAlert.category])
+        UNUserNotificationCenter.current().setNotificationCategories([ReminderAlert.category, ReminderAlert.morningCategory])
     }
 
     func postReminder(title: String, body: String) async throws {
         try await UNUserNotificationCenter.current().add(ReminderAlert.request(title: title, body: body))
+    }
+
+    func postMorningReminder(title: String, body: String) async throws {
+        try await UNUserNotificationCenter.current().add(ReminderAlert.morningRequest(title: title, body: body))
     }
 
     /// Takes the banner off screen whether the user has seen it or not: a reminder that has been

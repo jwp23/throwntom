@@ -43,6 +43,11 @@ type Core struct {
 	// morningPending is the config's answer to whether today's morning
 	// reminder is still owed at start-up.
 	morningPending bool
+	// stopSchedule ends the schedule tick started by Start; Stop calls it and
+	// waits on scheduleDone so no tick can run after Stop returns, regardless
+	// of whether the caller's ctx has been cancelled.
+	stopSchedule context.CancelFunc
+	scheduleDone chan struct{}
 	// afterFinalPublish runs between Stop's final publish and the flag that
 	// ends publishing. It is the seam a test uses to drive a publish into that
 	// window; nothing in production sets it.
@@ -138,7 +143,13 @@ func New(cfg config.Config, n notifier.Notifier, paths Paths) (*Core, error) {
 func (c *Core) Start(ctx context.Context) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	go c.runMorningSchedule(ctx)
+	scheduleCtx, cancel := context.WithCancel(ctx)
+	c.stopSchedule = cancel
+	c.scheduleDone = make(chan struct{})
+	go func() {
+		defer close(c.scheduleDone)
+		c.runMorningSchedule(scheduleCtx)
+	}()
 	if c.morningPending && c.timer.State() == engine.Idle && c.scheduler.IsActiveNow(c.now()) {
 		c.reminder.raise(reminderMorning)
 	}
@@ -150,6 +161,17 @@ func (c *Core) Start(ctx context.Context) {
 // true: every other publish takes publishMu first, so one already queued
 // cannot slip between them.
 func (c *Core) Stop() {
+	// Stop the schedule tick and wait for it to exit before taking c.mu:
+	// tickMorning takes c.mu itself, so waiting first (rather than while
+	// holding the lock) lets an in-flight tick finish instead of deadlocking.
+	c.mu.Lock()
+	stopSchedule, scheduleDone := c.stopSchedule, c.scheduleDone
+	c.mu.Unlock()
+	if stopSchedule != nil {
+		stopSchedule()
+		<-scheduleDone
+	}
+
 	c.mu.Lock()
 	c.timer.AdvanceDay(c.now())
 	c.reminder.cancel()

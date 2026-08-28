@@ -6,6 +6,10 @@ import Foundation
 public enum ReminderNotification {
     public static let categoryIdentifier = "com.jwp23.throwntom.reminder"
 
+    /// The morning nudge's own category: its own action set (Start now / Snooze / Skip today)
+    /// rather than the cycle reminder's Snooze/Confirm.
+    public static let morningCategoryIdentifier = "com.jwp23.throwntom.reminder.morning"
+
     /// One reminder is outstanding at a time, so reusing this identifier means a
     /// new reminder replaces the previous banner instead of stacking on it.
     public static let requestIdentifier = "com.jwp23.throwntom.reminder.pending"
@@ -14,14 +18,24 @@ public enum ReminderNotification {
     public enum Action: String, CaseIterable, Sendable {
         case snooze = "com.jwp23.throwntom.reminder.snooze"
         case confirm = "com.jwp23.throwntom.reminder.confirm"
+        case start = "com.jwp23.throwntom.reminder.start"
+        case skipToday = "com.jwp23.throwntom.reminder.skip-today"
 
         public var title: String {
             switch self {
             case .snooze: return TimerAction.snooze.title
             case .confirm: return TimerAction.confirm.title
+            case .start: return TimerAction.start.title
+            case .skipToday: return TimerAction.skipToday.title
             }
         }
     }
+
+    /// The cycle reminder's buttons: confirm the next stage, or snooze it.
+    public static let cycleActions: [Action] = [.snooze, .confirm]
+
+    /// The morning nudge's buttons: start the day, snooze, or skip it entirely.
+    public static let morningActions: [Action] = [.start, .snooze, .skipToday]
 
     /// nil for the responses macOS raises that are not one of our buttons, such
     /// as a plain click or a dismissal.
@@ -35,6 +49,8 @@ public enum ReminderNotification {
         switch action {
         case .snooze: try await client.snooze(minutes: TimerActions.defaultSnoozeMinutes)
         case .confirm: try await client.timer(.confirm)
+        case .start: try await client.timer(.start)
+        case .skipToday: try await client.timer(.skipToday)
         }
     }
 }

@@ -35,9 +35,10 @@ func (k reminderKind) label() string {
 		return "morning"
 	case reminderCycle:
 		return "cycle"
-	default:
+	case reminderNone:
 		return ""
 	}
+	return ""
 }
 
 // stopper cancels a callback scheduled through after.

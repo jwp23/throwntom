@@ -62,6 +62,7 @@ final class StubReminderPresenter: ReminderPresenter {
 
     private(set) var registeredButtons = false
     private(set) var posts: [Post] = []
+    private(set) var morningPosts: [Post] = []
     private(set) var withdrawals = 0
 
     func registerReminderButtons() {
@@ -71,6 +72,11 @@ final class StubReminderPresenter: ReminderPresenter {
     func postReminder(title: String, body: String) async throws {
         if let refusal { throw refusal }
         posts.append(Post(title: title, body: body))
+    }
+
+    func postMorningReminder(title: String, body: String) async throws {
+        if let refusal { throw refusal }
+        morningPosts.append(Post(title: title, body: body))
     }
 
     func withdrawReminder() {

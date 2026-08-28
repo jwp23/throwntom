@@ -196,6 +196,25 @@ func TestScheduleTickIgnoresBusyTimer(t *testing.T) {
 	c.timer.Stop()
 }
 
+// TestStopStopsScheduleTick shows that Stop ends the schedule tick itself,
+// rather than relying on the caller to cancel ctx first: Start is handed a
+// ctx that is never cancelled, so the only thing that can end the tick is
+// Stop.
+func TestStopStopsScheduleTick(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+	c.setClock(mondayAt(9, 15))
+	c.Start(context.Background())
+	c.Stop()
+
+	time.Sleep(1200 * time.Millisecond)
+	if c.reminder.outstanding() == reminderMorning {
+		c.reminder.cancel()
+		t.Fatal("expected no morning reminder to raise after Stop")
+	}
+}
+
 // awaitingCore returns a started core sitting at awaiting_confirm with a
 // recorder on the sound, the morning reminder out of the way.
 func awaitingCore(t *testing.T) (*Core, *soundRecorder, *fakeClock) {
