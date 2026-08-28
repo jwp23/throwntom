@@ -38,6 +38,17 @@ final class CountdownTests: XCTestCase {
     XCTAssertEqual(Countdown.formatRemaining(6000), "100:00")
   }
 
+  /// `clock` above only matches a colon separator; a locale-sensitive formatter risks a comma
+  /// or period instead. `fi_FI` is known to use a period for this pattern, so it would catch a
+  /// regression back to the unlocalized `Duration.TimeFormatStyle`.
+  func testFormatRemainingStaysColonSeparatedRegardlessOfSystemLocale() {
+    let fi = Duration.seconds(754).formatted(
+      .time(pattern: .minuteSecond(padMinuteToLength: 2)).locale(Locale(identifier: "fi_FI"))
+    )
+    XCTAssertFalse(fi.contains(":"), "fi_FI is expected to use a non-colon separator here")
+    XCTAssertEqual(Countdown.formatRemaining(754), "12:34")
+  }
+
   // MARK: Private
 
   private func state(_ phase: DaemonState.Phase, endsIn seconds: TimeInterval?, line: String, now: Date) -> DaemonState {
