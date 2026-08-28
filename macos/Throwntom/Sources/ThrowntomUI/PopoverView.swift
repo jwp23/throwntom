@@ -63,13 +63,13 @@ struct PopoverView: View {
     if !focused.isEmpty {
       VStack(alignment: .leading, spacing: 2) {
         Text("Focus").font(.caption).foregroundStyle(.secondary)
-        ForEach(focused) { Text("• \($0.description)") }
+        ForEach(focused) { Text("• \($0.description)").accessibilityLabel($0.description) }
       }
     }
   }
 
   private func setLoginItem(_ enabled: Bool) {
-    loginItem = .afterSetting(enabled, in: registrar)
+    loginItem = .afterSetting(enabled, in: registrar, current: loginItem)
   }
 
 }
