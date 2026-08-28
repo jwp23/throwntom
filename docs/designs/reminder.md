@@ -92,7 +92,8 @@ own code, and a third kind, should one appear, is a third caller.
 
 Lock order is `core.mu`, then `pomodoro.Timer`'s lock, then `reminder.mu`,
 never reversed. The reminder never calls back into the timer; the schedule
-tick reads the timer's state before touching the reminder.
+tick holds the core lock across its idle check and raise, so a command
+cannot slip between them.
 
 ## Commands
 

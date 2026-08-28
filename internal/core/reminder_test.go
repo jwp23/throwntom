@@ -159,6 +159,30 @@ func TestScheduleTickRaisesMorningOnce(t *testing.T) {
 	}
 }
 
+func TestTickMorningHoldsCoreLock(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+	c.setClock(mondayAt(9, 15))
+
+	c.mu.Lock()
+	go c.tickMorning()
+	settle()
+	if c.reminder.outstanding() != reminderNone {
+		t.Fatal("expected no raise while the core lock is held")
+	}
+	c.mu.Unlock()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if c.reminder.outstanding() == reminderMorning {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatal("expected the morning reminder to raise once the core lock was released")
+}
+
 func TestScheduleTickIgnoresBusyTimer(t *testing.T) {
 	cfg := config.Default()
 	cfg.MorningReminderPending = false

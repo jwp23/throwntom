@@ -22,9 +22,12 @@ func (c *Core) runMorningSchedule(ctx context.Context) {
 }
 
 // tickMorning raises the morning reminder when the timer is idle and the
-// schedule is due. It reads the timer before touching the reminder, keeping
-// the lock order timer then reminder.
+// schedule is due. It holds the core lock across the idle check and the
+// raise, so a command cannot slip between them and start a pomodoro just as
+// the tick decides to ring.
 func (c *Core) tickMorning() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.timer.State() != engine.Idle {
 		return
 	}
