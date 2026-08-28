@@ -79,8 +79,9 @@ own code, and a third kind, should one appear, is a third caller.
    timer's lock, on every transition: command-driven, countdown-driven and
    `Restore`. `core`'s handler raises the cycle reminder when `to` is
    `awaiting_confirm` and cancels otherwise. Because leaving idle is a
-   transition, the same handler retires the morning reminder; the command
-   handlers do not stop it by hand.
+   transition, the same handler retires the morning reminder. The one handler
+   that cancels by hand is `start`, which may enter the focus prompt before
+   any transition happens and must not leave the reminder ringing through it.
 
    The hook is synchronous so that a cancel cannot overtake a raise. The
    existing `SetOnChange` hook stays asynchronous and only publishes state.
@@ -101,7 +102,8 @@ tick reads the timer's state before touching the reminder.
   deadline. The reply names the kind: "morning reminder snoozed for 10m".
 - `skip-today` cancels and stamps `lastTriggerDay`, so the morning reminder
   does not fire again today.
-- `start`, `new-cycle`, `confirm`, `stop` cancel through the transition hook.
+- `new-cycle`, `confirm`, `stop` cancel through the transition hook; `start`
+  cancels first, before its focus prompt.
 - `quit` and `Core.Stop()` cancel directly.
 
 A morning snooze resumes on its deadline whether or not the schedule window

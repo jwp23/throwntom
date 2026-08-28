@@ -41,6 +41,7 @@ func (c *Core) buildCommandHandlers() map[string]commandHandler {
 }
 
 func (c *Core) handleStart(_ []string) commandResult {
+	c.reminder.cancel()
 	if c.tasks != nil {
 		return c.enterFocusPrompt("start")
 	}

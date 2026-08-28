@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -260,6 +261,32 @@ func TestRestoreIntoAwaitingConfirmRaisesOnce(t *testing.T) {
 	settle()
 	if got := rec.snapshot(); len(got) != 1 {
 		t.Fatalf("expected exactly one ring after restore, got %v", got)
+	}
+}
+
+func TestStartWithFocusPromptSilencesMorningReminder(t *testing.T) {
+	dir := t.TempDir()
+	cfg := config.Default()
+	cfg.RepeatSecs = 3600
+	rec := &soundRecorder{}
+	c := newCore(cfg, rec)
+	if err := c.initTasks(filepath.Join(dir, "tasks.json")); err != nil {
+		t.Fatal(err)
+	}
+	c.setClock(mondayAt(10, 0))
+	ctx, cancel := context.WithCancel(context.Background())
+	c.Start(ctx)
+	t.Cleanup(func() { cancel(); c.Stop() })
+	waitForSounds(t, rec, 1)
+	result := c.execute(cmdStart)
+	if result.err != nil {
+		t.Fatal(result.err)
+	}
+	if !c.pendingFocusPrompt {
+		t.Fatal("expected start to enter the focus prompt")
+	}
+	if c.reminder.outstanding() != reminderNone {
+		t.Fatal("expected the morning reminder cancelled before the focus prompt")
 	}
 }
 
