@@ -17,6 +17,8 @@ final class ReminderNotificationCommandTests: XCTestCase {
     func testActionTitlesMatchTheMenuBarWording() {
         XCTAssertEqual(ReminderNotification.Action.snooze.title, TimerAction.snooze.title)
         XCTAssertEqual(ReminderNotification.Action.confirm.title, TimerAction.confirm.title)
+        XCTAssertEqual(ReminderNotification.Action.start.title, TimerAction.start.title)
+        XCTAssertEqual(ReminderNotification.Action.skipToday.title, TimerAction.skipToday.title)
     }
 }
 
@@ -78,5 +80,21 @@ final class ReminderNotificationRequestTests: XCTestCase {
         let body = try XCTUnwrap(transport.requests.first?.body)
         let decoded = try JSONSerialization.jsonObject(with: body) as? [String: Int]
         XCTAssertEqual(decoded, ["minutes": TimerActions.defaultSnoozeMinutes])
+    }
+
+    func testStartPostsTheStartVerb() async throws {
+        let transport = RecordingTransport()
+        try await ReminderNotification.answer(.start, using: client(transport))
+
+        XCTAssertEqual(transport.requests.map(\.path), ["/v1/timer/start"])
+        XCTAssertNil(transport.requests.first?.body)
+    }
+
+    func testSkipTodayPostsTheSkipTodayVerb() async throws {
+        let transport = RecordingTransport()
+        try await ReminderNotification.answer(.skipToday, using: client(transport))
+
+        XCTAssertEqual(transport.requests.map(\.path), ["/v1/timer/skip-today"])
+        XCTAssertNil(transport.requests.first?.body)
     }
 }

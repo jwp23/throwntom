@@ -85,4 +85,47 @@ final class ReminderBannerTests: XCTestCase {
     func testLosingTheDaemonWithdrawsTheBanner() {
         XCTAssertEqual(decide(from: makeState(phase: .awaitingConfirm), to: nil), .withdraw)
     }
+
+    func testTheMorningNudgeRaisesItsOwnBanner() {
+        let banner = decide(
+            from: makeState(phase: .work),
+            to: makeState(phase: .idle, morningPending: true))
+
+        XCTAssertEqual(banner, .postMorning(title: "Throwntom", body: "Ready to start your day?"))
+    }
+
+    func testRepeatedFramesOfTheMorningWaitLeaveTheBannerAlone() {
+        let waiting = makeState(phase: .idle, morningPending: true)
+
+        XCTAssertEqual(decide(from: waiting, to: waiting), .unchanged)
+    }
+
+    func testAMorningSnoozeTheDaemonAcceptedWithdrawsTheBanner() {
+        let waiting = makeState(phase: .idle, morningPending: true)
+        let snoozed = makeState(phase: .idle, morningPending: true, snoozeUntil: Date(timeIntervalSince1970: 1))
+
+        XCTAssertEqual(decide(from: waiting, to: snoozed), .withdraw)
+    }
+
+    func testAMorningSnoozeRunningOutRaisesTheBannerAgain() {
+        let snoozed = makeState(phase: .idle, morningPending: true, snoozeUntil: Date(timeIntervalSince1970: 1))
+        let waiting = makeState(phase: .idle, morningPending: true)
+
+        XCTAssertEqual(
+            decide(from: snoozed, to: waiting),
+            .postMorning(title: "Throwntom", body: "Ready to start your day?"))
+    }
+
+    func testIdleWithNoMorningPendingLeavesTheBannerAlone() {
+        XCTAssertEqual(decide(from: nil, to: makeState(phase: .idle)), .unchanged)
+    }
+
+    func testNothingIsPostedForTheMorningNudgeWhileMacOSWillNotDeliverReminders() {
+        let banner = decide(
+            from: makeState(phase: .work),
+            to: makeState(phase: .idle, morningPending: true),
+            authorization: .reported(.denied))
+
+        XCTAssertEqual(banner, .unchanged)
+    }
 }
