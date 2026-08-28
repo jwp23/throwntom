@@ -41,6 +41,10 @@ type Timer struct {
 	phaseEndAt         time.Time
 	pausedRemaining    time.Duration
 	onChange           func()
+	// onTransition runs inside the Timer lock, before the verb returns, every
+	// time the engine's state is set: by a verb, by a countdown ending or by
+	// Restore. It must not call back into the Timer.
+	onTransition func(to engine.State)
 }
 
 func New(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery int, reminderPolicy reminder.Policy, n notifier.Notifier) *Timer {
@@ -62,6 +66,23 @@ func (t *Timer) SetOnChange(fn func()) {
 	t.mu.Lock()
 	t.onChange = fn
 	t.mu.Unlock()
+}
+
+// SetOnTransition registers fn to run synchronously, with the Timer lock held,
+// after every change of engine state. Use it for work that must be ordered
+// with the transition; use SetOnChange for work that may run later.
+func (t *Timer) SetOnTransition(fn func(to engine.State)) {
+	t.mu.Lock()
+	t.onTransition = fn
+	t.mu.Unlock()
+}
+
+// transitionLocked reports the engine's current state to onTransition.
+// Callers must hold t.mu.
+func (t *Timer) transitionLocked() {
+	if t.onTransition != nil {
+		t.onTransition(t.engine.State())
+	}
 }
 
 func (t *Timer) notifyChange() {
@@ -92,6 +113,7 @@ func (t *Timer) Snapshot() Snapshot {
 func (t *Timer) Restore(s Snapshot, now time.Time) error {
 	t.mu.Lock()
 	defer t.notifyChange()
+	defer t.transitionLocked()
 	defer t.mu.Unlock()
 	t.engine.Restore(s.Engine)
 
@@ -133,6 +155,7 @@ func dayRolledOver(before, after engine.Snapshot) bool {
 func (t *Timer) Start() {
 	t.mu.Lock()
 	defer t.notifyChange()
+	defer t.transitionLocked()
 	defer t.mu.Unlock()
 	t.engine.StartWork()
 	t.startPhaseTimerLocked(t.workDuration)
@@ -141,6 +164,7 @@ func (t *Timer) Start() {
 func (t *Timer) StartNewCycle() {
 	t.mu.Lock()
 	defer t.notifyChange()
+	defer t.transitionLocked()
 	defer t.mu.Unlock()
 	t.stopReminderLocked()
 	t.stopTimerLocked()
@@ -153,6 +177,7 @@ func (t *Timer) StartNewCycle() {
 func (t *Timer) CompletePeriod() {
 	t.mu.Lock()
 	defer t.notifyChange()
+	defer t.transitionLocked()
 	defer t.mu.Unlock()
 	t.completePeriodLocked()
 }
@@ -160,6 +185,7 @@ func (t *Timer) CompletePeriod() {
 func (t *Timer) Confirm() {
 	t.mu.Lock()
 	defer t.notifyChange()
+	defer t.transitionLocked()
 	defer t.mu.Unlock()
 	t.stopReminderLocked()
 	t.engine.ConfirmNext()
@@ -197,6 +223,7 @@ func (t *Timer) Snooze(d time.Duration) {
 func (t *Timer) SkipToday() {
 	t.mu.Lock()
 	defer t.notifyChange()
+	defer t.transitionLocked()
 	defer t.mu.Unlock()
 	t.stopReminderLocked()
 	t.stopTimerLocked()
@@ -214,6 +241,7 @@ func (t *Timer) Pause() bool {
 		return false
 	}
 	defer t.notifyChange()
+	defer t.transitionLocked()
 	defer t.mu.Unlock()
 	if !t.phaseEndAt.IsZero() {
 		t.pausedRemaining = t.phaseEndAt.Sub(t.now())
@@ -235,6 +263,7 @@ func (t *Timer) Resume() bool {
 		return false
 	}
 	defer t.notifyChange()
+	defer t.transitionLocked()
 	defer t.mu.Unlock()
 	d := t.pausedRemaining
 	if d <= 0 {
@@ -257,6 +286,7 @@ func (t *Timer) Resume() bool {
 func (t *Timer) Stop() {
 	t.mu.Lock()
 	defer t.notifyChange()
+	defer t.transitionLocked()
 	defer t.mu.Unlock()
 	t.stopReminderLocked()
 	t.stopTimerLocked()
@@ -363,6 +393,7 @@ func (t *Timer) startPhaseTimerLocked(d time.Duration) {
 	t.periodTimer = t.after(d, func() {
 		t.mu.Lock()
 		t.completePeriodLocked()
+		t.transitionLocked()
 		t.mu.Unlock()
 		t.notifyChange()
 	})
