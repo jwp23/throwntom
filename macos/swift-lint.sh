@@ -6,8 +6,9 @@
 #   macos/swift-lint.sh          lint only; exit 1 on any violation (pre-commit, CI)
 #   macos/swift-lint.sh --fix    rewrite files in place, then lint what autocorrect could not fix
 #
-# Both tools are pinned by version: the GitHub macos-15 runner image ships exactly these,
-# so CI and a developer machine disagree only when one of them drifts.
+# Both tools are pinned by version so CI and a developer machine disagree only when one of
+# them drifts: the GitHub macos-15 image ships this SwiftFormat, and ci.yml installs this
+# SwiftLint release by checksum.
 set -euo pipefail
 
 SWIFTFORMAT_VERSION=0.62.1

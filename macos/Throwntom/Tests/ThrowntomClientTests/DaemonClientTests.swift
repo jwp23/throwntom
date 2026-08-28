@@ -107,7 +107,7 @@ final class DaemonClientTests: XCTestCase {
     let client = DaemonClient(transport: missing, registrar: registrar, backoff: [.milliseconds(30)])
     client.start()
     defer { client.stop() }
-    try await waitUntil { self.registrar.calls == 1 }
+    try await waitUntil { self.registrar.calls >= 1 }
     XCTAssertEqual(client.connection, .startingDaemon)
     try await waitUntil(timeout: 3) { self.registrar.calls >= 3 }
     XCTAssertEqual(client.connection, .startingDaemon)

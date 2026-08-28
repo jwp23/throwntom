@@ -18,10 +18,10 @@ public final class Ticker {
   /// Idempotent: a second call adopts the running loop rather than starting a rival one.
   public func start() {
     guard task == nil else { return }
-    let interval = interval
+    let tick = interval
     task = Task {
       while !Task.isCancelled {
-        try? await Task.sleep(for: interval)
+        try? await Task.sleep(for: tick)
         guard !Task.isCancelled else { return }
         now = Date()
       }
