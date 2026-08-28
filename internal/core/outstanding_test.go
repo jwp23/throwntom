@@ -93,7 +93,7 @@ func TestSuppressThenResumeRingsAgainAtDeadline(t *testing.T) {
 	r.raise(reminderCycle)
 	waitForSounds(t, rec, 1)
 	until := clk.Now().Add(10 * time.Minute)
-	if err := r.suppress(until); err != nil {
+	if _, err := r.suppress(until); err != nil {
 		t.Fatal(err)
 	}
 	if got, ok := r.snoozeDeadline(); !ok || !got.Equal(until) {
@@ -118,7 +118,7 @@ func TestCancelDuringSnoozeLeavesDeadlineInert(t *testing.T) {
 	r, rec, clk := newTestReminder(t)
 	r.raise(reminderMorning)
 	waitForSounds(t, rec, 1)
-	if err := r.suppress(clk.Now().Add(time.Minute)); err != nil {
+	if _, err := r.suppress(clk.Now().Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
 	r.cancel()
@@ -139,10 +139,10 @@ func TestSecondSuppressReplacesDeadline(t *testing.T) {
 	r, rec, clk := newTestReminder(t)
 	r.raise(reminderCycle)
 	waitForSounds(t, rec, 1)
-	if err := r.suppress(clk.Now().Add(time.Minute)); err != nil {
+	if _, err := r.suppress(clk.Now().Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	if err := r.suppress(clk.Now().Add(5 * time.Minute)); err != nil {
+	if _, err := r.suppress(clk.Now().Add(5 * time.Minute)); err != nil {
 		t.Fatal(err)
 	}
 	clk.Advance(2 * time.Minute)
@@ -156,7 +156,7 @@ func TestSecondSuppressReplacesDeadline(t *testing.T) {
 
 func TestSuppressWithNothingOutstandingIsRefused(t *testing.T) {
 	r, _, clk := newTestReminder(t)
-	if err := r.suppress(clk.Now().Add(time.Minute)); !errors.Is(err, errNoReminder) {
+	if _, err := r.suppress(clk.Now().Add(time.Minute)); !errors.Is(err, errNoReminder) {
 		t.Fatalf("expected errNoReminder, got %v", err)
 	}
 }
@@ -165,7 +165,7 @@ func TestRaiseWhileSuppressedKeepsSnooze(t *testing.T) {
 	r, rec, clk := newTestReminder(t)
 	r.raise(reminderMorning)
 	waitForSounds(t, rec, 1)
-	if err := r.suppress(clk.Now().Add(time.Minute)); err != nil {
+	if _, err := r.suppress(clk.Now().Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
 	r.raise(reminderMorning)
@@ -195,7 +195,7 @@ func TestOnChangeFiresOnlyOnObservableChange(t *testing.T) {
 	if count() != 1 {
 		t.Fatalf("expected 1 change after raise+repeat, got %d", count())
 	}
-	if err := r.suppress(clk.Now().Add(time.Minute)); err != nil {
+	if _, err := r.suppress(clk.Now().Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
 	clk.Advance(time.Minute)
@@ -221,7 +221,7 @@ func TestShouldRaiseMorningOncePerDayAndNotWhileSnoozed(t *testing.T) {
 	}
 	r.raise(reminderMorning)
 	waitForSounds(t, rec, 1)
-	if err := r.suppress(now.Add(time.Hour)); err != nil {
+	if _, err := r.suppress(now.Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	tomorrow := now.Add(24 * time.Hour)

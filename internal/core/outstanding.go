@@ -30,10 +30,14 @@ func (k reminderKind) sound() string {
 }
 
 func (k reminderKind) label() string {
-	if k == reminderMorning {
+	switch k {
+	case reminderMorning:
 		return "morning"
+	case reminderCycle:
+		return "cycle"
+	default:
+		return ""
 	}
-	return "cycle"
 }
 
 // stopper cancels a callback scheduled through after.
@@ -96,19 +100,20 @@ func (r *outstandingReminder) raise(kind reminderKind) {
 }
 
 // suppress silences the outstanding reminder until the deadline, replacing
-// any earlier deadline.
-func (r *outstandingReminder) suppress(until time.Time) error {
+// any earlier deadline, and reports which kind it suppressed.
+func (r *outstandingReminder) suppress(until time.Time) (reminderKind, error) {
 	r.mu.Lock()
 	if r.kind == reminderNone {
 		r.mu.Unlock()
-		return errNoReminder
+		return reminderNone, errNoReminder
 	}
+	kind := r.kind
 	r.quietLocked()
 	r.snoozeUntil = until
 	r.snoozeTimer = r.after(until.Sub(r.now()), func() { r.resume(until) })
 	r.mu.Unlock()
 	r.notifyChange()
-	return nil
+	return kind, nil
 }
 
 // resume ends the snooze that set deadline until. A deadline that was

@@ -73,8 +73,20 @@ func newCore(cfg config.Config, n notifier.Notifier) *Core {
 	}
 	c.handlers = c.buildCommandHandlers()
 	c.timer.SetOnChange(c.publishAsync)
+	c.timer.SetOnTransition(c.onTransition)
 	c.reminder.onChange = c.publishAsync
 	return c
+}
+
+// onTransition runs inside the timer's lock on every change of engine state.
+// awaiting_confirm is the one state that owes a reminder; leaving any state
+// answers whichever reminder was outstanding, morning included.
+func (c *Core) onTransition(to engine.State) {
+	if to == engine.AwaitingConfirm {
+		c.reminder.raise(reminderCycle)
+		return
+	}
+	c.reminder.cancel()
 }
 
 type Paths struct {

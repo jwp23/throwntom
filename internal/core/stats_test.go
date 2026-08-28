@@ -139,12 +139,13 @@ func TestSnoozeLogsEvent(t *testing.T) {
 	if !hasEventType(events, "snoozed") {
 		t.Fatal("expected snoozed event")
 	}
-	// Cycle snooze is refused now that the timer no longer runs a reminder.
-	c.execute("start")
+	// The onTransition hook raises a fresh cycle reminder at awaiting_confirm,
+	// so a second snooze there succeeds and logs its own event.
+	c.execute(cmdStart)
 	c.timer.CompletePeriod()
 	result := c.execute("snooze 5m")
-	if result.err != errNoReminder {
-		t.Fatalf("expected cycle snooze to be refused, got %v", result.err)
+	if result.err != nil {
+		t.Fatalf(fmtSnoozeFailed, result.err)
 	}
 	events = readEvents(t, path)
 	snoozedCount := 0
@@ -153,9 +154,10 @@ func TestSnoozeLogsEvent(t *testing.T) {
 			snoozedCount++
 		}
 	}
-	if snoozedCount != 1 {
-		t.Fatalf("expected 1 snoozed event, got %d", snoozedCount)
+	if snoozedCount != 2 {
+		t.Fatalf("expected 2 snoozed events, got %d", snoozedCount)
 	}
+	c.reminder.cancel()
 }
 
 func TestSkipTodayLogsEvent(t *testing.T) {

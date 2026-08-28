@@ -41,7 +41,6 @@ func (c *Core) buildCommandHandlers() map[string]commandHandler {
 }
 
 func (c *Core) handleStart(_ []string) commandResult {
-	c.reminder.cancel()
 	if c.tasks != nil {
 		return c.enterFocusPrompt("start")
 	}
@@ -51,7 +50,6 @@ func (c *Core) handleStart(_ []string) commandResult {
 }
 
 func (c *Core) handleNewCycle(_ []string) commandResult {
-	c.reminder.cancel()
 	c.timer.StartNewCycle()
 	c.logEvent("pomodoro_started", nil)
 	return commandResult{message: "New cycle started -- fresh start!"}
@@ -118,8 +116,8 @@ func (c *Core) handleSnooze(parts []string) commandResult {
 	if err != nil {
 		return commandResult{err: err}
 	}
-	kind := c.reminder.outstanding()
-	if err := c.reminder.suppress(c.now().Add(parsed)); err != nil {
+	kind, err := c.reminder.suppress(c.now().Add(parsed))
+	if err != nil {
 		return commandResult{err: err}
 	}
 	c.logEvent("snoozed", map[string]any{"duration_secs": int(parsed.Seconds())})

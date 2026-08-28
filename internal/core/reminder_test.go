@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/jwp23/throwntom/v3/internal/config"
+	"github.com/jwp23/throwntom/v3/internal/engine"
+	"github.com/jwp23/throwntom/v3/internal/pomodoro"
 	"github.com/jwp23/throwntom/v3/internal/reminder"
 )
 
@@ -167,6 +169,98 @@ func TestScheduleTickIgnoresBusyTimer(t *testing.T) {
 		t.Fatal("expected no morning reminder while a pomodoro runs")
 	}
 	c.timer.Stop()
+}
+
+// awaitingCore returns a started core sitting at awaiting_confirm with a
+// recorder on the sound, the morning reminder out of the way.
+func awaitingCore(t *testing.T) (*Core, *soundRecorder, *fakeClock) {
+	t.Helper()
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	cfg.RepeatSecs = 3600
+	cfg.RepeatLimitSecs = 0
+	rec := &soundRecorder{}
+	c := newCore(cfg, rec)
+	clk := mondayAt(10, 0)
+	c.setClock(clk)
+	ctx, cancel := context.WithCancel(context.Background())
+	c.Start(ctx)
+	t.Cleanup(func() { cancel(); c.Stop() })
+	c.execute(cmdStart)
+	c.timer.CompletePeriod()
+	return c, rec, clk
+}
+
+func TestPeriodCompletionRaisesCycleReminderOnce(t *testing.T) {
+	c, rec, _ := awaitingCore(t)
+	waitForSounds(t, rec, 1)
+	settle()
+	if got := rec.snapshot(); len(got) != 1 || got[0] != "default" {
+		t.Fatalf("expected one cycle ring, got %v", got)
+	}
+	if c.reminder.outstanding() != reminderCycle {
+		t.Fatal("expected cycle reminder outstanding at awaiting_confirm")
+	}
+}
+
+func TestConfirmCancelsCycleReminder(t *testing.T) {
+	c, rec, clk := awaitingCore(t)
+	waitForSounds(t, rec, 1)
+	if result := c.execute("snooze 5m"); result.err != nil {
+		t.Fatalf(fmtSnoozeFailed, result.err)
+	}
+	c.execute("confirm")
+	clk.Advance(5 * time.Minute)
+	settle()
+	if got := rec.snapshot(); len(got) != 1 {
+		t.Fatalf("expected no ring after confirm, got %v", got)
+	}
+	if c.reminder.outstanding() != reminderNone {
+		t.Fatal("expected nothing outstanding after confirm")
+	}
+}
+
+func TestCycleSnoozePublishesDeadlineThenClearsAndRings(t *testing.T) {
+	c, rec, clk := awaitingCore(t)
+	waitForSounds(t, rec, 1)
+	result := c.execute("snooze 5m")
+	if result.err != nil {
+		t.Fatalf(fmtSnoozeFailed, result.err)
+	}
+	if !strings.Contains(result.message, "cycle reminder snoozed") {
+		t.Fatalf("expected cycle snooze message, got %q", result.message)
+	}
+	s := c.State()
+	if s.SnoozeUntil == nil || !s.SnoozeUntil.Equal(clk.Now().Add(5*time.Minute)) {
+		t.Fatalf("expected snooze_until 5m ahead, got %v", s.SnoozeUntil)
+	}
+	clk.Advance(5 * time.Minute)
+	waitForSounds(t, rec, 2)
+	if s := c.State(); s.SnoozeUntil != nil || s.State != engine.AwaitingConfirm {
+		t.Fatalf("expected snooze_until null at awaiting_confirm after expiry, got %+v", s)
+	}
+}
+
+func TestRestoreIntoAwaitingConfirmRaisesOnce(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	cfg.RepeatSecs = 3600
+	rec := &soundRecorder{}
+	c := newCore(cfg, rec)
+	c.setClock(mondayAt(10, 0))
+	snap := pomodoro.Snapshot{Engine: engine.Snapshot{State: engine.AwaitingConfirm, LastPhase: engine.Work, WorkDayStarted: true}}
+	c.mu.Lock()
+	err := c.timer.Restore(snap, c.now())
+	c.mu.Unlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Stop()
+	waitForSounds(t, rec, 1)
+	settle()
+	if got := rec.snapshot(); len(got) != 1 {
+		t.Fatalf("expected exactly one ring after restore, got %v", got)
+	}
 }
 
 func TestMorningReminderPolicyComesFromConfig(t *testing.T) {
