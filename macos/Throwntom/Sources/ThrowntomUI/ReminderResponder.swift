@@ -31,9 +31,7 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
 
   /// How the reminder is shown while Throwntom is frontmost; otherwise macOS
   /// suppresses the banner and hides the only buttons the user has.
-  nonisolated static var presentationOptions: UNNotificationPresentationOptions {
-    [.banner, .list]
-  }
+  nonisolated static let presentationOptions: UNNotificationPresentationOptions = [.banner, .list]
 
   /// What the popover says about reminders macOS will not deliver. Silent until macOS answers.
   private(set) var authorization = ReminderAuthorization()

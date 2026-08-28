@@ -13,17 +13,16 @@ public final class Ticker {
 
   // MARK: Public
 
-  public private(set) var now = Date()
+  public private(set) var now = Date.now
 
   /// Idempotent: a second call adopts the running loop rather than starting a rival one.
   public func start() {
     guard task == nil else { return }
-    let tick = interval
     task = Task {
       while !Task.isCancelled {
-        try? await Task.sleep(for: tick)
+        try? await Task.sleep(for: interval)
         guard !Task.isCancelled else { return }
-        now = Date()
+        now = Date.now
       }
     }
   }
