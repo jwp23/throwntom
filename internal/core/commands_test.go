@@ -125,6 +125,9 @@ func TestParseSnoozeDurationBareNumber(t *testing.T) {
 		{"bare 10 means 10m", []string{"snooze", "10"}, 10 * time.Minute, false},
 		{"explicit 5m still works", []string{"snooze", "5m"}, 5 * time.Minute, false},
 		{"explicit 1h still works", []string{"snooze", "1h"}, time.Hour, false},
+		// The TUI's on-screen hints (cmd/throwntom/theme.go) show "snooze 10m" as a
+		// literal, typeable example. This case keeps that example parseable.
+		{"UI hint example 10m parses", []string{"snooze", "10m"}, 10 * time.Minute, false},
 		{"invalid string errors", []string{"snooze", "abc"}, 0, true},
 		{"missing arg errors", []string{"snooze"}, 0, true},
 	}
