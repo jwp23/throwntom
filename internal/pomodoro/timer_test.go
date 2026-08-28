@@ -3,18 +3,11 @@ package pomodoro
 import (
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/jwp23/throwntom/v3/internal/engine"
-	"github.com/jwp23/throwntom/v3/internal/reminder"
 )
-
-// testPolicy keeps the alert bound out of the way of tests that are not about it.
-func testPolicy(interval time.Duration) reminder.Policy {
-	return reminder.Policy{Interval: interval, MaxAlerts: 1000}
-}
 
 const (
 	fmtRestore                 = "Restore: %v"
@@ -22,19 +15,8 @@ const (
 	statusTodayPomodoros1      = "Today: 1"
 )
 
-type fakeNotifier struct {
-	calls atomic.Int32
-	err   error
-}
-
-func (f *fakeNotifier) PlaySound(string) error {
-	f.calls.Add(1)
-	return f.err
-}
-
 func TestNextStageWhenAwaitingAfterWork(t *testing.T) {
-	n := &fakeNotifier{}
-	a := New(25, 5, 15, 4, testPolicy(20*time.Millisecond), n)
+	a := New(25, 5, 15, 4)
 	a.Start()
 	a.CompletePeriod()
 	state, dur := a.NextStage()
@@ -47,8 +29,7 @@ func TestNextStageWhenAwaitingAfterWork(t *testing.T) {
 }
 
 func TestNextStageWhenAwaitingAfterBreak(t *testing.T) {
-	n := &fakeNotifier{}
-	a := New(25, 5, 15, 4, testPolicy(20*time.Millisecond), n)
+	a := New(25, 5, 15, 4)
 	a.Start()
 	a.CompletePeriod()
 	a.Confirm()
@@ -63,8 +44,7 @@ func TestNextStageWhenAwaitingAfterBreak(t *testing.T) {
 }
 
 func TestNextStageLongBreakBoundary(t *testing.T) {
-	n := &fakeNotifier{}
-	a := New(25, 5, 15, 4, testPolicy(20*time.Millisecond), n)
+	a := New(25, 5, 15, 4)
 	a.Start()
 	for i := 0; i < 3; i++ {
 		a.CompletePeriod()
@@ -83,8 +63,7 @@ func TestNextStageLongBreakBoundary(t *testing.T) {
 }
 
 func TestNextStageOutsideAwaitingConfirm(t *testing.T) {
-	n := &fakeNotifier{}
-	a := New(25, 5, 15, 4, testPolicy(20*time.Millisecond), n)
+	a := New(25, 5, 15, 4)
 	state, dur := a.NextStage()
 	if state != engine.Idle {
 		t.Fatalf("expected Idle when not awaiting, got %s", state)
@@ -95,26 +74,11 @@ func TestNextStageOutsideAwaitingConfirm(t *testing.T) {
 }
 
 func TestStateShowsAwaitingConfirm(t *testing.T) {
-	n := &fakeNotifier{}
-	a := New(25, 5, 15, 4, testPolicy(20*time.Millisecond), n)
+	a := New(25, 5, 15, 4)
 	a.Start()
 	a.CompletePeriod()
 	if got := a.State(); got != engine.AwaitingConfirm {
 		t.Fatalf(fmtExpectedAwaitingConfirm, got)
-	}
-}
-
-func TestConfirmStopsReminderLoop(t *testing.T) {
-	n := &fakeNotifier{}
-	a := New(25, 5, 15, 4, testPolicy(20*time.Millisecond), n)
-	a.Start()
-	a.CompletePeriod()
-	time.Sleep(70 * time.Millisecond)
-	a.Confirm()
-	got := n.calls.Load()
-	time.Sleep(70 * time.Millisecond)
-	if n.calls.Load() != got {
-		t.Fatalf("expected reminder loop to stop after confirm")
 	}
 }
 
@@ -126,8 +90,7 @@ func TestCountdownFormatMMSS(t *testing.T) {
 }
 
 func TestStatusLineShowsPendingWhenAwaitingConfirm(t *testing.T) {
-	n := &fakeNotifier{}
-	a := New(25, 5, 15, 4, testPolicy(20*time.Millisecond), n)
+	a := New(25, 5, 15, 4)
 	a.Start()
 	a.CompletePeriod()
 	line := a.StatusLine()
@@ -137,8 +100,7 @@ func TestStatusLineShowsPendingWhenAwaitingConfirm(t *testing.T) {
 }
 
 func TestStatusLineUsesPomodoroLabel(t *testing.T) {
-	n := &fakeNotifier{}
-	a := New(25, 5, 15, 4, testPolicy(20*time.Millisecond), n)
+	a := New(25, 5, 15, 4)
 	a.Start()
 	line := a.StatusLine()
 	if !strings.Contains(line, "Cycle: 0/4") {
@@ -155,8 +117,7 @@ func TestStatusLineUsesPomodoroLabel(t *testing.T) {
 }
 
 func TestStatusLineShowsFullCycleAtLongBreakBoundary(t *testing.T) {
-	n := &fakeNotifier{}
-	a := New(25, 5, 15, 4, testPolicy(20*time.Millisecond), n)
+	a := New(25, 5, 15, 4)
 	a.Start()
 
 	for i := 0; i < 3; i++ {
@@ -186,8 +147,7 @@ func TestStatusLineShowsFullCycleAtLongBreakBoundary(t *testing.T) {
 }
 
 func TestPauseAndResume(t *testing.T) {
-	n := &fakeNotifier{}
-	a := New(25, 5, 15, 4, testPolicy(20*time.Millisecond), n)
+	a := New(25, 5, 15, 4)
 	a.Start()
 	a.Pause()
 	if got := a.State(); got != engine.Paused {
@@ -200,8 +160,7 @@ func TestPauseAndResume(t *testing.T) {
 }
 
 func TestStopResetsToIdle(t *testing.T) {
-	n := &fakeNotifier{}
-	a := New(25, 5, 15, 4, testPolicy(20*time.Millisecond), n)
+	a := New(25, 5, 15, 4)
 	a.Start()
 	a.Stop()
 	if got := a.State(); got != engine.Idle {
@@ -214,8 +173,7 @@ func TestStopResetsToIdle(t *testing.T) {
 }
 
 func TestStartNewCycleResetsCycleProgressButPreservesDailyTotal(t *testing.T) {
-	n := &fakeNotifier{}
-	a := New(25, 5, 15, 4, testPolicy(20*time.Millisecond), n)
+	a := New(25, 5, 15, 4)
 	a.Start()
 	a.CompletePeriod()
 	if !strings.Contains(a.StatusLine(), statusTodayPomodoros1) {
@@ -236,8 +194,7 @@ func TestStartNewCycleResetsCycleProgressButPreservesDailyTotal(t *testing.T) {
 }
 
 func TestRestoreWorkWithTimeRemaining(t *testing.T) {
-	n := &fakeNotifier{}
-	a := New(25, 5, 15, 4, testPolicy(20*time.Millisecond), n)
+	a := New(25, 5, 15, 4)
 	now := time.Now()
 	snap := Snapshot{
 		Engine: engine.Snapshot{
@@ -262,8 +219,7 @@ func TestRestoreWorkWithTimeRemaining(t *testing.T) {
 }
 
 func TestRestoreWorkExpiredTransitionsToAwaitingConfirm(t *testing.T) {
-	n := &fakeNotifier{}
-	a := New(25, 5, 15, 4, testPolicy(20*time.Millisecond), n)
+	a := New(25, 5, 15, 4)
 	now := time.Now()
 	snap := Snapshot{
 		Engine: engine.Snapshot{
@@ -284,8 +240,7 @@ func TestRestoreWorkExpiredTransitionsToAwaitingConfirm(t *testing.T) {
 }
 
 func TestRestorePausedPreservesRemaining(t *testing.T) {
-	n := &fakeNotifier{}
-	a := New(25, 5, 15, 4, testPolicy(20*time.Millisecond), n)
+	a := New(25, 5, 15, 4)
 	snap := Snapshot{
 		Engine: engine.Snapshot{
 			State:      engine.Paused,
@@ -306,31 +261,8 @@ func TestRestorePausedPreservesRemaining(t *testing.T) {
 	}
 }
 
-func TestRestoreAwaitingConfirmStartsReminder(t *testing.T) {
-	n := &fakeNotifier{}
-	a := New(25, 5, 15, 4, testPolicy(20*time.Millisecond), n)
-	snap := Snapshot{
-		Engine: engine.Snapshot{
-			State:     engine.AwaitingConfirm,
-			LastPhase: engine.Work,
-		},
-	}
-	if err := a.Restore(snap, time.Now()); err != nil {
-		t.Fatalf(fmtRestore, err)
-	}
-	if got := a.State(); got != engine.AwaitingConfirm {
-		t.Fatalf(fmtExpectedAwaitingConfirm, got)
-	}
-	time.Sleep(50 * time.Millisecond)
-	if n.calls.Load() == 0 {
-		t.Fatal("expected reminder to fire after restoring AwaitingConfirm")
-	}
-	a.Stop()
-}
-
 func TestRestoreIdleIsClean(t *testing.T) {
-	n := &fakeNotifier{}
-	a := New(25, 5, 15, 4, testPolicy(20*time.Millisecond), n)
+	a := New(25, 5, 15, 4)
 	snap := Snapshot{
 		Engine: engine.Snapshot{
 			State:          engine.Idle,
@@ -351,14 +283,13 @@ func TestRestoreIdleIsClean(t *testing.T) {
 }
 
 func TestSnapshotRestoreRoundTrip(t *testing.T) {
-	n := &fakeNotifier{}
-	a := New(25, 5, 15, 4, testPolicy(20*time.Millisecond), n)
+	a := New(25, 5, 15, 4)
 	a.Start()
 	a.CompletePeriod()
 	a.Confirm()
 
 	snap := a.Snapshot()
-	a2 := New(25, 5, 15, 4, testPolicy(20*time.Millisecond), n)
+	a2 := New(25, 5, 15, 4)
 	if err := a2.Restore(snap, time.Now()); err != nil {
 		t.Fatalf(fmtRestore, err)
 	}
@@ -373,7 +304,7 @@ func TestSnapshotRestoreRoundTrip(t *testing.T) {
 }
 
 func TestOnChangeFiresWhenPhaseTimerExpires(t *testing.T) {
-	a := New(25, 5, 15, 4, testPolicy(time.Hour), &fakeNotifier{})
+	a := New(25, 5, 15, 4)
 	clk := newFakeClock(time.Now())
 	a.setClock(clk)
 	fired := make(chan struct{}, 4)
@@ -400,7 +331,7 @@ func TestOnChangeFiresWhenPhaseTimerExpires(t *testing.T) {
 }
 
 func TestStatusLineCountdownFollowsInjectedClock(t *testing.T) {
-	a := New(25, 5, 15, 4, testPolicy(time.Hour), &fakeNotifier{})
+	a := New(25, 5, 15, 4)
 	clk := newFakeClock(time.Now())
 	a.setClock(clk)
 	a.Start()
@@ -416,7 +347,7 @@ func TestStatusLineCountdownFollowsInjectedClock(t *testing.T) {
 }
 
 func TestPauseCapturesRemainingFromInjectedClock(t *testing.T) {
-	a := New(25, 5, 15, 4, testPolicy(time.Hour), &fakeNotifier{})
+	a := New(25, 5, 15, 4)
 	clk := newFakeClock(time.Now())
 	a.setClock(clk)
 	a.Start()
@@ -439,44 +370,8 @@ func TestPauseCapturesRemainingFromInjectedClock(t *testing.T) {
 	a.Stop()
 }
 
-func TestSnoozeRestartsReminderAfterInterval(t *testing.T) {
-	n := &fakeNotifier{}
-	// A one-hour repeat interval means each reminder loop notifies once, so a
-	// second notification can only come from a loop the snooze restarted.
-	a := New(25, 5, 15, 4, testPolicy(time.Hour), n)
-	clk := newFakeClock(time.Now())
-	a.setClock(clk)
-	a.Start()
-	a.CompletePeriod()
-	if got := a.State(); got != engine.AwaitingConfirm {
-		t.Fatalf(fmtExpectedAwaitingConfirm, got)
-	}
-
-	a.Snooze(10 * time.Minute)
-	if got := a.State(); got != engine.AwaitingConfirm {
-		t.Fatalf("expected phase unchanged by snooze, got %s", got)
-	}
-	clk.Advance(10 * time.Minute)
-	waitForNotifications(t, n, 2)
-	a.Stop()
-}
-
-// waitForNotifications waits for the reminder goroutines to deliver want
-// notifications. The schedule is deterministic; only goroutine start-up is not.
-func waitForNotifications(t *testing.T, n *fakeNotifier, want int32) {
-	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) {
-		if n.calls.Load() >= want {
-			return
-		}
-		time.Sleep(time.Millisecond)
-	}
-	t.Fatalf("expected %d reminder notifications, got %d", want, n.calls.Load())
-}
-
 func TestOnChangeFiresOnVerbs(t *testing.T) {
-	a := New(25, 5, 15, 4, testPolicy(time.Hour), &fakeNotifier{})
+	a := New(25, 5, 15, 4)
 	count := 0
 	a.SetOnChange(func() { count++ })
 	a.Start()
@@ -489,7 +384,7 @@ func TestOnChangeFiresOnVerbs(t *testing.T) {
 }
 
 func TestAdvanceDayDoesNotNotifyWithoutRollover(t *testing.T) {
-	a := New(25, 5, 15, 4, testPolicy(time.Hour), &fakeNotifier{})
+	a := New(25, 5, 15, 4)
 	now := time.Now()
 	count := 0
 	a.SetOnChange(func() { count++ })
@@ -502,7 +397,7 @@ func TestAdvanceDayDoesNotNotifyWithoutRollover(t *testing.T) {
 }
 
 func TestAdvanceDayNotifiesOnRollover(t *testing.T) {
-	a := New(25, 5, 15, 4, testPolicy(time.Hour), &fakeNotifier{})
+	a := New(25, 5, 15, 4)
 	yesterday := time.Now().Add(-24 * time.Hour)
 	snap := a.Snapshot()
 	snap.Engine.WorkDate = yesterday
@@ -523,7 +418,7 @@ func TestAdvanceDayNotifiesOnRollover(t *testing.T) {
 }
 
 func TestPauseReportsRefusalWhenIdle(t *testing.T) {
-	a := New(25, 5, 15, 4, testPolicy(time.Hour), &fakeNotifier{})
+	a := New(25, 5, 15, 4)
 	if a.Pause() {
 		t.Fatal("expected Pause to report false when idle")
 	}
@@ -541,7 +436,7 @@ func TestPauseReportsRefusalWhenIdle(t *testing.T) {
 }
 
 func TestRefusedPauseAndResumeDoNotNotify(t *testing.T) {
-	a := New(25, 5, 15, 4, testPolicy(time.Hour), &fakeNotifier{})
+	a := New(25, 5, 15, 4)
 	count := 0
 	a.SetOnChange(func() { count++ })
 
@@ -563,18 +458,6 @@ func TestRefusedPauseAndResumeDoNotNotify(t *testing.T) {
 		t.Fatalf("expected 2 change callbacks after start and pause, got %d", count)
 	}
 	a.Stop()
-}
-
-func TestReminderStopsAtItsAlertBound(t *testing.T) {
-	n := &fakeNotifier{}
-	a := New(25, 5, 15, 4, reminder.Policy{Interval: 5 * time.Millisecond, MaxAlerts: 3}, n)
-	a.Start()
-	a.CompletePeriod()
-
-	time.Sleep(150 * time.Millisecond)
-	if got := n.calls.Load(); got != 3 {
-		t.Fatalf("expected the reminder to stop after 3 alerts, got %d", got)
-	}
 }
 
 // transitionRecorder captures every to-state the hook delivers, in order.
@@ -606,7 +489,7 @@ func (r *transitionRecorder) count() int {
 
 func TestOnTransitionFiresSynchronouslyForVerbs(t *testing.T) {
 	rec := &transitionRecorder{}
-	a := New(25, 5, 15, 4, testPolicy(time.Hour), &fakeNotifier{})
+	a := New(25, 5, 15, 4)
 	a.SetOnTransition(rec.record)
 
 	a.Start()
@@ -638,7 +521,7 @@ func TestOnTransitionFiresSynchronouslyForVerbs(t *testing.T) {
 func TestOnTransitionFiresBeforeOnChange(t *testing.T) {
 	var order []string
 	var mu sync.Mutex
-	a := New(25, 5, 15, 4, testPolicy(time.Hour), &fakeNotifier{})
+	a := New(25, 5, 15, 4)
 	a.SetOnTransition(func(engine.State) { mu.Lock(); order = append(order, "transition"); mu.Unlock() })
 	a.SetOnChange(func() { mu.Lock(); order = append(order, "change"); mu.Unlock() })
 	a.Start()
@@ -651,7 +534,7 @@ func TestOnTransitionFiresBeforeOnChange(t *testing.T) {
 
 func TestOnTransitionFiresWhenCountdownCompletes(t *testing.T) {
 	rec := &transitionRecorder{}
-	a := New(25, 5, 15, 4, testPolicy(time.Hour), &fakeNotifier{})
+	a := New(25, 5, 15, 4)
 	clk := newFakeClock(time.Now())
 	a.setClock(clk)
 	a.SetOnTransition(rec.record)
@@ -662,7 +545,7 @@ func TestOnTransitionFiresWhenCountdownCompletes(t *testing.T) {
 
 func TestOnTransitionFiresOnRestore(t *testing.T) {
 	rec := &transitionRecorder{}
-	a := New(25, 5, 15, 4, testPolicy(time.Hour), &fakeNotifier{})
+	a := New(25, 5, 15, 4)
 	a.SetOnTransition(rec.record)
 	snap := Snapshot{Engine: engine.Snapshot{State: engine.AwaitingConfirm, LastPhase: engine.Work}}
 	if err := a.Restore(snap, time.Now()); err != nil {
@@ -672,9 +555,9 @@ func TestOnTransitionFiresOnRestore(t *testing.T) {
 	a.Stop()
 }
 
-func TestOnTransitionSilentForRefusedPauseSnoozeAndAdvanceDay(t *testing.T) {
+func TestOnTransitionSilentForRefusedPauseAndAdvanceDay(t *testing.T) {
 	rec := &transitionRecorder{}
-	a := New(25, 5, 15, 4, testPolicy(time.Hour), &fakeNotifier{})
+	a := New(25, 5, 15, 4)
 	a.SetOnTransition(rec.record)
 	if a.Pause() {
 		t.Fatal("expected pause to be refused while idle")
@@ -683,10 +566,6 @@ func TestOnTransitionSilentForRefusedPauseSnoozeAndAdvanceDay(t *testing.T) {
 	a.Start()
 	a.CompletePeriod()
 	before := rec.count()
-	a.Snooze(time.Minute)
-	if got := rec.count(); got != before {
-		t.Fatalf("snooze must not report a transition, got %d extra", got-before)
-	}
 	if before != 2 {
 		t.Fatalf("expected exactly Start and CompletePeriod to fire, got %d", before)
 	}
@@ -694,7 +573,7 @@ func TestOnTransitionSilentForRefusedPauseSnoozeAndAdvanceDay(t *testing.T) {
 }
 
 func TestOnTransitionRunsUnderTimerLock(t *testing.T) {
-	a := New(25, 5, 15, 4, testPolicy(time.Hour), &fakeNotifier{})
+	a := New(25, 5, 15, 4)
 	locked := make(chan bool, 1)
 	a.SetOnTransition(func(engine.State) {
 		// TryLock fails while the verb still holds the lock, which is the contract.
@@ -703,5 +582,12 @@ func TestOnTransitionRunsUnderTimerLock(t *testing.T) {
 	a.Start()
 	if !<-locked {
 		t.Fatal("expected the transition hook to run while the Timer lock is held")
+	}
+}
+
+func TestNewTakesOnlyDurations(t *testing.T) {
+	a := New(25, 5, 15, 4)
+	if got := a.State(); got != engine.Idle {
+		t.Fatalf("expected Idle, got %s", got)
 	}
 }

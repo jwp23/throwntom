@@ -1,15 +1,11 @@
 package pomodoro
 
 import (
-	"context"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/jwp23/throwntom/v3/internal/engine"
-	"github.com/jwp23/throwntom/v3/internal/notifier"
-	"github.com/jwp23/throwntom/v3/internal/reminder"
 )
 
 // stopper cancels a callback scheduled with afterFunc.
@@ -29,14 +25,11 @@ func realAfterFunc(d time.Duration, fn func()) stopper {
 type Timer struct {
 	mu                 sync.Mutex
 	engine             *engine.Engine
-	notifier           notifier.Notifier
-	reminderPolicy     reminder.Policy
 	workDuration       time.Duration
 	shortBreakDuration time.Duration
 	longBreakDuration  time.Duration
 	now                func() time.Time
 	after              afterFunc
-	reminderCancel     context.CancelFunc
 	periodTimer        stopper
 	phaseEndAt         time.Time
 	pausedRemaining    time.Duration
@@ -47,11 +40,9 @@ type Timer struct {
 	onTransition func(to engine.State)
 }
 
-func New(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery int, reminderPolicy reminder.Policy, n notifier.Notifier) *Timer {
+func New(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery int) *Timer {
 	return &Timer{
 		engine:             engine.New(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery),
-		notifier:           n,
-		reminderPolicy:     reminderPolicy,
 		workDuration:       time.Duration(workMinutes) * time.Minute,
 		shortBreakDuration: time.Duration(shortBreakMinutes) * time.Minute,
 		longBreakDuration:  time.Duration(longBreakMinutes) * time.Minute,
@@ -127,8 +118,6 @@ func (t *Timer) Restore(s Snapshot, now time.Time) error {
 		}
 	case engine.Paused:
 		t.pausedRemaining = s.PausedRemaining
-	case engine.AwaitingConfirm:
-		t.startReminderLocked()
 	}
 	return nil
 }
@@ -166,7 +155,6 @@ func (t *Timer) StartNewCycle() {
 	defer t.notifyChange()
 	defer t.mu.Unlock()
 	defer t.transitionLocked()
-	t.stopReminderLocked()
 	t.stopTimerLocked()
 	t.phaseEndAt = time.Time{}
 	t.pausedRemaining = 0
@@ -187,7 +175,6 @@ func (t *Timer) Confirm() {
 	defer t.notifyChange()
 	defer t.mu.Unlock()
 	defer t.transitionLocked()
-	t.stopReminderLocked()
 	t.engine.ConfirmNext()
 	switch t.engine.State() {
 	case engine.Work:
@@ -199,33 +186,11 @@ func (t *Timer) Confirm() {
 	}
 }
 
-func (t *Timer) Snooze(d time.Duration) {
-	t.mu.Lock()
-	defer t.notifyChange()
-	t.stopReminderLocked()
-	state := t.engine.State()
-	after := t.after
-	t.mu.Unlock()
-
-	if state != engine.AwaitingConfirm {
-		return
-	}
-
-	after(d, func() {
-		t.mu.Lock()
-		defer t.mu.Unlock()
-		if t.engine.State() == engine.AwaitingConfirm {
-			t.startReminderLocked()
-		}
-	})
-}
-
 func (t *Timer) SkipToday() {
 	t.mu.Lock()
 	defer t.notifyChange()
 	defer t.mu.Unlock()
 	defer t.transitionLocked()
-	t.stopReminderLocked()
 	t.stopTimerLocked()
 	t.phaseEndAt = time.Time{}
 	t.pausedRemaining = 0
@@ -288,7 +253,6 @@ func (t *Timer) Stop() {
 	defer t.notifyChange()
 	defer t.mu.Unlock()
 	defer t.transitionLocked()
-	t.stopReminderLocked()
 	t.stopTimerLocked()
 	t.phaseEndAt = time.Time{}
 	t.pausedRemaining = 0
@@ -360,31 +324,6 @@ func (t *Timer) completePeriodLocked() {
 	t.stopTimerLocked()
 	t.phaseEndAt = time.Time{}
 	t.engine.MarkPeriodComplete()
-	if t.engine.State() == engine.AwaitingConfirm {
-		t.startReminderLocked()
-	}
-}
-
-func (t *Timer) startReminderLocked() {
-	t.stopReminderLocked()
-	ctx, cancel := context.WithCancel(context.Background())
-	t.reminderCancel = cancel
-	n := t.notifier
-	loop := reminder.New(t.reminderPolicy, func() error {
-		if err := n.PlaySound("default"); err != nil {
-			_, _ = os.Stdout.WriteString("\a")
-			return fmt.Errorf("notifier failure: %w", err)
-		}
-		return nil
-	})
-	go loop.Run(ctx)
-}
-
-func (t *Timer) stopReminderLocked() {
-	if t.reminderCancel != nil {
-		t.reminderCancel()
-		t.reminderCancel = nil
-	}
 }
 
 func (t *Timer) startPhaseTimerLocked(d time.Duration) {

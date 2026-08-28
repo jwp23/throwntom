@@ -60,8 +60,6 @@ func newCore(cfg config.Config, n notifier.Notifier) *Core {
 			cfg.Pomodoro.ShortBreakMinutes,
 			cfg.Pomodoro.LongBreakMinutes,
 			cfg.Pomodoro.LongBreakEvery,
-			reminderPolicy,
-			n,
 		),
 		notifier:       n,
 		state:          &reminderState{morningPending: cfg.MorningReminderPending},

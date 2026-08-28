@@ -139,10 +139,13 @@ func TestSnoozeLogsEvent(t *testing.T) {
 	if !hasEventType(events, "snoozed") {
 		t.Fatal("expected snoozed event")
 	}
-	// Also test cycle snooze path
+	// Cycle snooze is refused now that the timer no longer runs a reminder.
 	c.execute("start")
 	c.timer.CompletePeriod()
-	c.execute("snooze 5m")
+	result := c.execute("snooze 5m")
+	if result.err != errNoReminder {
+		t.Fatalf("expected cycle snooze to be refused, got %v", result.err)
+	}
 	events = readEvents(t, path)
 	snoozedCount := 0
 	for _, ev := range events {
@@ -150,8 +153,8 @@ func TestSnoozeLogsEvent(t *testing.T) {
 			snoozedCount++
 		}
 	}
-	if snoozedCount != 2 {
-		t.Fatalf("expected 2 snoozed events, got %d", snoozedCount)
+	if snoozedCount != 1 {
+		t.Fatalf("expected 1 snoozed event, got %d", snoozedCount)
 	}
 }
 

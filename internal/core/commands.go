@@ -19,7 +19,7 @@ var (
 
 // refusals are the sentinels for commands the current state does not allow;
 // classifyError maps them to ErrorRefused.
-var refusals = []error{errNotRunning, errNotPaused, errNotWorkSession, errAlreadyFocused}
+var refusals = []error{errNotRunning, errNotPaused, errNotWorkSession, errAlreadyFocused, errNoReminder}
 
 func (c *Core) buildCommandHandlers() map[string]commandHandler {
 	return map[string]commandHandler{
@@ -139,9 +139,7 @@ func (c *Core) handleSnooze(parts []string) commandResult {
 		c.logEvent("snoozed", map[string]any{"duration_secs": snoozeSecs})
 		return commandResult{message: fmt.Sprintf("morning reminder snoozed for %s", parsed)}
 	}
-	c.timer.Snooze(parsed)
-	c.logEvent("snoozed", map[string]any{"duration_secs": snoozeSecs})
-	return commandResult{message: fmt.Sprintf("cycle reminder snoozed for %s", parsed)}
+	return commandResult{err: errNoReminder}
 }
 
 func (c *Core) handleSkipToday(_ []string) commandResult {
