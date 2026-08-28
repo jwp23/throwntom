@@ -149,10 +149,7 @@ func (r *outstandingReminder) shouldRaiseMorning(now time.Time, sched *scheduler
 		return false
 	}
 	key := dayKey(now)
-	if key == r.lastTriggerDay {
-		return false
-	}
-	if !sched.IsActiveNow(now) {
+	if !sched.ShouldTrigger(now) || key == r.lastTriggerDay {
 		return false
 	}
 	r.lastTriggerDay = key

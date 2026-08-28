@@ -67,9 +67,9 @@ func TestRaiseRingsOncePerKindAndIsIdempotent(t *testing.T) {
 	r, rec, _ := newTestReminder(t)
 	r.raise(reminderMorning)
 	r.raise(reminderMorning)
-	got := waitForSounds(t, rec, 1)
+	waitForSounds(t, rec, 1)
 	settle()
-	if got = rec.snapshot(); len(got) != 1 || got[0] != "morning" {
+	if got := rec.snapshot(); len(got) != 1 || got[0] != "morning" {
 		t.Fatalf("expected one morning ring, got %v", got)
 	}
 	if r.outstanding() != reminderMorning {
@@ -210,11 +210,11 @@ func TestOnChangeFiresOnlyOnObservableChange(t *testing.T) {
 }
 
 func TestShouldRaiseMorningOncePerDayAndNotWhileSnoozed(t *testing.T) {
-	r, rec, clk := newTestReminder(t)
+	r, rec, _ := newTestReminder(t)
 	sched := scheduler.New(config.ScheduleDayTimes(config.Default().Schedule))
-	now := clk.Now() // Monday 10:00, after the default 09:15 schedule
+	now := time.Date(2026, 3, 2, 9, 15, 0, 0, time.Local) // Monday 09:15, the default schedule
 	if !r.shouldRaiseMorning(now, sched) {
-		t.Fatal("expected first check after schedule time to trigger")
+		t.Fatal("expected first check at schedule time to trigger")
 	}
 	if r.shouldRaiseMorning(now.Add(time.Minute), sched) {
 		t.Fatal("expected second check on the same day not to trigger")
@@ -239,7 +239,7 @@ func TestSkipTodayCancelsAndStampsDay(t *testing.T) {
 	if r.outstanding() != reminderNone {
 		t.Fatal("expected skipToday to cancel")
 	}
-	if r.shouldRaiseMorning(clk.Now().Add(time.Minute), sched) {
+	if r.shouldRaiseMorning(time.Date(2026, 3, 2, 9, 15, 0, 0, time.Local), sched) {
 		t.Fatal("expected no trigger after skipToday")
 	}
 }
