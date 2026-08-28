@@ -1,4 +1,4 @@
-package app
+package pomodoro
 
 import (
 	"sort"
@@ -31,7 +31,7 @@ func (c *fakeClock) Now() time.Time {
 	return c.now
 }
 
-func (c *fakeClock) After(d time.Duration, fn func()) timer {
+func (c *fakeClock) After(d time.Duration, fn func()) stopper {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	t := &fakeTimer{clock: c, fireAt: c.now.Add(d), fn: fn}
@@ -40,7 +40,7 @@ func (c *fakeClock) After(d time.Duration, fn func()) timer {
 }
 
 // Advance moves the clock forward and runs every callback that comes due, in
-// fire order. Callbacks run without the clock lock held: they take the App
+// fire order. Callbacks run without the clock lock held: they take the Timer
 // lock and may schedule further timers.
 func (c *fakeClock) Advance(d time.Duration) {
 	c.mu.Lock()
@@ -76,10 +76,10 @@ func (t *fakeTimer) Stop() bool {
 	return false
 }
 
-// setClock points the App at c for both the current time and timer scheduling.
-func (a *App) setClock(c *fakeClock) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	a.now = c.Now
-	a.after = c.After
+// setClock points the Timer at c for both the current time and timer scheduling.
+func (t *Timer) setClock(c *fakeClock) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.now = c.Now
+	t.after = c.After
 }

@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jwp23/throwntom/v3/internal/app"
 	"github.com/jwp23/throwntom/v3/internal/engine"
 	"github.com/jwp23/throwntom/v3/internal/notifier"
+	"github.com/jwp23/throwntom/v3/internal/pomodoro"
 	"github.com/jwp23/throwntom/v3/internal/reminder"
 	"github.com/jwp23/throwntom/v3/internal/scheduler"
 )
@@ -31,11 +31,11 @@ func (s *reminderState) notifyChange() {
 	}
 }
 
-func (s *reminderState) statusSnapshot(cycle *app.App) (string, engine.State, bool) {
+func (s *reminderState) statusSnapshot(timer *pomodoro.Timer) (string, engine.State, bool) {
 	s.mu.Lock()
 	currentMorningPending := s.morningPending
 	s.mu.Unlock()
-	return cycle.StatusLine(), cycle.State(), currentMorningPending
+	return timer.StatusLine(), timer.State(), currentMorningPending
 }
 
 func (s *reminderState) beginMorningLoop() (context.Context, bool) {

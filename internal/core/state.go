@@ -33,7 +33,7 @@ func (c *Core) State() State {
 
 func (c *Core) stateLocked() State {
 	statusLine, state, morningPending := c.statusLocked()
-	snap := c.cycle.Snapshot()
+	snap := c.timer.Snapshot()
 	s := State{
 		State:               state,
 		PausedRemaining:     int(snap.PausedRemaining / time.Second),

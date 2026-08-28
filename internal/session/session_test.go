@@ -1,14 +1,26 @@
 package session
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/jwp23/throwntom/v3/internal/app"
 	"github.com/jwp23/throwntom/v3/internal/engine"
+	"github.com/jwp23/throwntom/v3/internal/pomodoro"
 )
+
+func TestSessionKeyIsTimer(t *testing.T) {
+	raw, err := json.Marshal(Data{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"timer":`) {
+		t.Fatalf("expected session document to carry a \"timer\" key, got %s", raw)
+	}
+}
 
 func TestSaveLoadRoundTrip(t *testing.T) {
 	dir := t.TempDir()
@@ -16,7 +28,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 
 	want := Data{
 		SavedAt: time.Now().Truncate(time.Second),
-		App: app.Snapshot{
+		Timer: pomodoro.Snapshot{
 			Engine: engine.Snapshot{
 				State:          engine.Work,
 				LastPhase:      engine.Work,
@@ -40,14 +52,14 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	if !got.SavedAt.Equal(want.SavedAt) {
 		t.Errorf("SavedAt: got %v, want %v", got.SavedAt, want.SavedAt)
 	}
-	if got.App.Engine.State != want.App.Engine.State {
-		t.Errorf("State: got %v, want %v", got.App.Engine.State, want.App.Engine.State)
+	if got.Timer.Engine.State != want.Timer.Engine.State {
+		t.Errorf("State: got %v, want %v", got.Timer.Engine.State, want.Timer.Engine.State)
 	}
-	if got.App.Engine.CompletedToday != want.App.Engine.CompletedToday {
-		t.Errorf("CompletedToday: got %d, want %d", got.App.Engine.CompletedToday, want.App.Engine.CompletedToday)
+	if got.Timer.Engine.CompletedToday != want.Timer.Engine.CompletedToday {
+		t.Errorf("CompletedToday: got %d, want %d", got.Timer.Engine.CompletedToday, want.Timer.Engine.CompletedToday)
 	}
-	if !got.App.PhaseEndAt.Equal(want.App.PhaseEndAt) {
-		t.Errorf("PhaseEndAt: got %v, want %v", got.App.PhaseEndAt, want.App.PhaseEndAt)
+	if !got.Timer.PhaseEndAt.Equal(want.Timer.PhaseEndAt) {
+		t.Errorf("PhaseEndAt: got %v, want %v", got.Timer.PhaseEndAt, want.Timer.PhaseEndAt)
 	}
 	if len(got.FocusedTaskIDs) != 2 || got.FocusedTaskIDs[0] != 3 || got.FocusedTaskIDs[1] != 7 {
 		t.Errorf("FocusedTaskIDs: got %v, want [3 7]", got.FocusedTaskIDs)

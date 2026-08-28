@@ -104,7 +104,7 @@ func TestStartLogsEvent(t *testing.T) {
 func TestConfirmLogsCompletionAndStart(t *testing.T) {
 	c, path := newCoreWithEvents(t)
 	c.execute("start")
-	c.cycle.CompletePeriod()
+	c.timer.CompletePeriod()
 	c.execute("confirm")
 	events := readEvents(t, path)
 	if !hasEventType(events, "pomodoro_completed") {
@@ -141,7 +141,7 @@ func TestSnoozeLogsEvent(t *testing.T) {
 	}
 	// Also test cycle snooze path
 	c.execute("start")
-	c.cycle.CompletePeriod()
+	c.timer.CompletePeriod()
 	c.execute("snooze 5m")
 	events = readEvents(t, path)
 	snoozedCount := 0

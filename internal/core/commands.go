@@ -46,7 +46,7 @@ func (c *Core) handleStart(_ []string) commandResult {
 	if c.tasks != nil {
 		return c.enterFocusPrompt("start")
 	}
-	c.cycle.Start()
+	c.timer.Start()
 	c.logEvent("pomodoro_started", nil)
 	return commandResult{message: "Pomodoro started -- let's go!"}
 }
@@ -54,13 +54,13 @@ func (c *Core) handleStart(_ []string) commandResult {
 func (c *Core) handleNewCycle(_ []string) commandResult {
 	c.state.stopMorningLoop()
 	c.state.clearSnooze()
-	c.cycle.StartNewCycle()
+	c.timer.StartNewCycle()
 	c.logEvent("pomodoro_started", nil)
 	return commandResult{message: "New cycle started -- fresh start!"}
 }
 
 func (c *Core) handlePause(_ []string) commandResult {
-	if !c.cycle.Pause() {
+	if !c.timer.Pause() {
 		return commandResult{err: errNotRunning}
 	}
 	c.logEvent("paused", nil)
@@ -68,7 +68,7 @@ func (c *Core) handlePause(_ []string) commandResult {
 }
 
 func (c *Core) handleResume(_ []string) commandResult {
-	if !c.cycle.Resume() {
+	if !c.timer.Resume() {
 		return commandResult{err: errNotPaused}
 	}
 	c.logEvent("resumed", nil)
@@ -76,16 +76,16 @@ func (c *Core) handleResume(_ []string) commandResult {
 }
 
 func (c *Core) handleStop(_ []string) commandResult {
-	c.cycle.Stop()
+	c.timer.Stop()
 	c.focused = nil
 	return commandResult{message: "Stopped. Back to idle."}
 }
 
 func (c *Core) handleConfirm(_ []string) commandResult {
-	snap := c.cycle.Snapshot()
+	snap := c.timer.Snapshot()
 	c.logConfirmCompletion(snap.Engine.LastPhase)
-	c.cycle.Confirm()
-	state := c.cycle.State()
+	c.timer.Confirm()
+	state := c.timer.State()
 	c.logConfirmStart(state)
 	if state == engine.Work && c.tasks != nil && len(c.focused) == 0 {
 		return c.enterFocusPrompt("confirm")
@@ -127,10 +127,10 @@ func (c *Core) handleSnooze(parts []string) commandResult {
 		state := c.state
 		policy := c.reminderPolicy
 		n := c.notifier
-		cycle := c.cycle
+		timer := c.timer
 		go func() {
 			time.Sleep(parsed)
-			if cycle.State() != engine.Idle {
+			if timer.State() != engine.Idle {
 				return
 			}
 			state.clearSnooze()
@@ -139,7 +139,7 @@ func (c *Core) handleSnooze(parts []string) commandResult {
 		c.logEvent("snoozed", map[string]any{"duration_secs": snoozeSecs})
 		return commandResult{message: fmt.Sprintf("morning reminder snoozed for %s", parsed)}
 	}
-	c.cycle.Snooze(parsed)
+	c.timer.Snooze(parsed)
 	c.logEvent("snoozed", map[string]any{"duration_secs": snoozeSecs})
 	return commandResult{message: fmt.Sprintf("cycle reminder snoozed for %s", parsed)}
 }
@@ -147,7 +147,7 @@ func (c *Core) handleSnooze(parts []string) commandResult {
 func (c *Core) handleSkipToday(_ []string) commandResult {
 	c.state.stopMorningLoop()
 	c.state.markSkippedToday(c.now())
-	c.cycle.SkipToday()
+	c.timer.SkipToday()
 	c.logEvent("skipped_today", nil)
 	return commandResult{message: "Skipped reminders for today."}
 }

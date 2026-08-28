@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jwp23/throwntom/v3/internal/app"
 	"github.com/jwp23/throwntom/v3/internal/config"
 	"github.com/jwp23/throwntom/v3/internal/core"
 	"github.com/jwp23/throwntom/v3/internal/engine"
+	"github.com/jwp23/throwntom/v3/internal/pomodoro"
 	"github.com/jwp23/throwntom/v3/internal/session"
 )
 
@@ -198,7 +198,7 @@ func seedExpiredWorkSession(t *testing.T, path string) {
 	now := time.Now()
 	data := session.Data{
 		SavedAt: now.Add(-time.Minute),
-		App: app.Snapshot{
+		Timer: pomodoro.Snapshot{
 			Engine: engine.Snapshot{
 				State:          engine.Work,
 				LastPhase:      engine.Work,

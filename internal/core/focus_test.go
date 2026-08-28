@@ -92,8 +92,8 @@ func TestStartEntersFocusPromptWhenTasksExist(t *testing.T) {
 	if !strings.Contains(result.message, "Select tasks") {
 		t.Fatalf("expected prompt message, got %q", result.message)
 	}
-	if c.cycle.State() != engine.Idle {
-		t.Fatalf("expected idle during prompt, got %s", c.cycle.State())
+	if c.timer.State() != engine.Idle {
+		t.Fatalf("expected idle during prompt, got %s", c.timer.State())
 	}
 }
 
@@ -106,8 +106,8 @@ func TestStartShowsPromptWhenNoTasks(t *testing.T) {
 	if !strings.Contains(result.message, "Select tasks") {
 		t.Fatalf("expected prompt message, got %q", result.message)
 	}
-	if c.cycle.State() != engine.Idle {
-		t.Fatalf("expected idle during prompt, got %s", c.cycle.State())
+	if c.timer.State() != engine.Idle {
+		t.Fatalf("expected idle during prompt, got %s", c.timer.State())
 	}
 }
 
@@ -119,8 +119,8 @@ func TestStartPromptEmptyListAllowsAddAndStart(t *testing.T) {
 	if c.FocusPromptPending() {
 		t.Fatal("expected prompt cleared")
 	}
-	if c.cycle.State() != engine.Work {
-		t.Fatalf("expected pomodoro, got %s", c.cycle.State())
+	if c.timer.State() != engine.Work {
+		t.Fatalf("expected pomodoro, got %s", c.timer.State())
 	}
 	focused := c.Focused()
 	if len(focused) != 1 {
@@ -139,8 +139,8 @@ func TestStartPromptEmptyListSkipStarts(t *testing.T) {
 	if c.FocusPromptPending() {
 		t.Fatal("expected prompt cleared")
 	}
-	if c.cycle.State() != engine.Work {
-		t.Fatalf("expected pomodoro, got %s", c.cycle.State())
+	if c.timer.State() != engine.Work {
+		t.Fatalf("expected pomodoro, got %s", c.timer.State())
 	}
 	if len(c.Focused()) != 0 {
 		t.Fatal("expected no focused tasks after skip")
@@ -160,8 +160,8 @@ func TestFocusPromptToggleAndStart(t *testing.T) {
 	if c.FocusPromptPending() {
 		t.Fatal("expected prompt cleared")
 	}
-	if c.cycle.State() != engine.Work {
-		t.Fatalf("expected pomodoro, got %s", c.cycle.State())
+	if c.timer.State() != engine.Work {
+		t.Fatalf("expected pomodoro, got %s", c.timer.State())
 	}
 	focused := c.Focused()
 	if len(focused) != 1 {
@@ -180,8 +180,8 @@ func TestFocusPromptSkip(t *testing.T) {
 	if c.FocusPromptPending() {
 		t.Fatal("expected prompt cleared")
 	}
-	if c.cycle.State() != engine.Work {
-		t.Fatalf("expected pomodoro, got %s", c.cycle.State())
+	if c.timer.State() != engine.Work {
+		t.Fatalf("expected pomodoro, got %s", c.timer.State())
 	}
 	if len(c.Focused()) != 0 {
 		t.Fatal("expected no focused tasks after skip")
@@ -207,12 +207,12 @@ func TestConfirmToWorkTriggersFocusPrompt(t *testing.T) {
 	c.execute("task add keep working")
 	c.execute("start")       // prompt
 	c.execute("")            // skip prompt, start pomodoro
-	c.cycle.CompletePeriod() // work done -> awaiting confirm
+	c.timer.CompletePeriod() // work done -> awaiting confirm
 	c.execute("confirm")     // -> short break (no prompt for breaks)
 	if c.FocusPromptPending() {
 		t.Fatal("should not prompt for break")
 	}
-	c.cycle.CompletePeriod() // break done -> awaiting confirm
+	c.timer.CompletePeriod() // break done -> awaiting confirm
 	c.execute("confirm")     // -> work (should trigger prompt)
 	if !c.FocusPromptPending() {
 		t.Fatal("expected focus prompt when confirming into work phase")
@@ -276,8 +276,8 @@ func TestCancelFocusPromptDoesNotStart(t *testing.T) {
 	if c.FocusPromptPending() {
 		t.Fatal("expected prompt to be cancelled")
 	}
-	if c.cycle.State() != engine.Idle {
-		t.Fatalf("expected idle after cancel, got %s", c.cycle.State())
+	if c.timer.State() != engine.Idle {
+		t.Fatalf("expected idle after cancel, got %s", c.timer.State())
 	}
 	if !strings.Contains(result.message, "cancelled") {
 		t.Fatalf("expected cancelled message, got %q", result.message)
@@ -328,11 +328,11 @@ func TestConfirmToWorkSkipsFocusPromptWhenFocusedTasksExist(t *testing.T) {
 	}
 
 	// Complete work period, confirm into break
-	c.cycle.CompletePeriod()
+	c.timer.CompletePeriod()
 	c.execute("confirm")
 
 	// Complete break, confirm into work
-	c.cycle.CompletePeriod()
+	c.timer.CompletePeriod()
 	c.execute("confirm")
 
 	// Should NOT show focus prompt — incomplete focused tasks carry over
@@ -341,8 +341,8 @@ func TestConfirmToWorkSkipsFocusPromptWhenFocusedTasksExist(t *testing.T) {
 	}
 
 	// Should be in pomodoro state
-	if c.cycle.State() != engine.Work {
-		t.Fatalf("expected pomodoro, got %s", c.cycle.State())
+	if c.timer.State() != engine.Work {
+		t.Fatalf("expected pomodoro, got %s", c.timer.State())
 	}
 
 	// Focused tasks should still contain task B

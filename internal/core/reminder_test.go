@@ -188,7 +188,7 @@ func TestMorningSnoozeSkipsRestartIfNotIdle(t *testing.T) {
 
 	// Start a pomodoro before snooze expires
 	c.execute(cmdStart)
-	if c.cycle.State() != engine.Work {
+	if c.timer.State() != engine.Work {
 		t.Fatal("expected engine to be in Work state")
 	}
 
@@ -202,7 +202,7 @@ func TestMorningSnoozeSkipsRestartIfNotIdle(t *testing.T) {
 	if hasCancel {
 		t.Fatal("expected morning loop to NOT restart when engine is not idle")
 	}
-	c.cycle.Stop()
+	c.timer.Stop()
 }
 
 func TestMorningSnoozeStopMidSnooze(t *testing.T) {
@@ -232,7 +232,7 @@ func TestMorningSnoozeStopMidSnooze(t *testing.T) {
 	if hasCancel {
 		t.Fatal("expected no morning loop interference after start during snooze")
 	}
-	c.cycle.Stop()
+	c.timer.Stop()
 }
 
 func TestMorningReminderPolicyComesFromConfig(t *testing.T) {

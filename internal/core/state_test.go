@@ -44,7 +44,7 @@ func TestStateAwaitingConfirmHasNextStage(t *testing.T) {
 	cfg.MorningReminderPending = false
 	c := newCore(cfg, noopNotifier{})
 	c.execute(cmdStart)
-	c.cycle.CompletePeriod()
+	c.timer.CompletePeriod()
 
 	s := c.State()
 	if s.NextStage == nil || s.NextStage.State != engine.ShortBreak || s.NextStage.DurationSeconds != 300 {

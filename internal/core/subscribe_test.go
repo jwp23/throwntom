@@ -52,10 +52,10 @@ func TestSubscribeDeliversTimerExpiry(t *testing.T) {
 	recv(t, ch)
 
 	beforeExpiry := time.Now()
-	snap := c.cycle.Snapshot()
+	snap := c.timer.Snapshot()
 	snap.Engine.State = engine.Work
 	snap.PhaseEndAt = time.Now().Add(20 * time.Millisecond)
-	if err := c.cycle.Restore(snap, time.Now()); err != nil {
+	if err := c.timer.Restore(snap, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	deadline := time.After(2 * time.Second)
@@ -77,8 +77,8 @@ func TestSubscribeDeliversTimerExpiry(t *testing.T) {
 	if !data.SavedAt.After(beforeExpiry) {
 		t.Fatalf("expected session saved after expiry, saved_at = %s", data.SavedAt)
 	}
-	if data.App.Engine.State != engine.AwaitingConfirm {
-		t.Fatalf("expected saved session in awaiting_confirm, got %s", data.App.Engine.State)
+	if data.Timer.Engine.State != engine.AwaitingConfirm {
+		t.Fatalf("expected saved session in awaiting_confirm, got %s", data.Timer.Engine.State)
 	}
 }
 
@@ -213,13 +213,13 @@ func TestPublishSuppressedAfterStop(t *testing.T) {
 	c.Stop()
 	recv(t, ch) // Stop's own publish
 
-	c.cycle.Start() // a late change must neither reach subscribers nor save
+	c.timer.Start() // a late change must neither reach subscribers nor save
 	select {
 	case s := <-ch:
 		t.Fatalf("published after Stop: %s", s.State)
 	case <-time.After(200 * time.Millisecond):
 	}
-	c.cycle.Stop()
+	c.timer.Stop()
 }
 
 // stopWindowWait bounds the wait for a publish that starts inside Stop's
