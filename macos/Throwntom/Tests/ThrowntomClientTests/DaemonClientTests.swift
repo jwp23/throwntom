@@ -96,6 +96,22 @@ final class DaemonClientTests: XCTestCase {
     XCTAssertNotNil(client.unresolvedError)
   }
 
+  func testTransportOutageAfterRefusedCommandSurfacesTheOutageNotTheStaleRefusal() async throws {
+    let client = try await connectedClient()
+    defer { client.stop() }
+    do {
+      try await client.timer(.pause)
+      XCTFail("pause while idle must be refused")
+    } catch DaemonError.http(let status, _) {
+      XCTAssertEqual(status, 409)
+    }
+    XCTAssertNotNil(client.unresolvedError, "the refusal should be visible on its own")
+
+    daemon.stop()
+    try await waitUntil { client.connection != .connected }
+    try await waitUntil { client.unresolvedError == client.lastError }
+  }
+
   func testConnectedClientHasNoErrorToShow() async throws {
     let client = try await connectedClient()
     defer { client.stop() }
