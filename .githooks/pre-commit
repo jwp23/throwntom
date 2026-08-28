@@ -33,6 +33,16 @@ if [ -n "$unformatted" ]; then
   exit 1
 fi
 
+if git diff --cached --quiet -- 'macos/Throwntom/*.swift'; then
+  echo "pre-commit: no Swift changes staged, skipping swift-lint"
+else
+  echo "pre-commit: running swift-lint"
+  macos/swift-lint.sh || {
+    echo "Run: macos/swift-lint.sh --fix"
+    exit 1
+  }
+fi
+
 echo "pre-commit: running unit tests"
 go test -timeout 30s ./...
 

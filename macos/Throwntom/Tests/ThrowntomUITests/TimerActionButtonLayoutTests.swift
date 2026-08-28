@@ -7,53 +7,71 @@ import XCTest
 /// toolbar variant must never carry it, even for actions that do have a shortcut hint.
 @MainActor
 final class TimerActionButtonLayoutTests: XCTestCase {
-    private func makeClient() throws -> DaemonClient {
-        let environment = AppEnvironment(transport: try StubTransport(states: []))
-        return environment.client
+
+  // MARK: Internal
+
+  func testPopoverLayoutShowsInlineHintOnlyWhenActionHasOne() throws {
+    let client = try makeClient()
+
+    XCTAssertTrue(TimerActionButton(action: .start, client: client, layout: .popover).showsInlineHint)
+    XCTAssertFalse(TimerActionButton(action: .skipToday, client: client, layout: .popover).showsInlineHint)
+    XCTAssertFalse(TimerActionButton(action: .newCycle, client: client, layout: .popover).showsInlineHint)
+  }
+
+  func testToolbarLayoutNeverShowsTheInlineHintEvenWhenTheActionHasOne() throws {
+    let client = try makeClient()
+
+    for action in TimerAction.allCases {
+      XCTAssertFalse(
+        TimerActionButton(action: action, client: client, layout: .toolbar).showsInlineHint,
+        "\(action) must not carry the popover's Spacer layout in the toolbar",
+      )
     }
+  }
 
-    func testPopoverLayoutShowsInlineHintOnlyWhenActionHasOne() throws {
-        let client = try makeClient()
+  func testEveryToolbarActionAcrossAllStatesRendersWithoutTheInlineHint() throws {
+    let client = try makeClient()
+    let states: [DaemonState] = [
+      makeState(.idle),
+      makeState(.idle, morningPending: true),
+      makeState(.work),
+      makeState(.shortBreak),
+      makeState(.longBreak),
+      makeState(.paused),
+      makeState(.awaitingConfirm),
+    ]
 
-        XCTAssertTrue(TimerActionButton(action: .start, client: client, layout: .popover).showsInlineHint)
-        XCTAssertFalse(TimerActionButton(action: .skipToday, client: client, layout: .popover).showsInlineHint)
-        XCTAssertFalse(TimerActionButton(action: .newCycle, client: client, layout: .popover).showsInlineHint)
+    for state in states {
+      for action in TimerActions.available(for: state) {
+        XCTAssertFalse(
+          TimerActionButton(action: action, client: client, layout: .toolbar).showsInlineHint,
+          "\(action) in \(state.state) must render without the popover's Spacer",
+        )
+      }
     }
+  }
 
-    func testToolbarLayoutNeverShowsTheInlineHintEvenWhenTheActionHasOne() throws {
-        let client = try makeClient()
+  // MARK: Private
 
-        for action in TimerAction.allCases {
-            XCTAssertFalse(
-                TimerActionButton(action: action, client: client, layout: .toolbar).showsInlineHint,
-                "\(action) must not carry the popover's Spacer layout in the toolbar")
-        }
-    }
+  private func makeClient() throws -> DaemonClient {
+    let environment = AppEnvironment(transport: try StubTransport(states: []))
+    return environment.client
+  }
 
-    func testEveryToolbarActionAcrossAllStatesRendersWithoutTheInlineHint() throws {
-        let client = try makeClient()
-        let states: [DaemonState] = [
-            makeState(.idle),
-            makeState(.idle, morningPending: true),
-            makeState(.work),
-            makeState(.shortBreak),
-            makeState(.longBreak),
-            makeState(.paused),
-            makeState(.awaitingConfirm),
-        ]
+  private func makeState(_ phase: DaemonState.Phase, morningPending: Bool = false) -> DaemonState {
+    DaemonState(
+      state: phase,
+      phaseEndAt: nil,
+      pausedRemaining: 0,
+      completedToday: 0,
+      workSessionsInBlock: 0,
+      longBreakEvery: 4,
+      nextStage: nil,
+      morningPending: morningPending,
+      snoozeUntil: nil,
+      statusLine: "",
+      focusedTaskIds: [],
+    )
+  }
 
-        for state in states {
-            for action in TimerActions.available(for: state) {
-                XCTAssertFalse(
-                    TimerActionButton(action: action, client: client, layout: .toolbar).showsInlineHint,
-                    "\(action) in \(state.state) must render without the popover's Spacer")
-            }
-        }
-    }
-
-    private func makeState(_ phase: DaemonState.Phase, morningPending: Bool = false) -> DaemonState {
-        DaemonState(state: phase, phaseEndAt: nil, pausedRemaining: 0, completedToday: 0, workSessionsInBlock: 0,
-              longBreakEvery: 4, nextStage: nil, morningPending: morningPending, snoozeUntil: nil,
-              statusLine: "", focusedTaskIds: [])
-    }
 }

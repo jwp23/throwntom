@@ -5,38 +5,45 @@ import XCTest
 
 @MainActor
 final class AppEnvironmentTests: XCTestCase {
-    func testStartFeedsDaemonFramesFromTheInjectedTransport() async throws {
-        let environment = AppEnvironment(transport: try StubTransport(states: [makeState(phase: .work)]))
-        defer { shutDown(environment) }
 
-        environment.start()
+  // MARK: Internal
 
-        try await waitUntil { environment.client.connection == .connected }
-        XCTAssertEqual(environment.client.state?.state, .work)
-    }
+  func testStartFeedsDaemonFramesFromTheInjectedTransport() async throws {
+    let environment = AppEnvironment(transport: try StubTransport(states: [makeState(phase: .work)]))
+    defer { shutDown(environment) }
 
-    func testStartRunsTheCountdownClock() async throws {
-        let environment = AppEnvironment(
-            transport: try StubTransport(states: []),
-            ticker: Ticker(interval: .milliseconds(10)))
-        defer { shutDown(environment) }
-        let before = environment.ticker.now
+    environment.start()
 
-        environment.start()
+    try await waitUntil { environment.client.connection == .connected }
+    XCTAssertEqual(environment.client.state?.state, .work)
+  }
 
-        try await waitUntil { environment.ticker.now > before }
-    }
+  func testStartRunsTheCountdownClock() async throws {
+    let environment = AppEnvironment(
+      transport: try StubTransport(states: []),
+      ticker: Ticker(interval: .milliseconds(10)),
+    )
+    defer { shutDown(environment) }
+    let before = environment.ticker.now
 
-    func testLiveEnvironmentStartsDisconnectedWithNoTasks() {
-        let environment = AppEnvironment.live()
+    environment.start()
 
-        XCTAssertEqual(environment.client.connection, .connecting)
-        XCTAssertNil(environment.client.state)
-        XCTAssertTrue(environment.model.tasks.active.isEmpty)
-    }
+    try await waitUntil { environment.ticker.now > before }
+  }
 
-    private func shutDown(_ environment: AppEnvironment) {
-        environment.client.stop()
-        environment.ticker.stop()
-    }
+  func testLiveEnvironmentStartsDisconnectedWithNoTasks() {
+    let environment = AppEnvironment.live()
+
+    XCTAssertEqual(environment.client.connection, .connecting)
+    XCTAssertNil(environment.client.state)
+    XCTAssertTrue(environment.model.tasks.active.isEmpty)
+  }
+
+  // MARK: Private
+
+  private func shutDown(_ environment: AppEnvironment) {
+    environment.client.stop()
+    environment.ticker.stop()
+  }
+
 }

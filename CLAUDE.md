@@ -30,6 +30,8 @@
 - Lint config: `.golangci.yml` (cyclop max-complexity: 15)
 - Pre-commit hook runs `gofmt` check and full unit test suite
 - macOS app: `macos/build.sh`; Swift tests: `cd macos/Throwntom && swift test`
+- Swift style: `macos/swift-lint.sh` (Airbnb SwiftFormat + SwiftLint, pinned versions; `--fix` autocorrects). Runs in pre-commit when Swift files are staged and in CI.
+- Swift review gate: the `swift-review` skill (`.claude/skills/swift-review`) before a Swift branch is called done — lint plus a diff-scoped swiftui-pro review.
 
 ## Project-Specific
 - Never consider backwards-compatibility, legacy or similar concerns, I'm the only user, and it's a new greenfield project, we can freely make any changes we want.

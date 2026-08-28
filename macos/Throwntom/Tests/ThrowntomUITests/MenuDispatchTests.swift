@@ -5,83 +5,97 @@ import XCTest
 /// What choosing a menu item, a toolbar button or the inline editor sends to the daemon.
 @MainActor
 final class MenuDispatchTests: XCTestCase {
-    func testTimerItemPostsTheDaemonVerb() async throws {
-        let transport = try StubTransport(states: [])
-        let menus = try makeMenus(transport)
 
-        menus.perform(.start)
+  // MARK: Internal
 
-        try await waitUntil { !transport.commands.isEmpty }
-        XCTAssertEqual(transport.commands, [StubTransport.Request(method: "POST", path: "/v1/timer/start", body: "")])
-    }
+  func testTimerItemPostsTheDaemonVerb() async throws {
+    let transport = try StubTransport(states: [])
+    let menus = try makeMenus(transport)
 
-    func testNewTaskItemOpensTheInlineEditorInsteadOfSending() async throws {
-        let transport = try StubTransport(states: [])
-        let menus = try makeMenus(transport)
+    menus.perform(.start)
 
-        menus.run(.newTask)
+    try await waitUntil { !transport.commands.isEmpty }
+    XCTAssertEqual(transport.commands, [StubTransport.Request(method: "POST", path: "/v1/timer/start", body: "")])
+  }
 
-        XCTAssertTrue(menus.model.isEditing)
-        try await settle()
-        XCTAssertTrue(transport.commands.isEmpty)
-    }
+  func testNewTaskItemOpensTheInlineEditorInsteadOfSending() async throws {
+    let transport = try StubTransport(states: [])
+    let menus = try makeMenus(transport)
 
-    func testTaskItemSendsTheCommandForTheSelectedTask() async throws {
-        let transport = try StubTransport(states: [])
-        let menus = try makeMenus(transport)
-        menus.model.sync(
-            tasks: TaskList(active: [makeTask(id: 7), makeTask(id: 8)], completed: []), focusedTaskIDs: [])
-        menus.model.selectedID = 8
+    menus.run(.newTask)
 
-        menus.run(.complete)
+    XCTAssertTrue(menus.model.isEditing)
+    try await settle()
+    XCTAssertTrue(transport.commands.isEmpty)
+  }
 
-        try await waitUntil { !transport.commands.isEmpty }
-        XCTAssertEqual(
-            transport.commands,
-            [StubTransport.Request(method: "POST", path: "/v1/command", body: #"{"line":"task done 2"}"#)])
-    }
+  func testTaskItemSendsTheCommandForTheSelectedTask() async throws {
+    let transport = try StubTransport(states: [])
+    let menus = try makeMenus(transport)
+    menus.model.sync(
+      tasks: TaskList(active: [makeTask(id: 7), makeTask(id: 8)], completed: []),
+      focusedTaskIDs: [],
+    )
+    menus.model.selectedID = 8
 
-    func testTaskItemSendsNothingWithoutASelection() async throws {
-        let transport = try StubTransport(states: [])
-        let menus = try makeMenus(transport)
+    menus.run(.complete)
 
-        menus.run(.delete)
+    try await waitUntil { !transport.commands.isEmpty }
+    XCTAssertEqual(
+      transport.commands,
+      [StubTransport.Request(method: "POST", path: "/v1/command", body: #"{"line":"task done 2"}"#)],
+    )
+  }
 
-        try await settle()
-        XCTAssertTrue(transport.commands.isEmpty)
-    }
+  func testTaskItemSendsNothingWithoutASelection() async throws {
+    let transport = try StubTransport(states: [])
+    let menus = try makeMenus(transport)
 
-    func testTimerActionButtonPostsSnoozeWithItsDefaultMinutes() async throws {
-        let transport = try StubTransport(states: [])
-        let environment = AppEnvironment(transport: transport)
+    menus.run(.delete)
 
-        await TimerActionButton(action: .snooze, client: environment.client).perform()
+    try await settle()
+    XCTAssertTrue(transport.commands.isEmpty)
+  }
 
-        XCTAssertEqual(
-            transport.commands,
-            [StubTransport.Request(method: "POST", path: "/v1/timer/snooze", body: #"{"minutes":10}"#)])
-    }
+  func testTimerActionButtonPostsSnoozeWithItsDefaultMinutes() async throws {
+    let transport = try StubTransport(states: [])
+    let environment = AppEnvironment(transport: transport)
 
-    func testTaskWindowSendsTheLineTheInlineEditorCommits() async throws {
-        let transport = try StubTransport(states: [])
-        let environment = AppEnvironment(transport: transport)
+    await TimerActionButton(action: .snooze, client: environment.client).perform()
 
-        TaskWindow(client: environment.client, model: environment.model).send("task add write it down")
+    XCTAssertEqual(
+      transport.commands,
+      [StubTransport.Request(method: "POST", path: "/v1/timer/snooze", body: #"{"minutes":10}"#)],
+    )
+  }
 
-        try await waitUntil { !transport.commands.isEmpty }
-        XCTAssertEqual(
-            transport.commands,
-            [StubTransport.Request(
-                method: "POST", path: "/v1/command", body: #"{"line":"task add write it down"}"#)])
-    }
+  func testTaskWindowSendsTheLineTheInlineEditorCommits() async throws {
+    let transport = try StubTransport(states: [])
+    let environment = AppEnvironment(transport: transport)
 
-    private func makeMenus(_ transport: StubTransport) throws -> AppMenus {
-        let environment = AppEnvironment(transport: transport)
-        return AppMenus(client: environment.client, model: environment.model)
-    }
+    TaskWindow(client: environment.client, model: environment.model).send("task add write it down")
 
-    /// Gives the detached Task a menu action spawns time to reach the transport.
-    private func settle() async throws {
-        try await Task.sleep(for: .milliseconds(50))
-    }
+    try await waitUntil { !transport.commands.isEmpty }
+    XCTAssertEqual(
+      transport.commands,
+      [StubTransport.Request(
+        method: "POST",
+        path: "/v1/command",
+        body: #"{"line":"task add write it down"}"#,
+      )],
+    )
+  }
+
+  // MARK: Private
+
+  private func makeMenus(_ transport: StubTransport) throws -> AppMenus {
+    let environment = AppEnvironment(transport: transport)
+    return AppMenus(client: environment.client, model: environment.model)
+  }
+
+  /// Gives the detached Task a menu action spawns time to reach the transport.
+  private func settle() async throws {
+    try await Task.sleep(for: .milliseconds(50))
+  }
+
 }

@@ -29,6 +29,17 @@ failed connection attempts; the menu bar shows "Starting timer…" meanwhile.
 
     cd macos/Throwntom && swift test
 
+## Style
+
+    macos/swift-lint.sh          # lint: Airbnb SwiftFormat config + SwiftLint rules
+    macos/swift-lint.sh --fix    # autocorrect, then report what it could not fix
+
+The configs in `Throwntom/.swiftformat` and `Throwntom/.swiftlint.yml` are copied
+verbatim from [airbnb/swift](https://github.com/airbnb/swift) at the newest revision
+the pinned SwiftFormat release understands; the script refuses to run under any other
+tool version so a developer machine and CI cannot disagree. `brew install swiftformat
+swiftlint` provides both.
+
 `DaemonClient` and the transport are tested against a real `throwntomd`,
 built by the tests with `go build` and run with `HOME` under `/tmp`.
 
@@ -60,3 +71,4 @@ built by the tests with `go build` and run with `HOME` under `/tmp`.
   posts its own reminder notification instead of shelling out to a helper.
 - `bundle/` — `Info.plist` and the launchd agent plist copied into the app.
 - `build.sh`, `agent.sh` — build and dev-agent scripts.
+- `swift-lint.sh` — Airbnb style check used by pre-commit and CI.
