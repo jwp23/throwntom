@@ -10,11 +10,12 @@ struct TaskWindow: View {
   // MARK: Internal
 
   let client: DaemonClient
-  let model: TaskWindowModel
+
+  @Bindable var model: TaskWindowModel
 
   var body: some View {
     let content = TaskWindowContent(state: client.state, connection: client.connection, model: model, now: .now)
-    List(selection: Binding(get: { model.selectedID }, set: { model.selectedID = $0 })) {
+    List(selection: $model.selectedID) {
       if content.isEditing {
         NewTaskRow(model: model) { line in send(line) }
       }
