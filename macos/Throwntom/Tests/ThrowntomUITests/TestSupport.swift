@@ -131,6 +131,9 @@ final class StubTransport: DaemonTransport, @unchecked Sendable {
     let body: String
   }
 
+  /// What every non-tasks request replies with; a non-2xx status makes the client raise a refusal.
+  var commandStatus = 200
+
   var requests: [Request] {
     lock.withLock { recorded }
   }
@@ -147,7 +150,10 @@ final class StubTransport: DaemonTransport, @unchecked Sendable {
       body: body.map { String(decoding: $0, as: UTF8.self) } ?? "",
     )
     lock.withLock { recorded.append(request) }
-    return HTTPResponse(status: 200, headers: [:], body: path == Self.tasksPath ? taskList : Self.commandReply)
+    if path == Self.tasksPath {
+      return HTTPResponse(status: 200, headers: [:], body: taskList)
+    }
+    return HTTPResponse(status: commandStatus, headers: [:], body: Self.commandReply)
   }
 
   func events(_: String) -> AsyncThrowingStream<Data, Error> {
