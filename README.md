@@ -217,6 +217,7 @@ Install local git hooks:
 Commit-time checks in `.githooks/pre-commit` run:
 
 - `gofmt` verification (`gofmt -l .`)
+- Airbnb Swift style when Swift files are staged (`macos/swift-lint.sh`; `--fix` to autocorrect)
 - fast tests (`go test -timeout 30s ./...`)
 
 Heavier checks intentionally kept out of pre-commit and run in CI:
