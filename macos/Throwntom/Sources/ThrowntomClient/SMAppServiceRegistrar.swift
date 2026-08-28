@@ -7,9 +7,14 @@ public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
     public static let agentPlistName = "com.jwp23.throwntom.daemon.plist"
 
     private let agent: LaunchAgentService
+    private let mainApp: MainAppService
 
-    public init(agent: LaunchAgentService = BundledAgentService()) {
+    public init(
+        agent: LaunchAgentService = BundledAgentService(),
+        mainApp: MainAppService = BundledMainAppService()
+    ) {
         self.agent = agent
+        self.mainApp = mainApp
     }
 
     /// Ensures the launchd agent is registered, reloading if necessary.
@@ -39,37 +44,20 @@ public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
     }
 
     public var loginItemEnabled: Bool {
-        SMAppService.mainApp.status == .enabled
+        mainApp.status == .enabled
     }
 
     public func setLoginItem(_ enabled: Bool) throws {
         if enabled {
-            try SMAppService.mainApp.register()
+            try mainApp.register()
         } else {
-            try SMAppService.mainApp.unregister()
+            try mainApp.unregister()
         }
     }
 
     public func openLoginItemsSettings() {
         SMAppService.openSystemSettingsLoginItems()
     }
-}
-
-/// The launchd agent shipped inside the app bundle. Every call here changes the machine's
-/// registered agents, so this wrapper is deliberately thin and left to manual verification.
-public struct BundledAgentService: LaunchAgentService {
-    private var service: SMAppService {
-        SMAppService.agent(plistName: SMAppServiceRegistrar.agentPlistName)
-    }
-
-    public init() {
-        // No stored properties to initialize; this exists only so callers outside
-        // the module can construct one.
-    }
-
-    public var status: AgentStatus { AgentStatus(service.status) }
-    public func register() throws { try service.register() }
-    public func unregister() throws { try service.unregister() }
 }
 
 extension AgentStatus {
