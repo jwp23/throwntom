@@ -2,13 +2,13 @@ import XCTest
 @testable import ThrowntomClient
 
 final class AgentRegistrationPlanTests: XCTestCase {
-    func testEnabledButUnreachableReloadsByUnregisterThenRegister() {
-        XCTAssertEqual(AgentRegistrationPlan.steps(for: .enabled), [.unregister, .register])
-    }
+  func testEnabledButUnreachableReloadsByUnregisterThenRegister() {
+    XCTAssertEqual(AgentRegistrationPlan.steps(for: .enabled), [.unregister, .register])
+  }
 
-    func testUnregisteredStatesJustRegister() {
-        for status in [AgentStatus.notRegistered, .notFound, .requiresApproval, .unknown] {
-            XCTAssertEqual(AgentRegistrationPlan.steps(for: status), [.register], "\(status)")
-        }
+  func testUnregisteredStatesJustRegister() {
+    for status in [AgentStatus.notRegistered, .notFound, .requiresApproval, .unknown] {
+      XCTAssertEqual(AgentRegistrationPlan.steps(for: status), [.register], "\(status)")
     }
+  }
 }

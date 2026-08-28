@@ -6,73 +6,79 @@ import XCTest
 /// differ in what the task window is asked to send.
 @MainActor
 final class NewTaskRowTests: XCTestCase {
-    func testATypedTaskCommitsTheAddCommand() {
-        let model = TaskWindowModel()
-        model.beginNewTask()
-        model.draft = "write the report"
 
-        XCTAssertEqual(makeRow(model).commit(), .send("task add write the report"))
-        XCTAssertFalse(model.isEditing)
-    }
+  // MARK: Internal
 
-    func testABlankDraftClosesTheRowWithNothingToSend() {
-        let model = TaskWindowModel()
-        model.beginNewTask()
-        model.draft = "   "
+  func testATypedTaskCommitsTheAddCommand() {
+    let model = TaskWindowModel()
+    model.beginNewTask()
+    model.draft = "write the report"
 
-        XCTAssertEqual(makeRow(model).commit(), .nothing)
-        XCTAssertFalse(model.isEditing)
-    }
+    XCTAssertEqual(makeRow(model).commit(), .send("task add write the report"))
+    XCTAssertFalse(model.isEditing)
+  }
 
-    func testTextTheTaskGrammarRefusesClosesTheRow() {
-        let model = TaskWindowModel()
-        model.beginNewTask()
-        model.draft = "bell\u{7}"
+  func testABlankDraftClosesTheRowWithNothingToSend() {
+    let model = TaskWindowModel()
+    model.beginNewTask()
+    model.draft = "   "
 
-        XCTAssertEqual(makeRow(model).commit(), .refused)
-        XCTAssertFalse(model.isEditing)
-    }
+    XCTAssertEqual(makeRow(model).commit(), .nothing)
+    XCTAssertFalse(model.isEditing)
+  }
 
-    func testSubmittingATypedTaskHandsTheLineToTheWindow() {
-        let model = TaskWindowModel()
-        model.beginNewTask()
-        model.draft = "write the report"
-        var committed: [String] = []
+  func testTextTheTaskGrammarRefusesClosesTheRow() {
+    let model = TaskWindowModel()
+    model.beginNewTask()
+    model.draft = "bell\u{7}"
 
-        NewTaskRow(model: model) { committed.append($0) }.submit()
+    XCTAssertEqual(makeRow(model).commit(), .refused)
+    XCTAssertFalse(model.isEditing)
+  }
 
-        XCTAssertEqual(committed, ["task add write the report"])
-    }
+  func testSubmittingATypedTaskHandsTheLineToTheWindow() {
+    let model = TaskWindowModel()
+    model.beginNewTask()
+    model.draft = "write the report"
+    var committed = [String]()
 
-    /// Refused text alerts the user and sends nothing. The alert is injected so the suite
-    /// stays silent and the alert itself can be asserted rather than merely heard.
-    func testSubmittingTextTheGrammarRefusesAlertsAndSendsNothing() {
-        let model = TaskWindowModel()
-        model.beginNewTask()
-        model.draft = "bell\u{7}"
-        var committed: [String] = []
-        var alerts = 0
+    NewTaskRow(model: model) { committed.append($0) }.submit()
 
-        var row = NewTaskRow(model: model) { committed.append($0) }
-        row.alert = { alerts += 1 }
-        row.submit()
+    XCTAssertEqual(committed, ["task add write the report"])
+  }
 
-        XCTAssertEqual(alerts, 1)
-        XCTAssertTrue(committed.isEmpty)
-        XCTAssertFalse(model.isEditing)
-    }
+  /// Refused text alerts the user and sends nothing. The alert is injected so the suite
+  /// stays silent and the alert itself can be asserted rather than merely heard.
+  func testSubmittingTextTheGrammarRefusesAlertsAndSendsNothing() {
+    let model = TaskWindowModel()
+    model.beginNewTask()
+    model.draft = "bell\u{7}"
+    var committed = [String]()
+    var alerts = 0
 
-    func testSubmittingABlankDraftHandsTheWindowNothing() {
-        let model = TaskWindowModel()
-        model.beginNewTask()
-        var committed: [String] = []
+    var row = NewTaskRow(model: model) { committed.append($0) }
+    row.alert = { alerts += 1 }
+    row.submit()
 
-        NewTaskRow(model: model) { committed.append($0) }.submit()
+    XCTAssertEqual(alerts, 1)
+    XCTAssertTrue(committed.isEmpty)
+    XCTAssertFalse(model.isEditing)
+  }
 
-        XCTAssertTrue(committed.isEmpty)
-    }
+  func testSubmittingABlankDraftHandsTheWindowNothing() {
+    let model = TaskWindowModel()
+    model.beginNewTask()
+    var committed = [String]()
 
-    private func makeRow(_ model: TaskWindowModel) -> NewTaskRow {
-        NewTaskRow(model: model) { _ in }
-    }
+    NewTaskRow(model: model) { committed.append($0) }.submit()
+
+    XCTAssertTrue(committed.isEmpty)
+  }
+
+  // MARK: Private
+
+  private func makeRow(_ model: TaskWindowModel) -> NewTaskRow {
+    NewTaskRow(model: model) { _ in }
+  }
+
 }

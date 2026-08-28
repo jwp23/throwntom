@@ -7,41 +7,41 @@ import XCTest
 /// is taken from `AppEnvironment`, so these also pin down that the app wires it to its client.
 @MainActor
 final class ReminderResponderTests: XCTestCase {
-    func testSnoozeButtonSnoozesTheDaemon() async throws {
-        let transport = try StubTransport(states: [])
-        let responder = AppEnvironment(transport: transport).responder
-        let reported = expectation(description: "macOS is told the answer was handled")
+  func testSnoozeButtonSnoozesTheDaemon() async throws {
+    let transport = try StubTransport(states: [])
+    let responder = AppEnvironment(transport: transport).responder
+    let reported = expectation(description: "macOS is told the answer was handled")
 
-        responder.respond(to: ReminderNotification.Action.snooze.rawValue) { reported.fulfill() }
+    responder.respond(to: ReminderNotification.Action.snooze.rawValue) { reported.fulfill() }
 
-        await fulfillment(of: [reported], timeout: 5)
-        XCTAssertEqual(transport.commands.map(\.path), ["/v1/timer/snooze"])
-        XCTAssertEqual(transport.commands.map(\.body), [#"{"minutes":10}"#])
-    }
+    await fulfillment(of: [reported], timeout: 5)
+    XCTAssertEqual(transport.commands.map(\.path), ["/v1/timer/snooze"])
+    XCTAssertEqual(transport.commands.map(\.body), [#"{"minutes":10}"#])
+  }
 
-    func testConfirmButtonConfirmsTheStage() async throws {
-        let transport = try StubTransport(states: [])
-        let responder = AppEnvironment(transport: transport).responder
-        let reported = expectation(description: "macOS is told the answer was handled")
+  func testConfirmButtonConfirmsTheStage() async throws {
+    let transport = try StubTransport(states: [])
+    let responder = AppEnvironment(transport: transport).responder
+    let reported = expectation(description: "macOS is told the answer was handled")
 
-        responder.respond(to: ReminderNotification.Action.confirm.rawValue) { reported.fulfill() }
+    responder.respond(to: ReminderNotification.Action.confirm.rawValue) { reported.fulfill() }
 
-        await fulfillment(of: [reported], timeout: 5)
-        XCTAssertEqual(transport.commands.map(\.path), ["/v1/timer/confirm"])
-    }
+    await fulfillment(of: [reported], timeout: 5)
+    XCTAssertEqual(transport.commands.map(\.path), ["/v1/timer/confirm"])
+  }
 
-    func testDismissingTheReminderIsReportedWithoutTouchingTheDaemon() async throws {
-        let transport = try StubTransport(states: [])
-        let responder = AppEnvironment(transport: transport).responder
-        let reported = expectation(description: "macOS is told the dismissal was handled")
+  func testDismissingTheReminderIsReportedWithoutTouchingTheDaemon() async throws {
+    let transport = try StubTransport(states: [])
+    let responder = AppEnvironment(transport: transport).responder
+    let reported = expectation(description: "macOS is told the dismissal was handled")
 
-        responder.respond(to: UNNotificationDismissActionIdentifier) { reported.fulfill() }
+    responder.respond(to: UNNotificationDismissActionIdentifier) { reported.fulfill() }
 
-        await fulfillment(of: [reported], timeout: 5)
-        XCTAssertTrue(transport.commands.isEmpty)
-    }
+    await fulfillment(of: [reported], timeout: 5)
+    XCTAssertTrue(transport.commands.isEmpty)
+  }
 
-    func testTheReminderIsShownEvenWhileThrowntomIsFrontmost() {
-        XCTAssertTrue(ReminderResponder.presentationOptions.contains(.banner))
-    }
+  func testTheReminderIsShownEvenWhileThrowntomIsFrontmost() {
+    XCTAssertTrue(ReminderResponder.presentationOptions.contains(.banner))
+  }
 }

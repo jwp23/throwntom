@@ -8,90 +8,98 @@ import XCTest
 /// the only one macOS delivers the answer to.
 @MainActor
 final class ReminderPostingTests: XCTestCase {
-    private let shortBreak = DaemonState.NextStage(state: .shortBreak, duration: 300)
 
-    func testTheAppPostsTheReminderTheDaemonIsWaitingOn() async throws {
-        let presenter = StubReminderPresenter()
-        let responder = try makeResponder(presenter)
+  // MARK: Internal
 
-        await responder.present(makeState(phase: .awaitingConfirm, nextStage: shortBreak))
+  func testTheAppPostsTheReminderTheDaemonIsWaitingOn() async throws {
+    let presenter = StubReminderPresenter()
+    let responder = try makeResponder(presenter)
 
-        XCTAssertEqual(presenter.posts, [.init(title: "Throwntom", body: "Short break 5 min")])
+    await responder.present(makeState(phase: .awaitingConfirm, nextStage: shortBreak))
+
+    XCTAssertEqual(presenter.posts, [.init(title: "Throwntom", body: "Short break 5 min")])
+  }
+
+  func testAReminderIsPostedOnceHoweverManyFramesTheWaitLasts() async throws {
+    let presenter = StubReminderPresenter()
+    let responder = try makeResponder(presenter)
+    let waiting = makeState(phase: .awaitingConfirm, nextStage: shortBreak)
+
+    for _ in 0..<5 {
+      await responder.present(waiting)
     }
 
-    func testAReminderIsPostedOnceHoweverManyFramesTheWaitLasts() async throws {
-        let presenter = StubReminderPresenter()
-        let responder = try makeResponder(presenter)
-        let waiting = makeState(phase: .awaitingConfirm, nextStage: shortBreak)
+    XCTAssertEqual(presenter.posts.count, 1)
+  }
 
-        for _ in 0..<5 {
-            await responder.present(waiting)
-        }
+  func testAnsweringTheReminderTakesTheBannerDown() async throws {
+    let presenter = StubReminderPresenter()
+    let responder = try makeResponder(presenter)
 
-        XCTAssertEqual(presenter.posts.count, 1)
-    }
+    await responder.present(makeState(phase: .awaitingConfirm, nextStage: shortBreak))
+    await responder.present(makeState(phase: .shortBreak))
 
-    func testAnsweringTheReminderTakesTheBannerDown() async throws {
-        let presenter = StubReminderPresenter()
-        let responder = try makeResponder(presenter)
+    XCTAssertEqual(presenter.withdrawals, 1)
+  }
 
-        await responder.present(makeState(phase: .awaitingConfirm, nextStage: shortBreak))
-        await responder.present(makeState(phase: .shortBreak))
+  /// The app that posted the banner is the only one macOS delivers its answer to, so a banner left
+  /// behind by a quit app offers buttons that can no longer do anything.
+  func testQuittingTheAppTakesTheBannerDown() throws {
+    let presenter = StubReminderPresenter()
+    let responder = try makeResponder(presenter)
+    responder.withdrawOnTermination()
 
-        XCTAssertEqual(presenter.withdrawals, 1)
-    }
+    NotificationCenter.default.post(name: NSApplication.willTerminateNotification, object: nil)
 
-    /// The app that posted the banner is the only one macOS delivers its answer to, so a banner left
-    /// behind by a quit app offers buttons that can no longer do anything.
-    func testQuittingTheAppTakesTheBannerDown() throws {
-        let presenter = StubReminderPresenter()
-        let responder = try makeResponder(presenter)
-        responder.withdrawOnTermination()
+    XCTAssertEqual(presenter.withdrawals, 1)
+  }
 
-        NotificationCenter.default.post(name: NSApplication.willTerminateNotification, object: nil)
+  func testAReminderMacOSRefusesIsReportedWhereTheUserCanSeeIt() async throws {
+    let presenter = StubReminderPresenter()
+    presenter.refusal = notificationsNotAllowed
+    let responder = try makeResponder(presenter)
 
-        XCTAssertEqual(presenter.withdrawals, 1)
-    }
+    await responder.present(makeState(phase: .awaitingConfirm, nextStage: shortBreak))
 
-    func testAReminderMacOSRefusesIsReportedWhereTheUserCanSeeIt() async throws {
-        let presenter = StubReminderPresenter()
-        presenter.refusal = notificationsNotAllowed
-        let responder = try makeResponder(presenter)
+    XCTAssertEqual(
+      responder.authorization.problem,
+      "Reminders will not appear: Notifications are not allowed for this application",
+    )
+  }
 
-        await responder.present(makeState(phase: .awaitingConfirm, nextStage: shortBreak))
+  /// The whole path: a frame off the daemon's event stream ends up as a banner, with no view on
+  /// screen to notice it. The popover is closed almost all the time a reminder arrives.
+  func testAWaitArrivingOnTheEventStreamRaisesTheBanner() async throws {
+    let presenter = StubReminderPresenter()
+    let environment = AppEnvironment(
+      transport: try StubTransport(states: [makeState(phase: .awaitingConfirm, nextStage: shortBreak)]),
+      presenter: presenter,
+    )
+    defer { environment.client.stop() }
+    environment.responder.followDaemonState()
 
-        XCTAssertEqual(
-            responder.authorization.problem,
-            "Reminders will not appear: Notifications are not allowed for this application")
-    }
+    environment.start()
 
-    /// The whole path: a frame off the daemon's event stream ends up as a banner, with no view on
-    /// screen to notice it. The popover is closed almost all the time a reminder arrives.
-    func testAWaitArrivingOnTheEventStreamRaisesTheBanner() async throws {
-        let presenter = StubReminderPresenter()
-        let environment = AppEnvironment(
-            transport: try StubTransport(states: [makeState(phase: .awaitingConfirm, nextStage: shortBreak)]),
-            presenter: presenter)
-        defer { environment.client.stop() }
-        environment.responder.followDaemonState()
+    try await waitUntil { !presenter.posts.isEmpty }
+    XCTAssertEqual(presenter.posts, [.init(title: "Throwntom", body: "Short break 5 min")])
+  }
 
-        environment.start()
+  func testTheAppPostsTheMorningNudgeTheDaemonIsWaitingOn() async throws {
+    let presenter = StubReminderPresenter()
+    let responder = try makeResponder(presenter)
 
-        try await waitUntil { !presenter.posts.isEmpty }
-        XCTAssertEqual(presenter.posts, [.init(title: "Throwntom", body: "Short break 5 min")])
-    }
+    await responder.present(makeState(phase: .idle, morningPending: true))
 
-    func testTheAppPostsTheMorningNudgeTheDaemonIsWaitingOn() async throws {
-        let presenter = StubReminderPresenter()
-        let responder = try makeResponder(presenter)
+    XCTAssertEqual(presenter.morningPosts, [.init(title: "Throwntom", body: "Ready to start your day?")])
+    XCTAssertTrue(presenter.posts.isEmpty)
+  }
 
-        await responder.present(makeState(phase: .idle, morningPending: true))
+  // MARK: Private
 
-        XCTAssertEqual(presenter.morningPosts, [.init(title: "Throwntom", body: "Ready to start your day?")])
-        XCTAssertTrue(presenter.posts.isEmpty)
-    }
+  private let shortBreak = DaemonState.NextStage(state: .shortBreak, duration: 300)
 
-    private func makeResponder(_ presenter: StubReminderPresenter) throws -> ReminderResponder {
-        AppEnvironment(transport: try StubTransport(states: []), presenter: presenter).responder
-    }
+  private func makeResponder(_ presenter: StubReminderPresenter) throws -> ReminderResponder {
+    AppEnvironment(transport: try StubTransport(states: []), presenter: presenter).responder
+  }
+
 }

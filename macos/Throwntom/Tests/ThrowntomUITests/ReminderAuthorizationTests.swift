@@ -3,124 +3,149 @@ import XCTest
 @testable import ThrowntomClient
 @testable import ThrowntomUI
 
+// MARK: - StubAuthorizer
+
 /// Answers the way macOS does, including the refusal it gives once a prompt has gone unanswered.
 struct StubAuthorizer: NotificationAuthorizer {
-    var status: UNAuthorizationStatus = .notDetermined
-    var granted = false
-    var refusal: NSError?
+  var status = UNAuthorizationStatus.notDetermined
+  var granted = false
+  var refusal: NSError?
 
-    func authorizationStatus() async -> UNAuthorizationStatus { status }
+  func authorizationStatus() async -> UNAuthorizationStatus {
+    status
+  }
 
-    func requestAuthorization() async throws -> Bool {
-        if let refusal { throw refusal }
-        return granted
+  func requestAuthorization() async throws -> Bool {
+    if let refusal {
+      throw refusal
     }
+    return granted
+  }
 }
 
 /// What macOS returns from `requestAuthorization` once the prompt has been answered or abandoned:
 /// UNErrorDomain code 1, with no prompt shown and no further chance to ask.
 let notificationsNotAllowed = NSError(
-    domain: UNErrorDomain, code: 1,
-    userInfo: [NSLocalizedDescriptionKey: "Notifications are not allowed for this application"])
+  domain: UNErrorDomain,
+  code: 1,
+  userInfo: [NSLocalizedDescriptionKey: "Notifications are not allowed for this application"],
+)
+
+// MARK: - ReminderAuthorizationTests
 
 /// What the user is told about a reminder macOS will not deliver. An unauthorized reminder is
 /// accepted without complaint and simply never appears, so this text is the only trace of it.
 final class ReminderAuthorizationTests: XCTestCase {
-    func testAGrantedRequestLeavesNothingToReport() {
-        XCTAssertEqual(ReminderAuthorization.requested(granted: true, error: nil), ReminderAuthorization())
-    }
+  func testAGrantedRequestLeavesNothingToReport() {
+    XCTAssertEqual(ReminderAuthorization.requested(granted: true, error: nil), ReminderAuthorization())
+  }
 
-    func testARefusedRequestReportsWhatMacOSSaid() {
-        let authorization = ReminderAuthorization.requested(granted: false, error: notificationsNotAllowed)
+  func testARefusedRequestReportsWhatMacOSSaid() {
+    let authorization = ReminderAuthorization.requested(granted: false, error: notificationsNotAllowed)
 
-        XCTAssertEqual(
-            authorization.problem,
-            "Reminders will not appear: Notifications are not allowed for this application")
-    }
+    XCTAssertEqual(
+      authorization.problem,
+      "Reminders will not appear: Notifications are not allowed for this application",
+    )
+  }
 
-    func testDecliningThePromptIsReportedThoughMacOSRaisesNoError() {
-        let authorization = ReminderAuthorization.requested(granted: false, error: nil)
+  func testDecliningThePromptIsReportedThoughMacOSRaisesNoError() {
+    let authorization = ReminderAuthorization.requested(granted: false, error: nil)
 
-        XCTAssertEqual(
-            authorization.problem,
-            "Reminders will not appear: notifications are turned off for Throwntom.")
-    }
+    XCTAssertEqual(
+      authorization.problem,
+      "Reminders will not appear: notifications are turned off for Throwntom.",
+    )
+  }
 
-    func testDeliverableStatusesLeaveNothingToReport() {
-        XCTAssertNil(ReminderAuthorization.reported(.authorized).problem)
-        XCTAssertNil(ReminderAuthorization.reported(.provisional).problem)
-    }
+  func testDeliverableStatusesLeaveNothingToReport() {
+    XCTAssertNil(ReminderAuthorization.reported(.authorized).problem)
+    XCTAssertNil(ReminderAuthorization.reported(.provisional).problem)
+  }
 
-    func testARefusalAlreadyOnRecordIsReported() {
-        XCTAssertEqual(
-            ReminderAuthorization.reported(.denied).problem,
-            "Reminders will not appear: notifications are turned off for Throwntom.")
-    }
+  func testARefusalAlreadyOnRecordIsReported() {
+    XCTAssertEqual(
+      ReminderAuthorization.reported(.denied).problem,
+      "Reminders will not appear: notifications are turned off for Throwntom.",
+    )
+  }
 
-    func testNeverHavingBeenAskedIsReported() {
-        XCTAssertEqual(
-            ReminderAuthorization.reported(.notDetermined).problem,
-            "Reminders will not appear until you allow notifications for Throwntom.")
-    }
+  func testNeverHavingBeenAskedIsReported() {
+    XCTAssertEqual(
+      ReminderAuthorization.reported(.notDetermined).problem,
+      "Reminders will not appear until you allow notifications for Throwntom.",
+    )
+  }
 
-    func testTheSettingsLinkAddressesTheNotificationsPane() throws {
-        let url = try XCTUnwrap(ReminderResponder.notificationSettingsURL)
+  func testTheSettingsLinkAddressesTheNotificationsPane() throws {
+    let url = try XCTUnwrap(ReminderResponder.notificationSettingsURL)
 
-        XCTAssertEqual(url.scheme, "x-apple.systempreferences")
-        XCTAssertEqual(
-            url.absoluteString,
-            "x-apple.systempreferences:com.apple.Notifications-Settings.extension")
-    }
+    XCTAssertEqual(url.scheme, "x-apple.systempreferences")
+    XCTAssertEqual(
+      url.absoluteString,
+      "x-apple.systempreferences:com.apple.Notifications-Settings.extension",
+    )
+  }
 }
+
+// MARK: - ReminderResponderAuthorizationTests
 
 /// What the responder records when macOS answers, which is what the popover shows.
 @MainActor
 final class ReminderResponderAuthorizationTests: XCTestCase {
-    func testTheAppReportsNothingBeforeMacOSHasAnswered() throws {
-        let responder = try makeResponder(StubAuthorizer())
 
-        XCTAssertNil(responder.authorization.problem)
-    }
+  // MARK: Internal
 
-    func testARefusedRequestIsKeptInsteadOfDiscarded() async throws {
-        let responder = try makeResponder(StubAuthorizer(refusal: notificationsNotAllowed))
+  func testTheAppReportsNothingBeforeMacOSHasAnswered() throws {
+    let responder = try makeResponder(StubAuthorizer())
 
-        await responder.requestAuthorization()
+    XCTAssertNil(responder.authorization.problem)
+  }
 
-        XCTAssertEqual(
-            responder.authorization.problem,
-            "Reminders will not appear: Notifications are not allowed for this application")
-    }
+  func testARefusedRequestIsKeptInsteadOfDiscarded() async throws {
+    let responder = try makeResponder(StubAuthorizer(refusal: notificationsNotAllowed))
 
-    func testAGrantedRequestLeavesTheUserNothingToFix() async throws {
-        let responder = try makeResponder(StubAuthorizer(granted: true))
+    await responder.requestAuthorization()
 
-        await responder.requestAuthorization()
+    XCTAssertEqual(
+      responder.authorization.problem,
+      "Reminders will not appear: Notifications are not allowed for this application",
+    )
+  }
 
-        XCTAssertNil(responder.authorization.problem)
-    }
+  func testAGrantedRequestLeavesTheUserNothingToFix() async throws {
+    let responder = try makeResponder(StubAuthorizer(granted: true))
 
-    func testRefreshingReadsWhatMacOSWillDoNow() async throws {
-        let responder = try makeResponder(StubAuthorizer(status: .denied))
+    await responder.requestAuthorization()
 
-        await responder.refreshAuthorization()
+    XCTAssertNil(responder.authorization.problem)
+  }
 
-        XCTAssertEqual(
-            responder.authorization.problem,
-            "Reminders will not appear: notifications are turned off for Throwntom.")
-    }
+  func testRefreshingReadsWhatMacOSWillDoNow() async throws {
+    let responder = try makeResponder(StubAuthorizer(status: .denied))
 
-    func testRefreshingClearsAWarningOnceThePermissionIsGranted() async throws {
-        let responder = try makeResponder(StubAuthorizer(status: .authorized, refusal: notificationsNotAllowed))
-        await responder.requestAuthorization()
-        XCTAssertNotNil(responder.authorization.problem)
+    await responder.refreshAuthorization()
 
-        await responder.refreshAuthorization()
+    XCTAssertEqual(
+      responder.authorization.problem,
+      "Reminders will not appear: notifications are turned off for Throwntom.",
+    )
+  }
 
-        XCTAssertNil(responder.authorization.problem)
-    }
+  func testRefreshingClearsAWarningOnceThePermissionIsGranted() async throws {
+    let responder = try makeResponder(StubAuthorizer(status: .authorized, refusal: notificationsNotAllowed))
+    await responder.requestAuthorization()
+    XCTAssertNotNil(responder.authorization.problem)
 
-    private func makeResponder(_ authorizer: StubAuthorizer) throws -> ReminderResponder {
-        AppEnvironment(transport: try StubTransport(states: []), authorizer: authorizer).responder
-    }
+    await responder.refreshAuthorization()
+
+    XCTAssertNil(responder.authorization.problem)
+  }
+
+  // MARK: Private
+
+  private func makeResponder(_ authorizer: StubAuthorizer) throws -> ReminderResponder {
+    AppEnvironment(transport: try StubTransport(states: []), authorizer: authorizer).responder
+  }
+
 }
