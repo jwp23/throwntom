@@ -2,9 +2,9 @@ import ServiceManagement
 import XCTest
 @testable import ThrowntomClient
 
-/// The registrar is driven through a fake `LaunchAgentService`, so no test here registers a
-/// launchd agent or touches Login Items. `SMAppService.Status` values are inert enum cases,
-/// so translating them registers nothing either.
+/// The registrar is driven through fakes for both `LaunchAgentService` and `MainAppService`, so
+/// no test here registers a launchd agent or touches Login Items. `SMAppService.Status` values
+/// are inert enum cases, so translating them registers nothing either.
 final class SMAppServiceRegistrarTests: XCTestCase {
     func testReloadUnregistersThenRegistersWhenAgentReportsEnabled() throws {
         let agent = FakeAgentService(status: .enabled)
@@ -51,6 +51,26 @@ final class SMAppServiceRegistrarTests: XCTestCase {
         }
     }
 
+    func testLoginItemEnabledReflectsMainAppStatus() {
+        let enabled = SMAppServiceRegistrar(mainApp: FakeMainAppService(status: .enabled))
+        XCTAssertTrue(enabled.loginItemEnabled)
+
+        let disabled = SMAppServiceRegistrar(mainApp: FakeMainAppService(status: .notRegistered))
+        XCTAssertFalse(disabled.loginItemEnabled)
+    }
+
+    func testSetLoginItemTrueRegistersTheMainApp() throws {
+        let mainApp = FakeMainAppService(status: .notRegistered)
+        try SMAppServiceRegistrar(mainApp: mainApp).setLoginItem(true)
+        XCTAssertEqual(mainApp.calls, [.register])
+    }
+
+    func testSetLoginItemFalseUnregistersTheMainApp() throws {
+        let mainApp = FakeMainAppService(status: .enabled)
+        try SMAppServiceRegistrar(mainApp: mainApp).setLoginItem(false)
+        XCTAssertEqual(mainApp.calls, [.unregister])
+    }
+
     func testFrameworkStatusTranslatesToPlanStatus() {
         let translations: [SMAppService.Status: AgentStatus] = [
             .enabled: .enabled,
@@ -85,6 +105,18 @@ private final class FakeAgentService: LaunchAgentService, @unchecked Sendable {
         calls.append(.unregister)
         if let unregisterError { throw unregisterError }
     }
+}
+
+private final class FakeMainAppService: MainAppService, @unchecked Sendable {
+    let status: AgentStatus
+    private(set) var calls: [AgentRegistrationStep] = []
+
+    init(status: AgentStatus) {
+        self.status = status
+    }
+
+    func register() throws { calls.append(.register) }
+    func unregister() throws { calls.append(.unregister) }
 }
 
 private struct StaleEntry: Error {}
