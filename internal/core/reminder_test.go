@@ -218,7 +218,7 @@ func TestStopStopsScheduleTick(t *testing.T) {
 // TestStartTwicePanics shows that a second Start is a loud programming
 // error rather than silent corruption: without a guard it replaces
 // stopSchedule and scheduleDone out from under the first schedule goroutine,
-// so Stop can no longer reach it and a race can double-close a channel.
+// orphaning it since Stop can no longer reach it.
 func TestStartTwicePanics(t *testing.T) {
 	cfg := config.Default()
 	cfg.MorningReminderPending = false

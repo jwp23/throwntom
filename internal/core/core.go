@@ -45,10 +45,10 @@ type Core struct {
 	morningPending bool
 	// started guards against a second Start: Start is meant to run once per
 	// process, and a second call would replace stopSchedule and scheduleDone
-	// out from under the first schedule goroutine, orphaning it and risking a
-	// double close if the replacement lands before that goroutine's defer
-	// runs. A repeat call is a programming error, so Start panics on it
-	// instead of silently corrupting the schedule.
+	// out from under the first schedule goroutine, orphaning it since Stop
+	// would then wait on the replacement's done channel instead. A repeat
+	// call is a programming error, so Start panics on it instead of silently
+	// corrupting the schedule.
 	started bool
 	// stopSchedule ends the schedule tick started by Start; Stop calls it and
 	// waits on scheduleDone so no tick can run after Stop returns, regardless
