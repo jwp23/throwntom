@@ -143,6 +143,8 @@ public final class DaemonClient {
         }
         failures += 1
         lastError = String(describing: error)
+        // A real outage matters more than a stale command refusal from before it started.
+        commandError = nil
         if failures > 0 && failures % Self.failuresBeforeRegistering == 0 {
           registerAgent()
         }
