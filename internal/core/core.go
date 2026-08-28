@@ -43,6 +43,13 @@ type Core struct {
 	// morningPending is the config's answer to whether today's morning
 	// reminder is still owed at start-up.
 	morningPending bool
+	// started guards against a second Start: Start is meant to run once per
+	// process, and a second call would replace stopSchedule and scheduleDone
+	// out from under the first schedule goroutine, orphaning it since Stop
+	// would then wait on the replacement's done channel instead. A repeat
+	// call is a programming error, so Start panics on it instead of silently
+	// corrupting the schedule.
+	started bool
 	// stopSchedule ends the schedule tick started by Start; Stop calls it and
 	// waits on scheduleDone so no tick can run after Stop returns, regardless
 	// of whether the caller's ctx has been cancelled.
@@ -143,11 +150,16 @@ func New(cfg config.Config, n notifier.Notifier, paths Paths) (*Core, error) {
 func (c *Core) Start(ctx context.Context) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.started {
+		panic("core: Start called more than once")
+	}
+	c.started = true
 	scheduleCtx, cancel := context.WithCancel(ctx)
 	c.stopSchedule = cancel
-	c.scheduleDone = make(chan struct{})
+	done := make(chan struct{})
+	c.scheduleDone = done
 	go func() {
-		defer close(c.scheduleDone)
+		defer close(done)
 		c.runMorningSchedule(scheduleCtx)
 	}()
 	if c.morningPending && c.timer.State() == engine.Idle && c.scheduler.IsActiveNow(c.now()) {

@@ -26,9 +26,12 @@ func (c *Core) Subscribe() (<-chan State, func()) {
 
 // publish serialises one save and fan-out on publishMu.
 // Callers must not hold c.mu (State takes it), so verbs do their work under
-// the lock, release it, then publish. Change callbacks from pomodoro.Timer
-// and outstandingReminder fire from code paths that already hold c.mu, so
-// they go through publishAsync instead.
+// the lock, release it, then publish. publishAsync is required whenever a
+// callback runs while c.mu is already held — pomodoro.Timer's onTransition
+// and the raise/cancel it drives fire that way, and a synchronous publish
+// there would deadlock on State's own lock. Other callbacks, such as
+// outstandingReminder.resume firing from its snooze timer, run without c.mu
+// held; publishAsync is harmless there too, so every callback goes through it.
 //
 // publishMu serialises publishes: a State is read and delivered while it is
 // held, so a subscriber never receives a State older than one it already got.
