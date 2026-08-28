@@ -12,7 +12,7 @@ public enum Countdown {
   /// Same output as Go's formatRemaining: floor to seconds, clamp at zero, MM:SS with minutes unbounded.
   public static func formatRemaining(_ seconds: TimeInterval) -> String {
     let total = max(0, Int(seconds))
-    return String(format: "%02d:%02d", total / 60, total % 60)
+    return Duration.seconds(total).formatted(.time(pattern: .minuteSecond(padMinuteToLength: 2)))
   }
 
   private static let runningPhases: Set<DaemonState.Phase> = [.work, .shortBreak, .longBreak]
