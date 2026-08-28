@@ -98,11 +98,11 @@ func nextStageLabel(next engine.State, duration time.Duration) string {
 	phrase := core.FriendlyStateName(next)
 	minutes := int(duration / time.Minute)
 	colored := stateStyle(next).Render(fmt.Sprintf("%s (%d min)", phrase, minutes))
-	return fmt.Sprintf("Next: %s — press enter to start, or snooze to hold your place", colored)
+	return fmt.Sprintf("Next: %s — press enter to start, or snooze 10m to hold your place", colored)
 }
 
 func morningPendingHint() string {
-	return "Reminder waiting — start to begin, snooze to wait, or skip-today to silence it"
+	return "Reminder waiting — start to begin, snooze 10m to wait, or skip-today to silence it"
 }
 
 type frameInput struct {

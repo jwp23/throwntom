@@ -94,8 +94,8 @@ func TestRenderThemedFrameMorningIndicatorMentionsSnooze(t *testing.T) {
 		MorningPending: true,
 		Emoji:          true,
 	})
-	if !strings.Contains(frame, "snooze") {
-		t.Fatalf("expected morning-pending hint to mention snooze, got %q", frame)
+	if !strings.Contains(frame, "snooze 10m") {
+		t.Fatalf("expected morning-pending hint to show a typeable snooze command, got %q", frame)
 	}
 }
 
@@ -124,8 +124,8 @@ func TestNextStageLabelContainsPhaseAndDuration(t *testing.T) {
 		if !strings.Contains(got, "press enter to start") {
 			t.Errorf("nextStageLabel(%s) missing action hint, got %q", tc.next, got)
 		}
-		if !strings.Contains(got, "snooze") {
-			t.Errorf("nextStageLabel(%s) should mention snooze as the non-destructive alternative, got %q", tc.next, got)
+		if !strings.Contains(got, "snooze 10m") {
+			t.Errorf("nextStageLabel(%s) should show a typeable snooze command, got %q", tc.next, got)
 		}
 	}
 }
