@@ -90,7 +90,7 @@ final class ReminderAuthorizationTests: XCTestCase {
 
 // MARK: - ReminderResponderAuthorizationTests
 
-/// What the responder records when macOS answers, which is what the popover shows.
+/// What the responder records when macOS answers, which is what the window shows.
 @MainActor
 final class ReminderResponderAuthorizationTests: XCTestCase {
 

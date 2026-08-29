@@ -10,7 +10,7 @@ public struct DaemonState: Codable, Equatable, Sendable {
     case awaitingConfirm = "awaiting_confirm"
     case paused
 
-    /// How the phase is named in the menu bar app.
+    /// How the phase is named in the window.
     public var displayName: String {
       switch self {
       case .idle: "Idle"

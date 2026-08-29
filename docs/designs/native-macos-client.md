@@ -179,8 +179,7 @@ to bottom:
    collapsed disclosure group, a hint line of the task shortcuts under
    it, and a per-row context menu carrying the same actions. The stats
    panel is the `/v1/stats` summary as a two-column key/value grid:
-   today, this week, this month, all time, streak, best hour, with the
-   TUI's tier glyph beside each pomodoro count.
+   today, this week, this month, all time, streak, best hour.
 7. Reminder banner and daemon/permission errors, when present, sit
    between the chips and the focus section so they are never hidden by
    a panel.
@@ -201,13 +200,14 @@ Motion). The window never activates itself.
 
 ### Visual system
 
-Colour lives in `Palette.swift`, keyed by `Phase`, and is documented in
+Colour lives in `Palette.swift`, keyed by `DaemonState.Phase`, and is documented in
 `DESIGN.md` as the `macos-*` tokens; a Swift test asserts every text on
 ground, chip on ground and chip-text on chip pairing meets WCAG AA
 (4.5:1), mirroring the Go palette test. The look is the same in light
 and dark system appearance. Grounds are mid-tone jewel versions of the
-TUI state colours; text is a pale tint of the same hue; the primary chip
-is the icon's outline brown with cream text; the slot is cream.
+TUI state colours; text is the dark ink; cream on the disconnected ground
+and inside panels; the primary chip is the icon's outline brown with
+cream text; the slot is cream.
 
 Type is the system font: phase name `.largeTitle` bold, countdown
 `.title2`, body and caption elsewhere. Radii: slot 10pt, chips 6pt,
@@ -253,13 +253,13 @@ ThrowntomUI/
   ThrowntomApp, ThrowntomScenes      one Window scene and its .commands
   MainWindow, MainWindowContent      composition; pure "what shows" value
   TimerHeader, MascotSlot            slot + phase + countdown
-  TomatoGarden                       (done, in-block, every, width) → rows
+  TomatoGarden, BlockFlowLayout       (done, in-block, every) → blocks; blocks → wrapped rows
   ActionChips, Chip
   FocusSection
   TasksPanel, TaskRow, NewTaskRow, TaskContextMenu
   StatsPanel
   ShortcutSheet
-  Phase, Palette                     state string → Phase → colours
+  Palette                            phase → colours
   AppMenus, MenuModel
   ReminderBanner, ReminderResponder, NotificationAdapters
 ```
@@ -300,10 +300,10 @@ tools/tomctl/         daemon CLI
 - Swift, client: HTTP/SSE parsing as pure unit tests;
   `UnixSocketTransport` and `DaemonClient` decoding, `stats()` and
   reconnect under XCTest against a real `throwntomd` on a temp socket.
-- Swift, UI: pure unit tests for `TomatoGarden` row layout (0, 3, 4,
-  11, 23 pomodoros at several widths), `Palette` AA contrast for every
-  pairing, `Phase` mapping including unknown → idle, `MenuModel`
-  including the View menu, `StatsSummary` decoding of a captured
+- Swift, UI: pure unit tests for `TomatoGarden` blocks (0, 3, 4, 11, 23
+  pomodoros) and `BlockFlowLayout` row wrapping at several widths,
+  `Palette` AA contrast for every pairing, `MenuModel` including the
+  View menu, `StatsSummary` decoding of a captured
   `/v1/stats` body, and `MainWindowContent` for connected, connecting,
   reconnecting and panel-open states. No UI automation; the
   `swift-review` and `ux-audit` skills gate the branch, then a manual

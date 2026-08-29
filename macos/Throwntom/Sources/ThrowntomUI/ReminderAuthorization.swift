@@ -20,7 +20,7 @@ struct ReminderAuthorization: Equatable {
 
   // MARK: Internal
 
-  /// nil while reminders will arrive, which leaves the popover with nothing to say.
+  /// nil while reminders will arrive, which leaves the window with nothing to say.
   var problem: String?
 
   /// Whether a reminder posted now reaches the user: nothing to report means nothing in the way.
