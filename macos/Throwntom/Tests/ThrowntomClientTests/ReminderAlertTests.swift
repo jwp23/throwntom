@@ -39,4 +39,10 @@ final class ReminderAlertContentTests: XCTestCase {
     XCTAssertEqual(request.content.categoryIdentifier, ReminderNotification.morningCategoryIdentifier)
     XCTAssertNil(request.trigger)
   }
+
+  /// The daemon plays nothing (ADR-003), so a reminder is heard only if its own banner sounds.
+  func testBothRemindersAreAudible() {
+    XCTAssertEqual(ReminderAlert.request(title: "Throwntom", body: "Ready").content.sound, .default)
+    XCTAssertEqual(ReminderAlert.morningRequest(title: "Throwntom", body: "Ready").content.sound, .default)
+  }
 }
