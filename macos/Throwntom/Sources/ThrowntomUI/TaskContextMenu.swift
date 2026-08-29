@@ -12,6 +12,11 @@ enum TaskHints {
     "\(TaskAction.moveUp.shortcutHint)\(TaskAction.moveDown.shortcutHint.suffix(1)) move",
     "\(TaskAction.delete.shortcutHint) delete",
   ].joined(separator: " · ")
+
+  /// Stands in for the list when there is nothing to act on, so the panel is never blank. It
+  /// names the only verb that applies, which is why the full hint line stays away until there
+  /// is a task to run the other verbs on.
+  static let empty = "No tasks — \(TaskAction.newTask.shortcutHint) to add one"
 }
 
 // MARK: - TaskContextMenu

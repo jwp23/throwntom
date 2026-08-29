@@ -21,30 +21,21 @@ struct TasksPanel: View {
 
   let scheme: PhaseScheme
 
+  /// True when there is neither a task nor an open editor, so the list would render blank.
+  var showsEmptyState: Bool {
+    model.tasks.active.isEmpty && model.tasks.completed.isEmpty && !model.isEditing
+  }
+
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
       Text("Tasks").font(.caption).textCase(.uppercase)
-      List(selection: $model.selectedID) {
-        if model.isEditing {
-          NewTaskRow(model: model) { line in DaemonDispatch.send(line, to: environment.client) }
-        }
-        ForEach(model.tasks.active) { task in
-          TaskRow(task: task, focused: model.focusedIDs.contains(task.id))
-            .tag(task.id)
-            .contextMenu { TaskContextMenu(task: task, environment: environment) }
-        }
-        if !model.tasks.completed.isEmpty {
-          DisclosureGroup(model.completedSectionTitle, isExpanded: $showCompleted) {
-            ForEach(model.tasks.completed) { task in
-              TaskRow(task: task, focused: false)
-            }
-          }
-        }
+      if showsEmptyState {
+        Text(TaskHints.empty)
+          .frame(maxWidth: .infinity, minHeight: 160, alignment: .center)
+      } else {
+        taskList
+        Text(TaskHints.line).font(.body.monospaced())
       }
-      .listStyle(.plain)
-      .scrollContentBackground(.hidden)
-      .frame(minHeight: 160, maxHeight: 280)
-      Text(TaskHints.line).font(.body.monospaced())
     }
     .padding(10)
     .foregroundStyle(scheme.panelText.color)
@@ -54,5 +45,28 @@ struct TasksPanel: View {
   // MARK: Private
 
   @State private var showCompleted = false
+
+  private var taskList: some View {
+    List(selection: $model.selectedID) {
+      if model.isEditing {
+        NewTaskRow(model: model) { line in DaemonDispatch.send(line, to: environment.client) }
+      }
+      ForEach(model.tasks.active) { task in
+        TaskRow(task: task, focused: model.focusedIDs.contains(task.id))
+          .tag(task.id)
+          .contextMenu { TaskContextMenu(task: task, environment: environment) }
+      }
+      if !model.tasks.completed.isEmpty {
+        DisclosureGroup(model.completedSectionTitle, isExpanded: $showCompleted) {
+          ForEach(model.tasks.completed) { task in
+            TaskRow(task: task, focused: false)
+          }
+        }
+      }
+    }
+    .listStyle(.plain)
+    .scrollContentBackground(.hidden)
+    .frame(minHeight: 160, maxHeight: 280)
+  }
 
 }
