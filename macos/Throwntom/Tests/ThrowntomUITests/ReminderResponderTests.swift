@@ -57,4 +57,11 @@ final class ReminderResponderTests: XCTestCase {
   func testTheReminderIsShownEvenWhileThrowntomIsFrontmost() {
     XCTAssertTrue(ReminderResponder.presentationOptions.contains(.banner))
   }
+
+  /// A reminder that arrives while the window is frontmost is no less due than any other. The
+  /// daemon plays nothing (ADR-003), and the banner's own sound is suppressed in the foreground
+  /// unless the app asks for it here.
+  func testTheReminderIsHeardEvenWhileThrowntomIsFrontmost() {
+    XCTAssertTrue(ReminderResponder.presentationOptions.contains(.sound))
+  }
 }

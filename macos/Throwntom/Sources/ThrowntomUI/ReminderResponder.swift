@@ -30,8 +30,14 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
     URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension")
 
   /// How the reminder is shown while Throwntom is frontmost; otherwise macOS
-  /// suppresses the banner and hides the only buttons the user has.
-  nonisolated static let presentationOptions: UNNotificationPresentationOptions = [.banner, .list]
+  /// suppresses the banner and hides the only buttons the user has. `.sound` is here for the
+  /// same reason: in the foreground macOS plays the banner's sound only when asked, and the
+  /// daemon has none of its own to fall back on.
+  nonisolated static let presentationOptions: UNNotificationPresentationOptions = [
+    .banner,
+    .list,
+    .sound,
+  ]
 
   /// What the window says about reminders macOS will not deliver. Silent until macOS answers.
   private(set) var authorization = ReminderAuthorization()
