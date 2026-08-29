@@ -31,16 +31,30 @@ struct MascotCharacterView: View {
     frame.blinking && pose.eyes == .open ? .closed : pose.eyes
   }
 
+  /// Returns the ordered layer names drawn for the given pose, for testing layer composition.
+  static func layers(for pose: MascotPose) -> [String] {
+    var result = ["body", "face", "arms"]
+    if let held = pose.held, held.drawnBehindHands {
+      result.append(String(describing: held))
+    }
+    result.append("hands")
+    if let held = pose.held, !held.drawnBehindHands {
+      result.append(String(describing: held))
+    }
+    return result
+  }
+
   // MARK: Private
 
   private var character: some View {
     ZStack {
       TomatoBodyView(unit: unit)
+      TomatoFaceView(eyes: Self.eyes(for: pose, frame: frame), mouth: pose.mouth, unit: unit)
+      ArmsView(left: pose.leftArm, right: pose.rightArm, unit: unit)
       if let held = pose.held, held.drawnBehindHands {
         HeldPropView(prop: held, yoyoDrop: frame.yoyoDrop, unit: unit)
       }
-      TomatoFaceView(eyes: Self.eyes(for: pose, frame: frame), mouth: pose.mouth, unit: unit)
-      ArmsView(left: pose.leftArm, right: pose.rightArm, unit: unit)
+      HandsView(left: pose.leftArm, right: pose.rightArm, unit: unit)
       if let held = pose.held, !held.drawnBehindHands {
         HeldPropView(prop: held, yoyoDrop: frame.yoyoDrop, unit: unit)
       }

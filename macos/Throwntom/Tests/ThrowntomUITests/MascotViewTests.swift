@@ -21,4 +21,9 @@ final class MascotViewTests: XCTestCase {
       _ = MascotView(pose: pose, scheme: Palette.scheme(for: .longBreak)).body
     }
   }
+
+  func testLayerOrderIsCorrect() {
+    XCTAssertEqual(MascotCharacterView.layers(for: .longBreak), ["body", "face", "arms", "book", "hands"])
+    XCTAssertEqual(MascotCharacterView.layers(for: .shortBreak), ["body", "face", "arms", "hands", "drink"])
+  }
 }

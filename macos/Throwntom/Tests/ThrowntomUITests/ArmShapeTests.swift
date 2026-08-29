@@ -29,6 +29,7 @@ final class ArmShapeTests: XCTestCase {
   @MainActor
   func testArmsBuild() {
     _ = ArmsView(left: Arm(22, 70, 16, 80, 22, 86, 35, 85), right: Arm(78, 70, 84, 80, 78, 86, 65, 85), unit: 2).body
+    _ = HandsView(left: Arm(22, 70, 16, 80, 22, 86, 35, 85), right: Arm(78, 70, 84, 80, 78, 86, 65, 85), unit: 2).body
   }
 
   // MARK: Private

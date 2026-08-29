@@ -76,7 +76,7 @@ struct HandShape: Shape {
 
 // MARK: - ArmsView
 
-/// Both arms as outline strokes with a body-coloured disc for each hand.
+/// Both arms as outline strokes.
 struct ArmsView: View {
   let left: Arm
   let right: Arm
@@ -84,17 +84,28 @@ struct ArmsView: View {
 
   var body: some View {
     ZStack {
-      arm(left)
-      arm(right)
+      ArmShape(arm: left).stroke(Palette.outline.color, style: StrokeStyle(lineWidth: 3 * unit, lineCap: .round))
+      ArmShape(arm: right).stroke(Palette.outline.color, style: StrokeStyle(lineWidth: 3 * unit, lineCap: .round))
     }
     .frame(width: Units.canvas * unit, height: Units.canvas * unit)
   }
+}
 
-  private func arm(_ arm: Arm) -> some View {
+// MARK: - HandsView
+
+/// Both hand discs, filled with body colour and stroked.
+struct HandsView: View {
+  let left: Arm
+  let right: Arm
+  let unit: CGFloat
+
+  var body: some View {
     ZStack {
-      ArmShape(arm: arm).stroke(Palette.outline.color, style: StrokeStyle(lineWidth: 3 * unit, lineCap: .round))
-      HandShape(centre: arm.hand).fill(MascotPalette.body.color)
-      HandShape(centre: arm.hand).stroke(Palette.outline.color, lineWidth: 2 * unit)
+      HandShape(centre: left.hand).fill(MascotPalette.body.color)
+      HandShape(centre: left.hand).stroke(Palette.outline.color, lineWidth: 2 * unit)
+      HandShape(centre: right.hand).fill(MascotPalette.body.color)
+      HandShape(centre: right.hand).stroke(Palette.outline.color, lineWidth: 2 * unit)
     }
+    .frame(width: Units.canvas * unit, height: Units.canvas * unit)
   }
 }
