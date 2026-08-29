@@ -26,6 +26,10 @@ final class MainWindowContentTests: XCTestCase {
     XCTAssertNil(c.primaryChip)
   }
 
+  func testRunningPhaseWithoutEndDateHasNoCountdown() {
+    XCTAssertNil(content(makeState(phase: .work, phaseEndAt: nil)).countdown)
+  }
+
   func testPausedUsesRemainingSecondsAndPauseSymbol() {
     let c = content(makeState(phase: .paused, pausedRemaining: 61))
     XCTAssertEqual(c.glyph, .symbol("pause.fill"))

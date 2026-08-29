@@ -29,17 +29,4 @@ struct TomatoGarden: Equatable {
   let blocks: [[Bool]]
   let summary: String
 
-  /// Blocks flowed like words: as many per row as fit in `width`, never fewer than one.
-  static func rows(
-    of blocks: [[Bool]],
-    width: CGFloat,
-    every: Int,
-    glyphWidth: CGFloat = 20,
-    blockGap: CGFloat = 12,
-  ) -> [[[Bool]]] {
-    let blockWidth = CGFloat(max(every, 1)) * glyphWidth
-    let perRow = max(1, Int((width + blockGap) / (blockWidth + blockGap)))
-    return stride(from: 0, to: blocks.count, by: perRow).map { Array(blocks[$0 ..< min($0 + perRow, blocks.count)]) }
-  }
-
 }

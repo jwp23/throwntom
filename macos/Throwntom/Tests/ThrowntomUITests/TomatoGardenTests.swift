@@ -41,13 +41,4 @@ final class TomatoGardenTests: XCTestCase {
   func testEveryBelowOneBehavesAsOne() {
     XCTAssertEqual(TomatoGarden(completedToday: 2, inBlock: 0, every: 0).blocks, [[true], [true]])
   }
-
-  func testRowsWrapBlocksToWidth() {
-    let blocks = TomatoGarden(completedToday: 11, inBlock: 3, every: 4).blocks
-    // one block = 80pt; two blocks + gap = 172pt
-    XCTAssertEqual(TomatoGarden.rows(of: blocks, width: 400, every: 4).map(\.count), [3])
-    XCTAssertEqual(TomatoGarden.rows(of: blocks, width: 180, every: 4).map(\.count), [2, 1])
-    XCTAssertEqual(TomatoGarden.rows(of: blocks, width: 100, every: 4).map(\.count), [1, 1, 1])
-    XCTAssertEqual(TomatoGarden.rows(of: blocks, width: 10, every: 4).map(\.count), [1, 1, 1], "never zero per row")
-  }
 }
