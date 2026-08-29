@@ -15,8 +15,6 @@ enum ConfigFile {
 /// somewhere; this is where the shortcuts are bound and discoverable.
 struct AppMenus: Commands {
 
-  // MARK: Internal
-
   let environment: AppEnvironment
 
   var body: some Commands {
@@ -28,13 +26,25 @@ struct AppMenus: Commands {
       Button("Open Notification Settings…") { environment.responder.openNotificationSettings() }
     }
     CommandMenu("Timer") {
-      menu(MenuModel.timer(state: environment.client.state, isEditing: environment.model.isEditing), run: perform)
+      MenuGroups(menu: MenuModel.timer(state: environment.client.state, isEditing: environment.model.isEditing)) { item in
+        Button(item.title) { perform(item.action) }
+          .keyboardShortcut(item.shortcut?.keyboardShortcut)
+          .disabled(!item.isEnabled)
+      }
     }
     CommandMenu("View") {
-      menu(MenuModel.view(model: environment.windowModel), run: show)
+      MenuGroups(menu: MenuModel.view(model: environment.windowModel)) { item in
+        Button(item.title) { show(item.action) }
+          .keyboardShortcut(item.shortcut?.keyboardShortcut)
+          .disabled(!item.isEnabled)
+      }
     }
     CommandMenu("Tasks") {
-      menu(MenuModel.tasks(model: environment.model), run: run)
+      MenuGroups(menu: MenuModel.tasks(model: environment.model)) { item in
+        Button(item.title) { run(item.action) }
+          .keyboardShortcut(item.shortcut?.keyboardShortcut)
+          .disabled(!item.isEnabled)
+      }
     }
   }
 
@@ -42,14 +52,8 @@ struct AppMenus: Commands {
     DaemonDispatch.perform(action, on: environment.client)
   }
 
-  /// New Task opens the inline editor; every other verb is a command line for the selection.
   func run(_ action: TaskAction) {
-    if action == .newTask {
-      environment.windowModel.panel = .tasks
-      environment.model.beginNewTask()
-    } else if let line = environment.model.command(for: action) {
-      DaemonDispatch.send(line, to: environment.client)
-    }
+    TaskActionDispatch.run(action, environment: environment)
   }
 
   func show(_ action: ViewAction) {
@@ -57,21 +61,6 @@ struct AppMenus: Commands {
       environment.windowModel.toggle(panel)
     } else {
       environment.windowModel.showsShortcuts = true
-    }
-  }
-
-  // MARK: Private
-
-  private func menu<Action>(_ menu: MenuModel<Action>, run: @escaping (Action) -> Void) -> some View {
-    ForEach(Array(menu.groups.enumerated()), id: \.offset) { index, group in
-      if index > 0 {
-        Divider()
-      }
-      ForEach(group) { item in
-        Button(item.title) { run(item.action) }
-          .keyboardShortcut(item.shortcut?.keyboardShortcut)
-          .disabled(!item.isEnabled)
-      }
     }
   }
 

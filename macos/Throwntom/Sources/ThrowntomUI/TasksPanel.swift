@@ -5,10 +5,19 @@ import ThrowntomClient
 /// collapsed group. Selection and the inline editor live in `TaskWindowModel`.
 struct TasksPanel: View {
 
+  // MARK: Lifecycle
+
+  init(environment: AppEnvironment, scheme: PhaseScheme) {
+    self.environment = environment
+    _model = Bindable(environment.model)
+    self.scheme = scheme
+  }
+
   // MARK: Internal
 
-  let client: DaemonClient
   @Bindable var model: TaskWindowModel
+
+  let environment: AppEnvironment
 
   let scheme: PhaseScheme
 
@@ -17,10 +26,12 @@ struct TasksPanel: View {
       Text("Tasks").font(.caption).textCase(.uppercase).opacity(0.8)
       List(selection: $model.selectedID) {
         if model.isEditing {
-          NewTaskRow(model: model) { line in DaemonDispatch.send(line, to: client) }
+          NewTaskRow(model: model) { line in DaemonDispatch.send(line, to: environment.client) }
         }
         ForEach(model.tasks.active) { task in
-          TaskRow(task: task, focused: model.focusedIDs.contains(task.id)).tag(task.id)
+          TaskRow(task: task, focused: model.focusedIDs.contains(task.id))
+            .tag(task.id)
+            .contextMenu { TaskContextMenu(task: task, environment: environment) }
         }
         if !model.tasks.completed.isEmpty {
           DisclosureGroup(model.completedSectionTitle, isExpanded: $showCompleted) {
@@ -33,6 +44,7 @@ struct TasksPanel: View {
       .listStyle(.plain)
       .scrollContentBackground(.hidden)
       .frame(minHeight: 160, maxHeight: 280)
+      Text(TaskHints.line).font(.caption.monospaced()).opacity(0.75)
     }
     .padding(10)
     .background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 8))

@@ -29,7 +29,7 @@ struct MainWindow: View {
       WindowNotes(error: content.error, responder: environment.responder)
       FocusSection(tasks: content.focused)
       if content.panel == .tasks {
-        TasksPanel(client: environment.client, model: environment.model, scheme: content.scheme)
+        TasksPanel(environment: environment, scheme: content.scheme)
       }
       if content.panel == .stats {
         StatsPanel(client: environment.client)
