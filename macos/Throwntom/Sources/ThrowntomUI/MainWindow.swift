@@ -31,6 +31,9 @@ struct MainWindow: View {
       if content.panel == .tasks {
         TasksPanel(client: environment.client, model: environment.model, scheme: content.scheme)
       }
+      if content.panel == .stats {
+        StatsPanel(client: environment.client)
+      }
     }
     .padding(16)
     .frame(minWidth: 320, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

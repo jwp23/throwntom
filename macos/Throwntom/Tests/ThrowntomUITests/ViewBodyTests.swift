@@ -68,6 +68,8 @@ final class ViewBodyTests: XCTestCase {
     _ = MainWindow(environment: environment).body
     environment.windowModel.panel = .tasks
     _ = MainWindow(environment: environment).body
+    environment.windowModel.panel = .stats
+    _ = MainWindow(environment: environment).body
     _ = NewTaskRow(model: environment.model) { _ in }.body
     _ = TaskRow(task: makeTask(id: 1), focused: true).body
     _ = TaskRow(task: makeTask(id: 2, done: true), focused: false).body
