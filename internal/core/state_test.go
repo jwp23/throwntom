@@ -83,6 +83,29 @@ func TestStateSnoozeUntil(t *testing.T) {
 	}
 }
 
+func TestStatePausedFrom(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+	if got := c.State().PausedFrom; got != engine.Idle {
+		t.Fatalf("idle paused_from = %v, want idle", got)
+	}
+	c.execute(cmdStart)
+	c.execute("pause")
+
+	s := c.State()
+	if s.State != engine.Paused || s.PausedFrom != engine.Work {
+		t.Fatalf("expected paused from work, got state=%v paused_from=%v", s.State, s.PausedFrom)
+	}
+	raw, err := json.Marshal(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"paused_from":"work"`) {
+		t.Fatalf("paused_from missing from %s", raw)
+	}
+}
+
 func TestStateJSONTags(t *testing.T) {
 	cfg := config.Default()
 	cfg.MorningReminderPending = false

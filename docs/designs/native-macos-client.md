@@ -101,6 +101,7 @@ removed after the lock is won.
   "state": "work",
   "phase_end_at": "2026-08-25T10:25:00Z",
   "paused_remaining": 0,          // seconds
+  "paused_from": "idle",          // the phase a pause interrupted; idle when not paused
   "completed_today": 3,
   "work_sessions_in_block": 1,
   "long_break_every": 4,
