@@ -43,6 +43,16 @@ final class CommandChipsTests: XCTestCase {
     XCTAssertTrue(model.showsShortcuts)
   }
 
+  func testTheCheatSheetChipIsDeadWhileItsSheetIsOpen() throws {
+    let chips = try makeChips()
+    chips.environment.windowModel.showsShortcuts = true
+
+    // The row draws `.disabled(!item.isEnabled)`, so this is the state that reaches the chip.
+    XCTAssertFalse(try XCTUnwrap(chips.menu.item(for: .shortcuts)).isEnabled)
+    XCTAssertTrue(try XCTUnwrap(chips.menu.item(for: .tasks)).isEnabled)
+    _ = chips.body
+  }
+
   func testChipRowBodyBuilds() throws {
     _ = try makeChips().body
   }
