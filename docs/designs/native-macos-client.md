@@ -228,7 +228,7 @@ the view interpolates toward.
 few seconds (eyes squash to a line for ~120 ms), a slow breathing bob
 (±2° rotation over ~3 s), steam or sparkle drift on the props that have
 them, and on awaiting confirm a repeated jump (translate up ~6% and
-back with a spring) replacing the old slot pulse. Pose changes animate
+back with a spring). Pose changes animate
 the arm curves and rotation over 250 ms, matching the ground colour
 change. Paused freezes everything.
 
