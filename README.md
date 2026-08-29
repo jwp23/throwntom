@@ -83,8 +83,11 @@ terminal is in `docs/development.md`.
 ## Commands
 
 The TUI reads these at its prompt; the daemon accepts the same lines through
-`tools/tomctl cmd <line>`. The macOS window exposes the timer verbs as buttons
-and menu items and the task commands through its tasks panel.
+`tools/tomctl cmd <line>`, except that `start` and `confirm` prompt for task
+focus and so fail non-interactively — use the daemon's `/v1/timer/start` and
+`/v1/timer/confirm` routes for those (see `docs/development.md`). The macOS
+window exposes the timer verbs as buttons and menu items and the task commands
+through its tasks panel.
 
 - `start` - start work period
 - `new-cycle` - start a fresh cycle now (reset cycle progress, keep today's total)

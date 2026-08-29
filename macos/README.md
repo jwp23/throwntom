@@ -80,8 +80,9 @@ built by the tests with `go build` and run with `HOME` under `/tmp`.
   `OS_REASON_CODESIGNING`). Reload it: quit the app,
   `launchctl bootout gui/$(id -u)/com.jwp23.throwntom.daemon`, then reopen the
   app — it re-registers the new binary. Budget a minute for the rebuild and up
-  to half a minute of "Starting timer…" after reopening (the reconnect backoff;
-  throwntom-mwh). `macos/install.sh` runs this whole loop.
+  to half a minute of "Starting timer…" after reopening — the client's reconnect
+  backoff, tracked as bead `throwntom-mwh` in the project's issue tracker.
+  `macos/install.sh` runs this whole loop.
 - To develop without the app: `macos/agent.sh install` runs
   `macos/.build/throwntomd` under a separate label (`com.jwp23.throwntom.dev`)
   logging to `~/.config/throwntom/daemon.log`; `restart` reloads it after a
