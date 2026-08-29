@@ -172,8 +172,10 @@ func TestWatcherAppliesAgainAfterAnEmptyFile(t *testing.T) {
 		state = w.poll(state)
 	}
 	writeConfig(t, path, "[pomodoro]\nwork_minutes = 40\n")
-	state = w.poll(state)
-	state = w.poll(state)
+	// Two polls: the write is seen, then settled and applied.
+	for i := 0; i < 2; i++ {
+		state = w.poll(state)
+	}
 
 	if len(applied) != 1 {
 		t.Fatalf("expected exactly one apply after the write settled, got %+v", applied)
