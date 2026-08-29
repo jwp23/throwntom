@@ -212,22 +212,22 @@ matches what the user should be doing, and so props are legible at
 |---|---|
 | work | behind a laptop drawn side-on to its right, screen leaning toward it, hands on the keyboard |
 | short break | both hands on a cold drink with a straw, eyes closed |
-| long break | reclined on a sun lounger in sunglasses, grinning |
-| idle | reading on a sofa: book seen from behind (spine nearest, covers receding, page edges along the top), eyes cast down |
+| long break | reading on a sofa painted in the phase's `*-panel` tones: book seen from behind (spine nearest, covers receding, page edges along the top), eyes cast down |
+| idle | playing with a yo-yo: one arm out to the side, string down, eyes on the disc |
 | awaiting confirm | arms up, eyes wide, mouth open |
 | paused | the pose of the paused phase with eyes closed and no motion |
 | disconnected | holding a pulled-out cable, mouth flat |
 
 Poses are values: a face variant (eyes, mouth), two arm curves, a prop,
-a body rotation and an optional body scale (the sofa and lounger
-poses shrink the tomato to 80% so the furniture fits the canvas). The
+a body rotation and an optional body scale (the sofa pose shrinks the
+tomato to 80% so the furniture fits the canvas). The
 face and body do not change between poses; a pose is a small struct
 the view interpolates toward.
 
 *Motion.* Small, procedural, and off under Reduce Motion: a blink every
 few seconds (eyes squash to a line for ~120 ms), a slow breathing bob
-(±2° rotation over ~3 s), steam or sparkle drift on the props that have
-them, and on awaiting confirm a repeated jump (translate up ~6% and
+(±2° rotation over ~3 s), the yo-yo dropping and returning on a loop,
+and on awaiting confirm a repeated jump (translate up ~6% and
 back with a spring). Pose changes animate
 the arm curves and rotation over 250 ms, matching the ground colour
 change. Paused freezes everything.
