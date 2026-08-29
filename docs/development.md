@@ -87,7 +87,8 @@ the directories they name. macOS is then free to resolve the app through a bundl
 on disk, and nothing about the symptom points at Launch Services. `macos/build.sh` prunes
 registrations whose bundle is gone, so the loop heals itself; `go run ./tools/lsreg list` shows what
 is registered, and `prune` cleans it on demand (see `tools/lsreg/README.md`). Never run `lsregister
--kill -r -domain local -domain system -domain user` — it rebuilds the whole machine's database.
+-kill -r -domain local -domain system -domain user` — the flag is undocumented and is widely
+reported to rebuild the whole machine's database.
 
 This pileup was investigated as the cause of the missing notification icon in throwntom-3ll and
 ruled out: cleaning it up did not bring the icon back. It is a dev-loop hazard in its own right.

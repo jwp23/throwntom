@@ -47,7 +47,9 @@ is indistinguishable from absence, so it would be pruned; the app would re-regis
 next launch. And there is a millisecond window between the `stat` and the `lsregister -u`
 in which a path could reappear — the same benign outcome, so neither is worth code.
 
-This tool never runs `lsregister -kill -r -domain local -domain system -domain user`. That
-rebuilds the whole machine's Launch Services database and is not a dev-loop fix. The
-sanctioned system-level maintenance is `lsregister -gc`, which garbage-collects and compacts
-the database without discarding live registrations.
+This tool never runs `lsregister -kill -r -domain local -domain system -domain user`. `-kill`
+does not appear in `lsregister -h` at all; it is widely reported to rebuild the whole
+machine's Launch Services database, which is far past a dev-loop fix either way. The
+narrower system-level option is `lsregister -gc`, documented by `lsregister -h` as
+"Garbage collect old data and compact the database". What it keeps or discards beyond that
+is undocumented, and this tool does not rely on it.
