@@ -23,7 +23,10 @@ extension ViewAction: MenuAction { }
 // MARK: - MenuShortcut
 
 /// The key binding of a menu item. Separate from the item so items without one are expressible.
-struct MenuShortcut: Equatable {
+struct MenuShortcut: Hashable {
+
+  // MARK: Internal
+
   let key: KeyEquivalent
   let modifiers: EventModifiers
 
@@ -31,9 +34,48 @@ struct MenuShortcut: Equatable {
     KeyboardShortcut(key, modifiers: modifiers)
   }
 
+  /// How this binding is written on a chip, a hint line or the cheat sheet: the modifier glyphs in
+  /// the order this app writes them (⌘ before ⇧), then the key. `MenuBindingTests` holds every
+  /// action's own `shortcutHint` to this, so a rebinding cannot leave the UI advertising the old key.
+  var hint: String {
+    var glyphs = ""
+    if modifiers.contains(.command) {
+      glyphs += "⌘"
+    }
+    if modifiers.contains(.shift) {
+      glyphs += "⇧"
+    }
+    if modifiers.contains(.option) {
+      glyphs += "⌥"
+    }
+    if modifiers.contains(.control) {
+      glyphs += "⌃"
+    }
+    return glyphs + Self.glyph(for: key)
+  }
+
   static func ==(lhs: MenuShortcut, rhs: MenuShortcut) -> Bool {
     lhs.key.character == rhs.key.character && lhs.modifiers == rhs.modifiers
   }
+
+  func hash(into hasher: inout Hasher) {
+    hasher.combine(key.character)
+    hasher.combine(modifiers.rawValue)
+  }
+
+  // MARK: Private
+
+  /// The keys that print as a symbol rather than as themselves.
+  private static func glyph(for key: KeyEquivalent) -> String {
+    switch key.character {
+    case KeyEquivalent.return.character: "⏎"
+    case KeyEquivalent.delete.character: "⌫"
+    case KeyEquivalent.upArrow.character: "↑"
+    case KeyEquivalent.downArrow.character: "↓"
+    default: String(key.character).uppercased()
+    }
+  }
+
 }
 
 // MARK: - MenuItem
@@ -134,7 +176,7 @@ extension MenuModel where Action == ViewAction {
   static func view(model: WindowModel) -> MenuModel {
     MenuModel(groups: [[
       MenuItem(action: .tasks, shortcut: MenuShortcut(key: "t", modifiers: .command), isEnabled: true),
-      MenuItem(action: .stats, shortcut: MenuShortcut(key: "d", modifiers: [.command, .shift]), isEnabled: true),
+      MenuItem(action: .stats, shortcut: MenuShortcut(key: "i", modifiers: [.command, .shift]), isEnabled: true),
       MenuItem(
         action: .shortcuts,
         shortcut: MenuShortcut(key: "/", modifiers: .command),

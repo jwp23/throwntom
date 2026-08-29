@@ -171,14 +171,14 @@ to bottom:
    (`TimerActions.available`), each a chip with its shortcut in
    trailing monospace text. The primary verb (Start, Confirm, Resume)
    is a dark chip; the rest are translucent.
-5. **Command chips**: Tasks `⌘T`, Stats `⌘⇧D`, Keyboard Shortcuts `⌘/`
+5. **Command chips**: Tasks `⌘T`, Stats `⌘⇧I`, Keyboard Shortcuts `⌘/`
    and Open Config File… `⌘,`, always secondary chips, flowed to the
    window width. These are the commands the menu bar shows something
    for, so none of them is reachable only from the menu bar; the menu
    bar stays the complete command list and this row is not a copy of
    it.
 6. **Focus**: the focused tasks, or nothing when none are focused.
-7. **Tasks panel** (`⌘T`) and **Stats panel** (`⌘⇧D`), one at a time,
+7. **Tasks panel** (`⌘T`) and **Stats panel** (`⌘⇧I`), one at a time,
    expanding the window downward; the same key or `Esc` collapses it.
    Panels start closed on every launch. The tasks panel is the
    single-column list: active tasks, then completed tasks in a
@@ -280,7 +280,7 @@ shortcut:
 - *Timer menu*: Start `⌘R`, Confirm `⏎`, Pause/Resume `⌘P`, Snooze
   `⌘⇧S`, Skip Today, New Cycle (the last two deliberately have no
   shortcut).
-- *View menu*: Tasks `⌘T`, Stats `⌘⇧D`, Keyboard Shortcuts `⌘/` (a
+- *View menu*: Tasks `⌘T`, Stats `⌘⇧I`, Keyboard Shortcuts `⌘/` (a
   sheet listing everything). `Esc` closes an open panel or sheet.
 - *Tasks menu*: New Task `⌘N` (inserts an editable row at the top; `⏎`
   commits, `Esc` cancels), Complete `⌘⏎`, Delete `⌘⌫`, Focus `⌘F`, Move

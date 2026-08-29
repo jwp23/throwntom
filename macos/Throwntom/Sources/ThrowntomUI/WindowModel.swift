@@ -33,7 +33,7 @@ enum ViewAction: CaseIterable, Sendable {
   var shortcutHint: String {
     switch self {
     case .tasks: "⌘T"
-    case .stats: "⌘⇧D"
+    case .stats: "⌘⇧I"
     case .shortcuts: "⌘/"
     case .openConfig: "⌘,"
     }

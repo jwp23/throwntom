@@ -27,7 +27,7 @@ final class StatsLoader {
 
 // MARK: - StatsPanel
 
-/// The `stats` command's summary as a label/value grid, opened under the timer with ⌘⇧D.
+/// The `stats` command's summary as a label/value grid, opened under the timer with ⌘⇧I.
 struct StatsPanel: View {
 
   // MARK: Internal
