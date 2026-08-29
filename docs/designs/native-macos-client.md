@@ -218,19 +218,21 @@ matches what the user should be doing, and so props are legible at
 | paused | the pose of the paused phase with eyes closed and no motion |
 | disconnected | holding a pulled-out cable, mouth flat |
 
-Poses are values: a face variant (eyes, mouth), two arm curves, a prop,
-a body rotation and an optional body scale (the sofa pose shrinks the
-tomato to 80% so the furniture fits the canvas). The
-face and body do not change between poses; a pose is a small struct
-the view interpolates toward.
+Poses are values: eyes, mouth, two arm curves, an optional held prop
+(moves with the body), an optional piece of furniture (canvas-fixed),
+rotation, scale, offset, and the set of motions (the sofa pose shrinks
+the tomato to 80% so the furniture fits the canvas). The face and body
+do not change between poses; a pose is a small struct the view
+interpolates toward.
 
 *Motion.* Small, procedural, and off under Reduce Motion: a blink every
-few seconds (eyes squash to a line for ~120 ms), a slow breathing bob
-(±2° rotation over ~3 s), the yo-yo dropping and returning on a loop,
-and on awaiting confirm a repeated jump (translate up ~6% and
-back with a spring). Pose changes animate
+few seconds (eyes squash to a line for the last 120 ms of each 4 s
+interval), a slow breathing bob (±2° rotation over ~3 s), the yo-yo
+dropping and returning on a loop, and on awaiting confirm a repeated
+jump (a half-sine lift of 6 units, period 1.2 s). Pose changes animate
 the arm curves and rotation over 250 ms, matching the ground colour
-change. Paused freezes everything.
+change. Pose changes do not animate under Reduce Motion either. Paused
+freezes everything.
 
 Before the daemon has sent state, and while reconnecting, the same
 layout renders on a neutral dark ground with the `ConnectionStatus`
