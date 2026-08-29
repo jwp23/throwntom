@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -177,5 +179,42 @@ func TestFormatFocusLines(t *testing.T) {
 	}
 	if formatFocusLines(nil, false) != nil {
 		t.Fatal("expected nil for no focused tasks")
+	}
+}
+
+func relativeLuminance(hex string) float64 {
+	var r, g, b int
+	if _, err := fmt.Sscanf(hex, "#%02x%02x%02x", &r, &g, &b); err != nil {
+		panic(fmt.Sprintf("bad hex %q: %v", hex, err))
+	}
+	lin := func(c int) float64 {
+		v := float64(c) / 255
+		if v <= 0.03928 {
+			return v / 12.92
+		}
+		return math.Pow((v+0.055)/1.055, 2.4)
+	}
+	return 0.2126*lin(r) + 0.7152*lin(g) + 0.0722*lin(b)
+}
+
+func contrastRatio(a, b string) float64 {
+	la, lb := relativeLuminance(a), relativeLuminance(b)
+	if la < lb {
+		la, lb = lb, la
+	}
+	return (la + 0.05) / (lb + 0.05)
+}
+
+// Every colour the TUI paints must meet WCAG AA for text (4.5:1) on a white
+// light-mode terminal and on a black dark-mode terminal.
+func TestPaletteMeetsAAContrastInBothModes(t *testing.T) {
+	const aa = 4.5
+	for name, c := range palette() {
+		if got := contrastRatio(c.Light, "#FFFFFF"); got < aa {
+			t.Errorf("%s light %s on white: %.2f < %.1f", name, c.Light, got, aa)
+		}
+		if got := contrastRatio(c.Dark, "#000000"); got < aa {
+			t.Errorf("%s dark %s on black: %.2f < %.1f", name, c.Dark, got, aa)
+		}
 	}
 }

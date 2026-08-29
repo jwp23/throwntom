@@ -12,15 +12,31 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/task"
 )
 
+// Each colour is a light-terminal / dark-terminal pair chosen to meet WCAG AA
+// (4.5:1) on white and on black, and to keep rest (teal, blue) off the red-green
+// axis so the states stay distinct for colour-blind users.
 var (
-	colorOrange    = lipgloss.AdaptiveColor{Light: "#D75F00", Dark: "#FF8C00"}
-	colorGreen     = lipgloss.AdaptiveColor{Light: "#228B22", Dark: "#32CD32"}
-	colorDeepGreen = lipgloss.AdaptiveColor{Light: "#006400", Dark: "#228B22"}
-	colorYellow    = lipgloss.AdaptiveColor{Light: "#B8860B", Dark: "#FFD700"}
-	colorDim       = lipgloss.AdaptiveColor{Light: "#808080", Dark: "#666666"}
-	colorRed       = lipgloss.AdaptiveColor{Light: "#CC0000", Dark: "#FF4444"}
-	colorAmber     = lipgloss.AdaptiveColor{Light: "#CC7000", Dark: "#FFA500"}
+	colorOrange = lipgloss.AdaptiveColor{Light: "#B94A0E", Dark: "#F68C31"}
+	colorTeal   = lipgloss.AdaptiveColor{Light: "#0E6F73", Dark: "#3FC1C9"}
+	colorBlue   = lipgloss.AdaptiveColor{Light: "#1F4E9C", Dark: "#7AA6F5"}
+	colorYellow = lipgloss.AdaptiveColor{Light: "#6B5E00", Dark: "#E6C84A"}
+	colorDim    = lipgloss.AdaptiveColor{Light: "#6B6B6B", Dark: "#9A9A9A"}
+	colorRed    = lipgloss.AdaptiveColor{Light: "#B3001B", Dark: "#FF5C5C"}
+	colorTomato = lipgloss.AdaptiveColor{Light: "#A8330F", Dark: "#FF7A59"}
 )
+
+// palette lists every colour the TUI paints, by role.
+func palette() map[string]lipgloss.AdaptiveColor {
+	return map[string]lipgloss.AdaptiveColor{
+		"work":             colorOrange,
+		"short-break":      colorTeal,
+		"long-break":       colorBlue,
+		"idle":             colorYellow,
+		"paused":           colorDim,
+		"awaiting-confirm": colorTomato,
+		"error":            colorRed,
+	}
+}
 
 func stateIcon(state engine.State, emoji bool) string {
 	if emoji {
@@ -69,15 +85,15 @@ func stateStyle(state engine.State) lipgloss.Style {
 	case engine.Work:
 		return lipgloss.NewStyle().Foreground(colorOrange)
 	case engine.ShortBreak:
-		return lipgloss.NewStyle().Foreground(colorGreen)
+		return lipgloss.NewStyle().Foreground(colorTeal)
 	case engine.LongBreak:
-		return lipgloss.NewStyle().Foreground(colorDeepGreen)
+		return lipgloss.NewStyle().Foreground(colorBlue)
 	case engine.Idle:
 		return lipgloss.NewStyle().Foreground(colorYellow)
 	case engine.Paused:
 		return lipgloss.NewStyle().Foreground(colorDim)
 	case engine.AwaitingConfirm:
-		return lipgloss.NewStyle().Foreground(colorAmber)
+		return lipgloss.NewStyle().Foreground(colorTomato)
 	default:
 		return lipgloss.NewStyle().Foreground(colorYellow)
 	}

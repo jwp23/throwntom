@@ -67,19 +67,21 @@ func renderDashboard(dash analytics.Dashboard, now time.Time, tierLow, tierMid i
 	return strings.Join(sections, "\n\n")
 }
 
+// tierStyled renders a count with a tier glyph and colour, so the tier reads
+// with or without colour vision: ● above tierMid, ◐ above tierLow, ○ otherwise.
 func tierStyled(count, tierLow, tierMid int) string {
-	s := tierStyle(count, tierLow, tierMid)
-	return s.Render(fmt.Sprintf("%d", count))
+	glyph, style := tierMark(count, tierLow, tierMid)
+	return style.Render(fmt.Sprintf("%s %d", glyph, count))
 }
 
-func tierStyle(count, tierLow, tierMid int) lipgloss.Style {
+func tierMark(count, tierLow, tierMid int) (string, lipgloss.Style) {
 	switch {
 	case count > tierMid:
-		return lipgloss.NewStyle().Foreground(colorGreen)
+		return "●", lipgloss.NewStyle().Foreground(colorTeal)
 	case count > tierLow:
-		return lipgloss.NewStyle().Foreground(colorAmber)
+		return "◐", lipgloss.NewStyle().Foreground(colorTomato)
 	default:
-		return lipgloss.NewStyle().Foreground(colorDim)
+		return "○", lipgloss.NewStyle().Foreground(colorDim)
 	}
 }
 

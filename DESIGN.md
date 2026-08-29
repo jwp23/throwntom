@@ -8,21 +8,29 @@ omitted:
   - section: rounded
     reason: "No corner radii are set anywhere in code. Terminal cells have none; the macOS app inherits the system popover, window, and squircle icon mask."
 colors:
-  primary: "#FF8C00"
-  work-light: "#D75F00"
-  work-dark: "#FF8C00"
-  short-break-light: "#228B22"
-  short-break-dark: "#32CD32"
-  long-break-light: "#006400"
-  long-break-dark: "#228B22"
-  idle-light: "#B8860B"
-  idle-dark: "#FFD700"
-  paused-light: "#808080"
-  paused-dark: "#666666"
-  awaiting-confirm-light: "#CC7000"
-  awaiting-confirm-dark: "#FFA500"
-  error-light: "#CC0000"
-  error-dark: "#FF4444"
+  primary: "#F68C31"
+  icon-orange: "#F46B25"
+  icon-orange-light: "#F68C31"
+  icon-tomato: "#DC2B24"
+  icon-tomato-shade: "#C83A33"
+  icon-outline: "#48120F"
+  icon-leaf: "#4B6C2D"
+  icon-leaf-light: "#709534"
+  icon-highlight: "#FDC19C"
+  work-light: "#B94A0E"
+  work-dark: "#F68C31"
+  short-break-light: "#0E6F73"
+  short-break-dark: "#3FC1C9"
+  long-break-light: "#1F4E9C"
+  long-break-dark: "#7AA6F5"
+  idle-light: "#6B5E00"
+  idle-dark: "#E6C84A"
+  paused-light: "#6B6B6B"
+  paused-dark: "#9A9A9A"
+  awaiting-confirm-light: "#A8330F"
+  awaiting-confirm-dark: "#FF7A59"
+  error-light: "#B3001B"
+  error-dark: "#FF5C5C"
 spacing:
   row: 2px
   stack: 8px
@@ -67,6 +75,9 @@ components:
     textColor: "{colors.awaiting-confirm-dark}"
   stat-tier-low:
     textColor: "{colors.paused-dark}"
+  app-icon:
+    backgroundColor: "{colors.icon-orange}"
+    textColor: "{colors.icon-outline}"
   popover:
     padding: "{spacing.popover-padding}"
     width: "{spacing.popover-width}"
@@ -94,36 +105,43 @@ hue as the icon's background.
 
 ## Colors
 
-All colours live in `cmd/throwntom/theme.go` as `lipgloss.AdaptiveColor` pairs: a darker,
-more saturated value for light terminals and a brighter one for dark terminals. Each colour
-means one timer state. Colour is applied to the status line text only; the frame never
+All colours live in `cmd/throwntom/theme.go` as `lipgloss.AdaptiveColor` pairs: a darker
+value for light terminals and a brighter one for dark terminals. Every pair meets WCAG AA
+(4.5:1) on white and on black — `TestPaletteMeetsAAContrastInBothModes` enforces it — and
+rest states sit on teal and blue rather than green so that rest, attention, and error never
+share the red–green axis. Each colour means one timer state. Colour is applied to the status line text only; the frame never
 paints a background, a border, or a second colour on the same line except for the coloured
-"Next: …" stage name inside a plain sentence. `primary` is the brand orange: the dark-terminal
-work value, which is also the hue of the icon background. Component tokens without a suffix
+"Next: …" stage name inside a plain sentence. `primary` is the brand orange: the icon's
+lighter squircle orange, also the dark-terminal work value. The `icon-*` tokens are the
+dominant colours of the app icon as measured by `tools/icon-colors.sh`; they belong to the
+icon and README badge, never to the TUI or the macOS client. The linter reports the
+`icon-*` tokens the `app-icon` component does not reference as orphaned; that is
+intentional — they are reference swatches for redrawing the icon, not inputs to any UI
+component. Component tokens without a suffix
 are the dark-terminal variants; `-light` variants carry the light-terminal values.
 
-- **Work (#D75F00 light / #FF8C00 dark):** Tomato orange, the brand colour and the colour of
-  a running pomodoro. Also the icon's background. Use it only for the status line while in
+- **Work (#B94A0E light / #F68C31 dark):** The icon's orange, darkened for light terminals.
+  The brand colour and the colour of a running pomodoro. Use it only for the status line while in
   `Work`; it must not be used for hints, prompts, or decoration, or it stops meaning "you
   are on the clock".
-- **Short break (#228B22 / #32CD32):** Forest green / lime green. Rest. Never used for
-  success messages — the TUI has no success colour; plain text is the default.
-- **Long break (#006400 / #228B22):** A deeper green than the short break so the two rest
-  states read as siblings of differing weight. Do not swap it in for the short-break green
-  to "add contrast".
-- **Idle (#B8860B / #FFD700):** Dark goldenrod / gold. The timer is ready but nothing is
+- **Short break (#0E6F73 / #3FC1C9):** Teal. Rest. Never used for success messages — the
+  TUI has no success colour; plain text is the default.
+- **Long break (#1F4E9C / #7AA6F5):** Blue, a deeper rest than teal, and separable from it
+  for deuteranopes. Do not swap either break colour for a green.
+- **Idle (#6B5E00 / #E6C84A):** Olive / straw yellow. The timer is ready but nothing is
   running. This is also the default for any unknown state.
-- **Paused (#808080 / #666666):** Grey. The only muted colour; also reused for the lowest
+- **Paused (#6B6B6B / #9A9A9A):** Grey. The only muted colour; also reused for the lowest
   stats tier. Nothing else is dimmed.
-- **Awaiting confirm (#CC7000 / #FFA500):** Amber. A stage has ended and the next one waits
-  for `enter`. Deliberately close to work orange — it is the same activity, one keypress
-  away — but distinguishable. Also the mid stats tier.
-- **Error (#CC0000 / #FF4444):** Red, for the message line only when `IsError` is set. It
+- **Awaiting confirm (#A8330F / #FF7A59):** The tomato's red-orange. A stage has ended and
+  the next one waits for `enter`. Deliberately close to work orange — same activity, one
+  keypress away — so the `!`/🔔 glyph, not the hue, carries the distinction. Also the mid
+  stats tier.
+- **Error (#B3001B / #FF5C5C):** Red, for the message line only when `IsError` is set. It
   never colours the status line; a timer state is never "red".
 
 The dashboard (`cmd/throwntom/stats_handler.go`) reuses three of these for pomodoro counts:
-green at or above `tier_mid` (default 5), amber at or above `tier_low` (default 2), grey
-below. The macOS client defines no colours of its own: `TaskRow` uses the system `.yellow`
+teal above `tier_mid` (default 5), tomato above `tier_low` (default 2), grey otherwise —
+each paired with a glyph (● / ◐ / ○) so the tier reads without colour. The macOS client defines no colours of its own: `TaskRow` uses the system `.yellow`
 for the focused star and `.secondary`/`.primary` for text, and the popover uses `.secondary`
 for captions.
 
@@ -200,7 +218,8 @@ each line clamped.
 
 ### Stats tiers
 
-Pomodoro counts coloured green / amber / grey by threshold (see Colors).
+`<glyph> <count>`: `● 7` in teal above `tier_mid`, `◐ 3` in tomato above `tier_low`,
+`○ 1` in grey otherwise. The glyph and the colour always change together.
 
 ### Task row (macOS)
 
@@ -219,8 +238,9 @@ ticking countdown while running, "Starting timer…" or "Throwntom…" while con
 - Do keep one colour per line in the TUI, and only on the status line and the error message.
 - Don't add a bold, background, border, or box to the TUI frame; it is deliberately four
   bare lines that clamp rather than wrap.
-- Do reuse the state colours by meaning (grey = low/inactive, amber = attention, green =
-  good/rest) rather than adding new hues.
+- Do reuse the state colours by meaning (grey = low/inactive, tomato = attention, teal/blue =
+  rest) rather than adding new hues, and keep every pair above 4.5:1 on both white and black.
+- Don't let a meaning rest on colour alone; pair it with a glyph, as the states and tiers do.
 - Don't colour the prompt or secondary hint, and never render a timer state in red.
 - Do keep the ASCII icon set to plain ASCII; add any new state to both the emoji and ASCII
   tables at once.

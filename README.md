@@ -87,13 +87,13 @@ throwntom records every meaningful event (pomodoro start/complete, breaks, pause
 - **Streaks** — current and longest consecutive days with at least one pomodoro
 - **Patterns** — best day of the week, most productive hour, snooze/pause rates
 
-Pomodoro counts are color-coded by tier (configurable):
+Pomodoro counts carry a tier glyph and color (thresholds configurable):
 
-| Tier | Default range | Color |
-|------|--------------|-------|
-| Cool | 0–2 | gray |
-| Warm | 3–5 | amber |
-| Hot | 6+ | green |
+| Tier | Default range | Glyph | Color |
+|------|--------------|-------|-------|
+| Cool | 0–2 | ○ | gray |
+| Warm | 3–5 | ◐ | tomato |
+| Hot | 6+ | ● | teal |
 
 ## Daemon (`throwntomd`)
 
@@ -191,6 +191,7 @@ Schedule supports day aliases: `"weekday"` expands to Mon-Fri, `"weekend"` to Sa
 - `internal/session/` — session persistence
 - `internal/task/` — task store
 - `tools/tomctl/` — command-line client for the daemon API
+- `tools/icon-colors.sh` — dominant colours of the app icon as hex (ImageMagick); keeps `DESIGN.md`'s `icon-*` tokens traceable
 - `tools/sonar-audit.sh` — reports SonarCloud issues/hotspots on a branch; CI runs it on main to flag drift
 - `tools/dev-quiet.sh` — runs throwntom against an isolated, silent config for manual testing (see [Dev tools](#dev-tools))
 - `macos/Throwntom/` — Swift package: menu bar app and daemon client
