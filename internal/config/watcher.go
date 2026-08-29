@@ -71,14 +71,18 @@ type watchState struct {
 //
 // A change must hold still for one poll before it is applied. Writing a file
 // is not atomic — most editors, and os.WriteFile itself, truncate before they
-// write — so a poll can land on an empty or half-written file. An empty
-// config is not an error, it parses as every default, so applying one would
-// silently replace the user's durations and could end the running phase.
-// Requiring the same bytes twice costs one interval and makes that
-// vanishingly unlikely — it is not a proof: a write still mid-flight across
-// two whole polls would read as settled. Nothing short of the writer being
-// atomic can rule that out, and the config file's writer is the user's
-// editor.
+// write — so a poll can land on an empty or half-written file. Requiring the
+// same bytes twice costs one interval and makes a half-written file
+// vanishingly unlikely to be applied — it is not a proof: a write still
+// mid-flight across two whole polls would read as settled. Nothing short of
+// the writer being atomic can rule that out, and the config file's writer is
+// the user's editor.
+//
+// The empty file is the one case that is ruled out rather than made unlikely,
+// because it is both the most likely torn read and the most damaging: it is
+// not a parse error, it parses as every default, so applying one would
+// silently replace the user's durations and end a running phase whose elapsed
+// time exceeds them.
 func (w Watcher) poll(state watchState) watchState {
 	current, err := os.ReadFile(w.Path)
 	if err != nil {
@@ -91,6 +95,14 @@ func (w Watcher) poll(state watchState) watchState {
 	// here rather than on the apply path means a transient error that recurs
 	// is reported again instead of being swallowed as a repeat.
 	state.lastError = ""
+	// A zero-length config never settles. An all-defaults config is written as
+	// the commented template, which has contents, so an empty file is always a
+	// write in flight and never what the user meant — however long it lasts.
+	// The state is carried forward untouched, so the write it belongs to still
+	// applies once it lands.
+	if len(current) == 0 {
+		return state
+	}
 	if !bytes.Equal(current, state.seen) {
 		state.seen = current
 		return state

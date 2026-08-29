@@ -115,6 +115,74 @@ func TestWatcherIgnoresAHalfWrittenFile(t *testing.T) {
 	}
 }
 
+// A zero-length config is never the user's intent — an all-defaults config is
+// written as the commented template, which is not empty — so it is always an
+// artifact of a write in flight, however long it lasts. Applying one would
+// hand every default to OnChange, the daemon's only route to
+// Core.ApplyConfig, which re-derives the running phase against the new
+// durations and ends a pomodoro whose elapsed time exceeds them.
+func TestWatcherNeverAppliesAnEmptyFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	inForce := "[pomodoro]\nwork_minutes = 50\n"
+	writeConfig(t, path, inForce)
+
+	var applied []Config
+	var errs []error
+	w := Watcher{
+		Path:     path,
+		Interval: testInterval,
+		OnChange: func(cfg Config) { applied = append(applied, cfg) },
+		OnError:  func(err error) { errs = append(errs, err) },
+	}
+
+	state := watchState{applied: []byte(inForce), seen: []byte(inForce)}
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// Far more polls than the two-poll settle rule needs: the file staying
+	// empty must not turn into an apply no matter how long it lasts.
+	for i := 0; i < 10; i++ {
+		state = w.poll(state)
+	}
+
+	if len(applied) != 0 {
+		t.Fatalf("expected nothing applied from an empty file, got %+v", applied)
+	}
+	if len(errs) != 0 {
+		t.Fatalf("expected an empty file to be waited out silently, got %v", errs)
+	}
+}
+
+// The empty-file guard must wait a write out, not wedge on it: the config the
+// user was in the middle of saving still has to land.
+func TestWatcherAppliesAgainAfterAnEmptyFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	inForce := "[pomodoro]\nwork_minutes = 50\n"
+	writeConfig(t, path, inForce)
+
+	var applied []Config
+	w := Watcher{Path: path, Interval: testInterval}
+	w.OnChange = func(cfg Config) { applied = append(applied, cfg) }
+
+	state := watchState{applied: []byte(inForce), seen: []byte(inForce)}
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 10; i++ {
+		state = w.poll(state)
+	}
+	writeConfig(t, path, "[pomodoro]\nwork_minutes = 40\n")
+	state = w.poll(state)
+	state = w.poll(state)
+
+	if len(applied) != 1 {
+		t.Fatalf("expected exactly one apply after the write settled, got %+v", applied)
+	}
+	if applied[0].Pomodoro.WorkMinutes != 40 {
+		t.Fatalf("expected work_minutes 40, got %d", applied[0].Pomodoro.WorkMinutes)
+	}
+}
+
 func TestWatcherReportsAnUnreadableFileOnlyOnce(t *testing.T) {
 	dir := t.TempDir()
 	// A directory where the config should be is readable as a path but not
