@@ -1,3 +1,4 @@
+import AppKit
 import ThrowntomClient
 import UserNotifications
 
@@ -45,5 +46,9 @@ struct SystemReminderPresenter: ReminderPresenter {
     let pending = [ReminderNotification.requestIdentifier]
     center.removePendingNotificationRequests(withIdentifiers: pending)
     center.removeDeliveredNotifications(withIdentifiers: pending)
+  }
+
+  func requestAttention() {
+    NSApp.requestUserAttention(.criticalRequest)
   }
 }

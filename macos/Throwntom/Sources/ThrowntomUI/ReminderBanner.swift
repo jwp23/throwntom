@@ -13,6 +13,8 @@ protocol ReminderPresenter {
   func postReminder(title: String, body: String) async throws
   func postMorningReminder(title: String, body: String) async throws
   func withdrawReminder()
+  /// Draws the eye to the app without taking focus: on macOS, the Dock icon bounces.
+  func requestAttention()
 }
 
 // MARK: - ReminderBanner

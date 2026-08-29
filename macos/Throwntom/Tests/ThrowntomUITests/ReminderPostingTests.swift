@@ -94,6 +94,38 @@ final class ReminderPostingTests: XCTestCase {
     XCTAssertTrue(presenter.posts.isEmpty)
   }
 
+  func testAWaitingPhaseBouncesTheDockOnce() async throws {
+    let presenter = StubReminderPresenter()
+    let responder = try makeResponder(presenter)
+    let waiting = makeState(phase: .awaitingConfirm, nextStage: shortBreak)
+
+    await responder.present(waiting)
+    await responder.present(waiting)
+
+    XCTAssertEqual(presenter.attentionRequests, 1)
+  }
+
+  func testTheMorningNudgeBouncesTheDockToo() async throws {
+    let presenter = StubReminderPresenter()
+    let responder = try makeResponder(presenter)
+
+    await responder.present(makeState(phase: .idle, morningPending: true))
+
+    XCTAssertEqual(presenter.attentionRequests, 1)
+  }
+
+  func testReconnectingIntoAnAlreadyShownWaitDoesNotBounceAgain() async throws {
+    let presenter = StubReminderPresenter()
+    let responder = try makeResponder(presenter)
+    let waiting = makeState(phase: .awaitingConfirm, nextStage: shortBreak)
+
+    await responder.present(waiting)
+    await responder.present(nil)
+    await responder.present(waiting)
+
+    XCTAssertEqual(presenter.attentionRequests, presenter.posts.count, "attention follows the banner exactly")
+  }
+
   // MARK: Private
 
   private let shortBreak = DaemonState.NextStage(state: .shortBreak, duration: 300)
