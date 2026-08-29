@@ -32,6 +32,19 @@ final class StatsPanelTests: XCTestCase {
     XCTAssertTrue(message.hasPrefix("Stats unavailable: "), message)
   }
 
+  func testTheValueColumnSaysWhatItCounts() {
+    XCTAssertEqual(StatsRows.unitsHeader, "Pomodoros · focus time")
+  }
+
+  func testTheLegendDefinesStreakAndBestHour() {
+    let legend = StatsRows.legend
+    XCTAssertTrue(legend.contains("Streak"), legend)
+    XCTAssertTrue(legend.contains("Best hour"), legend)
+    // The two terms the numbers alone cannot explain; the wording tracks internal/analytics.
+    XCTAssertTrue(legend.contains("in a row"), legend)
+    XCTAssertTrue(legend.contains("hour of day"), legend)
+  }
+
   func testPanelBodyBuilds() throws {
     let environment = AppEnvironment(transport: try StubTransport(states: []))
     _ = StatsPanel(client: environment.client, scheme: Palette.scheme(for: .work)).body
