@@ -62,12 +62,16 @@ public final class DaemonClient {
   /// thing, so the status line wins; and before the daemon has ever answered the note is untrue
   /// as well, because nothing has restarted yet. A failure to start the daemon at all is not a
   /// competing message but the reason nothing is happening, so it still reports.
+  /// A live connection is checked before `registrationError` so that a stale refusal can never
+  /// be shown over a running timer, whatever happens to the code that clears it.
   public var unresolvedError: String? {
     if let commandError {
       commandError
+    } else if connection == .connected {
+      nil
     } else if let registrationError {
       registrationError
-    } else if connection == .connected || connection == .startingDaemon || !hasConnected {
+    } else if connection == .startingDaemon || !hasConnected {
       nil
     } else {
       lastError
@@ -165,6 +169,9 @@ public final class DaemonClient {
           hasConnected = true
           registrationError = nil
           let decoded = try DaemonJSON.decoder.decode(DaemonState.self, from: frame)
+          // Below the decode, unlike the two above it: a daemon that is up but sending frames we
+          // cannot read must keep backing off. Resetting on an undecodable frame would spin the
+          // reconnect loop at the shortest delay for as long as it kept babbling.
           retries.reset()
           connection = .connected
           state = decoded
