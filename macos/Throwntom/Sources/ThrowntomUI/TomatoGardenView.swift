@@ -3,8 +3,8 @@ import SwiftUI
 /// Today's pomodoros as rows of tomato blocks, wrapped to the width the window gives it.
 struct TomatoGardenView: View {
 
-  static let glyphWidth: CGFloat = 20
-  static let blockGap: CGFloat = 12
+  static let glyphWidth: CGFloat = 32
+  static let blockGap: CGFloat = 16
 
   let garden: TomatoGarden
 
@@ -14,12 +14,12 @@ struct TomatoGardenView: View {
         ForEach(Array(garden.blocks.enumerated()), id: \.offset) { _, block in
           HStack(spacing: 0) {
             ForEach(Array(block.enumerated()), id: \.offset) { _, filled in
-              Text("🍅").font(.system(size: 16)).opacity(filled ? 1 : 0.35).frame(width: Self.glyphWidth)
+              Text("🍅").font(.system(size: 26)).opacity(filled ? 1 : 0.35).frame(width: Self.glyphWidth)
             }
           }
         }
       }
-      Text(garden.summary).font(.caption)
+      Text(garden.summary).font(.body)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .accessibilityElement(children: .ignore)

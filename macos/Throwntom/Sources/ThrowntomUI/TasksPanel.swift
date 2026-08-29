@@ -44,7 +44,7 @@ struct TasksPanel: View {
       .listStyle(.plain)
       .scrollContentBackground(.hidden)
       .frame(minHeight: 160, maxHeight: 280)
-      Text(TaskHints.line).font(.caption.monospaced())
+      Text(TaskHints.line).font(.body.monospaced())
     }
     .padding(10)
     .foregroundStyle(scheme.panelText.color)

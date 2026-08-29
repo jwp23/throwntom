@@ -42,7 +42,7 @@ struct Chip: View {
       HStack(spacing: 6) {
         Text(title).fontWeight(.semibold)
         if !hint.isEmpty {
-          Text(hint).font(.caption.monospaced()).opacity(0.75)
+          Text(hint).font(.body.monospaced())
         }
       }
       .padding(.horizontal, 10)

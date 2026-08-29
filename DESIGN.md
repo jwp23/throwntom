@@ -233,7 +233,7 @@ Omitted (see front matter). Two things are still fixed in code and worth knowing
 
 - The TUI's only "type styles" are foreground colour; there is no bold, italic, or underline
   anywhere in `theme.go`.
-- The macOS window uses `.largeTitle` bold for the phase name, `.title2` with monospaced digits for the countdown, `.body` for the next-stage line and tasks, `.caption` for the garden summary, section labels, notes and chip shortcut hints (the hints monospaced). Notes are sentences that say what to do, so they wrap rather than truncate.
+- The macOS window uses `.largeTitle` bold for the phase name, `.title2` with monospaced digits for the countdown, `.body` for the next-stage line, tasks, the garden summary and the shortcut hints (hints monospaced), `.caption` for section labels and notes. Notes are sentences that say what to do, so they wrap rather than truncate.
 
 ## Layout
 
@@ -306,11 +306,11 @@ A `macos-cream` rounded square, 72pt, with a 1.5pt `macos-outline` inset stroke,
 
 ### Chip (macOS)
 
-`<title>  <shortcut>`: the primary verb on `macos-outline` in `macos-cream`; every other verb on the phase's `*-chip` colour in white. The shortcut is monospaced caption text at 75% opacity.
+`<title>  <shortcut>`: the primary verb on `macos-outline` in `macos-cream`; every other verb on the phase's `*-chip` colour in white. The shortcut is monospaced body text in the same colour as the title.
 
 ### Tomato garden (macOS)
 
-🍅 per completed pomodoro, grouped into blocks of `long_break_every` with a gap between blocks, blocks wrapped to the window width; the unfilled slots of the current block are the same glyph at 35% opacity. Beneath it, `N today · M blocks done`.
+🍅 at 26pt in a 32pt slot per completed pomodoro, grouped into blocks of `long_break_every` with a 16pt gap between blocks, blocks wrapped to the window width; the unfilled slots of the current block are the same glyph at 35% opacity. Beneath it, `N today · M blocks done`.
 
 ## Do's and Don'ts
 
