@@ -73,8 +73,9 @@ built by the tests with `go build` and run with `HOME` under `/tmp`.
 
 Quitting the app leaves the daemon running under launchd (`KeepAlive`), so the
 timer and its end-of-phase reminder continue. **Stop** in the window idles the
-timer and **Skip Today** ends the day; to stop the daemon itself run
-`launchctl bootout gui/$(id -u)/com.jwp23.throwntom.daemon` — the app
+timer and **Skip Today** ends the day; to stop the daemon itself, quit the app
+first (an open app re-registers the agent after three failed connections), then
+run `launchctl bootout gui/$(id -u)/com.jwp23.throwntom.daemon` — the app
 registers it again on its next launch.
 
 ## Layout

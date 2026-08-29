@@ -36,13 +36,15 @@ toggle in its application menu. Press ⌘/ in the window for every shortcut.
 
 Quitting the app does not stop the timer: the daemon keeps running (and keeps
 reminding you) under launchd. To stop it for the day use the window's **Stop**
-(idle the timer) or **Skip Today**; to stop the daemon itself:
+(idle the timer) or **Skip Today**; to stop the daemon itself, quit the app
+first — an open app re-registers the agent after a few failed connections —
+then:
 
 ```bash
 launchctl bootout gui/$(id -u)/com.jwp23.throwntom.daemon
 ```
 
-The app registers it again next time it opens. Rebuilding is the same
+The app registers it again the next time it opens. Rebuilding is the same
 `macos/install.sh`; details and the daemon-only dev loop are in
 `macos/README.md`, and driving the daemon or checking the window from a
 terminal is in `docs/development.md`.

@@ -10,7 +10,7 @@ trap 'rm -rf "$WORK"' EXIT
 
 cat > "$WORK/wid.swift" <<'EOF'
 import CoreGraphics
-let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as! [[String: Any]]
+let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
 for window in windows where (window[kCGWindowOwnerName as String] as? String) == "Throwntom" {
   print(window[kCGWindowNumber as String] as! Int)
   break

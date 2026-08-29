@@ -8,11 +8,11 @@ has to check the UI without a human watching.
 `tools/tomctl` talks to a running `throwntomd` over `~/.config/throwntom/daemon.sock`:
 
 ```bash
-go build -o ~/bin/tomctl ./tools/tomctl     # or: go run ./tools/tomctl ...
-tomctl state                                # the State document (see docs/designs/native-macos-client.md)
-tomctl events                               # one State per line as it changes, until Ctrl-C
-tomctl cmd pause                            # also: resume, stop, confirm, snooze 10, skip-today, new-cycle
-tomctl cmd task add "write tests"
+go build -o tomctl ./tools/tomctl           # or prefix each call with: go run ./tools/tomctl
+./tomctl state                              # the State document (see docs/designs/native-macos-client.md)
+./tomctl events                             # one State per line as it changes, until Ctrl-C
+./tomctl cmd pause                          # also: resume, stop, confirm, snooze 10, skip-today, new-cycle
+./tomctl cmd task add "write tests"
 ```
 
 `tomctl cmd` runs the same command grammar as the TUI. `start` and `confirm` prompt for task focus in
@@ -25,7 +25,8 @@ curl -s --unix-socket ~/.config/throwntom/daemon.sock -X POST http://d/v1/timer/
 ```
 
 `stop` idles the timer; it does not stop the daemon. The daemon runs under launchd with `KeepAlive`,
-so quitting the app leaves it — and its end-of-phase reminder — running:
+so quitting the app leaves it — and its end-of-phase reminder — running. Quit the app first (an open
+app re-registers the agent after three failed connections), then:
 
 ```bash
 launchctl bootout gui/$(id -u)/com.jwp23.throwntom.daemon   # stop the app-registered daemon
@@ -46,7 +47,8 @@ long_break_minutes = 1
 long_break_every = 2
 ```
 
-in `~/.config/throwntom/config.toml`, then a daemon restart (`bootout` above, then open the app). Back
+in `~/.config/throwntom/config.toml`, then a daemon restart (quit the app, `bootout` above, open the
+app again). Back
 up `session.json`, `events.jsonl` and `tasks.json` from `~/.config/throwntom` first and restore them
 after: the tour writes completed pomodoros into today's stats. Remove the `[pomodoro]` block afterwards.
 
