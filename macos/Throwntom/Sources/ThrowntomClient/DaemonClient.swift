@@ -137,16 +137,12 @@ public final class DaemonClient {
   }
 
   private func runStream() async {
-    var failures = 0
-    var delayIndex = 0
-    var hasAskedLaunchdToStart = false
+    var retries = ReconnectBackoff(delays: backoff, registerEvery: Self.failuresBeforeRegistering)
     while !Task.isCancelled {
       do {
         for try await frame in transport.events(DaemonAPI.events) {
           let decoded = try DaemonJSON.decoder.decode(DaemonState.self, from: frame)
-          failures = 0
-          delayIndex = 0
-          hasAskedLaunchdToStart = false
+          retries.reset()
           connection = .connected
           state = decoded
           await refreshTasks()
@@ -156,23 +152,18 @@ public final class DaemonClient {
         if Task.isCancelled {
           return
         }
-        failures += 1
+        retries.recordFailure()
         lastError = Self.userMessage(error)
         // A real outage matters more than a stale command refusal from before it started.
         commandError = nil
-        if failures % Self.failuresBeforeRegistering == 0 {
+        if retries.shouldRegisterAgent {
           registerAgent()
-          // Registering the agent is what ends the outage, so the dial that checks whether it
-          // worked comes from the short end of the backoff. Escalating through it instead means
-          // waiting out seconds of delay for a daemon launchd already started.
-          if !hasAskedLaunchdToStart {
-            hasAskedLaunchdToStart = true
-            delayIndex = 0
-          }
+          retries.agentRegistered()
         }
-        connection = failures >= Self.failuresBeforeRegistering ? .startingDaemon : .reconnecting(attempt: failures)
-        try? await Task.sleep(for: backoff[min(delayIndex, backoff.count - 1)])
-        delayIndex += 1
+        connection = retries.failures >= Self.failuresBeforeRegistering
+          ? .startingDaemon
+          : .reconnecting(attempt: retries.failures)
+        try? await Task.sleep(for: retries.delay)
       }
     }
   }

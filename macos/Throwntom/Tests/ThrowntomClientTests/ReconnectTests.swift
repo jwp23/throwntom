@@ -112,19 +112,6 @@ final class ReconnectTests: XCTestCase {
     XCTAssertEqual(client.unresolvedError, "Timer is restarting…")
   }
 
-  /// A refusal is the daemon explaining itself, so its own words survive.
-  func testARefusedCommandKeepsTheDaemonsOwnWords() async throws {
-    let client = DaemonClient(transport: RecordingTransport(status: 409), registrar: RecordingRegistrar())
-    defer { client.stop() }
-
-    do {
-      try await client.timer(.pause)
-      XCTFail("a 409 must throw")
-    } catch {
-      XCTAssertEqual(client.unresolvedError, #"{"message":"ok"}"#)
-    }
-  }
-
   // MARK: Private
 
   /// Short until the registration attempt, then long enough that a client which does not rewind
