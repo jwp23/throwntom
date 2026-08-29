@@ -1,3 +1,4 @@
+import AppKit
 import ThrowntomClient
 import UserNotifications
 
@@ -25,7 +26,31 @@ struct SystemNotificationAuthorizer: NotificationAuthorizer {
 // MARK: - SystemReminderPresenter
 
 /// The real notification centre's reminder banner.
-struct SystemReminderPresenter: ReminderPresenter {
+final class SystemReminderPresenter: ReminderPresenter {
+
+  // MARK: Lifecycle
+
+  init() {
+    // AppKit cancels an outstanding attention request when the app activates, but never tells
+    // this side; without this, `requestAttention()`'s idempotency guard would see a stale
+    // identifier and suppress every reminder after the first one the user ever saw.
+    activationObserver = NotificationCenter.default.addObserver(
+      forName: NSApplication.didBecomeActiveNotification,
+      object: nil,
+      queue: nil,
+    ) { [weak self] _ in
+      self?.attentionRequest = nil
+    }
+  }
+
+  deinit {
+    if let activationObserver {
+      NotificationCenter.default.removeObserver(activationObserver)
+    }
+  }
+
+  // MARK: Internal
+
   func registerReminderButtons() {
     UNUserNotificationCenter.current().setNotificationCategories([ReminderAlert.category, ReminderAlert.morningCategory])
   }
@@ -45,5 +70,26 @@ struct SystemReminderPresenter: ReminderPresenter {
     let pending = [ReminderNotification.requestIdentifier]
     center.removePendingNotificationRequests(withIdentifiers: pending)
     center.removeDeliveredNotifications(withIdentifiers: pending)
+
+    // Activating the app cancels an attention request too, but an answer given without
+    // activating (a notification button, or a reminder that lapses unanswered) must not leave
+    // the Dock icon bouncing forever.
+    if let attentionRequest {
+      NSApp.cancelUserAttentionRequest(attentionRequest)
+      self.attentionRequest = nil
+    }
   }
+
+  /// Idempotent: a second call while a request is still outstanding would leak the first
+  /// identifier, leaving `withdrawReminder()` able to cancel only the newer one.
+  func requestAttention() {
+    guard attentionRequest == nil else { return }
+    attentionRequest = NSApp.requestUserAttention(.criticalRequest)
+  }
+
+  // MARK: Private
+
+  private var attentionRequest: Int?
+  private var activationObserver: NSObjectProtocol?
+
 }

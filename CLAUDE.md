@@ -17,7 +17,7 @@
 - `internal/reminder/` — reminder scheduling
 - `internal/scheduler/` — work schedule (days/times)
 - `tools/` — CLI tools for integration testing and daemon control
-- `macos/` — SwiftUI menu bar app (Swift package), bundle resources, build.sh/agent.sh
+- `macos/` — SwiftUI window app (Swift package), bundle resources, build.sh/agent.sh
 - `e2e/` — end-to-end tests (build tag: `e2e`)
 - `integration/` — integration tests
 - `docs/plans/` — design and implementation plans

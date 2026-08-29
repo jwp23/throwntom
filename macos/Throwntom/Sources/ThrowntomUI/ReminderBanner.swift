@@ -13,6 +13,8 @@ protocol ReminderPresenter {
   func postReminder(title: String, body: String) async throws
   func postMorningReminder(title: String, body: String) async throws
   func withdrawReminder()
+  /// Draws the eye to the app without taking focus: on macOS, the Dock icon bounces.
+  func requestAttention()
 }
 
 // MARK: - ReminderBanner
@@ -54,6 +56,13 @@ enum ReminderBanner: Equatable {
     case .morning:
       return .postMorning(title: title, body: morningBody)
     }
+  }
+
+  /// Whether the Dock should bounce for this change, independent of whether a notification can
+  /// be posted: a denied notification is not a reason to withhold the bounce.
+  static func wantsAttention(from previous: DaemonState?, to current: DaemonState?) -> Bool {
+    let waiting = waitingKind(current)
+    return waiting != nil && waitingKind(previous) != waiting
   }
 
   // MARK: Private

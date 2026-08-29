@@ -1,7 +1,8 @@
 import Foundation
 
-/// The status text shown for the daemon connection, shared by the menu bar title and the
-/// task window's disconnected placeholder. View-independent so it can be unit tested.
+/// The status text shown for the daemon connection: `text` is the phrase for every connection
+/// state, `placeholderText` is the window's disconnected placeholder. View-independent so it
+/// can be unit tested.
 public enum ConnectionStatus {
   public static func text(state: DaemonState?, connection: DaemonClient.Connection, now: Date) -> String {
     if let state, connection == .connected {
@@ -22,7 +23,7 @@ public enum ConnectionStatus {
     }
   }
 
-  /// The text for the task window's disconnected placeholder, or nil once daemon state has
+  /// The text for the window's disconnected placeholder, or nil once daemon state has
   /// arrived and there is nothing to overlay.
   public static func placeholderText(state: DaemonState?, connection: DaemonClient.Connection, now: Date) -> String? {
     guard state == nil else { return nil }

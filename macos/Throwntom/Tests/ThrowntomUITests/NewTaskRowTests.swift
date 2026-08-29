@@ -3,7 +3,7 @@ import XCTest
 @testable import ThrowntomUI
 
 /// What the inline new-task editor does with the text in it. Every outcome closes the row; they
-/// differ in what the task window is asked to send.
+/// differ in what the tasks panel is asked to send.
 @MainActor
 final class NewTaskRowTests: XCTestCase {
 

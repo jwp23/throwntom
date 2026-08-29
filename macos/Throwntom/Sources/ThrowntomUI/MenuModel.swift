@@ -16,6 +16,10 @@ extension TimerAction: MenuAction { }
 
 extension TaskAction: MenuAction { }
 
+// MARK: - ViewAction + MenuAction
+
+extension ViewAction: MenuAction { }
+
 // MARK: - MenuShortcut
 
 /// The key binding of a menu item. Separate from the item so items without one are expressible.
@@ -108,5 +112,20 @@ extension MenuModel where Action == TaskAction {
         item(.moveDown, .downArrow, .option),
       ],
     ])
+  }
+}
+
+extension MenuModel where Action == ViewAction {
+  @MainActor
+  static func view(model: WindowModel) -> MenuModel {
+    MenuModel(groups: [[
+      MenuItem(action: .tasks, shortcut: MenuShortcut(key: "t", modifiers: .command), isEnabled: true),
+      MenuItem(action: .stats, shortcut: MenuShortcut(key: "d", modifiers: [.command, .shift]), isEnabled: true),
+      MenuItem(
+        action: .shortcuts,
+        shortcut: MenuShortcut(key: "/", modifiers: .command),
+        isEnabled: !model.showsShortcuts,
+      ),
+    ]])
   }
 }

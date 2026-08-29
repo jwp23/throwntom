@@ -7,13 +7,17 @@ struct TaskRow: View {
 
   var body: some View {
     HStack {
-      Image(systemName: focused ? "star.fill" : "circle")
-        .foregroundStyle(focused ? .yellow : .secondary)
-        .accessibilityLabel("Focused")
-        .accessibilityHidden(!focused)
+      Group {
+        if focused {
+          Image(systemName: "star.fill").foregroundStyle(.yellow)
+        } else {
+          Image(systemName: "circle")
+        }
+      }
+      .accessibilityLabel("Focused")
+      .accessibilityHidden(!focused)
       Text(task.description)
         .strikethrough(task.done)
-        .foregroundStyle(task.done ? .secondary : .primary)
       Spacer()
     }
     .padding(.vertical, 2)

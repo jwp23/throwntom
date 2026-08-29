@@ -1,12 +1,10 @@
 ---
 version: alpha
 name: Throwntom
-description: Visual identity of the throwntom pomodoro timer — terminal UI, macOS menu bar app, and app icon.
+description: Visual identity of the throwntom pomodoro timer — terminal UI, macOS window app, and app icon.
 omitted:
   - section: typography
-    reason: "The TUI renders in whatever font the terminal uses; the macOS app uses SwiftUI's system text styles (.headline, .caption) with no explicit sizes or families in code."
-  - section: rounded
-    reason: "No corner radii are set anywhere in code. Terminal cells have none; the macOS app inherits the system popover, window, and squircle icon mask."
+    reason: "The TUI renders in whatever font the terminal uses; the macOS app uses SwiftUI's system text styles (.largeTitle, .title2, .body, .caption) with no explicit sizes or families in code."
 colors:
   primary: "#F68C31"
   icon-orange: "#F46B25"
@@ -31,15 +29,39 @@ colors:
   awaiting-confirm-dark: "#FF7A59"
   error-light: "#B3001B"
   error-dark: "#FF5C5C"
+  macos-ink: "#1F130C"
+  macos-cream: "#FFF6EA"
+  macos-outline: "#2B1A10"
+  macos-work: "#D9651A"
+  macos-work-chip: "#622D0C"
+  macos-short-break: "#1E9AA3"
+  macos-short-break-chip: "#0D4549"
+  macos-long-break: "#5A8CE0"
+  macos-long-break-chip: "#283F65"
+  macos-idle: "#B8961F"
+  macos-idle-chip: "#53440E"
+  macos-paused: "#8A8A8E"
+  macos-paused-chip: "#3E3E40"
+  macos-awaiting-confirm: "#E8583A"
+  macos-awaiting-confirm-chip: "#68281A"
+  macos-disconnected: "#3A2A22"
+  macos-disconnected-chip: "#FFF6EA"
+  macos-work-panel: "#9C4913"
+  macos-short-break-panel: "#166F75"
+  macos-long-break-panel: "#4165A1"
+  macos-idle-panel: "#846C16"
+  macos-paused-panel: "#636366"
+  macos-awaiting-confirm-panel: "#A73F2A"
+  macos-disconnected-panel: "#2A1E18"
 spacing:
   row: 2px
   stack: 8px
-  popover-padding: 12px
-  popover-width: 280px
-  task-window-min-width: 360px
-  task-window-min-height: 240px
-  task-window-width: 420px
-  task-window-height: 360px
+  window-padding: 16px
+  window-min-width: 320px
+  slot-size: 72px
+  chip-radius: 6px
+  slot-radius: 10px
+  panel-radius: 8px
 components:
   status-line-work:
     textColor: "{colors.work-dark}"
@@ -78,9 +100,73 @@ components:
   app-icon:
     backgroundColor: "{colors.icon-orange}"
     textColor: "{colors.icon-outline}"
-  popover:
-    padding: "{spacing.popover-padding}"
-    width: "{spacing.popover-width}"
+  window-work:
+    backgroundColor: "{colors.macos-work}"
+    textColor: "{colors.macos-ink}"
+  window-short-break:
+    backgroundColor: "{colors.macos-short-break}"
+    textColor: "{colors.macos-ink}"
+  window-long-break:
+    backgroundColor: "{colors.macos-long-break}"
+    textColor: "{colors.macos-ink}"
+  window-idle:
+    backgroundColor: "{colors.macos-idle}"
+    textColor: "{colors.macos-ink}"
+  window-paused:
+    backgroundColor: "{colors.macos-paused}"
+    textColor: "{colors.macos-ink}"
+  window-awaiting-confirm:
+    backgroundColor: "{colors.macos-awaiting-confirm}"
+    textColor: "{colors.macos-ink}"
+  window-disconnected:
+    backgroundColor: "{colors.macos-disconnected}"
+    textColor: "{colors.macos-cream}"
+  chip-primary:
+    backgroundColor: "{colors.macos-outline}"
+    textColor: "{colors.macos-cream}"
+    rounded: "{spacing.chip-radius}"
+  chip-secondary-work:
+    backgroundColor: "{colors.macos-work-chip}"
+  chip-secondary-short-break:
+    backgroundColor: "{colors.macos-short-break-chip}"
+  chip-secondary-long-break:
+    backgroundColor: "{colors.macos-long-break-chip}"
+  chip-secondary-idle:
+    backgroundColor: "{colors.macos-idle-chip}"
+  chip-secondary-paused:
+    backgroundColor: "{colors.macos-paused-chip}"
+  chip-secondary-awaiting-confirm:
+    backgroundColor: "{colors.macos-awaiting-confirm-chip}"
+  chip-secondary-disconnected:
+    backgroundColor: "{colors.macos-disconnected-chip}"
+  panel-work:
+    backgroundColor: "{colors.macos-work-panel}"
+    textColor: "{colors.macos-cream}"
+  panel-short-break:
+    backgroundColor: "{colors.macos-short-break-panel}"
+    textColor: "{colors.macos-cream}"
+  panel-long-break:
+    backgroundColor: "{colors.macos-long-break-panel}"
+    textColor: "{colors.macos-cream}"
+  panel-idle:
+    backgroundColor: "{colors.macos-idle-panel}"
+    textColor: "{colors.macos-cream}"
+  panel-paused:
+    backgroundColor: "{colors.macos-paused-panel}"
+    textColor: "{colors.macos-cream}"
+  panel-awaiting-confirm:
+    backgroundColor: "{colors.macos-awaiting-confirm-panel}"
+    textColor: "{colors.macos-cream}"
+  panel-disconnected:
+    backgroundColor: "{colors.macos-disconnected-panel}"
+    textColor: "{colors.macos-cream}"
+  mascot-slot:
+    backgroundColor: "{colors.macos-cream}"
+    width: "{spacing.slot-size}"
+    rounded: "{spacing.slot-radius}"
+  window:
+    padding: "{spacing.window-padding}"
+    width: "{spacing.window-min-width}"
 ---
 
 # Throwntom Design
@@ -97,11 +183,7 @@ Apple's Clock — friendly, a little goofy, and unbothered by being a productivi
 
 Everything the user actually operates is far plainer than the icon. The TUI is a
 frame of a few lines — status, secondary hint, message, the `>` prompt — that only uses
-foreground colour and an optional emoji, never boxes or backgrounds. The macOS client is a
-stock `MenuBarExtra` popover and a plain `Window` that lean entirely on system controls.
-The tomato supplies the personality; the interfaces stay out of the way. The one place the
-icon's palette shows up in the running product is the work-state orange, which is the same
-hue as the icon's background.
+foreground colour and an optional emoji, never boxes or backgrounds. The macOS client is one window whose whole ground is the colour of the current phase — a jewel version of the TUI state colour — with a cream mascot slot beside the phase name, today's pomodoros drawn as a row of tomatoes, and the timer verbs as chips. The TUI stays a few bare lines; the window is where the tomato's personality lives on screen.
 
 ## Colors
 
@@ -109,7 +191,7 @@ All colours live in `cmd/throwntom/theme.go` as `lipgloss.AdaptiveColor` pairs: 
 value for light terminals and a brighter one for dark terminals. Every pair meets WCAG AA
 (4.5:1) on white and on black — `TestPaletteMeetsAAContrastInBothModes` enforces it — and
 rest states sit on teal and blue rather than green so that rest, attention, and error never
-share the red–green axis. Each colour means one timer state. Colour is applied to the status line text only; the frame never
+share the red–green axis. Each colour means one timer state. In the TUI, colour is applied to the status line text only; the frame never
 paints a background, a border, or a second colour on the same line except for the coloured
 "Next: …" stage name inside a plain sentence. `primary` is the brand orange: the icon's
 lighter squircle orange, also the dark-terminal work value. The `icon-*` tokens are the
@@ -139,11 +221,11 @@ are the dark-terminal variants; `-light` variants carry the light-terminal value
 - **Error (#B3001B / #FF5C5C):** Red, for the message line only when `IsError` is set. It
   never colours the status line; a timer state is never "red".
 
+**macOS grounds.** `macos-work`, `macos-short-break`, `macos-long-break`, `macos-idle`, `macos-paused` and `macos-awaiting-confirm` are mid-tone, saturated versions of the same six hues and fill the entire window; `macos-disconnected` is a dark brown used while the daemon is unreachable. All text on a ground is `macos-ink` (cream on disconnected). `macos-cream` is the mascot slot and the label of the primary chip; `macos-outline`, the icon's outline brown, is the primary chip. Each `*-chip` token is its ground under 55% black and carries white text, except `macos-disconnected-chip`, which is cream because that ground shows no chips. `PaletteTests` asserts text on ground and label on chip at 4.5:1 and chip on ground at 3:1; `DesignTokensTests` asserts these values equal `Palette.swift`. The look is the same in light and dark system appearance.
+
 The dashboard (`cmd/throwntom/stats_handler.go`) reuses three of these for pomodoro counts:
 teal above `tier_mid` (default 5), tomato above `tier_low` (default 2), grey otherwise —
-each paired with a glyph (● / ◐ / ○) so the tier reads without colour. The macOS client defines no colours of its own: `TaskRow` uses the system `.yellow`
-for the focused star and `.secondary`/`.primary` for text, and the popover uses `.secondary`
-for captions.
+each paired with a glyph (● / ◐ / ○) so the tier reads without colour. The macOS client's task rows use `macos-ink` for text and the system yellow star for focus.
 
 ## Typography
 
@@ -151,10 +233,7 @@ Omitted (see front matter). Two things are still fixed in code and worth knowing
 
 - The TUI's only "type styles" are foreground colour; there is no bold, italic, or underline
   anywhere in `theme.go`.
-- The macOS popover uses `.headline` for the status line, body text for actions and tasks,
-  and `.caption` + `.secondary` for the connection/login-item note and for error and
-  permission captions (`PopoverCaption`), which are allowed to wrap rather than truncate
-  because the caption is a sentence that says what to do.
+- The macOS window uses `.largeTitle` bold for the phase name, `.title2` with monospaced digits for the countdown, `.body` for the next-stage line, tasks, the garden summary and the shortcut hints (hints monospaced), `.caption` for section labels and notes. Notes are sentences that say what to do, so they wrap rather than truncate.
 
 ## Layout
 
@@ -164,19 +243,12 @@ newline in it; the prompt. Every line is clamped to terminal width minus one by
 `clampANSILine`, with a `...` ellipsis when at least four columns are available and a hard
 cut otherwise; nothing wraps, nothing is centred, there are no margins. The status line is `<icon> <coloured text>`, with a single space between.
 
-The macOS popover (`PopoverView.swift`) is a 280pt-wide vertical stack with 12pt padding and
-8pt between items, separated into groups by `Divider()`: status → next stage → focus list →
-timer actions | errors/permissions | Open Tasks | login item | quit. Focus items sit in a
-tighter 2pt stack under a caption. Task rows have 2pt vertical padding. The task window
-opens at 420×360 and cannot shrink below 360×240.
+The macOS window is one vertical stack with 16pt padding: timer header (72pt slot, phase name, countdown), tomato garden, count line, chips, reminder banner and errors, focus list, then an optional tasks or stats panel. Panels expand the window downward; the minimum width is 320pt.
 
 ## Elevation & Depth
 
 Flat. The TUI has no depth at all; hierarchy is carried by line order and by colour on the
-first line only. The macOS client inherits the system popover shadow and window chrome and
-adds none. The only shading in the whole product is on the icon: a soft gradient on the
-squircle, a highlight on the tomato, and a slightly darker ring around the sticker in the
-README badge.
+first line only. The macOS client inherits the system window chrome; panels are the `*-panel` tokens, the ground darkened by 28%, with cream text, an 8pt radius, chips 6pt, the slot 10pt. Nothing casts a shadow.
 
 ## Shapes
 
@@ -224,15 +296,21 @@ each line clamped.
 
 ### Task row (macOS)
 
-`star.fill` in system yellow when focused, otherwise a `circle` in `.secondary`;
-description in `.primary`, or struck through and `.secondary` when done. Empty task list is
-a `ContentUnavailableView` with the `bolt.horizontal.circle` symbol.
+`star.fill` in system yellow when focused, otherwise a `circle` in the panel's inherited
+text colour; description in that same inherited colour, struck through (never dimmed) when
+done.
 
-### Menu bar item
+### Mascot slot (macOS)
 
-Plain text label from `ConnectionStatus.text`: "Throwntom" when connected and idle, the
-ticking countdown while running, "Starting timer…" or "Throwntom…" while connecting, with
-" (reconnecting)" appended when the socket drops. No icon in the menu bar.
+A `macos-cream` rounded square, 72pt, with a 1.5pt `macos-outline` inset stroke, holding the phase glyph: 🍅 work, ☕ short break, 🌿 long break, 🌱 idle, 🔔 awaiting confirm, and SF Symbol `pause.fill` in `macos-outline` when paused. Reserved for the mascot.
+
+### Chip (macOS)
+
+`<title>  <shortcut>`: the primary verb on `macos-outline` in `macos-cream`; every other verb on the phase's `*-chip` colour in white. The shortcut is monospaced body text in the same colour as the title.
+
+### Tomato garden (macOS)
+
+🍅 at 26pt in a 32pt slot per completed pomodoro, grouped into blocks of `long_break_every` with a 16pt gap between blocks, blocks wrapped to the window width; the unfilled slots of the current block are the same glyph at 35% opacity. Beneath it, `N today · M blocks done`.
 
 ## Do's and Don'ts
 
@@ -245,6 +323,5 @@ ticking countdown while running, "Starting timer…" or "Throwntom…" while con
 - Don't colour the prompt or secondary hint, and never render a timer state in red.
 - Do keep the ASCII icon set to plain ASCII; add any new state to both the emoji and ASCII
   tables at once.
-- Don't introduce custom colours, fonts, or corner radii in the macOS client; it uses system
-  styles and semantic colours only, and the tomato belongs to the icon and the README.
+- Do keep the macOS palette in `Palette.swift` and these tokens in step; a new ground needs a `*-chip` partner and must pass `PaletteTests`. Don't add fonts; the system text styles are the only type.
 - Do keep the light/dark pairs in `theme.go` together; a new colour needs both values.

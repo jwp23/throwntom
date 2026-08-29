@@ -3,7 +3,7 @@ import XCTest
 @testable import ThrowntomClient
 @testable import ThrowntomUI
 
-/// What the reminder's buttons do when macOS hands the answer to the menu bar app. The responder
+/// What the reminder's buttons do when macOS hands the answer to the app. The responder
 /// is taken from `AppEnvironment`, so these also pin down that the app wires it to its client.
 @MainActor
 final class ReminderResponderTests: XCTestCase {

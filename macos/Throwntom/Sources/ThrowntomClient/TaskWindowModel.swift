@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// UI state of the task window: the selected row and the in-progress new-task row. Everything else is daemon state.
+/// UI state of the tasks panel: the selected row and the in-progress new-task row. Everything else is daemon state.
 @Observable @MainActor
 public final class TaskWindowModel {
 

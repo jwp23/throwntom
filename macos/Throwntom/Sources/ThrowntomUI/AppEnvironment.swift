@@ -29,6 +29,7 @@ final class AppEnvironment {
   let registrar: SMAppServiceRegistrar
   let responder: ReminderResponder
   let model = TaskWindowModel()
+  let windowModel = WindowModel()
 
   /// What the app launches with: the daemon's Unix socket at its well-known path.
   static func live() -> AppEnvironment {

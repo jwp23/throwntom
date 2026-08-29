@@ -132,3 +132,51 @@ final class TaskMenuModelTests: XCTestCase {
   }
 
 }
+
+// MARK: - ViewMenuModelTests
+
+@MainActor
+final class ViewMenuModelTests: XCTestCase {
+
+  func testViewMenuListsPanelsAndShortcutSheet() throws {
+    let model = WindowModel()
+    let menu = MenuModel.view(model: model)
+    XCTAssertEqual(menu.items.map(\.title), ["Tasks", "Stats", "Keyboard Shortcuts"])
+    XCTAssertEqual(menu.item(for: .tasks)?.shortcut, MenuShortcut(key: "t", modifiers: .command))
+    XCTAssertEqual(menu.item(for: .stats)?.shortcut, MenuShortcut(key: "d", modifiers: [.command, .shift]))
+    XCTAssertEqual(menu.item(for: .shortcuts)?.shortcut, MenuShortcut(key: "/", modifiers: .command))
+    XCTAssertTrue(menu.items.allSatisfy(\.isEnabled))
+    model.showsShortcuts = true
+    XCTAssertFalse(try XCTUnwrap(MenuModel.view(model: model).item(for: .shortcuts)?.isEnabled))
+  }
+
+  func testViewActionHintsMatchShortcuts() {
+    XCTAssertEqual(ViewAction.allCases.map(\.shortcutHint), ["⌘T", "⌘⇧D", "⌘/"])
+  }
+
+}
+
+// MARK: - MenuGroupsTests
+
+@MainActor
+final class MenuGroupsTests: XCTestCase {
+
+  func testBodyBuilds() {
+    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false)
+    _ = MenuGroups(menu: menu) { item in Text(item.title) }.body
+  }
+
+  func testFirstGroupHasNoLeadingDivider() {
+    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false)
+    let groups = MenuGroups(menu: menu) { item in Text(item.title) }
+    _ = groups.groupView(index: 0, group: menu.groups[0])
+  }
+
+  func testLaterGroupsGetADivider() {
+    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false)
+    XCTAssertGreaterThan(menu.groups.count, 1, "the divider branch needs a second group to exercise")
+    let groups = MenuGroups(menu: menu) { item in Text(item.title) }
+    _ = groups.groupView(index: 1, group: menu.groups[1])
+  }
+
+}

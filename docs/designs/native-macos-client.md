@@ -3,20 +3,31 @@
 Design for a native macOS front end to throwntom, built on a Go daemon.
 Decision records: [ADR-001](../adr/001-native-macos-client-over-daemon-api.md)
 (daemon + native client), [ADR-002](../adr/002-macos-client-transport-over-unix-socket.md)
-(client transport), [SwiftPM bundle](../decisions/macos-app-swiftpm-bundle.md)
+(client transport), [ADR-005](../adr/005-single-window-macos-client.md)
+(single phase-coloured window), [SwiftPM bundle](../decisions/macos-app-swiftpm-bundle.md)
 (build system).
 
 ## Goals
 
-- Menu bar countdown, keyboard-driven task window, launch at login,
-  system notifications.
+- One window that is the whole app: a regular Dock application reached
+  by ⌘-Tab or a Dock click, parked wherever the user likes, and loud
+  about which phase the timer is in. The flow it serves is: hear the
+  sound or see the notification → ⌘-Tab to the window → act with a
+  shortcut or a button.
+- Every action is keyboard-driven and every shortcut is visible where
+  the action is.
+- Launch at login, system notifications.
 - All business logic stays in Go; Swift renders state and sends commands.
 - The daemon API is transport-agnostic so a client on another device can
   be added later by binding the daemon to a network address.
 
-Non-goals for this iteration: migrating the TUI onto the daemon, a
-global hotkey, a command palette, stats view, Linux packaging, TCP
-listener, authentication, in-app settings.
+Non-goals: a menu bar item (tried and removed — the countdown was never
+looked at and a control popover in the corner of a large display is the
+wrong place to act), a global hotkey, a command palette, a typed command
+prompt, migrating the TUI onto the daemon, Linux packaging, TCP
+listener, authentication, in-app settings. Noted follow-ups, not in this
+design: the tomato mascot in the slot reserved for it, and floating the
+window above others while a phase awaits confirmation.
 
 ## Architecture
 
@@ -123,53 +134,139 @@ silent no-ops.
 - `macos/agent.sh {install,uninstall}` installs a standalone plist for
   development without the app.
 - The app itself is a login item via `SMAppService.mainApp`, toggled
-  from the menu bar popover.
-- Notifications and sound come from the daemon (`internal/notifier`).
-  The app never notifies.
+  from the application menu.
+- Quitting the app (`⌘Q`) leaves the daemon running under launchd.
+  Stopping, restarting and config reload are a separate decision
+  (throwntom-9ig.2).
+- Notifications and sound are the client's job (ADR-003); the daemon
+  only emits state.
 
 ## macOS app
 
-`LSUIElement` SwiftUI app in `macos/Throwntom/`, a Swift Package with a
-library target (`ThrowntomClient`: transport, `DaemonClient`, `State`,
-`Commands`) and an executable target (`Throwntom`: views). `macos/build.sh`
-assembles and ad-hoc signs the bundle; there is no Xcode project.
+Regular (Dock, ⌘-Tab) SwiftUI app in `macos/Throwntom/`, a Swift
+Package with a library target (`ThrowntomClient`: transport,
+`DaemonClient`, `State`, `Commands`), a UI target (`ThrowntomUI`: views,
+menus, palette) and the executable. `macos/build.sh` assembles and
+ad-hoc signs the bundle; there is no Xcode project.
 
-### Surfaces
+### The window
 
-- **Menu bar extra** (`MenuBarExtra`, `.window` style). Title is
-  `status_line`, countdown ticked locally at 1 Hz from `phase_end_at`.
-  Popover shows state, next stage, focused tasks, and the
-  context-relevant timer verbs as buttons with shortcut hints, plus the
-  launch-at-login toggle.
-- **Task window**. Transparent title bar, single-column list: active
-  tasks, then completed tasks in a collapsed disclosure group. No
-  sidebar. Toolbar mirrors the timer verbs with tooltips showing
-  shortcuts.
+There is exactly one window. Its ground colour is the timer phase, so
+which phase the user is in reads from across the room; its content, top
+to bottom:
+
+1. Hidden title bar; the top of the window is the drag zone.
+2. **Timer header**: the *mascot slot* (a cream rounded square holding
+   the phase glyph — 🍅 work, ☕ short break, 🌿 long break, 🌱 idle,
+   🔔 awaiting confirm, SF `pause.fill` paused — sized at ~72pt for the
+   mascot that replaces the glyph later) beside the phase name in large
+   bold type and the countdown in tabular figures, ticked locally at
+   1 Hz from `phase_end_at`.
+3. **Tomato garden**: today's completed pomodoros as 🍅 glyphs grouped
+   into blocks of `long_break_every`, blocks flowed to the window width
+   like words; the unfilled slots of the current block are dimmed, so
+   progress toward the long break is visible. Under it, the line
+   `N today · M blocks done`.
+4. **Action chips**: the timer verbs valid in the current state
+   (`TimerActions.available`), each a chip with its shortcut in
+   trailing monospace text. The primary verb (Start, Confirm, Resume)
+   is a dark chip; the rest are translucent.
+5. **Focus**: the focused tasks, or nothing when none are focused.
+6. **Tasks panel** (`⌘T`) and **Stats panel** (`⌘⇧D`), one at a time,
+   expanding the window downward; the same key or `Esc` collapses it.
+   Panels start closed on every launch. The tasks panel is the
+   single-column list: active tasks, then completed tasks in a
+   collapsed disclosure group, a hint line of the task shortcuts under
+   it, and a per-row context menu carrying the same actions. The stats
+   panel is the `/v1/stats` summary as a two-column key/value grid:
+   today, this week, this month, all time, streak, best hour.
+7. Reminder banner and daemon/permission errors, when present, sit
+   between the chips and the focus section so they are never hidden by
+   a panel.
+
+The window remembers its frame between launches. Its minimum width fits
+the header and one block of tomatoes.
+
+Before the daemon has sent state, and while reconnecting, the same
+layout renders on a neutral dark ground with the `ConnectionStatus`
+placeholder in the header; the window never goes blank.
+
+### Attention
+
+At the end of a phase the client posts the notification and sound,
+requests user attention (Dock bounce), and the window recolours to the
+awaiting-confirm ground with the slot pulsing (not under Reduce
+Motion). The window never activates itself.
+
+### Visual system
+
+Colour lives in `Palette.swift`, keyed by `DaemonState.Phase`, and is documented in
+`DESIGN.md` as the `macos-*` tokens; a Swift test asserts every text on
+ground, chip on ground and chip-text on chip pairing meets WCAG AA
+(4.5:1), mirroring the Go palette test. The look is the same in light
+and dark system appearance. Grounds are mid-tone jewel versions of the
+TUI state colours; text is the dark ink; cream on the disconnected ground
+and inside panels; the primary chip is the icon's outline brown with
+cream text; the slot is cream.
+
+Type is the system font: phase name `.largeTitle` bold, countdown
+`.title2`, body and caption elsewhere. Radii: slot 10pt, chips 6pt,
+panels 8pt. Ground colour changes and panel expansion animate over
+250 ms ease-out.
 
 ### Input model
 
-Every action exists graphically and has a shortcut, discoverable in the
-application menu bar:
+Every action exists graphically, is keyboard-accessible, and is
+discoverable in the menu bar; only some actions have a direct shortcut:
 
-- *Timer*: Start `⌘R`, Confirm `⏎`, Pause/Resume `⌘P`, Snooze `⌘⇧S`,
-  Skip Today, New Cycle.
-- *Tasks*: New Task `⌘N` (inserts an editable row at the top; `⏎`
-  commits), Complete `⌘⏎`, Delete `⌘⌫`, Focus `⌘F`, Move Up/Down
-  `⌥↑/⌥↓`.
-- `↑/↓` move the selection. `Esc` cancels an edit. `⌘W` closes the
-  window. `⌘,` opens the config file in the default editor.
+- *Timer menu*: Start `⌘R`, Confirm `⏎`, Pause/Resume `⌘P`, Snooze
+  `⌘⇧S`, Skip Today, New Cycle (the last two deliberately have no
+  shortcut).
+- *View menu*: Tasks `⌘T`, Stats `⌘⇧D`, Keyboard Shortcuts `⌘/` (a
+  sheet listing everything). `Esc` closes an open panel or sheet.
+- *Tasks menu*: New Task `⌘N` (inserts an editable row at the top; `⏎`
+  commits, `Esc` cancels), Complete `⌘⏎`, Delete `⌘⌫`, Focus `⌘F`, Move
+  Up/Down `⌥↑/⌥↓`. `↑/↓` move the selection.
+- *Application menu*: Open Config File… `⌘,`, Launch at Login (toggle),
+  Open Notification Settings…, Open Login Items Settings…, Quit `⌘Q`.
 
-Each action resolves to a command string sent to `POST /v1/command`
-(selecting row 3 and pressing `⌘⏎` sends `task done 3`). The popover and the
-window share one `Commands` definition.
+Each Timer action calls its dedicated `POST /v1/timer/{verb}` route.
+Each Tasks action but New Task (which only opens the inline editor)
+resolves to a command string sent to `POST /v1/command` (selecting row
+3 and pressing `⌘⏎` sends `task done 3`). View and Application menu
+actions are local app or system operations — panel toggles, settings,
+login-item controls, Quit — and never reach the daemon. Menus, chips
+and the context menu share one `MenuModel` so titles and shortcuts
+have a single source.
 
 ### Data flow
 
 One `@Observable` `DaemonClient` owns the SSE stream and publishes
 `State`. It reconnects with backoff; on failure it registers the launchd
-agent and shows "Starting timer…" in the menu bar. Views are pure
-functions of `State`; the only local UI state is the selected row and
-in-progress edit text.
+agent and the header shows "Starting timer…". `DaemonClient.stats()`
+fetches `/v1/stats` when the stats panel opens. Views are pure functions
+of `State`; the only local UI state is which panel is open, the selected
+row and in-progress edit text. A `MainWindowContent` value computes
+what the window shows for a given `State`, connection and panel state,
+so those rules are unit-tested without SwiftUI.
+
+### UI files
+
+```
+ThrowntomUI/
+  ThrowntomApp, ThrowntomScenes      one Window scene and its .commands
+  MainWindow, MainWindowContent      composition; pure "what shows" value
+  TimerHeader, MascotSlot            slot + phase + countdown
+  TomatoGarden, BlockFlowLayout       (done, in-block, every) → blocks; blocks → wrapped rows
+  ActionChips, Chip
+  FocusSection
+  TasksPanel, TaskRow, NewTaskRow, TaskContextMenu
+  StatsPanel
+  ShortcutSheet
+  Palette                            phase → colours
+  AppMenus, MenuModel
+  ReminderBanner, ReminderResponder, NotificationAdapters
+```
 
 `URLSession` cannot reach a Unix socket, so the client carries its own
 transport (ADR-002): a `DaemonTransport` protocol (`request` returning
@@ -204,25 +301,39 @@ tools/tomctl/         daemon CLI
   real `Core` — no mocks of `Core`.
 - Integration (`integration/`): socket + lock lifecycle, `tomctl`
   against a real daemon on a temp socket.
-- Swift: HTTP/SSE parsing as pure unit tests; `UnixSocketTransport` and
-  `DaemonClient` decoding and reconnect under XCTest against a real
-  `throwntomd` on a temp socket. No UI automation initially.
-- CI: existing Go workflow unchanged; a macOS job (`macos/build.sh` +
-  `xcodebuild test` on the package) is added once the app exists.
+- Swift, client: HTTP/SSE parsing as pure unit tests;
+  `UnixSocketTransport` and `DaemonClient` decoding, `stats()` and
+  reconnect under XCTest against a real `throwntomd` on a temp socket.
+- Swift, UI: pure unit tests for `TomatoGarden` blocks (0, 3, 4, 11, 23
+  pomodoros) and `BlockFlowLayout` row wrapping at several widths,
+  `Palette` AA contrast for every pairing, `MenuModel` including the
+  View menu, `StatsSummary` decoding of a captured
+  `/v1/stats` body, and `MainWindowContent` for connected, connecting,
+  reconnecting and panel-open states. No UI automation; the
+  `swift-review` and `ux-audit` skills gate the branch, then a manual
+  drive (`macos/build.sh`, quit, bootout, reopen).
+- CI: Go workflow unchanged; the macOS job builds the bundle and runs
+  `swift test`.
 
 ## Delivery order
 
-1. Move timer core into `internal/core` (pure move, TUI unchanged).
-2. `Subscribe` on `Core`.
-3. `internal/daemon`, `cmd/throwntomd`, single-instance lock, `tomctl`.
-4. macOS menu bar app with `DaemonClient` and launchd registration.
-5. macOS task window, menus, shortcuts.
-6. macOS CI job.
+1. `Phase`, `Palette` with the contrast test, `DESIGN.md` tokens.
+2. `TomatoGarden`, `MainWindowContent`, `MenuModel.view`.
+3. `DaemonClient.stats()` and `StatsSummary`.
+4. Window scene: header, garden, chips, focus; drop `LSUIElement` and
+   the menu bar extra; delete the popover and task window.
+5. Tasks panel with context menu and hint line; stats panel; shortcut
+   sheet.
+6. Attention: Dock bounce and awaiting-confirm pulse.
 
 ## Risks
 
-- Step 1 is the largest diff and touches working code; mitigated by
-  being a move with the existing tests following it.
+- Step 4 replaces every view at once; mitigated by steps 1–3 landing
+  the pure, tested pieces first and by `ThrowntomClient` not changing
+  shape.
+- A phase-coloured window is a strong look; if a jewel ground proves
+  tiring over a full day the palette is one file and one test away from
+  a paler variant.
 - `SMAppService` agent registration from a development build is safe:
   an ad-hoc signature is enough, the bundle need not live in
   `/Applications`, and the user sees a notification rather than a prompt.

@@ -8,7 +8,7 @@ struct NewTaskRow: View {
 
   /// What committing the editor's draft came to. Every outcome closes the row.
   enum DraftOutcome: Equatable {
-    /// The command line the task window should send.
+    /// The command line the tasks panel should send.
     case send(String)
     /// A blank draft: nothing to add.
     case nothing
@@ -47,7 +47,7 @@ struct NewTaskRow: View {
     }
   }
 
-  /// Hands a usable line to the task window; a refusal beeps, since the row is already gone.
+  /// Hands a usable line to the tasks panel; a refusal beeps, since the row is already gone.
   func submit() {
     switch commit() {
     case .send(let line): onCommit(line)

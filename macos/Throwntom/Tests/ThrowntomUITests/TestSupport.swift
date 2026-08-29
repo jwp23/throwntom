@@ -46,14 +46,17 @@ func makeState(
   nextStage: DaemonState.NextStage? = nil,
   snoozeUntil: Date? = nil,
   phaseEndAt: Date? = nil,
+  pausedRemaining: Int = 0,
+  completedToday: Int = 0,
+  workSessionsInBlock: Int = 0,
   focusedTaskIds: [Int] = [],
 ) -> DaemonState {
   DaemonState(
     state: phase,
     phaseEndAt: phaseEndAt,
-    pausedRemaining: 0,
-    completedToday: 0,
-    workSessionsInBlock: 0,
+    pausedRemaining: pausedRemaining,
+    completedToday: completedToday,
+    workSessionsInBlock: workSessionsInBlock,
     longBreakEvery: 4,
     nextStage: nextStage,
     morningPending: morningPending,
@@ -80,6 +83,7 @@ final class StubReminderPresenter: ReminderPresenter {
   private(set) var posts = [Post]()
   private(set) var morningPosts = [Post]()
   private(set) var withdrawals = 0
+  private(set) var attentionRequests = 0
 
   func registerReminderButtons() {
     registeredButtons = true
@@ -101,6 +105,10 @@ final class StubReminderPresenter: ReminderPresenter {
 
   func withdrawReminder() {
     withdrawals += 1
+  }
+
+  func requestAttention() {
+    attentionRequests += 1
   }
 }
 
@@ -134,6 +142,9 @@ final class StubTransport: DaemonTransport, @unchecked Sendable {
   /// What every non-tasks request replies with; a non-2xx status makes the client raise a refusal.
   var commandStatus = 200
 
+  /// The body to return for `GET /v1/stats`; nil means 404.
+  var statsBody: Data?
+
   var requests: [Request] {
     lock.withLock { recorded }
   }
@@ -153,6 +164,13 @@ final class StubTransport: DaemonTransport, @unchecked Sendable {
     if path == Self.tasksPath {
       return HTTPResponse(status: 200, headers: [:], body: taskList)
     }
+    if path == Self.statsPath {
+      if let statsBody {
+        return HTTPResponse(status: 200, headers: [:], body: statsBody)
+      } else {
+        return HTTPResponse(status: 404, headers: [:], body: Self.commandReply)
+      }
+    }
     return HTTPResponse(status: commandStatus, headers: [:], body: Self.commandReply)
   }
 
@@ -167,6 +185,7 @@ final class StubTransport: DaemonTransport, @unchecked Sendable {
   // MARK: Private
 
   private static let tasksPath = "/v1/tasks"
+  private static let statsPath = "/v1/stats"
   private static let commandReply = Data(#"{"message":"ok"}"#.utf8)
 
   private let frames: [Data]
