@@ -93,7 +93,11 @@ final class DaemonClientTests: XCTestCase {
     } catch DaemonError.http(let status, _) {
       XCTAssertEqual(status, 409)
     }
-    XCTAssertNotNil(client.unresolvedError)
+    XCTAssertEqual(
+      client.unresolvedError,
+      "nothing to pause: timer is not running",
+      "the daemon's own words reach the window",
+    )
   }
 
   func testTransportOutageAfterRefusedCommandSurfacesTheOutageNotTheStaleRefusal() async throws {

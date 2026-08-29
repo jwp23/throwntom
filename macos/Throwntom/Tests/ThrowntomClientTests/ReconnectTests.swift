@@ -76,6 +76,30 @@ final class RecoveringRegistrar: LaunchAgentRegistrar, @unchecked Sendable {
 
 }
 
+// MARK: - RefusingRegistrar
+
+/// A registrar that cannot register, so the client's request to launchd goes nowhere.
+struct RefusingRegistrar: LaunchAgentRegistrar {
+  struct Denied: Error { }
+
+  func ensureAgentRegistered() throws {
+    throw Denied()
+  }
+}
+
+// MARK: - GarbledTransport
+
+/// A daemon that answers, but with a body the client cannot decode.
+struct GarbledTransport: DaemonTransport {
+  func request(_: String, _: String, body _: Data?) async throws -> HTTPResponse {
+    HTTPResponse(status: 200, headers: [:], body: Data("not json at all".utf8))
+  }
+
+  func events(_: String) -> AsyncThrowingStream<Data, Error> {
+    AsyncThrowingStream { $0.finish(throwing: DaemonError.transport("no event stream")) }
+  }
+}
+
 // MARK: - ReconnectTests
 
 @MainActor
@@ -110,6 +134,53 @@ final class ReconnectTests: XCTestCase {
 
     try await waitUntil { client.unresolvedError != nil }
     XCTAssertEqual(client.unresolvedError, "Timer is restarting…")
+  }
+
+  /// A registration that fails is the one error most likely to be framework noise, so it needs
+  /// the same treatment as every other error the window shows.
+  func testAFailedRegistrationDoesNotShowTheFrameworkError() async throws {
+    let client = DaemonClient(
+      transport: OutageTransport(),
+      registrar: RefusingRegistrar(),
+      backoff: Self.slowAfterRegistering,
+    )
+    client.start()
+    defer { client.stop() }
+
+    try await waitUntil { client.connection == .startingDaemon }
+    try await waitUntil { client.unresolvedError == "The timer could not be started." }
+  }
+
+  /// The daemon answered, so telling the reader it could not be reached would send them after
+  /// a connection problem that does not exist.
+  func testAnUnreadableReplyIsNotReportedAsAnUnreachableTimer() async throws {
+    let client = DaemonClient(transport: GarbledTransport(), registrar: RecordingRegistrar())
+    defer { client.stop() }
+
+    do {
+      _ = try await client.command("task add hello")
+      XCTFail("an undecodable reply must throw")
+    } catch {
+      XCTAssertEqual(client.unresolvedError, "The timer sent a reply we could not read.")
+    }
+  }
+
+  /// Rewinding the backoff is justified by launchd having been asked to start the daemon. When
+  /// the ask failed, nothing was fixed, so the outage keeps escalating instead.
+  func testAFailedRegistrationDoesNotRewindTheBackoff() async throws {
+    let transport = OutageTransport()
+    let client = DaemonClient(transport: transport, registrar: RefusingRegistrar(), backoff: Self.slowAfterRegistering)
+    client.start()
+    defer { client.stop() }
+
+    try await waitUntil { transport.dials >= DaemonClient.failuresBeforeRegistering }
+    try await Task.sleep(for: .milliseconds(200))
+
+    XCTAssertEqual(
+      transport.dials,
+      DaemonClient.failuresBeforeRegistering,
+      "a rewound backoff would have dialled again 10 ms later",
+    )
   }
 
   // MARK: Private

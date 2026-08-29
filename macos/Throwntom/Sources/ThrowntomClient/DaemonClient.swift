@@ -132,8 +132,10 @@ public final class DaemonClient {
   }
 
   /// The window's wording for anything that goes wrong, so no view has to render a raw error.
+  /// Anything that is not a `DaemonError` got as far as a reply the client could not decode,
+  /// so it is reported as an unreadable answer rather than as an unreachable daemon.
   private static func userMessage(_ error: Error) -> String {
-    (error as? DaemonError)?.userMessage ?? "The timer could not be reached."
+    (error as? DaemonError)?.userMessage ?? DaemonError.malformedResponse("\(error)").userMessage
   }
 
   private func runStream() async {
@@ -156,8 +158,9 @@ public final class DaemonClient {
         lastError = Self.userMessage(error)
         // A real outage matters more than a stale command refusal from before it started.
         commandError = nil
-        if retries.shouldRegisterAgent {
-          registerAgent()
+        // Only a registration launchd accepted justifies retrying sooner: when the ask itself
+        // failed, nothing has been done about the outage and it keeps escalating.
+        if retries.shouldRegisterAgent, registerAgent() {
           retries.agentRegistered()
         }
         connection = retries.failures >= Self.failuresBeforeRegistering
@@ -168,11 +171,14 @@ public final class DaemonClient {
     }
   }
 
-  private func registerAgent() {
+  /// Asks launchd to start the daemon. Returns whether the ask was accepted.
+  private func registerAgent() -> Bool {
     do {
       try registrar.ensureAgentRegistered()
+      return true
     } catch {
-      lastError = "register agent: \(error)"
+      lastError = "The timer could not be started."
+      return false
     }
   }
 
