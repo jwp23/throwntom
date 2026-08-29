@@ -39,6 +39,12 @@ enum Motion: Hashable {
 /// One pose of the mascot, as data. `rotation` is degrees about design point (50, 55); `scale` is
 /// about the canvas origin; `offset` is design units applied after scaling.
 struct MascotPose: Equatable {
+  /// Left shoulder anchor point, on the body rim.
+  static let leftShoulder = CGPoint(22, 71)
+
+  /// Right shoulder anchor point, on the body rim.
+  static let rightShoulder = CGPoint(78, 71)
+
   var eyes: Eyes
   var mouth: Mouth
   var leftArm: Arm

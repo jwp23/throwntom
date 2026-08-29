@@ -45,4 +45,11 @@ final class MascotPoseTests: XCTestCase {
     XCTAssertTrue(HeldProp.book.drawnBehindHands)
     XCTAssertFalse(HeldProp.drink.drawnBehindHands)
   }
+
+  func testEveryPoseHangsItsArmsFromTheSameShoulders() {
+    for pose in [MascotPose.work, .shortBreak, .longBreak, .idle, .awaitingConfirm, .disconnected] {
+      XCTAssertEqual(pose.leftArm.shoulder, MascotPose.leftShoulder, "\(pose.held.map { "\($0)" } ?? "laptop") left")
+      XCTAssertEqual(pose.rightArm.shoulder, MascotPose.rightShoulder, "\(pose.held.map { "\($0)" } ?? "laptop") right")
+    }
+  }
 }
