@@ -29,12 +29,14 @@ struct Arm: Equatable {
 /// The arm's stroke path. Every point is animatable, so a pose change bends the arm from one
 /// curve into the next rather than cutting.
 struct ArmShape: Shape {
+  typealias ArmAnimatableData = AnimatablePair<
+    AnimatablePair<CGPoint.AnimatableData, CGPoint.AnimatableData>,
+    AnimatablePair<CGPoint.AnimatableData, CGPoint.AnimatableData>,
+  >
+
   var arm: Arm
 
-  var animatableData: AnimatablePair<
-    AnimatablePair<CGPoint.AnimatableData, CGPoint.AnimatableData>,
-    AnimatablePair<CGPoint.AnimatableData, CGPoint.AnimatableData>,
-  > {
+  var animatableData: ArmAnimatableData {
     get {
       AnimatablePair(
         AnimatablePair(arm.shoulder.animatableData, arm.control1.animatableData),
