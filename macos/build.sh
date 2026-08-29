@@ -7,7 +7,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEST="${1:-$ROOT/macos/.build}"
 PKG="$ROOT/macos/Throwntom"
 APP="$DEST/Throwntom.app"
-LABEL=com.jwp23.throwntom.daemon
+BUNDLE_ID=com.jwp23.throwntom
+LABEL="$BUNDLE_ID.daemon"
 VERSION="$(git -C "$ROOT" describe --tags --always 2>/dev/null | sed 's/^v//')"
 BUILD="$(git -C "$ROOT" rev-list --count HEAD)"
 
@@ -27,6 +28,11 @@ cp "$DEST/throwntomd" "$APP/Contents/MacOS/throwntomd"
 codesign --force --sign - --timestamp=none "$APP/Contents/MacOS/throwntomd"
 codesign --force --sign - --timestamp=none "$APP"
 
+# Every worktree build adds a Launch Services registration for the shared bundle id,
+# and deleting the worktree leaves it behind. Drop the ones whose bundle is gone.
+# Runs after assembly so this build's own bundle is on disk and never looks stale.
+(cd "$ROOT" && go run ./tools/lsreg prune) || echo "warning: could not prune stale Launch Services registrations"
+
 echo "built $APP (version $VERSION)"
 echo "run:      open \"$APP\""
 echo "if the agent was already registered, launchd will refuse the re-signed daemon;"
@@ -34,3 +40,7 @@ echo "reload it:  quit the app; launchctl bootout gui/$(id -u)/$LABEL; open \"$A
 echo "note: registration is keyed on the launch-agent label ($LABEL), so it is"
 echo "shared across every worktree build of Throwntom.app - whichever build you opened"
 echo "last owns the registered agent, regardless of which worktree built it."
+echo "Launch Services is keyed the same way, on the bundle id ($BUNDLE_ID), so every"
+echo "worktree build adds another registration and macOS may resolve the app - its icon"
+echo "above all - through a build you did not open. This script drops registrations whose"
+echo "bundle is gone; inspect the rest with: go run ./tools/lsreg list"

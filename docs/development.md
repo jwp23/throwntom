@@ -81,6 +81,15 @@ automation, and no use case for one so far.
 launch-agent label is shared by every build, so whichever bundle you opened last owns the
 registered daemon.
 
+Launch Services is keyed the same way, on the bundle id, and is worse in one respect: deleting a
+worktree does not remove the registration it left behind, so dead entries accumulate and outlive
+the directories they name. macOS may then resolve the app — its icon above all — through a bundle
+that is no longer on disk, which presents as a wrong or missing icon rather than as anything that
+points at Launch Services. `macos/build.sh` prunes registrations whose bundle is gone, so the loop
+heals itself; `go run ./tools/lsreg list` shows what is registered, and `prune` cleans it on demand
+(see `tools/lsreg/README.md`). Never run `lsregister -kill -r -domain local -domain system -domain
+user` — it rebuilds the whole machine's database.
+
 ## The terminal UI
 
 The TUI runs the engine in-process and does not use the daemon (throwntom-ii1 tracks making it a
