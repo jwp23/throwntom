@@ -103,7 +103,7 @@ public final class DaemonClient {
       try Self.check(response)
       tasks = try DaemonJSON.decoder.decode(TaskList.self, from: response.body)
     } catch {
-      lastError = String(describing: error)
+      lastError = Self.userMessage(error)
     }
   }
 
@@ -131,13 +131,22 @@ public final class DaemonClient {
       ?? String(decoding: body, as: UTF8.self)
   }
 
+  /// The window's wording for anything that goes wrong, so no view has to render a raw error.
+  private static func userMessage(_ error: Error) -> String {
+    (error as? DaemonError)?.userMessage ?? "The timer could not be reached."
+  }
+
   private func runStream() async {
     var failures = 0
+    var delayIndex = 0
+    var hasAskedLaunchdToStart = false
     while !Task.isCancelled {
       do {
         for try await frame in transport.events(DaemonAPI.events) {
           let decoded = try DaemonJSON.decoder.decode(DaemonState.self, from: frame)
           failures = 0
+          delayIndex = 0
+          hasAskedLaunchdToStart = false
           connection = .connected
           state = decoded
           await refreshTasks()
@@ -148,15 +157,22 @@ public final class DaemonClient {
           return
         }
         failures += 1
-        lastError = String(describing: error)
+        lastError = Self.userMessage(error)
         // A real outage matters more than a stale command refusal from before it started.
         commandError = nil
-        if failures > 0 && failures % Self.failuresBeforeRegistering == 0 {
+        if failures % Self.failuresBeforeRegistering == 0 {
           registerAgent()
+          // Registering the agent is what ends the outage, so the dial that checks whether it
+          // worked comes from the short end of the backoff. Escalating through it instead means
+          // waiting out seconds of delay for a daemon launchd already started.
+          if !hasAskedLaunchdToStart {
+            hasAskedLaunchdToStart = true
+            delayIndex = 0
+          }
         }
         connection = failures >= Self.failuresBeforeRegistering ? .startingDaemon : .reconnecting(attempt: failures)
-        let delay = backoff[min(failures - 1, backoff.count - 1)]
-        try? await Task.sleep(for: delay)
+        try? await Task.sleep(for: backoff[min(delayIndex, backoff.count - 1)])
+        delayIndex += 1
       }
     }
   }
@@ -183,7 +199,7 @@ public final class DaemonClient {
       commandError = nil
       return result
     } catch {
-      commandError = String(describing: error)
+      commandError = Self.userMessage(error)
       throw error
     }
   }
