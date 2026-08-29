@@ -2,8 +2,7 @@ import SwiftUI
 
 // MARK: - FurnitureShapes
 
-/// Things the tomato sits at or on, in canvas units (unrotated), transcribed from
-/// `docs/designs/mascot-poses.html`.
+/// Things the tomato sits at or on, drawn in canvas units (unrotated).
 enum FurnitureShapes {
   /// Laptop seen side-on at the tomato's right, screen hinged up and leaning toward it.
   static let laptopBase = DesignShape { path, units in

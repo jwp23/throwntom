@@ -5,8 +5,8 @@ import XCTest
 @testable import ThrowntomUI
 
 /// Renders the mascot offscreen. Every pose must produce an image; when `MASCOT_SNAPSHOT_DIR` is
-/// set the images are also written as 2× PNGs so the drawings can be checked against
-/// `docs/designs/mascot-poses.html` without launching the app (`tools/mascot-snap.sh`).
+/// set the images are also written as 2× PNGs for checking against rendered poses without launching
+/// the app (`tools/mascot-snap.sh`).
 @MainActor
 final class MascotSnapshotTests: XCTestCase {
 

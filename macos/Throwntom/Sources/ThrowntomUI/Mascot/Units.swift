@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Units
 
-/// The mascot is drawn on a 100×100 design canvas (`docs/designs/mascot-poses.html`); `Units` maps
+/// The mascot is drawn on a 100×100 design canvas; `Units` maps
 /// those coordinates into whatever rect a Shape is given.
 struct Units {
   static let canvas: CGFloat = 100

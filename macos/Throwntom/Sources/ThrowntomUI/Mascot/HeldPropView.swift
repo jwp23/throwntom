@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - HeldProps
 
-/// Props the tomato holds, in body-local design units, transcribed from `docs/designs/mascot-poses.html`.
+/// Props the tomato holds, in body-local design units.
 enum HeldProps {
   /// Cold drink, right hand.
   static let drinkCup = DesignShape { path, units in

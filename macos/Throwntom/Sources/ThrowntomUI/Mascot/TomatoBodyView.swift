@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - TomatoBody
 
-/// The tomato's body, stem and leaves, transcribed from `docs/designs/mascot-poses.html`.
+/// The tomato's body, stem and leaves, drawn in design units.
 enum TomatoBody {
   static let centre = CGPoint(50, 56)
   static let radius: Double = 34
