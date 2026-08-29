@@ -216,8 +216,8 @@ panels 8pt. Ground colour changes and panel expansion animate over
 
 ### Input model
 
-Every action exists graphically, has a shortcut, and is discoverable in
-the menu bar:
+Every action exists graphically, is keyboard-accessible, and is
+discoverable in the menu bar; only some actions have a direct shortcut:
 
 - *Timer menu*: Start `⌘R`, Confirm `⏎`, Pause/Resume `⌘P`, Snooze
   `⌘⇧S`, Skip Today, New Cycle (the last two deliberately have no
@@ -230,10 +230,13 @@ the menu bar:
 - *Application menu*: Open Config File… `⌘,`, Launch at Login (toggle),
   Open Notification Settings…, Open Login Items Settings…, Quit `⌘Q`.
 
-Each action resolves to a command string sent to `POST /v1/command`
-(selecting row 3 and pressing `⌘⏎` sends `task done 3`). Menus, chips
-and the context menu share one `MenuModel` so titles and shortcuts have
-a single source.
+Each Timer and Tasks action resolves to a command string sent to
+`POST /v1/command` (selecting row 3 and pressing `⌘⏎` sends
+`task done 3`). View and Application menu actions are local app or
+system operations — panel toggles, settings, login-item controls,
+Quit — and never reach the daemon this way. Menus, chips and the
+context menu share one `MenuModel` so titles and shortcuts have a
+single source.
 
 ### Data flow
 

@@ -50,8 +50,10 @@ Options considered and rejected:
   favour of ⌘ chords only; a text field owning the keyboard blocks
   single-key shortcuts and adds a second input model.
 - *Evolve the existing views.* Rejected: the views are the part that
-  was disliked. `ThrowntomClient` (transport, `DaemonClient`, actions,
-  task editing model) is kept unchanged; only `ThrowntomUI` is rewritten.
+  was disliked. `ThrowntomClient`'s existing transport, actions and
+  task editing model are kept unchanged (it gains `DaemonClient.stats()`
+  and `StatsSummary` for the new stats panel); only `ThrowntomUI` is
+  rewritten.
 
 ## Trade-offs
 
