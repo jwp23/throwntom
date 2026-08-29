@@ -33,10 +33,14 @@ final class MenuBindingTests: XCTestCase {
   /// no key at all must advertise none, or the cheat sheet invents one.
   func testEveryDisplayedHintMatchesTheKeyItIsBoundTo() {
     for phase in Self.phases {
-      let commands = commands(phase: phase, isEditing: false)
-      assertEveryMenuContributed(commands, phase: phase)
-      for command in commands {
-        XCTAssertEqual(command.displayedHint, command.shortcut?.hint ?? "", command.title)
+      // Both editing states, for the same reason as the collision test: editing changes which
+      // verbs are enabled, and this asserts that it never changes what any of them advertises.
+      for isEditing in [false, true] {
+        let commands = commands(phase: phase, isEditing: isEditing)
+        assertEveryMenuContributed(commands, phase: phase)
+        for command in commands {
+          XCTAssertEqual(command.displayedHint, command.shortcut?.hint ?? "", command.title)
+        }
       }
     }
   }
@@ -99,7 +103,11 @@ final class MenuBindingTests: XCTestCase {
   }
 
   private func assertEveryMenuContributed(_ commands: [Command], phase: DaemonState.Phase?) {
-    XCTAssertEqual(commands.count, Self.commandCount, "menu commands went missing in \(String(describing: phase))")
+    XCTAssertEqual(
+      commands.count,
+      Self.commandCount,
+      "every menu model should contribute in \(String(describing: phase)); update commandCount when adding a command",
+    )
   }
 
 }

@@ -34,9 +34,10 @@ struct MenuShortcut: Hashable {
     KeyboardShortcut(key, modifiers: modifiers)
   }
 
-  /// How this binding is written on a chip, a hint line or the cheat sheet: the modifier glyphs in
-  /// the order this app writes them (⌘ before ⇧), then the key. `MenuBindingTests` holds every
-  /// action's own `shortcutHint` to this, so a rebinding cannot leave the UI advertising the old key.
+  /// The canonical way to write this binding: the modifier glyphs in the order this app writes them
+  /// (⌘ before ⇧), then the key. Each action still carries its own `shortcutHint` for display, since
+  /// those live in `ThrowntomClient` and cannot reach this type; `MenuBindingTests` holds every one
+  /// of them to this rendering, so a rebinding cannot leave the UI advertising the old key.
   var hint: String {
     var glyphs = ""
     if modifiers.contains(.command) {

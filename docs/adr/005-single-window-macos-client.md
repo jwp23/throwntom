@@ -35,6 +35,9 @@ shortcuts visible. Focused tasks show in the window; the full task list
 and the stats summary are panels that expand the window on ⌘T and ⌘⇧D.
 There is no menu bar item, no global hotkey and no typed command prompt.
 
+> Amended 2026-08-29 (throwntom-6pc.2): the stats panel opens on ⌘⇧I, not
+> ⌘⇧D. The decision above is unchanged; only that key was rebound.
+
 At phase end the client notifies, bounces the Dock and recolours the
 window; it never activates itself.
 
