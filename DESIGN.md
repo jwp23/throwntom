@@ -96,7 +96,7 @@ with the word "throwntom" in rounded bubble lettering. The register is Duolingo'
 Apple's Clock — friendly, a little goofy, and unbothered by being a productivity tool.
 
 Everything the user actually operates is far plainer than the icon. The TUI is a
-four-line frame — status line, secondary hint, message, `> ` prompt — that only uses
+frame of a few lines — status, secondary hint, message, the `>` prompt — that only uses
 foreground colour and an optional emoji, never boxes or backgrounds. The macOS client is a
 stock `MenuBarExtra` popover and a plain `Window` that lean entirely on system controls.
 The tomato supplies the personality; the interfaces stay out of the way. The one place the
@@ -158,10 +158,11 @@ Omitted (see front matter). Two things are still fixed in code and worth knowing
 
 ## Layout
 
-The TUI frame is fixed at four lines in this order: status, secondary hint (or the
-morning-reminder hint), message, prompt. Every line is clamped to terminal width minus one
-with a `...` ellipsis (`clampANSILine`); nothing wraps, nothing is centred, there are no
-margins. The status line is `<icon> <coloured text>`, with a single space between.
+The TUI frame (`renderThemedFrame`) is a stack of lines in a fixed order: status; the
+secondary hint (or the morning-reminder hint) when there is one; the message, one line per
+newline in it; the prompt. Every line is clamped to terminal width minus one by
+`clampANSILine`, with a `...` ellipsis when at least four columns are available and a hard
+cut otherwise; nothing wraps, nothing is centred, there are no margins. The status line is `<icon> <coloured text>`, with a single space between.
 
 The macOS popover (`PopoverView.swift`) is a 280pt-wide vertical stack with 12pt padding and
 8pt between items, separated into groups by `Divider()`: status → next stage → focus list →
@@ -198,8 +199,8 @@ macOS squircle, plus an unmasked square; the `.icns` is built from the masked on
 | Awaiting confirm | 🔔 | `!` |
 | Morning reminder pending (appended) | 🔔 | `[!]` |
 
-The ASCII set must stay one or two plain ASCII characters so the frame never depends on
-terminal font coverage. The emoji set is the icon's personality leaking into the terminal
+The ASCII set must stay short plain ASCII — one or two characters for a state, three for
+the bracketed reminder marker — so the frame never depends on terminal font coverage. The emoji set is the icon's personality leaking into the terminal
 and is the only place the product uses emoji.
 
 ### Next-stage line
@@ -214,7 +215,7 @@ each line clamped.
 
 ### Prompt
 
-`> ` followed by the input. Never styled.
+`>`, one space, then the input. Never styled.
 
 ### Stats tiers
 

@@ -58,7 +58,7 @@ func TestRenderDashboard(t *testing.T) {
 
 // Tier is carried by a glyph as well as colour so the dashboard reads without colour vision.
 func TestTierStyledCarriesGlyph(t *testing.T) {
-	cases := map[int]string{1: "○ 1", 3: "◐ 3", 6: "● 6"}
+	cases := map[int]string{1: "○ 1", 2: "○ 2", 3: "◐ 3", 5: "◐ 5", 6: "● 6"}
 	for count, want := range cases {
 		if got := tierStyled(count, 2, 5); !strings.Contains(got, want) {
 			t.Errorf("tierStyled(%d) = %q, want substring %q", count, got, want)
