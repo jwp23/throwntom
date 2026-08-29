@@ -1,5 +1,7 @@
 import SwiftUI
 
+/// The cream square beside the phase name. It holds a glyph for now and is sized for the mascot
+/// that will replace it, so nothing around it moves when that lands.
 struct MascotSlot: View {
 
   // MARK: Internal
