@@ -29,7 +29,7 @@ final class MainWindowContentTests: XCTestCase {
     XCTAssertNil(content(makeState(phase: .work, phaseEndAt: nil)).countdown)
   }
 
-  func testPausedUsesRemainingSecondsAndPauseSymbol() {
+  func testPausedUsesRemainingSeconds() {
     let c = content(makeState(phase: .paused, pausedRemaining: 61))
     XCTAssertEqual(c.countdown, "01:01")
     XCTAssertEqual(c.primaryChip, .resume)
