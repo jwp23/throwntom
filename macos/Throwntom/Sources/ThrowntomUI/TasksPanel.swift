@@ -20,7 +20,9 @@ struct TasksPanel: View {
           NewTaskRow(model: model) { line in DaemonDispatch.send(line, to: client) }
         }
         ForEach(model.tasks.active) { task in
-          TaskRow(task: task, focused: model.focusedIDs.contains(task.id)).tag(task.id)
+          TaskRow(task: task, focused: model.focusedIDs.contains(task.id))
+            .tag(task.id)
+            .contextMenu { TaskContextMenu(task: task, client: client, model: model) }
         }
         if !model.tasks.completed.isEmpty {
           DisclosureGroup(model.completedSectionTitle, isExpanded: $showCompleted) {
@@ -33,6 +35,7 @@ struct TasksPanel: View {
       .listStyle(.plain)
       .scrollContentBackground(.hidden)
       .frame(minHeight: 160, maxHeight: 280)
+      Text(TaskHints.line).font(.caption.monospaced()).opacity(0.75)
     }
     .padding(10)
     .background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 8))
