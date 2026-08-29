@@ -26,7 +26,10 @@ struct SystemNotificationAuthorizer: NotificationAuthorizer {
 // MARK: - SystemReminderPresenter
 
 /// The real notification centre's reminder banner.
-struct SystemReminderPresenter: ReminderPresenter {
+final class SystemReminderPresenter: ReminderPresenter {
+
+  // MARK: Internal
+
   func registerReminderButtons() {
     UNUserNotificationCenter.current().setNotificationCategories([ReminderAlert.category, ReminderAlert.morningCategory])
   }
@@ -46,9 +49,22 @@ struct SystemReminderPresenter: ReminderPresenter {
     let pending = [ReminderNotification.requestIdentifier]
     center.removePendingNotificationRequests(withIdentifiers: pending)
     center.removeDeliveredNotifications(withIdentifiers: pending)
+
+    // Activating the app cancels an attention request too, but an answer given without
+    // activating (a notification button, or a reminder that lapses unanswered) must not leave
+    // the Dock icon bouncing forever.
+    if let attentionRequest {
+      NSApp.cancelUserAttentionRequest(attentionRequest)
+      self.attentionRequest = nil
+    }
   }
 
   func requestAttention() {
-    NSApp.requestUserAttention(.criticalRequest)
+    attentionRequest = NSApp.requestUserAttention(.criticalRequest)
   }
+
+  // MARK: Private
+
+  private var attentionRequest: Int?
+
 }
