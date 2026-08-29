@@ -3,7 +3,8 @@
 Design for a native macOS front end to throwntom, built on a Go daemon.
 Decision records: [ADR-001](../adr/001-native-macos-client-over-daemon-api.md)
 (daemon + native client), [ADR-002](../adr/002-macos-client-transport-over-unix-socket.md)
-(client transport), [SwiftPM bundle](../decisions/macos-app-swiftpm-bundle.md)
+(client transport), [ADR-005](../adr/005-single-window-macos-client.md)
+(single phase-coloured window), [SwiftPM bundle](../decisions/macos-app-swiftpm-bundle.md)
 (build system).
 
 ## Goals
