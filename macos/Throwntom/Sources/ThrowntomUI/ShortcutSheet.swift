@@ -69,10 +69,16 @@ struct ShortcutSheet: View {
       }
       HStack {
         Spacer()
-        Button("Done") { environment.windowModel.showsShortcuts = false }.keyboardShortcut(.defaultAction)
+        Button("Done") { close() }.keyboardShortcut(.defaultAction)
       }
     }
     .padding(20)
     .frame(minWidth: 320)
+    // The sheet is its own key window, so Esc must be handled here, not in MainWindow.
+    .onExitCommand { close() }
+  }
+
+  func close() {
+    environment.windowModel.showsShortcuts = false
   }
 }

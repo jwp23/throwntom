@@ -22,4 +22,11 @@ final class ShortcutSheetTests: XCTestCase {
     let environment = AppEnvironment(transport: try StubTransport(states: []))
     _ = ShortcutSheet(environment: environment).body
   }
+
+  func testEscapeClosesTheSheet() throws {
+    let environment = AppEnvironment(transport: try StubTransport(states: []))
+    environment.windowModel.showsShortcuts = true
+    ShortcutSheet(environment: environment).close()
+    XCTAssertFalse(environment.windowModel.showsShortcuts)
+  }
 }
