@@ -1,12 +1,14 @@
 import SwiftUI
 
-/// The cream square beside the phase name. It holds a glyph for now and is sized for the mascot
-/// that will replace it, so nothing around it moves when that lands.
 struct MascotSlot: View {
+
+  // MARK: Internal
+
   static let size: CGFloat = 72
 
   let glyph: MascotGlyph
   let scheme: PhaseScheme
+  let pulsing: Bool
 
   var body: some View {
     ZStack {
@@ -23,6 +25,20 @@ struct MascotSlot: View {
       }
     }
     .frame(width: Self.size, height: Self.size)
+    .scaleEffect(animates && beat ? 1.08 : 1)
+    .animation(animates ? .easeInOut(duration: 0.6).repeatForever(autoreverses: true) : .default, value: beat)
+    .onChange(of: animates, initial: true) { _, on in beat = on }
     .accessibilityHidden(true)
   }
+
+  // MARK: Private
+
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @State private var beat = false
+
+  /// Pulse only while a phase waits, and never for a user who asked macOS for less motion.
+  private var animates: Bool {
+    pulsing && !reduceMotion
+  }
+
 }

@@ -16,7 +16,7 @@ final class WindowSectionBodyTests: XCTestCase {
         panel: nil,
         now: .now,
       )
-      _ = MascotSlot(glyph: content.glyph, scheme: content.scheme).body
+      _ = MascotSlot(glyph: content.glyph, scheme: content.scheme, pulsing: content.pulses).body
       _ = TimerHeader(content: content).body
     }
     let disconnected = MainWindowContent(
@@ -27,7 +27,7 @@ final class WindowSectionBodyTests: XCTestCase {
       panel: nil,
       now: .now,
     )
-    _ = MascotSlot(glyph: disconnected.glyph, scheme: disconnected.scheme).body
+    _ = MascotSlot(glyph: disconnected.glyph, scheme: disconnected.scheme, pulsing: false).body
     _ = TimerHeader(content: disconnected).body
   }
 

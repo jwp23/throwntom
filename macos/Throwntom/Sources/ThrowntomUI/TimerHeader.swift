@@ -6,7 +6,7 @@ struct TimerHeader: View {
 
   var body: some View {
     HStack(alignment: .center, spacing: 14) {
-      MascotSlot(glyph: content.glyph, scheme: content.scheme)
+      MascotSlot(glyph: content.glyph, scheme: content.scheme, pulsing: content.pulses)
       VStack(alignment: .leading, spacing: 2) {
         Text(content.title)
           .font(.largeTitle.weight(.bold))
