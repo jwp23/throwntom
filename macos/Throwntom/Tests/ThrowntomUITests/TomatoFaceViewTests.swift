@@ -38,6 +38,16 @@ final class TomatoFaceViewTests: XCTestCase {
     }
   }
 
+  func testGlintIsASmallCrescentNearTheRim() {
+    // SwiftUI's Path.boundingRect over-estimates a rotated ellipse (control-point box); the
+    // CGPath tight bound matches the actual rendered curve.
+    let bounds = TomatoFace.glint.path(in: canvas).cgPath.boundingBoxOfPath
+    XCTAssertLessThan(bounds.width, 11)
+    XCTAssertLessThan(bounds.height, 8)
+    XCTAssertEqual(bounds.midX, 30, accuracy: 0.5)
+    XCTAssertEqual(bounds.midY, 35, accuracy: 0.5)
+  }
+
   @MainActor
   func testFaceBuildsForEveryVariant() {
     for eyes in [Eyes.open, .closed, .down, .wide] {

@@ -24,7 +24,7 @@ enum Mouth: Equatable {
 /// larger, so the tomato reads as turned slightly away.
 enum TomatoFace {
   static let glint = DesignShape { path, units in
-    path.ellipse(units, 27, 42, 8, 5, rotation: -25)
+    path.ellipse(units, 30, 35, 5, 2.5, rotation: -40)
   }
 
   static let farCheek = DesignShape { path, units in
@@ -117,7 +117,7 @@ struct TomatoFaceView: View {
 
   var body: some View {
     ZStack {
-      TomatoFace.glint.fill(Palette.cream.color.opacity(0.6))
+      TomatoFace.glint.fill(Palette.cream.color.opacity(0.5))
       TomatoFace.farCheek.fill(MascotPalette.blush.color.opacity(0.7))
       TomatoFace.nearCheek.fill(MascotPalette.blush.color.opacity(0.8))
       eyesView
