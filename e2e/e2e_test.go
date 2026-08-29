@@ -231,3 +231,46 @@ func scriptCommandInvocation(goos, scriptCmd, bin string) []string {
 		bin,
 	}
 }
+
+// buildDaemonBinary builds throwntomd, the binary that owns the config file's
+// lifecycle: it writes the documented template when the user has no config.
+func buildDaemonBinary(t *testing.T) string {
+	t.Helper()
+
+	binName := "throwntomd-e2e"
+	if runtime.GOOS == "windows" {
+		binName += ".exe"
+	}
+	binPath := filepath.Join(t.TempDir(), binName)
+	cmd := exec.Command("go", "build", "-o", binPath, "../cmd/throwntomd")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("build daemon binary: %v\n%s", err, out)
+	}
+	return binPath
+}
+
+// A path the user named is never created for them: a typo in --config must
+// fail loudly rather than quietly start the daemon on defaults and write a
+// template somewhere they will never look.
+func TestDaemonRefusesToCreateANamedConfigPath(t *testing.T) {
+	bin := buildDaemonBinary(t)
+	missingPath := filepath.Join(t.TempDir(), "typo.toml")
+
+	cmd := exec.Command(bin, "--config", missingPath)
+	cmd.Env = isolatedHomeEnv(t, "")
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+
+	if err == nil {
+		t.Fatal("expected non-zero exit for a config path that does not exist")
+	}
+	output := stderr.String()
+	if !strings.Contains(output, "config error:") {
+		t.Fatalf("expected config error output, got %q", output)
+	}
+	if _, statErr := os.Stat(missingPath); statErr == nil {
+		t.Fatal("expected the named path to be left alone, but a config was written there")
+	}
+}

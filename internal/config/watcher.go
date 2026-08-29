@@ -34,8 +34,8 @@ type Watcher struct {
 // contents the caller already has in force. Taking the baseline as an
 // argument rather than reading it here is what makes an edit made right after
 // Run starts impossible to lose — the caller reads it before the goroutine
-// exists. A nil baseline means nothing is in force yet, so the first poll
-// reports whatever the file holds.
+// exists. A nil baseline means nothing is in force yet, so the file's
+// contents are reported once they have held still for a poll.
 func (w Watcher) Run(ctx context.Context, baseline []byte) {
 	interval := w.Interval
 	if interval <= 0 {
@@ -74,7 +74,11 @@ type watchState struct {
 // write — so a poll can land on an empty or half-written file. An empty
 // config is not an error, it parses as every default, so applying one would
 // silently replace the user's durations and could end the running phase.
-// Waiting for the same bytes twice costs one interval and rules that out.
+// Requiring the same bytes twice costs one interval and makes that
+// vanishingly unlikely — it is not a proof: a write still mid-flight across
+// two whole polls would read as settled. Nothing short of the writer being
+// atomic can rule that out, and the config file's writer is the user's
+// editor.
 func (w Watcher) poll(state watchState) watchState {
 	current, err := os.ReadFile(w.Path)
 	if err != nil {
@@ -83,6 +87,10 @@ func (w Watcher) poll(state watchState) watchState {
 		}
 		return state
 	}
+	// The file read: whatever error was last reported is over. Clearing it
+	// here rather than on the apply path means a transient error that recurs
+	// is reported again instead of being swallowed as a repeat.
+	state.lastError = ""
 	if !bytes.Equal(current, state.seen) {
 		state.seen = current
 		return state
@@ -98,7 +106,6 @@ func (w Watcher) poll(state watchState) watchState {
 		state.applied = current
 		return state
 	}
-	state.lastError = ""
 	state.applied = current
 	if w.OnChange != nil {
 		w.OnChange(cfg)

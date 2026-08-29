@@ -251,8 +251,9 @@ success with no audio.
 
 ### Reloading
 
-`throwntomd` watches `config.toml` and applies edits within a couple of
-seconds, with no restart. The pomodoro already running is re-derived from the
+`throwntomd` watches `config.toml` and applies edits within a few seconds,
+with no restart. It polls every two seconds and waits for an edit to stop
+changing before applying it, so a save lands on the second poll that sees it. The pomodoro already running is re-derived from the
 new durations: it keeps the time it has spent and runs for whatever the new
 duration leaves. Shortening a duration below the time the current phase has
 already spent ends that phase immediately — the edit says the phase should

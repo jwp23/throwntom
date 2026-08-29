@@ -6,13 +6,19 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/jwp23/throwntom/v3/internal/atomicfile"
 )
 
 const testInterval = 2 * time.Millisecond
 
+// writeConfig replaces the config file the way a well-behaved editor does:
+// atomically, so a watcher polling alongside it never reads a torn file. The
+// non-atomic case is covered deliberately, by driving poll directly in
+// TestWatcherIgnoresAHalfWrittenFile.
 func writeConfig(t *testing.T, path, body string) {
 	t.Helper()
-	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+	if err := atomicfile.Write(path, []byte(body), 0o600); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 }
@@ -96,7 +102,9 @@ func TestWatcherIgnoresAHalfWrittenFile(t *testing.T) {
 	// editor's non-atomic write looks to a poller.
 	state := watchState{applied: []byte("[pomodoro]\nwork_minutes = 40\n")}
 	state.seen = state.applied
-	writeConfig(t, path, "")
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	state = w.poll(state)
 	writeConfig(t, path, "[pomodoro]\nwork_minutes = 40\n")
 	state = w.poll(state)
