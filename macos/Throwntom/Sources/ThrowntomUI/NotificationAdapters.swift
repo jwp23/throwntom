@@ -28,6 +28,21 @@ struct SystemNotificationAuthorizer: NotificationAuthorizer {
 /// The real notification centre's reminder banner.
 final class SystemReminderPresenter: ReminderPresenter {
 
+  // MARK: Lifecycle
+
+  init() {
+    // AppKit cancels an outstanding attention request when the app activates, but never tells
+    // this side; without this, `requestAttention()`'s idempotency guard would see a stale
+    // identifier and suppress every reminder after the first one the user ever saw.
+    NotificationCenter.default.addObserver(
+      forName: NSApplication.didBecomeActiveNotification,
+      object: nil,
+      queue: nil,
+    ) { [weak self] _ in
+      self?.attentionRequest = nil
+    }
+  }
+
   // MARK: Internal
 
   func registerReminderButtons() {
