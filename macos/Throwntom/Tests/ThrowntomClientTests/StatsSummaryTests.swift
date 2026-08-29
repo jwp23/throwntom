@@ -6,7 +6,7 @@ final class StatsSummaryTests: XCTestCase {
   // MARK: Internal
 
   func testDecodesGoFieldNames() throws {
-    let s = try DaemonJSON.goFieldDecoder.decode(StatsSummary.self, from: body)
+    let s = try DaemonJSON.decoder.decode(StatsSummary.self, from: body)
     XCTAssertEqual(s.today, .init(pomodoros: 7, focusMinutes: 175, pauses: 1, snoozes: 0))
     XCTAssertEqual(s.allTime.pomodoros, 412)
     XCTAssertEqual(s.streaks, .init(current: 5, longest: 12))
@@ -14,7 +14,7 @@ final class StatsSummaryTests: XCTestCase {
   }
 
   func testRowsInDisplayOrder() throws {
-    let s = try DaemonJSON.goFieldDecoder.decode(StatsSummary.self, from: body)
+    let s = try DaemonJSON.decoder.decode(StatsSummary.self, from: body)
     XCTAssertEqual(StatsRows.rows(s), [
       .init(label: "Today", value: "7 · 2h 55m"),
       .init(label: "This week", value: "23 · 9h 35m"),

@@ -110,7 +110,7 @@ public final class DaemonClient {
   public func stats() async throws -> StatsSummary {
     let response = try await transport.request("GET", DaemonAPI.stats, body: nil)
     try Self.check(response)
-    return try DaemonJSON.goFieldDecoder.decode(StatsSummary.self, from: response.body)
+    return try DaemonJSON.decoder.decode(StatsSummary.self, from: response.body)
   }
 
   // MARK: Private

@@ -8,15 +8,16 @@ public enum DaemonJSON {
   public static let decoder: JSONDecoder = {
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
-    decoder.dateDecodingStrategy = goTime
-    return decoder
-  }()
-
-  /// For bodies the daemon encodes straight from Go structs without tags (`/v1/stats`): field
-  /// names are kept as written, only the timestamps need translating.
-  public static let goFieldDecoder: JSONDecoder = {
-    let decoder = JSONDecoder()
-    decoder.dateDecodingStrategy = goTime
+    decoder.dateDecodingStrategy = .custom { decoder in
+      let raw = try decoder.singleValueContainer().decode(String.self)
+      guard let date = parseGoTime(raw) else {
+        throw DecodingError.dataCorrupted(.init(
+          codingPath: decoder.codingPath,
+          debugDescription: "unparseable timestamp \(raw)",
+        ))
+      }
+      return date
+    }
     return decoder
   }()
 
@@ -34,17 +35,6 @@ public enum DaemonJSON {
   }
 
   // MARK: Private
-
-  private static let goTime = JSONDecoder.DateDecodingStrategy.custom { decoder in
-    let raw = try decoder.singleValueContainer().decode(String.self)
-    guard let date = parseGoTime(raw) else {
-      throw DecodingError.dataCorrupted(.init(
-        codingPath: decoder.codingPath,
-        debugDescription: "unparseable timestamp \(raw)",
-      ))
-    }
-    return date
-  }
 
   private static let fractionalSeconds: ISO8601DateFormatter = {
     let f = ISO8601DateFormatter()

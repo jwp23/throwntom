@@ -3,7 +3,7 @@ import Foundation
 // MARK: - StatsSummary
 
 /// The `/v1/stats` dashboard. Keys are Go field names because the daemon encodes the analytics
-/// struct without tags; decode with `DaemonJSON.goFieldDecoder`.
+/// struct without tags; decoded with `DaemonJSON.decoder`.
 public struct StatsSummary: Equatable, Sendable {
 
   // MARK: Lifecycle
