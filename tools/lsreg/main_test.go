@@ -252,6 +252,38 @@ func TestDumpFailureIsReported(t *testing.T) {
 	}
 }
 
+func TestWrongArgCountPrintsUsage(t *testing.T) {
+	env := environment{
+		dump:       func() (string, error) { t.Fatal("must not read the database"); return "", nil },
+		stat:       fixtureStat,
+		unregister: func(string) error { t.Fatal("must not unregister"); return nil },
+	}
+	for _, args := range [][]string{{}, {"list", "prune"}} {
+		var out, errOut bytes.Buffer
+		if code := run(args, &out, &errOut, env); code != 2 {
+			t.Errorf("args %v: exit = %d, want 2", args, code)
+		}
+		if !strings.Contains(errOut.String(), "usage:") {
+			t.Errorf("args %v: stderr = %q, want usage", args, errOut.String())
+		}
+	}
+}
+
+func TestListReportsWhenNothingIsRegistered(t *testing.T) {
+	var out, errOut bytes.Buffer
+	env := environment{
+		dump:       func() (string, error) { return "", nil },
+		stat:       fixtureStat,
+		unregister: func(string) error { t.Fatal("list must not unregister"); return nil },
+	}
+	if code := run([]string{"list"}, &out, &errOut, env); code != 0 {
+		t.Fatalf("exit = %d, stderr = %q", code, errOut.String())
+	}
+	if !strings.Contains(out.String(), "no Launch Services registrations for "+bundleID) {
+		t.Errorf("out = %q, want the no-registrations message", out.String())
+	}
+}
+
 func TestUnknownCommandPrintsUsage(t *testing.T) {
 	var out, errOut bytes.Buffer
 	env := environment{
