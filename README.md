@@ -157,9 +157,10 @@ Pomodoro counts carry a tier glyph and color (thresholds configurable):
 
 `throwntomd` runs the timer, reminders and task store as a background
 process and serves a JSON API over `~/.config/throwntom/daemon.sock`
-(see `docs/designs/native-macos-client.md` for the routes). Only one
-instance runs at a time (`daemon.lock`). The TUI does not talk to the daemon
-yet — it runs its own copy of the engine — so do not run both at the same
+(see `docs/designs/native-macos-client.md` for the routes). It plays no
+sound of its own — reminders are heard through whichever client is running.
+Only one instance runs at a time (`daemon.lock`). The TUI does not talk to the
+daemon yet — it runs its own copy of the engine — so do not run both at the same
 time: they share `session.json`.
 
 Control the daemon from the command line with `tools/tomctl` (see
@@ -207,8 +208,13 @@ until the daemon is stopped.
 
 ### `sound_command`
 
+`sound_command` applies to the terminal UI only. `throwntomd` plays no sound
+at all: it publishes state and each client presents it on its own platform,
+so on macOS the reminder is the app's banner and the chime that comes with it
+(see `docs/adr/007-the-daemon-plays-no-sound.md`).
+
 `sound_command` is an optional TOML string array: the first item is the
-executable, the rest are its arguments. Setting it changes how throwntom
+executable, the rest are its arguments. Setting it changes how the terminal UI
 makes noise:
 
 - **On macOS**, it *replaces* the built-in sound entirely — throwntom runs
@@ -316,6 +322,7 @@ session. Extra arguments (e.g. `--config`) are forwarded to `throwntom`.
 
 ## Notes
 
+- The daemon plays no sound; the notes below describe the terminal UI.
 - On macOS, notifier uses `afplay` with a system sound chosen by name
   (`morning`→Blow, `default`→Glass, `test`→Tink), unless `sound_command` is
   set, in which case that command replaces `afplay` for all of them.
