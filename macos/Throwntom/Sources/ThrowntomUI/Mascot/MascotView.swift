@@ -1,5 +1,16 @@
 import SwiftUI
 
+// MARK: - CharacterLayer
+
+/// One layer in the mascot character, in render order.
+enum CharacterLayer: Equatable {
+  case body
+  case face
+  case arms
+  case hands
+  case held(HeldProp)
+}
+
 // MARK: - MascotCharacterView
 
 /// The mascot at one instant: furniture, then the transformed character (body, face, arms, held
@@ -31,15 +42,15 @@ struct MascotCharacterView: View {
     frame.blinking && pose.eyes == .open ? .closed : pose.eyes
   }
 
-  /// Returns the ordered layer names drawn for the given pose, for testing layer composition.
-  static func layers(for pose: MascotPose) -> [String] {
-    var result = ["body", "face", "arms"]
+  /// Returns the ordered layers drawn for the given pose.
+  static func layers(for pose: MascotPose) -> [CharacterLayer] {
+    var result: [CharacterLayer] = [.body, .face, .arms]
     if let held = pose.held, held.drawnBehindHands {
-      result.append(String(describing: held))
+      result.append(.held(held))
     }
-    result.append("hands")
+    result.append(.hands)
     if let held = pose.held, !held.drawnBehindHands {
-      result.append(String(describing: held))
+      result.append(.held(held))
     }
     return result
   }
@@ -48,15 +59,8 @@ struct MascotCharacterView: View {
 
   private var character: some View {
     ZStack {
-      TomatoBodyView(unit: unit)
-      TomatoFaceView(eyes: Self.eyes(for: pose, frame: frame), mouth: pose.mouth, unit: unit)
-      ArmsView(left: pose.leftArm, right: pose.rightArm, unit: unit)
-      if let held = pose.held, held.drawnBehindHands {
-        HeldPropView(prop: held, yoyoDrop: frame.yoyoDrop, unit: unit)
-      }
-      HandsView(left: pose.leftArm, right: pose.rightArm, unit: unit)
-      if let held = pose.held, !held.drawnBehindHands {
-        HeldPropView(prop: held, yoyoDrop: frame.yoyoDrop, unit: unit)
+      ForEach(Array(Self.layers(for: pose).enumerated()), id: \.offset) { _, layer in
+        layerView(layer)
       }
     }
     .frame(width: Units.canvas * unit, height: Units.canvas * unit)
@@ -64,6 +68,22 @@ struct MascotCharacterView: View {
     .scaleEffect(pose.scale, anchor: .topLeading)
     .offset(x: pose.offset.width * unit, y: (pose.offset.height - frame.jumpLift) * unit)
     .animation(MascotMotion.poseChange, value: pose)
+  }
+
+  @ViewBuilder
+  private func layerView(_ layer: CharacterLayer) -> some View {
+    switch layer {
+    case .body:
+      TomatoBodyView(unit: unit)
+    case .face:
+      TomatoFaceView(eyes: Self.eyes(for: pose, frame: frame), mouth: pose.mouth, unit: unit)
+    case .arms:
+      ArmsView(left: pose.leftArm, right: pose.rightArm, unit: unit)
+    case .hands:
+      HandsView(left: pose.leftArm, right: pose.rightArm, unit: unit)
+    case .held(let prop):
+      HeldPropView(prop: prop, yoyoDrop: frame.yoyoDrop, unit: unit)
+    }
   }
 
 }

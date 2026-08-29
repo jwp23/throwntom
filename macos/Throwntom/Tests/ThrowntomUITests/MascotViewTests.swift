@@ -23,7 +23,8 @@ final class MascotViewTests: XCTestCase {
   }
 
   func testLayerOrderIsCorrect() {
-    XCTAssertEqual(MascotCharacterView.layers(for: .longBreak), ["body", "face", "arms", "book", "hands"])
-    XCTAssertEqual(MascotCharacterView.layers(for: .shortBreak), ["body", "face", "arms", "hands", "drink"])
+    XCTAssertEqual(MascotCharacterView.layers(for: .longBreak), [.body, .face, .arms, .held(.book), .hands])
+    XCTAssertEqual(MascotCharacterView.layers(for: .shortBreak), [.body, .face, .arms, .hands, .held(.drink)])
+    XCTAssertEqual(MascotCharacterView.layers(for: .work), [.body, .face, .arms, .hands])
   }
 }
