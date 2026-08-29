@@ -171,16 +171,24 @@ to bottom:
    (`TimerActions.available`), each a chip with its shortcut in
    trailing monospace text. The primary verb (Start, Confirm, Resume)
    is a dark chip; the rest are translucent.
-5. **Focus**: the focused tasks, or nothing when none are focused.
-6. **Tasks panel** (`⌘T`) and **Stats panel** (`⌘⇧D`), one at a time,
+5. **Command chips**: Tasks `⌘T`, Stats `⌘⇧D`, Keyboard Shortcuts `⌘/`
+   and Open Config File… `⌘,`, always secondary chips, flowed to the
+   window width. These are the commands the menu bar shows something
+   for, so none of them is reachable only from the menu bar; the menu
+   bar stays the complete command list and this row is not a copy of
+   it.
+6. **Focus**: the focused tasks, or nothing when none are focused.
+7. **Tasks panel** (`⌘T`) and **Stats panel** (`⌘⇧D`), one at a time,
    expanding the window downward; the same key or `Esc` collapses it.
    Panels start closed on every launch. The tasks panel is the
    single-column list: active tasks, then completed tasks in a
    collapsed disclosure group, a hint line of the task shortcuts under
    it, and a per-row context menu carrying the same actions. The stats
    panel is the `/v1/stats` summary as a two-column key/value grid:
-   today, this week, this month, all time, streak, best hour.
-7. Reminder banner and daemon/permission errors, when present, sit
+   today, this week, this month, all time, streak, best hour, under a
+   caption naming the units and defining streak and best hour. An empty
+   tasks panel shows `No tasks — ⌘N to add one` in place of the list.
+8. Reminder banner and daemon/permission errors, when present, sit
    between the chips and the focus section so they are never hidden by
    a panel.
 
@@ -265,7 +273,9 @@ Type is the system font: phase name `.largeTitle` bold, countdown
 ### Input model
 
 Every action exists graphically, is keyboard-accessible, and is
-discoverable in the menu bar; only some actions have a direct shortcut:
+discoverable in the menu bar; the commands a new user needs to find
+first are also chips in the window. Only some actions have a direct
+shortcut:
 
 - *Timer menu*: Start `⌘R`, Confirm `⏎`, Pause/Resume `⌘P`, Snooze
   `⌘⇧S`, Skip Today, New Cycle (the last two deliberately have no
@@ -274,7 +284,8 @@ discoverable in the menu bar; only some actions have a direct shortcut:
   sheet listing everything). `Esc` closes an open panel or sheet.
 - *Tasks menu*: New Task `⌘N` (inserts an editable row at the top; `⏎`
   commits, `Esc` cancels), Complete `⌘⏎`, Delete `⌘⌫`, Focus `⌘F`, Move
-  Up/Down `⌥↑/⌥↓`. `↑/↓` move the selection.
+  Up/Down `⌥↑/⌥↓`. `↑/↓` move the selection. Focus reads `Unfocus` on a
+  task that is already focused.
 - *Application menu*: Open Config File… `⌘,`, Launch at Login (toggle),
   Open Notification Settings…, Open Login Items Settings…, Quit `⌘Q`.
 

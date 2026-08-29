@@ -7,11 +7,6 @@ import Foundation
 struct TimeoutError: Error { }
 
 extension MenuModel {
-  /// Every item in the menu, ignoring where the separators fall.
-  var items: [MenuItem<Action>] {
-    groups.flatMap { $0 }
-  }
-
   func item(for action: Action) -> MenuItem<Action>? {
     items.first { $0.action == action }
   }

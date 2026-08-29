@@ -10,11 +10,14 @@ enum WindowPanel: Equatable, Sendable {
 
 // MARK: - ViewAction
 
-/// The View menu: which panel is open, plus the shortcut cheat sheet.
+/// The commands that show something: the two panels, the cheat sheet and the config file. The
+/// first three are the View menu; the config file lives in the app menu, where macOS puts ⌘,.
+/// All four are chips in the window, so none of them is reachable only from the menu bar.
 enum ViewAction: CaseIterable, Sendable {
   case tasks
   case stats
   case shortcuts
+  case openConfig
 
   // MARK: Internal
 
@@ -23,6 +26,7 @@ enum ViewAction: CaseIterable, Sendable {
     case .tasks: "Tasks"
     case .stats: "Stats"
     case .shortcuts: "Keyboard Shortcuts"
+    case .openConfig: "Open Config File…"
     }
   }
 
@@ -31,6 +35,7 @@ enum ViewAction: CaseIterable, Sendable {
     case .tasks: "⌘T"
     case .stats: "⌘⇧D"
     case .shortcuts: "⌘/"
+    case .openConfig: "⌘,"
     }
   }
 
@@ -38,7 +43,8 @@ enum ViewAction: CaseIterable, Sendable {
     switch self {
     case .tasks: .tasks
     case .stats: .stats
-    case .shortcuts: nil
+    case .shortcuts,
+         .openConfig: nil
     }
   }
 }

@@ -254,7 +254,7 @@ newline in it; the prompt. Every line is clamped to terminal width minus one by
 `clampANSILine`, with a `...` ellipsis when at least four columns are available and a hard
 cut otherwise; nothing wraps, nothing is centred, there are no margins. The status line is `<icon> <coloured text>`, with a single space between.
 
-The macOS window is one vertical stack with 16pt padding: timer header (200pt mascot, then phase name, countdown and next stage, all centred), tomato garden, count line, chips, reminder banner and errors, focus list, then an optional tasks or stats panel — every section centred under the mascot. Panels expand the window downward; the minimum width is 320pt and the mascot shrinks with the width.
+The macOS window is one vertical stack with 16pt padding: timer header (200pt mascot, then phase name, countdown and next stage, all centred), tomato garden, count line, timer chips, command chips, reminder banner and errors, focus list, then an optional tasks or stats panel — every section centred under the mascot. Panels expand the window downward; the minimum width is 320pt and the mascot shrinks with the width. Both chip rows flow to the window width rather than truncating.
 
 ## Elevation & Depth
 
@@ -318,6 +318,8 @@ The README tomato drawn in code on a 100×100 canvas scaled to 200pt: a radial-g
 ### Chip (macOS)
 
 `<title>  <shortcut>`: the primary verb on `macos-outline` in `macos-cream`; every other verb on the phase's `*-chip` colour in white. The shortcut is monospaced body text in the same colour as the title.
+
+Two rows of chips sit under the timer: the timer verbs valid right now, then the command chips (Tasks, Stats, Keyboard Shortcuts, Open Config File…), which are always secondary so the timer's primary verb keeps the only strong chip on screen. The command row exists so nothing is reachable only from the menu bar; the menu bar remains the complete command list, and the row carries only the commands that show something, never every menu item.
 
 ### Tomato garden (macOS)
 

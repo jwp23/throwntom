@@ -26,6 +26,7 @@ struct MainWindow: View {
         TomatoGardenView(garden: garden)
       }
       ActionChips(content: content, client: environment.client)
+      CommandChips(environment: environment, scheme: content.scheme)
       WindowNotes(error: content.error, responder: environment.responder)
       FocusSection(tasks: content.focused)
       if content.panel == .tasks {

@@ -64,6 +64,11 @@ struct MenuItem<Action: MenuAction>: Identifiable {
 /// Deciding what a menu offers here keeps that decision out of the SwiftUI `Commands` body.
 struct MenuModel<Action: MenuAction> {
   let groups: [[MenuItem<Action>]]
+
+  /// Every item in menu order, ignoring where the separators fall.
+  var items: [MenuItem<Action>] {
+    groups.flatMap { $0 }
+  }
 }
 
 extension MenuModel where Action == TimerAction {
@@ -124,6 +129,7 @@ extension MenuModel where Action == TaskAction {
 }
 
 extension MenuModel where Action == ViewAction {
+  /// The View menu: the two panels and the cheat sheet.
   @MainActor
   static func view(model: WindowModel) -> MenuModel {
     MenuModel(groups: [[
@@ -135,5 +141,19 @@ extension MenuModel where Action == ViewAction {
         isEnabled: !model.showsShortcuts,
       ),
     ]])
+  }
+
+  /// The app menu's config item, where macOS expects ⌘, to sit.
+  static func appConfig() -> MenuModel {
+    MenuModel(groups: [[
+      MenuItem(action: .openConfig, shortcut: MenuShortcut(key: ",", modifiers: .command), isEnabled: true)
+    ]])
+  }
+
+  /// The chip row under the timer verbs: every command the menu bar shows something for, in one
+  /// group, so a new user reaches the panels, the cheat sheet and the config without the menu bar.
+  @MainActor
+  static func windowCommands(model: WindowModel) -> MenuModel {
+    MenuModel(groups: [view(model: model).items + appConfig().items])
   }
 }
