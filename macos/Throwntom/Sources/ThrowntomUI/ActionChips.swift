@@ -9,15 +9,21 @@ struct ActionChips: View {
   var body: some View {
     HStack(spacing: 6) {
       ForEach(content.chips, id: \.self) { action in
-        Chip(
-          title: action.title,
-          hint: action.shortcutHint,
-          isPrimary: action == content.primaryChip,
-          scheme: content.scheme,
-        ) {
-          DaemonDispatch.perform(action, on: client)
-        }
+        chip(for: action)
       }
+    }
+  }
+
+  /// Built as its own method, free of `ForEach`'s trailing closure, so it can be called and
+  /// asserted on directly instead of only through the (untestable) rendering pass.
+  func chip(for action: TimerAction) -> Chip {
+    Chip(
+      title: action.title,
+      hint: action.shortcutHint,
+      isPrimary: action == content.primaryChip,
+      scheme: content.scheme,
+    ) {
+      DaemonDispatch.perform(action, on: client)
     }
   }
 }

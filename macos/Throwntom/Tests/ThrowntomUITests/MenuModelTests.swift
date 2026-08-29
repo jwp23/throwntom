@@ -155,3 +155,28 @@ final class ViewMenuModelTests: XCTestCase {
   }
 
 }
+
+// MARK: - MenuGroupsTests
+
+@MainActor
+final class MenuGroupsTests: XCTestCase {
+
+  func testBodyBuilds() {
+    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false)
+    _ = MenuGroups(menu: menu) { item in Text(item.title) }.body
+  }
+
+  func testFirstGroupHasNoLeadingDivider() {
+    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false)
+    let groups = MenuGroups(menu: menu) { item in Text(item.title) }
+    _ = groups.groupView(index: 0, group: menu.groups[0])
+  }
+
+  func testLaterGroupsGetADivider() {
+    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false)
+    XCTAssertGreaterThan(menu.groups.count, 1, "the divider branch needs a second group to exercise")
+    let groups = MenuGroups(menu: menu) { item in Text(item.title) }
+    _ = groups.groupView(index: 1, group: menu.groups[1])
+  }
+
+}

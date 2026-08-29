@@ -54,4 +54,28 @@ final class ChipTests: XCTestCase {
     )
     _ = ActionChips(content: content, client: environment.client).body
   }
+
+  func testChipForActionMatchesTheActionAndDispatchesOnTap() async throws {
+    let transport = try StubTransport(states: [makeState(phase: .idle)])
+    let environment = AppEnvironment(transport: transport)
+    defer { environment.client.stop() }
+    environment.start()
+    try await waitUntil { environment.client.state != nil }
+    let content = MainWindowContent(
+      state: makeState(phase: .awaitingConfirm),
+      connection: .connected,
+      tasks: TaskList(),
+      error: nil,
+      panel: nil,
+      now: .now,
+    )
+    let chips = ActionChips(content: content, client: environment.client)
+    let primary = chips.chip(for: .confirm)
+    XCTAssertEqual(primary.title, TimerAction.confirm.title)
+    XCTAssertEqual(primary.style, ChipStyle.style(primary: true, scheme: content.scheme))
+
+    primary.action()
+    try await waitUntil { !transport.commands.isEmpty }
+    XCTAssertEqual(transport.commands.map(\.path), ["/v1/timer/confirm"])
+  }
 }
