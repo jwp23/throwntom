@@ -141,6 +141,15 @@ final class DaemonClientTests: XCTestCase {
     XCTAssertEqual(client.connection, .startingDaemon)
   }
 
+  func testStatsReadsTheDashboardFromARealDaemon() async throws {
+    let client = try await connectedClient()
+    defer { client.stop() }
+    let stats = try await client.stats()
+    XCTAssertEqual(stats.today.pomodoros, 0)
+    XCTAssertEqual(stats.allTime, stats.today, "a fresh daemon has one empty period everywhere")
+    XCTAssertEqual(stats.streaks, .init(current: 0, longest: 0))
+  }
+
   // MARK: Private
 
   // XCTest builds fixtures in setUp, after init, so the property cannot be initialised there.
