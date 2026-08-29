@@ -20,8 +20,8 @@ enum Mouth: Equatable {
 
 // MARK: - TomatoFace
 
-/// The three-quarter face: features shifted to the right (near) side, far eye smaller, near cheek
-/// larger, so the tomato reads as turned slightly away.
+/// The three-quarter face: features shifted to the right (near) side, far eye smaller, so the
+/// tomato reads as turned slightly away.
 enum TomatoFace {
   static let glint = DesignShape { path, units in
     path.ellipse(units, 30, 35, 5, 2.5, rotation: -40)

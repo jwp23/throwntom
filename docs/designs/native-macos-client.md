@@ -202,8 +202,7 @@ outline stroke); stem and two leaves (linear gradient, outline); face
 mouth); two thin line arms ending in round hands; an optional prop.
 The whole character is rotated 12° counter-clockwise and the face is
 drawn three-quarter — features shifted toward the near side, far eye
-smaller, near cheek larger — so it reads as turned slightly away, like
-the README sticker.
+smaller — so it reads as turned slightly away, like the README sticker.
 
 *Poses.* One per phase, chosen so the character's body language
 matches what the user should be doing, and so props are legible at
