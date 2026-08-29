@@ -37,6 +37,7 @@ struct MainWindowContent: Equatable {
     focused = state.map { tasks.focused(ids: $0.focusedTaskIds) } ?? []
     self.error = error
     self.panel = panel
+    pulses = state?.state == .awaitingConfirm
   }
 
   // MARK: Internal
@@ -52,6 +53,7 @@ struct MainWindowContent: Equatable {
   let focused: [TaskItem]
   let error: String?
   let panel: WindowPanel?
+  let pulses: Bool
 
   // MARK: Private
 

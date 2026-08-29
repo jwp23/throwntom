@@ -78,6 +78,14 @@ final class MainWindowContentTests: XCTestCase {
     XCTAssertEqual(content(makeState(), panel: .stats).panel, .stats)
   }
 
+  func testOnlyAwaitingConfirmPulses() {
+    XCTAssertTrue(content(makeState(phase: .awaitingConfirm)).pulses)
+    for phase in [DaemonState.Phase.idle, .work, .shortBreak, .longBreak, .paused] {
+      XCTAssertFalse(content(makeState(phase: phase)).pulses, "\(phase)")
+    }
+    XCTAssertFalse(content(nil, connection: .connecting).pulses)
+  }
+
   // MARK: Private
 
   private let now = Date(timeIntervalSince1970: 1_000_000)
