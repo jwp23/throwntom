@@ -1,0 +1,226 @@
+<!-- Reference mockup for the macOS mascot: docs/designs/native-macos-client.md § Mascot.
+     Each pose is an SVG group; the implementer transcribes these paths into SwiftUI Path at a
+     100×100 design canvas. Colours are the DESIGN.md macos-* and mascot-* tokens. -->
+<style>
+body{margin:0;background:#555;font:13px -apple-system,sans-serif;padding:24px;color:#1F130C}
+.row{display:flex;gap:20px;flex-wrap:wrap}
+.card{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px;border-radius:10px;width:200px}
+.card svg{width:190px;height:190px}
+b{font-size:14px}
+</style>
+<svg width="0" height="0" style="position:absolute"><defs>
+<radialGradient id="body" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#FF6A55"/><stop offset=".6" stop-color="#E23A2E"/><stop offset="1" stop-color="#9E1E18"/></radialGradient>
+<linearGradient id="leaf" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7CC04A"/><stop offset="1" stop-color="#2E7A1E"/></linearGradient>
+<g id="top">
+  <path d="M50 24 C45 12 38 8 28 11 C34 15 40 19 43 24 Z" fill="url(#leaf)" stroke="#2B1A10" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M50 24 C55 12 62 8 72 11 C66 15 60 19 57 24 Z" fill="url(#leaf)" stroke="#2B1A10" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M50 26 C50 20 52 14 57 9" fill="none" stroke="#2B1A10" stroke-width="3.5" stroke-linecap="round"/>
+</g>
+<g id="cheeks"><ellipse cx="27" cy="42" rx="8" ry="5" fill="#FFF6EA" opacity=".6" transform="rotate(-25 27 42)"/><ellipse cx="34" cy="64" rx="6" ry="3.5" fill="#F27C9A" opacity=".7"/><ellipse cx="74" cy="63" rx="8" ry="4.5" fill="#F27C9A" opacity=".8"/></g>
+<g id="eyes-open"><circle cx="47" cy="55" r="3.5" fill="#2B1A10"/><circle cx="66" cy="54" r="4" fill="#2B1A10"/><circle cx="48" cy="54" r="1" fill="#fff"/><circle cx="67" cy="53" r="1.2" fill="#fff"/></g>
+<g id="eyes-closed"><path d="M43 55 q4 3 8 0 M62 54 q4 3 8 0" fill="none" stroke="#2B1A10" stroke-width="2.5" stroke-linecap="round"/></g>
+<g id="eyes-wide"><circle cx="47" cy="55" r="5" fill="#fff" stroke="#2B1A10" stroke-width="1.5"/><circle cx="66" cy="54" r="5.5" fill="#fff" stroke="#2B1A10" stroke-width="1.5"/><circle cx="48" cy="55" r="2.5" fill="#2B1A10"/><circle cx="67" cy="54" r="2.8" fill="#2B1A10"/></g>
+<g id="smile"><path d="M50 66 Q58 73 66 65" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/></g>
+<g id="grin"><path d="M48 65 Q58 78 68 64 Z" fill="#2B1A10"/></g>
+<g id="o"><ellipse cx="58" cy="69" rx="4" ry="5" fill="#2B1A10"/></g>
+<g id="flat"><path d="M52 68 L64 67" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/></g>
+<g id="body"><use href="#top" transform="translate(4 0) rotate(8 50 20)"/><circle cx="50" cy="56" r="34" fill="url(#body)" stroke="#2B1A10" stroke-width="2"/><use href="#cheeks"/></g>
+<g id="hand"><circle r="4" fill="#E23A2E" stroke="#2B1A10" stroke-width="2"/></g>
+<g id="laptop"><path d="M28 96 L72 96 L70 82 L30 82 Z" fill="#5A4A40" stroke="#2B1A10" stroke-width="2" stroke-linejoin="round"/><rect x="24" y="95" width="52" height="4" rx="1.5" fill="#2B1A10"/></g>
+
+<!-- WORK -->
+<g id="work" transform="rotate(-12 50 55)">
+  <use href="#body"/><use href="#eyes-open"/><use href="#smile"/>
+  <path d="M22 70 C16 80 22 86 34 84" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+  <path d="M78 70 C84 80 78 86 66 84" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+  <use href="#hand" x="35" y="85"/><use href="#hand" x="65" y="85"/><use href="#laptop"/>
+</g>
+<!-- SHORT BREAK a: stretch -->
+<g id="stretch" transform="rotate(-12 50 55)">
+  <use href="#body"/><use href="#eyes-closed"/><use href="#o"/>
+  <path d="M24 60 C10 50 8 36 16 24" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+  <path d="M76 60 C90 50 92 36 84 24" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+  <use href="#hand" x="16" y="23"/><use href="#hand" x="84" y="23"/>
+  <path d="M8 14 l2 3 M2 22 l3 1 M92 14 l-2 3 M98 22 l-3 1" stroke="#FFF6EA" stroke-width="2" stroke-linecap="round"/>
+</g>
+<!-- SHORT BREAK b: sun lounger + shades -->
+<g id="lounger">
+  <g transform="rotate(-30 50 60)">
+    <use href="#body"/><use href="#grin"/>
+    <path d="M38 50 L58 47 L60 54 L40 57 Z M58 47 L76 45 L78 52 L60 54 Z" fill="#2B1A10"/>
+    <path d="M26 64 C16 72 20 82 32 80" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+    <use href="#hand" x="33" y="80"/>
+  </g>
+  <path d="M6 92 L94 92 M14 92 L20 78 L78 72 L92 92" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M20 78 L78 72 L80 80 L22 86 Z" fill="#FFF6EA" stroke="#2B1A10" stroke-width="2"/>
+</g>
+<!-- SHORT BREAK c: cold drink with straw -->
+<g id="drink" transform="rotate(-12 50 55)">
+  <use href="#body"/><use href="#eyes-closed"/><use href="#smile"/>
+  <path d="M22 70 C16 80 22 86 34 84" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+  <path d="M78 66 C88 74 84 80 72 80" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+  <use href="#hand" x="35" y="85"/><use href="#hand" x="71" y="80"/>
+  <path d="M64 70 h14 l-2 22 h-10 Z" fill="#FFF6EA" stroke="#2B1A10" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M66 78 h11" stroke="#4FB3E8" stroke-width="5"/><path d="M72 70 L75 60" stroke="#2B1A10" stroke-width="2" stroke-linecap="round"/>
+  <path d="M78 66 L70 70 L72 62 Z" fill="#7CC04A" stroke="#2B1A10" stroke-width="1.5"/>
+</g>
+<!-- IDLE: couch + remote -->
+<g id="idle">
+  <path d="M10 92 L90 92 L90 70 Q90 66 86 66 L82 66 L82 74 L18 74 L18 66 L14 66 Q10 66 10 70 Z" fill="#622D0C" stroke="#2B1A10" stroke-width="2"/>
+  <g transform="rotate(-20 50 60)">
+    <use href="#body"/><use href="#eyes-open"/><use href="#smile"/>
+    <path d="M74 66 C86 70 86 78 74 82" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+    <use href="#hand" x="72" y="82"/>
+    <rect x="66" y="78" width="6" height="14" rx="2" fill="#2B1A10" transform="rotate(-30 69 85)"/>
+  </g>
+</g>
+<!-- ALERT -->
+<g id="alert" transform="rotate(-12 50 55)">
+  <use href="#body"/><use href="#eyes-wide"/><use href="#o"/>
+  <path d="M24 62 C10 54 10 40 20 30" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+  <path d="M76 62 C90 54 90 40 80 30" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+  <use href="#hand" x="20" y="29"/><use href="#hand" x="80" y="29"/>
+  <path d="M88 6 l0 10 M88 20 l0 2" stroke="#FFF6EA" stroke-width="4" stroke-linecap="round"/>
+</g>
+<!-- DISCONNECTED -->
+<g id="disc" transform="rotate(-12 50 55)">
+  <use href="#body"/><use href="#eyes-open"/><use href="#flat"/>
+  <path d="M22 70 C16 80 22 86 34 84" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+  <path d="M78 70 C84 80 78 86 66 84" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+  <use href="#hand" x="35" y="85"/><use href="#hand" x="65" y="85"/>
+  <path d="M35 85 C40 95 48 95 50 90 M50 90 l4 -3 l4 3" fill="none" stroke="#FFF6EA" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M65 85 C72 88 80 92 88 88 M88 88 l6 0" fill="none" stroke="#FFF6EA" stroke-width="2.5" stroke-linecap="round"/>
+</g>
+
+<linearGradient id="screen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9ED8F5"/><stop offset="1" stop-color="#4FA3D8"/></linearGradient>
+<g id="laptop2">
+  <path d="M30 60 L68 60 L72 84 L34 84 Z" fill="#3A3A3E" stroke="#2B1A10" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M33 63 L65 63 L68 81 L37 81 Z" fill="url(#screen)"/>
+  <path d="M40 70 h18 M40 74 h12" stroke="#FFF6EA" stroke-width="1.5" stroke-linecap="round" opacity=".8"/>
+  <path d="M22 96 L82 96 L72 84 L34 84 Z" fill="#8A8A8E" stroke="#2B1A10" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M36 88 h32 M34 91 h36" stroke="#2B1A10" stroke-width="1.2" stroke-dasharray="2 1.5"/>
+</g>
+<g id="work2" transform="rotate(-12 50 55)">
+  <use href="#body"/><use href="#eyes-open"/><use href="#smile"/>
+  <use href="#laptop2"/>
+  <path d="M22 68 C14 78 20 90 34 90" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+  <path d="M78 68 C86 78 80 90 66 90" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+  <use href="#hand" x="36" y="90"/><use href="#hand" x="64" y="90"/>
+</g>
+<g id="couch2">
+  <path d="M12 60 Q12 54 18 54 L82 54 Q88 54 88 60 L88 70 L12 70 Z" fill="#7A3E1A" stroke="#2B1A10" stroke-width="2"/>
+  <path d="M50 54 L50 70" stroke="#2B1A10" stroke-width="1.5" opacity=".6"/>
+  <path d="M6 70 Q6 64 12 64 L16 64 L16 90 L6 90 Z M94 70 Q94 64 88 64 L84 64 L84 90 L94 90 Z" fill="#8A4A22" stroke="#2B1A10" stroke-width="2"/>
+  <path d="M16 72 L84 72 L84 90 L16 90 Z" fill="#9A5A2E" stroke="#2B1A10" stroke-width="2"/>
+  <path d="M50 72 L50 90" stroke="#2B1A10" stroke-width="1.5" opacity=".6"/>
+  <path d="M10 90 v6 M90 90 v6" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+</g>
+<g id="idle2">
+  <use href="#couch2"/>
+  <g transform="translate(0 -6) scale(.8) translate(12 18) rotate(-15 50 60)">
+    <use href="#body"/><use href="#eyes-open"/><use href="#smile"/>
+    <path d="M76 66 C90 70 90 82 78 86" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+    <use href="#hand" x="77" y="86"/>
+    <rect x="74" y="80" width="7" height="16" rx="2.5" fill="#2B1A10" transform="rotate(-35 77 88)"/>
+    <circle cx="77" cy="84" r="1" fill="#FFF6EA" transform="rotate(-35 77 88)"/>
+  </g>
+  <rect x="70" y="20" width="24" height="17" rx="2" fill="#2B1A10"/><rect x="72" y="22" width="20" height="13" rx="1" fill="url(#screen)"/>
+  <path d="M82 37 v4 M76 41 h12" stroke="#2B1A10" stroke-width="2" stroke-linecap="round"/>
+</g>
+
+<g id="laptop3">
+  <path d="M26 58 L74 58 L80 90 L20 90 Z" fill="#8A8A8E" stroke="#2B1A10" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M30 62 L70 62 L75 86 L25 86 Z" fill="#6E6E72"/>
+  <circle cx="50" cy="74" r="6" fill="#E23A2E" stroke="#2B1A10" stroke-width="1.5"/>
+  <path d="M50 68 c1 -3 3 -4 6 -4" fill="none" stroke="#4C9A2A" stroke-width="2" stroke-linecap="round"/>
+  <path d="M20 90 L80 90 L82 94 L18 94 Z" fill="#3A3A3E" stroke="#2B1A10" stroke-width="2" stroke-linejoin="round"/>
+</g>
+<g id="work3" transform="rotate(-12 50 55)">
+  <g transform="translate(0 -12)"><use href="#body"/><use href="#eyes-open"/><use href="#smile"/></g>
+  <path d="M22 56 C14 64 14 70 24 72" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+  <path d="M78 56 C86 64 86 70 76 72" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+  <use href="#laptop3"/>
+</g>
+<g id="idle-book">
+  <use href="#couch2"/>
+  <g transform="translate(0 -6) scale(.8) translate(12 18) rotate(-10 50 60)">
+    <use href="#body"/><use href="#eyes-closed"/><use href="#smile"/>
+    <path d="M26 66 C16 74 22 86 40 84 M74 66 C84 74 78 86 62 84" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+    <path d="M36 78 L50 84 L64 78 L64 96 L50 102 L36 96 Z" fill="#FFF6EA" stroke="#2B1A10" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M50 84 L50 102" stroke="#2B1A10" stroke-width="2"/>
+    <path d="M40 85 l8 3 M40 89 l8 3 M52 88 l8 -3 M52 92 l8 -3" stroke="#2B1A10" stroke-width="1.2" opacity=".6"/>
+    <use href="#hand" x="38" y="84"/><use href="#hand" x="62" y="84"/>
+  </g>
+</g>
+<g id="idle-kick">
+  <use href="#couch2"/>
+  <g transform="translate(0 -6) scale(.8) translate(12 18) rotate(-18 50 60)">
+    <use href="#body"/><use href="#eyes-closed"/><use href="#smile"/>
+    <path d="M28 44 C14 36 20 20 40 24 M72 42 C86 34 82 18 62 22" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+    <use href="#hand" x="40" y="24"/><use href="#hand" x="62" y="22"/>
+    <path d="M82 40 q4 -4 0 -8 M88 46 q4 -4 0 -8" fill="none" stroke="#FFF6EA" stroke-width="2" stroke-linecap="round" opacity=".9"/>
+  </g>
+</g>
+
+<g id="laptop-side">
+  <!-- base seen from side, screen hinged at right edge leaning left toward the tomato -->
+  <path d="M60 92 L96 92 L96 96 L60 96 Z" fill="#8A8A8E" stroke="#2B1A10" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M94 92 L84 56 L88 55 L98 91 Z" fill="#3A3A3E" stroke="#2B1A10" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M93 90 L85 60" stroke="url(#screen)" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M78 66 l-8 -3 M80 74 l-10 -4 M82 82 l-8 -3" stroke="#9ED8F5" stroke-width="2" stroke-linecap="round" opacity=".7"/>
+</g>
+<g id="work4">
+  <g transform="translate(-10 0) rotate(-12 50 55)"><use href="#body"/><use href="#eyes-open"/><use href="#smile"/></g>
+  <path d="M28 78 C22 88 30 94 44 92 M66 76 C74 84 74 90 68 92" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+  <use href="#hand" x="45" y="92"/><use href="#hand" x="69" y="92"/>
+  <use href="#laptop-side"/>
+</g>
+
+<g id="laptop-side2">
+  <path d="M60 92 L96 92 L96 96 L60 96 Z" fill="#8A8A8E" stroke="#2B1A10" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M94 92 L84 56 L88 55 L98 91 Z" fill="#3A3A3E" stroke="#2B1A10" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M93 90 L85 60" stroke="url(#screen)" stroke-width="2.5" stroke-linecap="round"/>
+</g>
+<g id="work5">
+  <g transform="translate(-10 0) rotate(-12 50 55)"><use href="#body"/><use href="#eyes-open"/><use href="#smile"/></g>
+  <path d="M28 78 C22 88 30 94 44 92 M66 76 C74 84 74 90 68 92" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+  <use href="#hand" x="45" y="92"/><use href="#hand" x="69" y="92"/>
+  <use href="#laptop-side2"/>
+</g>
+<g id="eyes-down"><path d="M43 57 q4 -3 8 0 M62 56 q4 -3 8 0" fill="none" stroke="#2B1A10" stroke-width="2.5" stroke-linecap="round"/></g>
+<g id="idle-book2">
+  <use href="#couch2"/>
+  <g transform="translate(0 -6) scale(.8) translate(12 18) rotate(-10 50 60)">
+    <use href="#body"/><use href="#eyes-down"/><use href="#smile"/>
+    <path d="M26 66 C16 74 22 86 38 82 M74 66 C84 74 78 86 62 82" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+    <!-- book seen from outside: two cover backs meeting at the spine, tilted up toward the face -->
+    <path d="M34 74 L50 68 L50 100 L34 106 Z" fill="#B8642A" stroke="#2B1A10" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M66 74 L50 68 L50 100 L66 106 Z" fill="#A5561F" stroke="#2B1A10" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M50 68 L50 100" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+    <path d="M36 76 L48 71 M52 71 L64 76" stroke="#FFF6EA" stroke-width="1.5" opacity=".6"/>
+    <use href="#hand" x="36" y="82"/><use href="#hand" x="64" y="82"/>
+  </g>
+</g>
+
+<g id="idle-book3">
+  <use href="#couch2"/>
+  <g transform="translate(0 -6) scale(.8) translate(12 18) rotate(-10 50 60)">
+    <use href="#body"/><use href="#eyes-down"/><use href="#smile"/>
+    <path d="M26 66 C16 74 22 86 36 80 M74 66 C84 74 78 86 64 80" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+    <!-- pages seen edge-on along the top, behind the covers -->
+    <path d="M31 70 L50 76 L69 70 L69 66 L50 72 L31 66 Z" fill="#FFF6EA" stroke="#2B1A10" stroke-width="1.5" stroke-linejoin="round"/>
+    <!-- covers recede: outer edges shorter and higher than the spine -->
+    <path d="M50 104 L50 76 L31 70 L31 94 Z" fill="#B8642A" stroke="#2B1A10" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M50 104 L50 76 L69 70 L69 94 Z" fill="#A5561F" stroke="#2B1A10" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M50 76 L50 104" stroke="#2B1A10" stroke-width="3.5" stroke-linecap="round"/>
+    <use href="#hand" x="34" y="82"/><use href="#hand" x="66" y="82"/>
+  </g>
+</g>
+
+<g id="paused">
+  <g transform="translate(-10 0) rotate(-12 50 55)"><use href="#body"/><use href="#eyes-closed"/><use href="#smile"/></g>
+  <path d="M28 78 C22 88 30 94 44 92 M66 76 C74 84 74 90 68 92" fill="none" stroke="#2B1A10" stroke-width="3" stroke-linecap="round"/>
+  <use href="#hand" x="45" y="92"/><use href="#hand" x="69" y="92"/>
+  <use href="#laptop-side2"/>
+</g>
+</defs></svg><div class="row"><div class="card" style="background:#D9651A"><svg viewBox="0 0 100 100"><use href="#work5"/></svg><b>work · at the laptop</b></div><div class="card" style="background:#1E9AA3"><svg viewBox="0 0 100 100"><use href="#drink"/></svg><b>short break · cold drink</b></div><div class="card" style="background:#5A8CE0"><svg viewBox="0 0 100 100"><use href="#lounger"/></svg><b>long break · lounger + shades</b></div><div class="card" style="background:#B8961F"><svg viewBox="0 0 100 100"><use href="#idle-book3"/></svg><b>idle · reading on the couch</b></div><div class="card" style="background:#E8583A"><svg viewBox="0 0 100 100"><use href="#alert"/></svg><b>awaiting confirm · arms up, jumps</b></div><div class="card" style="background:#8A8A8E"><svg viewBox="0 0 100 100"><use href="#paused"/></svg><b>paused · phase pose, eyes shut</b></div><div class="card" style="background:#3A2A22;color:#FFF6EA"><svg viewBox="0 0 100 100"><use href="#disc"/></svg><b>disconnected · yanked cable</b></div></div>

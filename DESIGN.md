@@ -53,14 +53,23 @@ colors:
   macos-paused-panel: "#636366"
   macos-awaiting-confirm-panel: "#A73F2A"
   macos-disconnected-panel: "#2A1E18"
+  mascot-body-light: "#FF6A55"
+  mascot-body: "#E23A2E"
+  mascot-body-dark: "#9E1E18"
+  mascot-leaf-light: "#7CC04A"
+  mascot-leaf-dark: "#2E7A1E"
+  mascot-blush: "#F27C9A"
+  mascot-prop-light: "#8A8A8E"
+  mascot-prop-dark: "#3A3A3E"
+  mascot-wood: "#B8642A"
+  mascot-sky: "#9ED8F5"
 spacing:
   row: 2px
   stack: 8px
   window-padding: 16px
   window-min-width: 320px
-  slot-size: 72px
+  mascot-size: 200px
   chip-radius: 6px
-  slot-radius: 10px
   panel-radius: 8px
 components:
   status-line-work:
@@ -160,10 +169,9 @@ components:
   panel-disconnected:
     backgroundColor: "{colors.macos-disconnected-panel}"
     textColor: "{colors.macos-cream}"
-  mascot-slot:
-    backgroundColor: "{colors.macos-cream}"
-    width: "{spacing.slot-size}"
-    rounded: "{spacing.slot-radius}"
+  mascot:
+    backgroundColor: "{colors.mascot-body}"
+    width: "{spacing.mascot-size}"
   window:
     padding: "{spacing.window-padding}"
     width: "{spacing.window-min-width}"
@@ -183,7 +191,7 @@ Apple's Clock — friendly, a little goofy, and unbothered by being a productivi
 
 Everything the user actually operates is far plainer than the icon. The TUI is a
 frame of a few lines — status, secondary hint, message, the `>` prompt — that only uses
-foreground colour and an optional emoji, never boxes or backgrounds. The macOS client is one window whose whole ground is the colour of the current phase — a jewel version of the TUI state colour — with a cream mascot slot beside the phase name, today's pomodoros drawn as a row of tomatoes, and the timer verbs as chips. The TUI stays a few bare lines; the window is where the tomato's personality lives on screen.
+foreground colour and an optional emoji, never boxes or backgrounds. The macOS client is one window whose whole ground is the colour of the current phase — a jewel version of the TUI state colour — with the tomato mascot drawn large above the phase name, today's pomodoros drawn as a row of tomatoes, and the timer verbs as chips. The TUI stays a few bare lines; the window is where the tomato's personality lives on screen.
 
 ## Colors
 
@@ -221,7 +229,9 @@ are the dark-terminal variants; `-light` variants carry the light-terminal value
 - **Error (#B3001B / #FF5C5C):** Red, for the message line only when `IsError` is set. It
   never colours the status line; a timer state is never "red".
 
-**macOS grounds.** `macos-work`, `macos-short-break`, `macos-long-break`, `macos-idle`, `macos-paused` and `macos-awaiting-confirm` are mid-tone, saturated versions of the same six hues and fill the entire window; `macos-disconnected` is a dark brown used while the daemon is unreachable. All text on a ground is `macos-ink` (cream on disconnected). `macos-cream` is the mascot slot and the label of the primary chip; `macos-outline`, the icon's outline brown, is the primary chip. Each `*-chip` token is its ground under 55% black and carries white text, except `macos-disconnected-chip`, which is cream because that ground shows no chips. `PaletteTests` asserts text on ground and label on chip at 4.5:1 and chip on ground at 3:1; `DesignTokensTests` asserts these values equal `Palette.swift`. The look is the same in light and dark system appearance.
+**macOS grounds.** `macos-work`, `macos-short-break`, `macos-long-break`, `macos-idle`, `macos-paused` and `macos-awaiting-confirm` are mid-tone, saturated versions of the same six hues and fill the entire window; `macos-disconnected` is a dark brown used while the daemon is unreachable. All text on a ground is `macos-ink` (cream on disconnected). `macos-cream` is the label of the primary chip and the mascot's glint, page edges and drink; `macos-outline`, the icon's outline brown, is the primary chip. Each `*-chip` token is its ground under 55% black and carries white text, except `macos-disconnected-chip`, which is cream because that ground shows no chips. `PaletteTests` asserts text on ground and label on chip at 4.5:1 and chip on ground at 3:1; `DesignTokensTests` asserts these values equal `Palette.swift`. The look is the same in light and dark system appearance.
+
+**Mascot.** The `mascot-*` tokens are the character's own paint and never appear elsewhere: `mascot-body-light` → `mascot-body` → `mascot-body-dark` is the body's radial gradient (centre upper-left, dark at the rim); `mascot-leaf-light` → `mascot-leaf-dark` the leaf gradient; `mascot-blush` the cheeks; `mascot-prop-light`/`-dark` the laptop and sunglasses; `mascot-wood` the book and sofa; `mascot-sky` the drink and screen. Hands are `mascot-body`; every outline is `macos-outline`.
 
 The dashboard (`cmd/throwntom/stats_handler.go`) reuses three of these for pomodoro counts:
 teal above `tier_mid` (default 5), tomato above `tier_low` (default 2), grey otherwise —
@@ -243,12 +253,12 @@ newline in it; the prompt. Every line is clamped to terminal width minus one by
 `clampANSILine`, with a `...` ellipsis when at least four columns are available and a hard
 cut otherwise; nothing wraps, nothing is centred, there are no margins. The status line is `<icon> <coloured text>`, with a single space between.
 
-The macOS window is one vertical stack with 16pt padding: timer header (72pt slot, phase name, countdown), tomato garden, count line, chips, reminder banner and errors, focus list, then an optional tasks or stats panel. Panels expand the window downward; the minimum width is 320pt.
+The macOS window is one vertical stack with 16pt padding: timer header (200pt mascot, then phase name, countdown and next stage, all centred), tomato garden, count line, chips, reminder banner and errors, focus list, then an optional tasks or stats panel — every section centred under the mascot. Panels expand the window downward; the minimum width is 320pt and the mascot shrinks with the width.
 
 ## Elevation & Depth
 
 Flat. The TUI has no depth at all; hierarchy is carried by line order and by colour on the
-first line only. The macOS client inherits the system window chrome; panels are the `*-panel` tokens, the ground darkened by 28%, with cream text, an 8pt radius, chips 6pt, the slot 10pt. Nothing casts a shadow.
+first line only. The macOS client inherits the system window chrome; panels are the `*-panel` tokens, the ground darkened by 28%, with cream text, an 8pt radius, chips 6pt. Nothing casts a shadow; the mascot's gradient shading is the only depth on screen.
 
 ## Shapes
 
@@ -300,9 +310,9 @@ each line clamped.
 text colour; description in that same inherited colour, struck through (never dimmed) when
 done.
 
-### Mascot slot (macOS)
+### Mascot (macOS)
 
-A `macos-cream` rounded square, 72pt, with a 1.5pt `macos-outline` inset stroke, holding the phase glyph: 🍅 work, ☕ short break, 🌿 long break, 🌱 idle, 🔔 awaiting confirm, and SF Symbol `pause.fill` in `macos-outline` when paused. Reserved for the mascot.
+The README tomato drawn in code on a 100×100 canvas scaled to 200pt: a radial-gradient body with a 2-unit `macos-outline` stroke, stem and two gradient leaves, a cream glint, two blush cheeks, eyes with a white catchlight, a mouth, and two thin line arms (3-unit `macos-outline`) ending in round `mascot-body` hands. The whole character is rotated 12° counter-clockwise and the face is drawn three-quarter, features shifted toward the near side, so it reads as turned slightly away like the README sticker. One pose per phase — laptop for work, cold drink for short break, sun lounger for long break, reading on a sofa for idle, arms up for awaiting confirm, eyes closed and still for paused, a yanked cable for disconnected — with props always drawn so the tomato faces them, not the viewer. `docs/designs/mascot-poses.html` is the reference drawing. Idle motion (blink, ±2° breathing bob, steam and sparkle drift, a jump on awaiting confirm) is small and off under Reduce Motion.
 
 ### Chip (macOS)
 

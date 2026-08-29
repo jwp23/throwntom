@@ -26,8 +26,8 @@ looked at and a control popover in the corner of a large display is the
 wrong place to act), a global hotkey, a command palette, a typed command
 prompt, migrating the TUI onto the daemon, Linux packaging, TCP
 listener, authentication, in-app settings. Noted follow-ups, not in this
-design: the tomato mascot in the slot reserved for it, and floating the
-window above others while a phase awaits confirmation.
+design: floating the window above others while a phase awaits
+confirmation.
 
 ## Architecture
 
@@ -156,12 +156,11 @@ which phase the user is in reads from across the room; its content, top
 to bottom:
 
 1. Hidden title bar; the top of the window is the drag zone.
-2. **Timer header**: the *mascot slot* (a cream rounded square holding
-   the phase glyph — 🍅 work, ☕ short break, 🌿 long break, 🌱 idle,
-   🔔 awaiting confirm, SF `pause.fill` paused — sized at ~72pt for the
-   mascot that replaces the glyph later) beside the phase name in large
-   bold type and the countdown in tabular figures, ticked locally at
-   1 Hz from `phase_end_at`.
+2. **Timer header**: the *mascot* (see below) at 200pt, centred, and
+   under it, also centred, the phase name in large bold type, the
+   countdown in tabular figures ticked locally at 1 Hz from
+   `phase_end_at`, and the next-stage line. The mascot is the focus of
+   the window; everything below it is subsidiary and centred to match.
 3. **Tomato garden**: today's completed pomodoros as 🍅 glyphs grouped
    into blocks of `long_break_every`, blocks flowed to the window width
    like words; the unfilled slots of the current block are dimmed, so
@@ -185,7 +184,53 @@ to bottom:
    a panel.
 
 The window remembers its frame between launches. Its minimum width fits
-the header and one block of tomatoes.
+one block of tomatoes; the mascot scales down with the width and the
+window is typically about 400×620pt with the focus section showing.
+
+### Mascot
+
+The README tomato, drawn in code: a `Shape`-based character with no
+image assets and no third-party dependencies. The canvas is 100×100
+design units scaled to the frame. `docs/designs/mascot-poses.html` is
+the reference drawing; its SVG paths are transcribed into SwiftUI
+`Path`s.
+
+*Parts.* Body (circle, radial gradient light-upper-left to dark rim,
+outline stroke); stem and two leaves (linear gradient, outline); face
+(highlight glint, two blush cheeks, two eyes with a white catchlight,
+mouth); two thin line arms ending in round hands; an optional prop.
+The whole character is rotated 12° counter-clockwise and the face is
+drawn three-quarter — features shifted toward the near side, far eye
+smaller, near cheek larger — so it reads as turned slightly away, like
+the README sticker.
+
+*Poses.* One per phase, chosen so the character's body language
+matches what the user should be doing, and so props are legible at
+200pt without a caption:
+
+| Phase | Pose |
+|---|---|
+| work | behind a laptop drawn side-on to its right, screen leaning toward it, hands on the keyboard |
+| short break | both hands on a cold drink with a straw, eyes closed |
+| long break | reclined on a sun lounger in sunglasses, grinning |
+| idle | reading on a sofa: book seen from behind (spine nearest, covers receding, page edges along the top), eyes cast down |
+| awaiting confirm | arms up, eyes wide, mouth open |
+| paused | the pose of the paused phase with eyes closed and no motion |
+| disconnected | holding a pulled-out cable, mouth flat |
+
+Poses are values: a face variant (eyes, mouth), two arm curves, a prop,
+a body rotation and an optional body scale (the sofa and lounger
+poses shrink the tomato to 80% so the furniture fits the canvas). The
+face and body do not change between poses; a pose is a small struct
+the view interpolates toward.
+
+*Motion.* Small, procedural, and off under Reduce Motion: a blink every
+few seconds (eyes squash to a line for ~120 ms), a slow breathing bob
+(±2° rotation over ~3 s), steam or sparkle drift on the props that have
+them, and on awaiting confirm a repeated jump (translate up ~6% and
+back with a spring) replacing the old slot pulse. Pose changes animate
+the arm curves and rotation over 250 ms, matching the ground colour
+change. Paused freezes everything.
 
 Before the daemon has sent state, and while reconnecting, the same
 layout renders on a neutral dark ground with the `ConnectionStatus`
@@ -195,7 +240,7 @@ placeholder in the header; the window never goes blank.
 
 At the end of a phase the client posts the notification and sound,
 requests user attention (Dock bounce), and the window recolours to the
-awaiting-confirm ground with the slot pulsing (not under Reduce
+awaiting-confirm ground with the mascot jumping (not under Reduce
 Motion). The window never activates itself.
 
 ### Visual system
@@ -207,11 +252,12 @@ ground, chip on ground and chip-text on chip pairing meets WCAG AA
 and dark system appearance. Grounds are mid-tone jewel versions of the
 TUI state colours; text is the dark ink; cream on the disconnected ground
 and inside panels; the primary chip is the icon's outline brown with
-cream text; the slot is cream.
+cream text. The mascot's own colours are the `mascot-*` tokens: body
+gradient stops, leaf gradient stops, blush, glint, hand, and the prop
+neutrals; its outlines are `macos-outline`.
 
 Type is the system font: phase name `.largeTitle` bold, countdown
-`.title2`, body and caption elsewhere. Radii: slot 10pt, chips 6pt,
-panels 8pt. Ground colour changes and panel expansion animate over
+`.title2`, body and caption elsewhere. Radii: chips 6pt, panels 8pt. Ground colour changes and panel expansion animate over
 250 ms ease-out.
 
 ### Input model
@@ -256,7 +302,8 @@ so those rules are unit-tested without SwiftUI.
 ThrowntomUI/
   ThrowntomApp, ThrowntomScenes      one Window scene and its .commands
   MainWindow, MainWindowContent      composition; pure "what shows" value
-  TimerHeader, MascotSlot            slot + phase + countdown
+  TimerHeader                        mascot + phase + countdown, centred
+  Mascot/                            MascotView, MascotPose (values), one Shape file per part, one file per prop
   TomatoGarden, BlockFlowLayout       (done, in-block, every) → blocks; blocks → wrapped rows
   ActionChips, Chip
   FocusSection
