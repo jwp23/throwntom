@@ -31,7 +31,8 @@ codesign --force --sign - --timestamp=none "$APP"
 # Every worktree build adds a Launch Services registration for the shared bundle id,
 # and deleting the worktree leaves it behind. Drop the ones whose bundle is gone.
 # Runs after assembly so this build's own bundle is on disk and never looks stale.
-(cd "$ROOT" && go run ./tools/lsreg prune) || echo "warning: could not prune stale Launch Services registrations"
+(cd "$ROOT" && go run ./tools/lsreg prune) ||
+  echo "warning: could not prune stale Launch Services registrations (see above)" >&2
 
 echo "built $APP (version $VERSION)"
 echo "run:      open \"$APP\""
@@ -40,7 +41,7 @@ echo "reload it:  quit the app; launchctl bootout gui/$(id -u)/$LABEL; open \"$A
 echo "note: registration is keyed on the launch-agent label ($LABEL), so it is"
 echo "shared across every worktree build of Throwntom.app - whichever build you opened"
 echo "last owns the registered agent, regardless of which worktree built it."
-echo "Launch Services is keyed the same way, on the bundle id ($BUNDLE_ID), so every"
-echo "worktree build adds another registration and macOS may resolve the app - its icon"
-echo "above all - through a build you did not open. This script drops registrations whose"
-echo "bundle is gone; inspect the rest with: go run ./tools/lsreg list"
+echo "Launch Services is keyed the same way, on the bundle id ($BUNDLE_ID), and is worse"
+echo "in one respect: deleting a worktree leaves its registration behind, so dead entries"
+echo "accumulate and macOS may resolve the app through a build you did not open. This"
+echo "script drops registrations whose bundle is gone; see the rest with: go run ./tools/lsreg list"

@@ -71,16 +71,8 @@ func list(stdout, stderr io.Writer, env environment) int {
 		_, _ = fmt.Fprintf(stdout, "no Launch Services registrations for %s\n", bundleID)
 		return 0
 	}
-	stale := make(map[string]bool, len(paths))
-	for _, path := range stalePaths(paths, env.stat) {
-		stale[path] = true
-	}
 	for _, path := range paths {
-		state := "live "
-		if stale[path] {
-			state = "stale"
-		}
-		_, _ = fmt.Fprintf(stdout, "%s  %s\n", state, path)
+		_, _ = fmt.Fprintf(stdout, "%s  %s\n", classify(path, env.stat), path)
 	}
 	return 0
 }
@@ -133,17 +125,38 @@ func registeredPaths(dump string) []string {
 	return paths
 }
 
-// stalePaths returns the registered paths that are absent from disk. Every
-// uncertainty resolves to "keep": a path is stale only when it is absolute and
-// stat reports it does not exist. A stat that fails for any other reason leaves
-// the registration alone, so no live bundle can be unregistered by accident.
+// A registration is stale only when its bundle is provably gone. Anything that
+// cannot be established is unknown, and unknown is never pruned.
+const (
+	stateLive    = "live "
+	stateStale   = "stale"
+	stateUnknown = "?    "
+)
+
+// classify decides what a registered path is. Every uncertainty resolves away
+// from "stale": a path qualifies only when it is absolute and stat reports it
+// does not exist. A stat that fails for any other reason — a permission error,
+// an I/O error — is not read as absence, so no live bundle can be unregistered
+// by accident.
+func classify(path string, stat func(string) (fs.FileInfo, error)) string {
+	if !filepath.IsAbs(path) {
+		return stateUnknown
+	}
+	switch _, err := stat(path); {
+	case err == nil:
+		return stateLive
+	case errors.Is(err, fs.ErrNotExist):
+		return stateStale
+	default:
+		return stateUnknown
+	}
+}
+
+// stalePaths returns the registered paths whose bundle is gone from disk.
 func stalePaths(paths []string, stat func(string) (fs.FileInfo, error)) []string {
 	var stale []string
 	for _, path := range paths {
-		if !filepath.IsAbs(path) {
-			continue
-		}
-		if _, err := stat(path); errors.Is(err, fs.ErrNotExist) {
+		if classify(path, stat) == stateStale {
 			stale = append(stale, path)
 		}
 	}
@@ -153,6 +166,10 @@ func stalePaths(paths []string, stat func(string) (fs.FileInfo, error)) []string
 func dumpDatabase() (string, error) {
 	out, err := exec.Command(lsregister, "-dump").Output()
 	if err != nil {
+		var exit *exec.ExitError
+		if errors.As(err, &exit) && len(exit.Stderr) > 0 {
+			return "", fmt.Errorf("lsregister -dump: %w: %s", err, strings.TrimSpace(string(exit.Stderr)))
+		}
 		return "", fmt.Errorf("lsregister -dump: %w", err)
 	}
 	return string(out), nil

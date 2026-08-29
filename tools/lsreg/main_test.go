@@ -30,6 +30,17 @@ bundle id:                  Throwntom (0x35e)
 path:                       /live/checkout/macos/.build/Throwntom.app (0x18bc)
 name:                       Throwntom
 identifier:                 com.jwp23.throwntom
+infoDictionary:             3 values (25320 (0x62e8))
+                            {
+                                CFBundleIdentifier = "com.jwp23.throwntom";
+                                CFBundleIconFile = Throwntom;
+                            }
+--------------------------------------------------------------------------------
+bundle id:                  Stranger (0x35f)
+path:                       /gone/Some Other App (0x1).app (0x1a00)
+name:                       Stranger
+identifier:                 com.example.stranger
+                                CFBundleIdentifier = "com.jwp23.throwntom";
 --------------------------------------------------------------------------------
 bundle id:                  Impostor (0x360)
 path:                       /gone/Impostor.app (0x1900)
@@ -67,6 +78,31 @@ func TestRegisteredPathsMatchesOnlyTheAppBundleID(t *testing.T) {
 	for i := range want {
 		if got[i] != want[i] {
 			t.Errorf("path %d = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+// Real dumps carry paths with spaces, and the trailing store handle must come
+// off without taking part of the path with it.
+func TestRegisteredPathsKeepsSpacesAndDropsTheHandle(t *testing.T) {
+	const spaced = `--------------------------------------------------------------------------------
+bundle id:                  Throwntom (0x35a)
+path:                       /Users/me/My Builds/Throwntom (0x1) copy.app (0x1830)
+identifier:                 com.jwp23.throwntom
+`
+	got := registeredPaths(spaced)
+	want := "/Users/me/My Builds/Throwntom (0x1) copy.app"
+	if len(got) != 1 || got[0] != want {
+		t.Fatalf("got %q, want [%q]", got, want)
+	}
+}
+
+// An indented CFBundleIdentifier inside a foreign record's infoDictionary must
+// never bring that record's path into range.
+func TestRegisteredPathsIgnoresIndentedBundleIDFields(t *testing.T) {
+	for _, path := range registeredPaths(dump) {
+		if strings.Contains(path, "Some Other App") {
+			t.Fatalf("selected a foreign path via an indented field: %q", path)
 		}
 	}
 }
@@ -173,6 +209,46 @@ func TestPruneReportsUnregisterFailures(t *testing.T) {
 	}
 	if !strings.Contains(errOut.String(), "lsregister exploded") {
 		t.Errorf("stderr = %q, want the underlying error", errOut.String())
+	}
+}
+
+// A registration whose state cannot be established is reported as such rather
+// than being passed off as live.
+func TestListMarksUnresolvablePathsUnknown(t *testing.T) {
+	var out, errOut bytes.Buffer
+	env := environment{
+		dump:       func() (string, error) { return dump, nil },
+		stat:       func(string) (fs.FileInfo, error) { return nil, errors.New("permission denied") },
+		unregister: func(string) error { t.Fatal("list must not unregister"); return nil },
+	}
+	if code := run([]string{"list"}, &out, &errOut, env); code != 0 {
+		t.Fatalf("exit = %d, stderr = %q", code, errOut.String())
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("got %d lines, want 2:\n%s", len(lines), out.String())
+	}
+	for _, line := range lines {
+		if !strings.HasPrefix(line, "?") {
+			t.Errorf("line claims a state it cannot establish: %q", line)
+		}
+	}
+}
+
+func TestDumpFailureIsReported(t *testing.T) {
+	for _, command := range []string{"list", "prune"} {
+		var out, errOut bytes.Buffer
+		env := environment{
+			dump:       func() (string, error) { return "", errors.New("lsregister unavailable") },
+			stat:       fixtureStat,
+			unregister: func(string) error { t.Fatal("must not unregister without a dump"); return nil },
+		}
+		if code := run([]string{command}, &out, &errOut, env); code != 1 {
+			t.Errorf("%s exit = %d, want 1", command, code)
+		}
+		if !strings.Contains(errOut.String(), "lsregister unavailable") {
+			t.Errorf("%s stderr = %q, want the underlying error", command, errOut.String())
+		}
 	}
 }
 

@@ -16,12 +16,17 @@ Launch Services keys registrations on the bundle id, so it behaves exactly like 
 launch-agent label documented in `docs/development.md`: every worktree that builds
 `Throwntom.app` adds another registration for the same bundle id. Deleting the worktree
 does not remove the registration, so dead entries accumulate without bound and outlive
-the directories they name. macOS is then free to resolve the app — its icon above all —
-through a bundle that is no longer on disk, which presents as a wrong or missing icon
-rather than as anything that points at Launch Services.
+the directories they name. macOS is then free to resolve the app through a bundle that is
+no longer on disk, and nothing about the symptom points at Launch Services.
+
+This pileup was investigated as the cause of the missing notification icon in throwntom-3ll
+and ruled out: cleaning it up did not bring the icon back. It is a dev-loop hazard in its
+own right, not an icon fix.
 
 `macos/build.sh` runs `lsreg prune` after it assembles the bundle, so the dev loop heals
-itself. Use `lsreg list` when you want to see what is registered.
+itself. Use `lsreg list` when you want to see what is registered. CI runs `build.sh` too,
+where `prune` is a harmless no-op on a fresh runner — which also means CI exercises nothing
+of this tool beyond its unit tests.
 
 ## Safety
 
@@ -32,10 +37,17 @@ itself. Use `lsreg list` when you want to see what is registered.
   quotes the same string;
 - the path is absolute and `stat` reports that it does not exist.
 
-Every other outcome keeps the registration. A `stat` that fails for any reason other
-than absence — a permission error, an unreachable volume — is not read as absence, so
-a live bundle is never unregistered. The bundle id is a constant, not a flag, so no
-invocation can aim the tool at another application.
+Every other outcome keeps the registration. A `stat` that fails for any reason other than
+absence — a permission error, an I/O error — is not read as absence, so a live bundle is
+never unregistered. The bundle id is a constant, not a flag, so no invocation can aim the
+tool at another application.
 
-This tool never runs `lsregister -kill -r -domain local -domain system -domain user`.
-That rebuilds the whole machine's Launch Services database and is not a dev-loop fix.
+Two limits worth stating plainly. A bundle on an unmounted volume stats as `ENOENT`, which
+is indistinguishable from absence, so it would be pruned; the app would re-register on its
+next launch. And there is a millisecond window between the `stat` and the `lsregister -u`
+in which a path could reappear — the same benign outcome, so neither is worth code.
+
+This tool never runs `lsregister -kill -r -domain local -domain system -domain user`. That
+rebuilds the whole machine's Launch Services database and is not a dev-loop fix. The
+sanctioned system-level maintenance is `lsregister -gc`, which garbage-collects and compacts
+the database without discarding live registrations.
