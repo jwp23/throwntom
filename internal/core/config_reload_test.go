@@ -29,20 +29,26 @@ func TestApplyConfigRederivesRunningPhase(t *testing.T) {
 	}
 }
 
-func TestApplyConfigShorterThanElapsedEndsPhase(t *testing.T) {
+// Shortening the running phase past the time it has already spent ends it;
+// that boundary is pinned in internal/pomodoro, which can drive the timer's
+// clock. Here the question is only that a shorter duration reaches the
+// running phase at all.
+func TestApplyConfigShortensRunningPhase(t *testing.T) {
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
 	c := newCore(cfg, noopNotifier{})
 	defer c.Stop()
 	c.execute(cmdStart)
-	// Pretend the phase started an hour ago by moving the clock forward.
-	c.setNow(func() time.Time { return time.Now().Add(time.Hour) })
 
-	cfg.Pomodoro.WorkMinutes = 25
+	cfg.Pomodoro.WorkMinutes = 1
 	c.ApplyConfig(cfg)
 
-	if got := c.State().State; got != engine.AwaitingConfirm {
-		t.Fatalf("expected an already-elapsed phase to end, got %s", got)
+	state := c.State()
+	if state.State != engine.Work {
+		t.Fatalf("expected work to continue, got %s", state.State)
+	}
+	if remaining := time.Until(*state.PhaseEndAt); remaining > time.Minute {
+		t.Fatalf("expected at most a minute left of the new 1m phase, got %s", remaining)
 	}
 }
 
@@ -109,15 +115,18 @@ func TestApplyConfigPublishesState(t *testing.T) {
 	defer c.Stop()
 	c.execute(cmdStart)
 
-	ch := make(chan State)
-	unsubscribe := c.subscribeSync(ch)
+	states, unsubscribe := c.Subscribe()
 	defer unsubscribe()
+	<-states // the State every subscriber is seeded with
 
 	cfg.Pomodoro.WorkMinutes = 50
-	go c.ApplyConfig(cfg)
+	c.ApplyConfig(cfg)
 
 	select {
-	case <-ch:
+	case state := <-states:
+		if state.PhaseEndAt == nil || time.Until(*state.PhaseEndAt) < 49*time.Minute {
+			t.Fatalf("expected the published state to carry the new phase end, got %+v", state)
+		}
 	case <-time.After(time.Second):
 		t.Fatal("expected a published state after config reload")
 	}

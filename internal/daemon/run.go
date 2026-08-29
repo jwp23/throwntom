@@ -18,6 +18,39 @@ import (
 // gracefully before forcing lingering connections closed.
 const shutdownGrace = time.Second
 
+// configPollInterval is how often the daemon looks at its config file. It is
+// a variable so a test can poll faster than a person can type.
+var configPollInterval = config.DefaultWatchInterval
+
+// watchConfig applies edits to the config file at path to c, and returns a
+// func that stops watching and waits for the watcher to be done — no config
+// can reach the core after it returns, so shutdown cannot race a reload.
+//
+// The baseline is read here, before the watcher's goroutine starts, so an
+// edit made moments after the daemon comes up cannot be mistaken for the
+// config already in force.
+func watchConfig(ctx context.Context, path string, c *core.Core) func() {
+	baseline, _ := os.ReadFile(path)
+	w := config.Watcher{
+		Path:     path,
+		Interval: configPollInterval,
+		OnChange: c.ApplyConfig,
+		OnError: func(err error) {
+			fmt.Fprintf(os.Stderr, "throwntomd: keeping the current config: %v\n", err)
+		},
+	}
+	watchCtx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		w.Run(watchCtx, baseline)
+	}()
+	return func() {
+		cancel()
+		<-done
+	}
+}
+
 // Run serves the daemon API on paths.Socket until ctx is cancelled, then
 // shuts the server down and stops the core, which saves the session.
 func Run(ctx context.Context, cfg config.Config, n notifier.Notifier, paths core.Paths) error {
@@ -33,6 +66,10 @@ func Run(ctx context.Context, cfg config.Config, n notifier.Notifier, paths core
 		return err
 	}
 	c.Start(ctx)
+	stopWatching := func() {}
+	if paths.Config != "" {
+		stopWatching = watchConfig(ctx, paths.Config, c)
+	}
 	srv := &http.Server{
 		Handler:           NewHandler(c),
 		ReadHeaderTimeout: 5 * time.Second,
@@ -44,9 +81,11 @@ func Run(ctx context.Context, cfg config.Config, n notifier.Notifier, paths core
 	select {
 	case <-ctx.Done():
 	case err := <-errCh:
+		stopWatching()
 		c.Stop()
 		return err
 	}
+	stopWatching()
 	// WithoutCancel: ctx is already Done here (see the select above), so a plain
 	// child of ctx would inherit that cancellation and skip the shutdown grace
 	// period entirely. Detaching from ctx's cancellation keeps that grace period

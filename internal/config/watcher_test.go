@@ -21,11 +21,14 @@ func writeConfig(t *testing.T, path, body string) {
 // waits for it to exit.
 func runWatcher(t *testing.T, w Watcher) {
 	t.Helper()
+	// Read the baseline here, before the watcher exists, exactly as a caller
+	// must: it is what makes an immediately following edit impossible to miss.
+	baseline, _ := os.ReadFile(w.Path)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		w.Run(ctx)
+		w.Run(ctx, baseline)
 	}()
 	t.Cleanup(func() {
 		cancel()
@@ -136,7 +139,7 @@ func TestWatcherStopsWithContext(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		Watcher{Path: path, Interval: testInterval}.Run(ctx)
+		Watcher{Path: path, Interval: testInterval}.Run(ctx, nil)
 	}()
 
 	cancel()

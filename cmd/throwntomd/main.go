@@ -19,7 +19,18 @@ func main() {
 	configPath := flag.String("config", "", "path to config toml")
 	flag.Parse()
 
-	cfg, err := config.LoadDefault(*configPath)
+	resolvedConfig, err := config.ResolvePath(*configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "config error: %v\n", err)
+		os.Exit(1)
+	}
+	// A first run leaves the user a documented config to edit rather than
+	// nothing at all. A file that already exists is untouched.
+	if err := config.EnsureFile(resolvedConfig); err != nil {
+		fmt.Fprintf(os.Stderr, "config error: %v\n", err)
+		os.Exit(1)
+	}
+	cfg, err := config.LoadFile(resolvedConfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "config error: %v\n", err)
 		os.Exit(1)
@@ -29,6 +40,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
+	paths.Config = resolvedConfig
 	n, err := notifier.NewSystemNotifier(runtime.GOOS, os.Stdout, cfg.SoundCommand)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "notifier error: %v\n", err)

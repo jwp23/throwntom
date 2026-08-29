@@ -107,6 +107,7 @@ type Paths struct {
 	Events  string
 	Socket  string
 	Lock    string
+	Config  string
 }
 
 func DefaultPaths() (Paths, error) {
@@ -130,7 +131,11 @@ func DefaultPaths() (Paths, error) {
 	if err != nil {
 		return Paths{}, err
 	}
-	return Paths{Tasks: tasks, Session: sess, Events: events, Socket: socket, Lock: lock}, nil
+	cfgPath, err := config.DirPath("config.toml")
+	if err != nil {
+		return Paths{}, err
+	}
+	return Paths{Tasks: tasks, Session: sess, Events: events, Socket: socket, Lock: lock, Config: cfgPath}, nil
 }
 
 func New(cfg config.Config, n notifier.Notifier, paths Paths) (*Core, error) {

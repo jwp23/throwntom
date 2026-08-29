@@ -156,6 +156,13 @@ func (e *Engine) LongBreakEvery() int {
 	return e.longBreakEvery
 }
 
+// SetLongBreakEvery changes the cycle length, taking effect on the next long
+// break the engine chooses. The count of work sessions in the block is left
+// alone: those pomodoros were worked, whatever the cycle length is now.
+func (e *Engine) SetLongBreakEvery(n int) {
+	e.longBreakEvery = n
+}
+
 func (e *Engine) SkipToday() {
 	e.state = Idle
 	e.lastPhase = Idle
