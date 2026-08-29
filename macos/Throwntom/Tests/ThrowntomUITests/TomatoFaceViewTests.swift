@@ -7,11 +7,21 @@ final class TomatoFaceViewTests: XCTestCase {
   // MARK: Internal
 
   func testEyesSitOnTheNearSideOfTheFace() {
-    for eyes in [Eyes.open, .closed, .down, .wide] {
-      let bounds = TomatoFace.eyeOutline(eyes).path(in: canvas).boundingRect
-      XCTAssertGreaterThan(bounds.midX, 50, "\(eyes) shifted right")
-      XCTAssertEqual(bounds.midY, 55, accuracy: 3, "\(eyes) on the eye line")
-    }
+    let openBounds = TomatoFace.eyeOutline(.open).path(in: canvas).boundingRect
+    XCTAssertGreaterThan(openBounds.midX, 50, "open shifted right")
+    XCTAssertEqual(openBounds.midY, 54.5, accuracy: 1, "open on the eye line")
+
+    let closedBounds = TomatoFace.eyeOutline(.closed).path(in: canvas).boundingRect
+    XCTAssertGreaterThan(closedBounds.midX, 50, "closed shifted right")
+    XCTAssertEqual(closedBounds.midY, 55.5, accuracy: 1, "closed on the eye line")
+
+    let downBounds = TomatoFace.eyeOutline(.down).path(in: canvas).boundingRect
+    XCTAssertGreaterThan(downBounds.midX, 50, "down shifted right")
+    XCTAssertEqual(downBounds.midY, 55.5, accuracy: 1, "down on the eye line")
+
+    let wideBounds = TomatoFace.eyeOutline(.wide).path(in: canvas).boundingRect
+    XCTAssertGreaterThan(wideBounds.midX, 50, "wide shifted right")
+    XCTAssertEqual(wideBounds.midY, 54.5, accuracy: 1, "wide on the eye line")
   }
 
   func testWideEyesAreBiggerThanOpenEyes() {

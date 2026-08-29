@@ -64,10 +64,10 @@ enum TomatoFace {
 
     case .down:
       DesignShape { path, units in
-        path.move(units, 43, 55)
-        path.quad(units, 47, 52, 51, 55)
-        path.move(units, 62, 54)
-        path.quad(units, 66, 51, 70, 54)
+        path.move(units, 43, 57)
+        path.quad(units, 47, 54, 51, 57)
+        path.move(units, 62, 56)
+        path.quad(units, 66, 53, 70, 56)
       }
 
     case .wide:
