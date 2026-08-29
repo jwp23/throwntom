@@ -137,6 +137,17 @@ throwntom automatically saves session state to `~/.config/throwntom/session.json
 
 If the saved session is from a different day, it is discarded and throwntom starts fresh. If the timer expired while closed, it transitions to awaiting confirmation. Paused timers remain paused with their remaining duration preserved.
 
+### A phase counts through downtime
+
+A pomodoro is wall-clock time, so a running phase keeps counting while nothing
+is running: the session stores an absolute end time, not a remaining duration.
+Restarting the daemon ten minutes into a 25-minute pomodoro leaves 15 minutes,
+not 25, and a phase whose end time passed while the daemon was down comes back
+already complete and awaiting confirmation. This is deliberate — see
+[ADR-006](docs/adr/006-daemon-lifecycle-and-config-reload.md). Stopping the
+timer service is therefore not a way to pause: use `pause`, which stores the
+remaining duration instead.
+
 ## Productivity Analytics
 
 throwntom records every meaningful event (pomodoro start/complete, breaks, pauses, snoozes) to `~/.config/throwntom/events.jsonl`. This append-only log powers the `stats` command, which displays:
@@ -171,6 +182,11 @@ client can keep showing that phase while paused.
 ## Config
 
 Config file location: `~/.config/throwntom/config.toml`
+
+The first time `throwntomd` starts without one, it writes a fully documented
+`config.toml` there: every setting, with its default, commented out. Edit the
+file in place — uncomment a line and change it. An existing config is never
+overwritten. The macOS app opens this file with **Open Config File…** (⌘,).
 
 Example `config.toml`:
 
@@ -233,8 +249,21 @@ sound_command = ["true"]
 `/usr/bin/true` exits 0 immediately and prints nothing, so throwntom reports
 success with no audio.
 
-Both `throwntom` and `throwntomd` read config once at startup, so a config
-change — including `sound_command` — needs a restart to take effect.
+### Reloading
+
+`throwntomd` watches `config.toml` and applies edits within a couple of
+seconds, with no restart. The pomodoro already running is re-derived from the
+new durations: it keeps the time it has spent and runs for whatever the new
+duration leaves. Shortening a duration below the time the current phase has
+already spent ends that phase immediately — the edit says the phase should
+already be over. A file that does not parse is reported on the daemon's
+stderr and ignored; the config in force stays in force.
+
+Reloading covers `[pomodoro]`, `[[schedule]]`, `repeat_secs` and
+`repeat_limit_secs`. Two settings do not reload: `sound_command`, because the
+daemon builds its notifier at startup, and the client-side `emoji` and
+`[stats]` tiers, which `throwntom` reads once when it launches. Those need a
+restart of the process that reads them.
 
 If you only need to silence *one* running reminder rather than sound in
 general (for example, ducking out of a meeting), don't edit the config —
