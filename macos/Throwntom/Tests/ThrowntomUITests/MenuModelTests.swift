@@ -171,7 +171,7 @@ final class ViewMenuModelTests: XCTestCase {
     let menu = MenuModel.view(model: model)
     XCTAssertEqual(menu.items.map(\.title), ["Tasks", "Stats", "Keyboard Shortcuts"])
     XCTAssertEqual(menu.item(for: .tasks)?.shortcut, MenuShortcut(key: "t", modifiers: .command))
-    XCTAssertEqual(menu.item(for: .stats)?.shortcut, MenuShortcut(key: "d", modifiers: [.command, .shift]))
+    XCTAssertEqual(menu.item(for: .stats)?.shortcut, MenuShortcut(key: "i", modifiers: [.command, .shift]))
     XCTAssertEqual(menu.item(for: .shortcuts)?.shortcut, MenuShortcut(key: "/", modifiers: .command))
     XCTAssertTrue(menu.items.allSatisfy(\.isEnabled))
     model.showsShortcuts = true
@@ -179,7 +179,7 @@ final class ViewMenuModelTests: XCTestCase {
   }
 
   func testViewActionHintsMatchShortcuts() {
-    XCTAssertEqual(ViewAction.allCases.map(\.shortcutHint), ["⌘T", "⌘⇧D", "⌘/", "⌘,"])
+    XCTAssertEqual(ViewAction.allCases.map(\.shortcutHint), ["⌘T", "⌘⇧I", "⌘/", "⌘,"])
   }
 
   func testOpenConfigBelongsToTheAppMenuNotTheViewMenu() {
