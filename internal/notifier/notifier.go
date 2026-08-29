@@ -56,6 +56,19 @@ func NewSystemNotifier(goos string, out io.Writer, soundCommand []string) (Notif
 	}
 }
 
+// silentNotifier plays nothing. Under ADR-003 the daemon owns timing and
+// state and each client owns presentation on its own platform, so a process
+// with no user in front of it makes no sound. It is an empty struct so any
+// two silent notifiers compare equal.
+type silentNotifier struct{}
+
+func (silentNotifier) PlaySound(string) error { return nil }
+
+// Silent returns the notifier for a process that presents nothing itself.
+func Silent() Notifier {
+	return silentNotifier{}
+}
+
 func NewTestNotifier(run runner) Notifier {
 	return &macOSNotifier{run: run}
 }

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jwp23/throwntom/v3/internal/config"
+	"github.com/jwp23/throwntom/v3/internal/notifier"
 	"github.com/jwp23/throwntom/v3/internal/reminder"
 	"github.com/jwp23/throwntom/v3/internal/scheduler"
 )
@@ -241,5 +242,45 @@ func TestSkipTodayCancelsAndStampsDay(t *testing.T) {
 	}
 	if r.shouldRaiseMorning(time.Date(2026, 3, 2, 9, 15, 0, 0, time.Local), sched) {
 		t.Fatal("expected no trigger after skipToday")
+	}
+}
+
+// Silencing the daemon must silence only the sound. The state around a
+// reminder is what a client reads to raise its own banner, so suppressing
+// audio must not suppress a raise, a snooze deadline or a cancel.
+func TestSilentNotifierStillDrivesReminderState(t *testing.T) {
+	clk := newFakeClock(time.Date(2026, 3, 2, 10, 0, 0, 0, time.Local))
+	r := newOutstandingReminder(onePerRaise, notifier.Silent())
+	r.now = clk.Now
+	r.after = clk.After
+	t.Cleanup(r.cancel)
+
+	var mu sync.Mutex
+	changes := 0
+	r.onChange = func() { mu.Lock(); changes++; mu.Unlock() }
+	count := func() int { mu.Lock(); defer mu.Unlock(); return changes }
+
+	r.raise(reminderCycle)
+	if r.outstanding() != reminderCycle {
+		t.Fatalf("expected cycle outstanding, got %v", r.outstanding())
+	}
+	until := clk.Now().Add(10 * time.Minute)
+	if _, err := r.suppress(until); err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := r.snoozeDeadline(); !ok || !got.Equal(until) {
+		t.Fatalf("expected deadline %v published, got %v %v", until, got, ok)
+	}
+	clk.Advance(10 * time.Minute)
+	settle()
+	if _, ok := r.snoozeDeadline(); ok {
+		t.Fatal("expected the deadline cleared when the snooze ran out")
+	}
+	r.cancel()
+	if r.outstanding() != reminderNone {
+		t.Fatal("expected cancel to retire the reminder")
+	}
+	if count() != 4 {
+		t.Fatalf("expected raise, suppress, resume and cancel to notify, got %d", count())
 	}
 }
