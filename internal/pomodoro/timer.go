@@ -31,9 +31,19 @@ type Timer struct {
 	now                func() time.Time
 	after              afterFunc
 	periodTimer        stopper
-	phaseEndAt         time.Time
-	pausedRemaining    time.Duration
-	onChange           func()
+	// phaseStartedAt is when the running phase's clock began, kept as an
+	// absolute time so elapsed is a fact about the phase rather than
+	// something inferred from the durations in force. That is what lets a
+	// duration edited while the daemon was down apply to the phase that was
+	// running: ADR-006 (3).
+	phaseStartedAt  time.Time
+	phaseEndAt      time.Time
+	pausedRemaining time.Duration
+	// pausedElapsed freezes how much of the phase was spent when it was
+	// paused. A pause stops the clock, so elapsed can no longer be read from
+	// phaseStartedAt.
+	pausedElapsed time.Duration
+	onChange      func()
 	// onTransition runs inside the Timer lock, before the verb returns, every
 	// time the engine's state is set: by a verb, by a countdown ending or by
 	// Restore. It must not call back into the Timer.
@@ -87,8 +97,10 @@ func (t *Timer) notifyChange() {
 
 type Snapshot struct {
 	Engine          engine.Snapshot `json:"engine"`
+	PhaseStartedAt  time.Time       `json:"phase_started_at"`
 	PhaseEndAt      time.Time       `json:"phase_end_at"`
 	PausedRemaining time.Duration   `json:"paused_remaining"`
+	PausedElapsed   time.Duration   `json:"paused_elapsed"`
 }
 
 func (t *Timer) Snapshot() Snapshot {
@@ -96,8 +108,10 @@ func (t *Timer) Snapshot() Snapshot {
 	defer t.mu.Unlock()
 	return Snapshot{
 		Engine:          t.engine.Snapshot(),
+		PhaseStartedAt:  t.phaseStartedAt,
 		PhaseEndAt:      t.phaseEndAt,
 		PausedRemaining: t.pausedRemaining,
+		PausedElapsed:   t.pausedElapsed,
 	}
 }
 
@@ -110,16 +124,61 @@ func (t *Timer) Restore(s Snapshot, now time.Time) error {
 
 	switch s.Engine.State {
 	case engine.Work, engine.ShortBreak, engine.LongBreak:
-		remaining := s.PhaseEndAt.Sub(now)
-		if remaining > 0 {
-			t.startPhaseTimerLocked(remaining)
-		} else {
-			t.completePeriodLocked()
-		}
+		t.restoreRunningLocked(s, now)
 	case engine.Paused:
-		t.pausedRemaining = s.PausedRemaining
+		t.restorePausedLocked(s)
 	}
 	return nil
+}
+
+// restoreRunningLocked brings back a phase that was counting down. The time
+// spent keeps accruing across the outage — ADR-006 (2), downtime is not a
+// pause — but it is measured against the duration in force now, not the one
+// that was in force when the session was saved: ADR-006 (3). A phase whose
+// current duration has already been served comes back complete.
+func (t *Timer) restoreRunningLocked(s Snapshot, now time.Time) {
+	remaining := t.remainingOnRestoreLocked(s, now)
+	if remaining <= 0 {
+		t.completePeriodLocked()
+		return
+	}
+	t.startPhaseFromLocked(s.PhaseStartedAt, remaining)
+}
+
+// remainingOnRestoreLocked reports how much of the restored phase is left.
+// Without a recorded phase start there is no way to know how much was spent —
+// a truncated or hand-edited session — so the stored end time stands rather
+// than ending the phase on a guess.
+func (t *Timer) remainingOnRestoreLocked(s Snapshot, now time.Time) time.Duration {
+	if s.PhaseStartedAt.IsZero() {
+		return s.PhaseEndAt.Sub(now)
+	}
+	elapsed := now.Sub(s.PhaseStartedAt)
+	if elapsed < 0 {
+		// A phase that starts in the future is a clock that moved backwards,
+		// not time owed back to the user: treat it as just begun.
+		elapsed = 0
+	}
+	return t.phaseDurationLocked(s.Engine.State) - elapsed
+}
+
+// restorePausedLocked brings back a paused phase. Its elapsed time is frozen,
+// so only the duration it is measured against can have changed.
+func (t *Timer) restorePausedLocked(s Snapshot) {
+	t.pausedElapsed = s.PausedElapsed
+	if s.PausedElapsed == 0 {
+		t.pausedRemaining = s.PausedRemaining
+		return
+	}
+	remaining := t.phaseDurationLocked(s.Engine.PausedFrom) - s.PausedElapsed
+	if remaining <= 0 {
+		t.pausedElapsed = 0
+		t.pausedRemaining = 0
+		t.engine.Resume()
+		t.completePeriodLocked()
+		return
+	}
+	t.pausedRemaining = remaining
 }
 
 func (t *Timer) AdvanceDay(now time.Time) {
@@ -156,8 +215,7 @@ func (t *Timer) StartNewCycle() {
 	defer t.mu.Unlock()
 	defer t.transitionLocked()
 	t.stopTimerLocked()
-	t.phaseEndAt = time.Time{}
-	t.pausedRemaining = 0
+	t.clearPhaseLocked()
 	t.engine.StartNewCycle()
 	t.startPhaseTimerLocked(t.workDuration)
 }
@@ -187,8 +245,7 @@ func (t *Timer) SkipToday() {
 	defer t.mu.Unlock()
 	defer t.transitionLocked()
 	t.stopTimerLocked()
-	t.phaseEndAt = time.Time{}
-	t.pausedRemaining = 0
+	t.clearPhaseLocked()
 	t.engine.SkipToday()
 }
 
@@ -209,7 +266,9 @@ func (t *Timer) Pause() bool {
 			t.pausedRemaining = 0
 		}
 	}
+	t.pausedElapsed = t.elapsedSincePhaseStartLocked()
 	t.stopTimerLocked()
+	t.phaseStartedAt = time.Time{}
 	t.phaseEndAt = time.Time{}
 	return true
 }
@@ -232,8 +291,10 @@ func (t *Timer) Resume() bool {
 			return false
 		}
 	}
+	elapsed := t.pausedElapsed
 	t.pausedRemaining = 0
-	t.startPhaseTimerLocked(d)
+	t.pausedElapsed = 0
+	t.startPhaseFromLocked(t.now().Add(-elapsed), d)
 	return true
 }
 
@@ -243,8 +304,7 @@ func (t *Timer) Stop() {
 	defer t.mu.Unlock()
 	defer t.transitionLocked()
 	t.stopTimerLocked()
-	t.phaseEndAt = time.Time{}
-	t.pausedRemaining = 0
+	t.clearPhaseLocked()
 	t.engine.Stop()
 }
 
@@ -300,14 +360,46 @@ func formatRemaining(d time.Duration) string {
 	return fmt.Sprintf("%02d:%02d", minutes, secs)
 }
 
+// clearPhaseLocked forgets the current phase entirely: nothing is running,
+// nothing is paused, and no time has been spent.
+func (t *Timer) clearPhaseLocked() {
+	t.phaseStartedAt = time.Time{}
+	t.phaseEndAt = time.Time{}
+	t.pausedRemaining = 0
+	t.pausedElapsed = 0
+}
+
+// elapsedSincePhaseStartLocked reports how much of the running phase has been
+// spent. A phase with no recorded start has spent nothing measurable.
+func (t *Timer) elapsedSincePhaseStartLocked() time.Duration {
+	if t.phaseStartedAt.IsZero() {
+		return 0
+	}
+	elapsed := t.now().Sub(t.phaseStartedAt)
+	if elapsed < 0 {
+		return 0
+	}
+	return elapsed
+}
+
 func (t *Timer) completePeriodLocked() {
 	t.stopTimerLocked()
+	t.phaseStartedAt = time.Time{}
 	t.phaseEndAt = time.Time{}
 	t.engine.MarkPeriodComplete()
 }
 
+// startPhaseTimerLocked runs a phase of length d that begins now.
 func (t *Timer) startPhaseTimerLocked(d time.Duration) {
+	t.startPhaseFromLocked(t.now(), d)
+}
+
+// startPhaseFromLocked runs the remaining d of a phase whose clock began at
+// startedAt. Separating the two lets a restored or re-derived phase keep the
+// start it really had, so its elapsed time stays true.
+func (t *Timer) startPhaseFromLocked(startedAt time.Time, d time.Duration) {
 	t.stopTimerLocked()
+	t.phaseStartedAt = startedAt
 	t.phaseEndAt = t.now().Add(d)
 	t.periodTimer = t.after(d, func() {
 		t.mu.Lock()

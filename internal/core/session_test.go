@@ -319,6 +319,10 @@ func TestSaveLoadExpiredTimerTransitionsToAwaitingConfirm(t *testing.T) {
 	// between save and restore.
 	now := savedAt.Add(time.Hour)
 	data.Timer.PhaseEndAt = now.Add(-5 * time.Second)
+	// The phase start has to move with the end it belongs to: Restore measures
+	// elapsed from the start against the configured duration, so a start left
+	// on the real clock would describe a phase that never ran.
+	data.Timer.PhaseStartedAt = data.Timer.PhaseEndAt.Add(-time.Duration(cfg.Pomodoro.WorkMinutes) * time.Minute)
 	// The doctored session gets a file of its own. The first core is still
 	// alive and every change it publishes rewrites its own session file
 	// asynchronously, which would otherwise restore the live, unexpired phase
