@@ -23,6 +23,7 @@ struct MascotCharacterView: View {
   let frame: MotionFrame
   let scheme: PhaseScheme
   let unit: CGFloat
+  let animatesPoseChanges: Bool
 
   var body: some View {
     ZStack {
@@ -67,7 +68,7 @@ struct MascotCharacterView: View {
     .rotationEffect(.degrees(pose.rotation + frame.bobDegrees), anchor: UnitPoint(x: 0.5, y: 0.55))
     .scaleEffect(pose.scale, anchor: .topLeading)
     .offset(x: pose.offset.width * unit, y: (pose.offset.height - frame.jumpLift) * unit)
-    .animation(MascotMotion.poseChange, value: pose)
+    .animation(animatesPoseChanges ? MascotMotion.poseChange : nil, value: pose)
   }
 
   @ViewBuilder
@@ -107,6 +108,7 @@ struct MascotView: View {
           frame: animates ? MascotMotion.frame(at: context.date.timeIntervalSince(start), motions: pose.motions) : .still,
           scheme: scheme,
           unit: geometry.size.width / Units.canvas,
+          animatesPoseChanges: !reduceMotion,
         )
       }
     }

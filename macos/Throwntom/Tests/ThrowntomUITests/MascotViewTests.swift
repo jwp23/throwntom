@@ -16,7 +16,13 @@ final class MascotViewTests: XCTestCase {
     let poses: [MascotPose] = [.work, .shortBreak, .longBreak, .idle, .awaitingConfirm, .disconnected, MascotPose.work.paused()]
     for pose in poses {
       for unit in [CGFloat(1), 2, 3.2] {
-        _ = MascotCharacterView(pose: pose, frame: .still, scheme: Palette.scheme(for: .work), unit: unit).body
+        _ = MascotCharacterView(
+          pose: pose,
+          frame: .still,
+          scheme: Palette.scheme(for: .work),
+          unit: unit,
+          animatesPoseChanges: true,
+        ).body
       }
       _ = MascotView(pose: pose, scheme: Palette.scheme(for: .longBreak)).body
     }
@@ -26,6 +32,11 @@ final class MascotViewTests: XCTestCase {
     XCTAssertEqual(MascotCharacterView.layers(for: .longBreak), [.body, .face, .arms, .held(.book), .hands])
     XCTAssertEqual(MascotCharacterView.layers(for: .shortBreak), [.body, .face, .arms, .hands, .held(.drink)])
     XCTAssertEqual(MascotCharacterView.layers(for: .work), [.body, .face, .arms, .hands])
+  }
+
+  func testPoseChangesDoNotAnimateUnderReduceMotion() {
+    _ = MascotCharacterView(pose: .work, frame: .still, scheme: Palette.scheme(for: .work), unit: 2, animatesPoseChanges: false)
+      .body
   }
 
   func testLayersAreUniqueSoIdentityIsStable() {

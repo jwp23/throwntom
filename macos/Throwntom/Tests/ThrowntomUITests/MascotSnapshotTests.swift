@@ -78,7 +78,7 @@ final class MascotSnapshotTests: XCTestCase {
 
   private func render(pose: MascotPose, frame: MotionFrame, scheme: PhaseScheme) -> NSImage? {
     snapshot(
-      MascotCharacterView(pose: pose, frame: frame, scheme: scheme, unit: 2)
+      MascotCharacterView(pose: pose, frame: frame, scheme: scheme, unit: 2, animatesPoseChanges: true)
         .padding(20)
         .background(scheme.ground.color)
     )
