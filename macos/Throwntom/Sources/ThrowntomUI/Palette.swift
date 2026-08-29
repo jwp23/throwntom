@@ -23,6 +23,14 @@ struct HexColor: Equatable, Sendable {
   }
 }
 
+extension HexColor {
+  /// The same hue under `fraction` of black: every channel scaled by `1 - fraction`.
+  func darkened(by fraction: Double) -> HexColor {
+    let bytes = (0 ..< 3).map { Int((channel($0) * 255 * (1 - fraction)).rounded()) }
+    return HexColor(String(format: "#%02X%02X%02X", bytes[0], bytes[1], bytes[2]))
+  }
+}
+
 // MARK: - PhaseScheme
 
 /// The colours of the window in one phase. Text is the dark ink on every phase ground; cream is
@@ -39,6 +47,22 @@ struct PhaseScheme: Equatable, Sendable {
   let panel: HexColor
   /// The panel's text colour: cream on every scheme.
   let panelText: HexColor
+}
+
+/// The sofa the mascot reads on during a long break is upholstered in the phase's own tones so it
+/// belongs to the room rather than importing a wood colour.
+extension PhaseScheme {
+  var sofaBack: HexColor {
+    panel
+  }
+
+  var sofaArm: HexColor {
+    ground.darkened(by: 0.19)
+  }
+
+  var sofaSeat: HexColor {
+    ground.darkened(by: 0.10)
+  }
 }
 
 // MARK: - Palette

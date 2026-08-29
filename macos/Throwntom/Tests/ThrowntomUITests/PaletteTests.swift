@@ -39,4 +39,18 @@ final class PaletteTests: XCTestCase {
     XCTAssertEqual(Int((c.greenComponent * 255).rounded()), 0x13)
     XCTAssertEqual(Int((c.blueComponent * 255).rounded()), 0x0C)
   }
+
+  func testDarkenedScalesEveryChannel() {
+    XCTAssertEqual(HexColor("#FFFFFF").darkened(by: 0.5).hex, "#808080")
+    XCTAssertEqual(HexColor("#5A8CE0").darkened(by: 0).hex, "#5A8CE0")
+    XCTAssertEqual(HexColor("#5A8CE0").darkened(by: 1).hex, "#000000")
+  }
+
+  func testSofaTonesDarkenTheGround() {
+    let scheme = Palette.scheme(for: .longBreak)
+    XCTAssertEqual(scheme.sofaBack, scheme.panel)
+    XCTAssertEqual(scheme.sofaArm.hex, "#4971B5")
+    XCTAssertEqual(scheme.sofaSeat.hex, "#517ECA")
+    XCTAssertGreaterThan(Contrast.ratio(scheme.sofaArm, scheme.ground), 1.1)
+  }
 }
