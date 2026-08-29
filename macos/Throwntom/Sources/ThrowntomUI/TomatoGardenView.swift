@@ -28,6 +28,7 @@ struct TomatoGardenView: View {
       }
       Text(garden.summary).font(.caption)
     }
+    .frame(maxWidth: .infinity, alignment: .leading)
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(garden.summary)
     .background(
