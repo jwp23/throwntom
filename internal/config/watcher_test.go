@@ -88,8 +88,11 @@ func TestWatcherIgnoresUnchangedFile(t *testing.T) {
 }
 
 // Writing a file is not atomic: a poll can land between the truncate and the
-// write. An empty config parses as every default, so applying one would
-// replace the user's durations behind their back.
+// write. The dangerous half-written file is the one that still parses — here a
+// write caught before the final digit lands, which is valid TOML for a
+// four-minute pomodoro — because nothing downstream can tell it from an edit
+// the user meant. The settle rule, not the empty-file guard, is what covers
+// this: the bytes are seen once and gone by the next poll.
 func TestWatcherIgnoresAHalfWrittenFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	writeConfig(t, path, "[pomodoro]\nwork_minutes = 40\n")
@@ -102,7 +105,7 @@ func TestWatcherIgnoresAHalfWrittenFile(t *testing.T) {
 	// editor's non-atomic write looks to a poller.
 	state := watchState{applied: []byte("[pomodoro]\nwork_minutes = 40\n")}
 	state.seen = state.applied
-	if err := os.WriteFile(path, nil, 0o600); err != nil {
+	if err := os.WriteFile(path, []byte("[pomodoro]\nwork_minutes = 4"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	state = w.poll(state)

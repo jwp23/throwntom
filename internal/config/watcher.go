@@ -95,11 +95,8 @@ func (w Watcher) poll(state watchState) watchState {
 	// here rather than on the apply path means a transient error that recurs
 	// is reported again instead of being swallowed as a repeat.
 	state.lastError = ""
-	// A zero-length config never settles. An all-defaults config is written as
-	// the commented template, which has contents, so an empty file is always a
-	// write in flight and never what the user meant — however long it lasts.
-	// The state is carried forward untouched, so the write it belongs to still
-	// applies once it lands.
+	// A zero-length config never settles. The state carries forward untouched,
+	// so the write these empty bytes belong to still applies once it lands.
 	if len(current) == 0 {
 		return state
 	}
