@@ -56,13 +56,12 @@ func TestRenderDashboard(t *testing.T) {
 	}
 }
 
-func TestTierStyle(t *testing.T) {
-	cool := tierStyle(1, 2, 5)
-	warm := tierStyle(3, 2, 5)
-	hot := tierStyle(6, 2, 5)
-
-	// Just verify they don't panic and return non-zero styles
-	_ = cool.Render("1")
-	_ = warm.Render("3")
-	_ = hot.Render("6")
+// Tier is carried by a glyph as well as colour so the dashboard reads without colour vision.
+func TestTierStyledCarriesGlyph(t *testing.T) {
+	cases := map[int]string{1: "○ 1", 2: "○ 2", 3: "◐ 3", 5: "◐ 5", 6: "● 6"}
+	for count, want := range cases {
+		if got := tierStyled(count, 2, 5); !strings.Contains(got, want) {
+			t.Errorf("tierStyled(%d) = %q, want substring %q", count, got, want)
+		}
+	}
 }

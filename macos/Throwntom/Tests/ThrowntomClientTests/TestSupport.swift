@@ -75,13 +75,21 @@ final class FrameLog: @unchecked Sendable {
 // MARK: - DaemonHarness
 
 /// Builds throwntomd once per test process and runs it against a private HOME under /tmp.
+/// The HOME carries a config whose schedule is active every day from midnight, so the morning
+/// reminder is outstanding whenever the daemon starts rather than only on weekday afternoons.
 final class DaemonHarness {
 
   // MARK: Lifecycle
 
   init() throws {
     home = URL(fileURLWithPath: "/tmp/tt-\(UUID().uuidString.prefix(8))")
-    try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+    let configDir = home.appendingPathComponent(".config/throwntom")
+    try FileManager.default.createDirectory(at: configDir, withIntermediateDirectories: true)
+    try Self.alwaysActiveConfig.write(
+      to: configDir.appendingPathComponent("config.toml"),
+      atomically: true,
+      encoding: .utf8,
+    )
   }
 
   // MARK: Internal
@@ -132,6 +140,13 @@ final class DaemonHarness {
   }
 
   // MARK: Private
+
+  private static let alwaysActiveConfig = """
+    [[schedule]]
+    days = ["weekday", "weekend"]
+    time = "00:00"
+
+    """
 
   private static let binaryResult: Result<URL, Error> = {
     let out = repoRoot.appendingPathComponent("macos/Throwntom/.build/throwntomd")

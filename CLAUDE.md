@@ -31,6 +31,7 @@
 - Pre-commit hook runs `gofmt` check and full unit test suite
 - macOS app: `macos/build.sh`; Swift tests: `cd macos/Throwntom && swift test`
 - Swift style: `macos/swift-lint.sh` (Airbnb SwiftFormat + SwiftLint, pinned versions; `--fix` autocorrects). Runs in pre-commit when Swift files are staged and in CI.
+- Design: read `DESIGN.md` before UI, styling, or component work (TUI or macOS); after editing it, run `npx @google/design.md@0.4.0 lint DESIGN.md`.
 - Swift review gate: the `swift-review` skill (`.claude/skills/swift-review`) before a Swift branch is called done — lint plus a diff-scoped swiftui-pro review.
 
 ## Project-Specific
