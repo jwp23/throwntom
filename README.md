@@ -60,9 +60,9 @@ macos/install.sh        # build, install to ~/Applications, and open
 That takes about a minute. The first launch registers the bundled launchd agent
 that runs `throwntomd` — the window shows "Starting timer…" for up to half a
 minute while it comes up — and after that the app is in Spotlight and Launchpad,
-and Launch at Login is a toggle in its application menu. Phase changes post a
-notification and bounce the Dock icon as well as recolouring the window; press
-⌘/ in the window for every shortcut.
+and Launch at Login is a toggle in its application menu. Phase changes recolour
+the window, and a reminder left outstanding posts a notification and bounces the
+Dock icon; press ⌘/ in the window for every shortcut.
 
 Quitting the app does not stop the timer: the daemon keeps running (and keeps
 reminding you) under launchd. The window has no stop button yet: **Skip Today**
@@ -99,7 +99,7 @@ through its tasks panel.
 - `skip-today` - stop reminders for the current day
 - `stats` - show productivity dashboard (today, week, month, all-time, streaks, patterns)
 - `status` - print current status
-- `test-sound` - play the reminder sound immediately to verify terminal audio/bell
+- `test-sound` - play a test tone immediately to verify terminal audio/bell
 - `quit` - exit throwntom
 - `exit` - alias for `quit`
 

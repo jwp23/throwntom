@@ -18,9 +18,14 @@ import (
 const Template = `# throwntom configuration.
 #
 # Every setting below is shown with its default and commented out.
-# Uncomment a line to change it. The daemon watches this file and applies
-# edits immediately, including to the pomodoro already running: shortening
-# work_minutes below the time the current pomodoro has already spent ends it.
+# Uncomment a line to change it. The daemon watches this file and picks an
+# edit up within a few seconds, the pomodoro already running included:
+# shortening work_minutes below the time the current pomodoro has already
+# spent ends it. [pomodoro], [[schedule]], repeat_secs and repeat_limit_secs
+# reload this way; each setting that does not says so under its own heading.
+# An empty file is read as a save still in flight and ignored, so emptying
+# this one resets nothing: delete it instead and the daemon writes a fresh
+# copy the next time it starts.
 
 # Seconds between the repeats of an unanswered reminder.
 # repeat_secs = 20
@@ -29,21 +34,26 @@ const Template = `# throwntom configuration.
 # repeat_limit_secs = 300
 
 # Command run to play a reminder sound, as a list of arguments: the first is
-# the executable, the rest are its arguments. It is run exactly as written.
-# The sound name is not passed to it, so one command serves every sound and
-# the morning nudge, the confirm reminder and the sound test cannot be told
-# apart by ear. Leaving this empty keeps the platform's own sounds: the macOS
-# system sounds, or on Linux paplay, canberra-gtk-play, aplay and finally the
-# terminal bell.
+# the executable, the rest are its arguments. It is run as written; the sound
+# name is not passed to it, so one command serves every sound and the morning
+# nudge, the confirm reminder and the sound test cannot be told apart by ear.
+# Leaving this empty keeps the platform's own sounds: the macOS system sounds,
+# or on Linux paplay, canberra-gtk-play, aplay and finally the terminal bell.
+# On Linux that same chain also backs up a command that fails, so a broken
+# command there still makes a noise; on macOS it replaces the sound outright.
+# A change here waits for the daemon to restart: the notifier is built once,
+# at startup.
 # macOS example: sound_command = ["afplay", "/System/Library/Sounds/Glass.aiff"]
 # Linux example: sound_command = ["paplay", "/usr/share/sounds/freedesktop/stereo/complete.oga"]
 # sound_command = []
 
 # Whether the morning reminder is owed when the daemon starts during
-# scheduled hours with nothing running.
+# scheduled hours with nothing running. A reload does not apply this: it
+# answers a question only start-up asks.
 # morning_reminder_pending = true
 
-# Whether the interface uses emoji.
+# Whether the interface uses emoji. The throwntom terminal interface reads
+# this once, as it launches, so a reload does not apply it.
 # emoji = true
 
 # [pomodoro] sets the length of each phase and how often a long break comes.
@@ -72,8 +82,11 @@ const Template = `# throwntom configuration.
 # time = "09:15"
 
 # [stats] sets the thresholds the daily counts are coloured against: a day
-# below tier_low is light, below tier_mid is moderate, and at or above
-# tier_mid is a full day. Uncomment the [stats] header too.
+# above tier_mid is a full day, one above tier_low is moderate, and anything
+# else is light. Both are strict, so with the defaults a day of 2 is light
+# and a day of 5 is moderate. The throwntom terminal interface reads these
+# once, as it launches, so a reload does not apply them. Uncomment the
+# [stats] header too.
 # [stats]
 # tier_low = 2
 # tier_mid = 5

@@ -39,9 +39,11 @@ agent appears in System Settings → General → Login Items. Until the socket
 answers — up to about half a minute after registration — the window shows
 "Starting timer…" with the disconnected mascot.
 
-At the end of every phase the app posts a notification (it asks for
-permission the first time), plays the sound, bounces the Dock icon and
-recolours the window. The daemon never notifies on its own
+When a reminder is outstanding — a phase awaiting confirmation, or the
+morning nudge — the app posts a notification (it asks for permission the
+first time), bounces the Dock icon and recolours the window. The banner
+itself is silent: the sound is the daemon's, played on its own repeat
+schedule. What the client owns is the visible notification
 (`docs/adr/003-clients-own-user-facing-notification.md`).
 
 The app never spawns the daemon itself. If the socket is unreachable it

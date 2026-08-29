@@ -49,8 +49,8 @@ long_break_minutes = 1
 long_break_every = 2
 ```
 
-in `~/.config/throwntom/config.toml`, then a daemon restart (quit the app, `bootout` above, open the
-app again). Back
+in `~/.config/throwntom/config.toml`. The daemon picks a `[pomodoro]` edit up within a few seconds,
+so no restart is needed. Back
 up `session.json`, `events.jsonl` and `tasks.json` from `~/.config/throwntom` first and restore them
 after: the tour writes completed pomodoros into today's stats. Remove the `[pomodoro]` block afterwards.
 
