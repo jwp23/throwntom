@@ -230,13 +230,14 @@ discoverable in the menu bar; only some actions have a direct shortcut:
 - *Application menu*: Open Config File… `⌘,`, Launch at Login (toggle),
   Open Notification Settings…, Open Login Items Settings…, Quit `⌘Q`.
 
-Each Timer and Tasks action resolves to a command string sent to
-`POST /v1/command` (selecting row 3 and pressing `⌘⏎` sends
-`task done 3`). View and Application menu actions are local app or
-system operations — panel toggles, settings, login-item controls,
-Quit — and never reach the daemon this way. Menus, chips and the
-context menu share one `MenuModel` so titles and shortcuts have a
-single source.
+Each Timer action calls its dedicated `POST /v1/timer/{verb}` route.
+Each Tasks action but New Task (which only opens the inline editor)
+resolves to a command string sent to `POST /v1/command` (selecting row
+3 and pressing `⌘⏎` sends `task done 3`). View and Application menu
+actions are local app or system operations — panel toggles, settings,
+login-item controls, Quit — and never reach the daemon. Menus, chips
+and the context menu share one `MenuModel` so titles and shortcuts
+have a single source.
 
 ### Data flow
 

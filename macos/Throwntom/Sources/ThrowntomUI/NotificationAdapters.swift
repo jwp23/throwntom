@@ -59,7 +59,10 @@ final class SystemReminderPresenter: ReminderPresenter {
     }
   }
 
+  /// Idempotent: a second call while a request is still outstanding would leak the first
+  /// identifier, leaving `withdrawReminder()` able to cancel only the newer one.
   func requestAttention() {
+    guard attentionRequest == nil else { return }
     attentionRequest = NSApp.requestUserAttention(.criticalRequest)
   }
 
