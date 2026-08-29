@@ -130,6 +130,20 @@ final class ReminderPostingTests: XCTestCase {
     XCTAssertEqual(presenter.withdrawals, 0)
   }
 
+  /// The gap in what the app knows preserves the last state it decided from rather than freezing
+  /// the banner: a reconnect into a *different* wait is still news, and still raises its banner.
+  func testReconnectingIntoADifferentWaitStillPostsIt() async throws {
+    let presenter = StubReminderPresenter()
+    let responder = try makeResponder(presenter)
+
+    await responder.present(makeState(phase: .awaitingConfirm, nextStage: shortBreak))
+    await responder.present(nil)
+    await responder.present(makeState(phase: .idle, morningPending: true))
+
+    XCTAssertEqual(presenter.morningPosts.count, 1)
+    XCTAssertEqual(presenter.attentionRequests, 2)
+  }
+
   /// The banner is how an unanswered reminder is answered. A daemon we cannot read has not
   /// answered it, so taking the banner down would lose the reminder rather than retire it.
   func testLosingTheDaemonLeavesTheBannerUp() async throws {

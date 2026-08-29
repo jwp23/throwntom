@@ -14,8 +14,8 @@ makes a reminder audible. `internal/notifier` switches on `runtime.GOOS`,
 names macOS system sounds, shells out to `afplay`, and falls back through
 `paplay`, `canberra-gtk-play` and `aplay` — platform presentation inside the
 portable core, the same class of thing ADR-003 removed for notifications.
-`tools/dev-quiet.sh` and `sound_command = ["true"]` exist because there was
-otherwise no way to make the daemon stop.
+`sound_command = ["true"]` and the scratch-`HOME` runner in
+`tools/dev-quiet.sh` were the only mute switches either program had.
 
 The obvious reading of throwntom-u69 — suppress the sound when `/v1/events`
 has no subscribers — is wrong in both directions. The TUI is not a client of
@@ -50,7 +50,15 @@ Consequences:
   than a sound repeated until the bound in `repeat_limit_secs` is reached. The
   banner does not go away by itself, so the reminder is still outstanding
   until it is answered; it just stops being loud about it.
-- `sound_command` and the system sound names now describe the TUI only.
+- `sound_command`, `repeat_limit_secs` and the system sound names now describe
+  the TUI only.
+- On macOS the reminder is now only as audible as the user's notification
+  settings allow. `afplay` bypassed all of it; a banner's sound is suppressed
+  by Focus, by turning sound off for Throwntom, or by an alert style of None,
+  and a user who denies notifications outright is left with the Dock bounce
+  alone. The app already says so where the user can see it and offers the way
+  to undo it, which is the mitigation; the loss of a sound nothing could
+  silence is real regardless.
 - `test-sound` over the daemon API plays nothing while reporting success. It
   is a TUI command that the daemon's generic command endpoint also happens to
   expose; making it honest is tracked separately.
