@@ -119,3 +119,18 @@ func TestStateJSONTags(t *testing.T) {
 		}
 	}
 }
+
+// The daemon plays no sound (ADR-007), so the repeat reaches the user only if
+// the ring count reaches the client. State is the channel clients already
+// read, so the count rides it.
+func TestStatePublishesTheReminderRingCount(t *testing.T) {
+	c := newTestCoreWithTasks(t)
+	if got := c.State().ReminderRings; got != 0 {
+		t.Fatalf("expected no rings before a reminder, got %d", got)
+	}
+	c.reminder.ring()
+	c.reminder.ring()
+	if got := c.State().ReminderRings; got != 2 {
+		t.Fatalf("expected the published count to follow the rings, got %d", got)
+	}
+}
