@@ -237,7 +237,7 @@ ticking countdown while running, "Starting timer…" or "Throwntom…" while con
 ## Do's and Don'ts
 
 - Do keep one colour per line in the TUI, and only on the status line and the error message.
-- Don't add a bold, background, border, or box to the TUI frame; it is deliberately four
+- Don't add a bold, background, border, or box to the TUI frame; it is deliberately a few
   bare lines that clamp rather than wrap.
 - Do reuse the state colours by meaning (grey = low/inactive, tomato = attention, teal/blue =
   rest) rather than adding new hues, and keep every pair above 4.5:1 on both white and black.

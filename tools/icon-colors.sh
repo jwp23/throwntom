@@ -10,8 +10,9 @@ count="${2:-10}"
 magick "$image" -depth 8 -colors "$count" -format %c histogram:info: \
   | sort -rn \
   | awk '{
-      split($2, rgba, ",")
-      alpha = rgba[4]; sub(/\)/, "", alpha)
+      n = split($2, rgba, ",")
+      alpha = 255
+      if (n == 4) { alpha = rgba[4]; sub(/\)/, "", alpha) }
       if (alpha + 0 < 128) next
       sub(/:$/, "", $1)
       print substr($3, 1, 7), $1
