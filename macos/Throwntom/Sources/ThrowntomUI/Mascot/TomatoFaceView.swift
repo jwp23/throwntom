@@ -32,7 +32,7 @@ enum TomatoFace {
   }
 
   static let nearCheek = DesignShape { path, units in
-    path.ellipse(units, 74, 63, 8, 4.5)
+    path.ellipse(units, 74, 63, 6, 3.5)
   }
 
   static let catchlights = DesignShape { path, units in

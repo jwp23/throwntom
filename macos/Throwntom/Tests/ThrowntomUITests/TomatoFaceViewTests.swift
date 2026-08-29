@@ -48,6 +48,14 @@ final class TomatoFaceViewTests: XCTestCase {
     XCTAssertEqual(bounds.midY, 35, accuracy: 0.5)
   }
 
+  func testCheeksMatchInSize() {
+    let far = TomatoFace.farCheek.path(in: canvas).boundingRect
+    let near = TomatoFace.nearCheek.path(in: canvas).boundingRect
+    XCTAssertEqual(far.width, near.width, accuracy: 0.01)
+    XCTAssertEqual(far.height, near.height, accuracy: 0.01)
+    XCTAssertEqual(near.midX, 74)
+  }
+
   @MainActor
   func testFaceBuildsForEveryVariant() {
     for eyes in [Eyes.open, .closed, .down, .wide] {
