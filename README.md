@@ -20,6 +20,33 @@ go build -o throwntom ./cmd/throwntom
 go install github.com/jwp23/throwntom/v3/cmd/throwntom@latest
 ```
 
+## macOS app
+
+The macOS client is one phase-coloured window with the tomato mascot on top: it
+draws what `throwntomd` reports and sends the timer verbs back. It needs Xcode
+(see `macos/README.md` for versions) and Go.
+
+```bash
+macos/install.sh        # build, install to ~/Applications, open
+```
+
+The first launch registers the bundled launchd agent that runs `throwntomd`;
+after that the app is in Spotlight and Launchpad, and Launch at Login is a
+toggle in its application menu. Press ⌘/ in the window for every shortcut.
+
+Quitting the app does not stop the timer: the daemon keeps running (and keeps
+reminding you) under launchd. To stop it for the day use the window's **Stop**
+(idle the timer) or **Skip Today**; to stop the daemon itself:
+
+```bash
+launchctl bootout gui/$(id -u)/com.jwp23.throwntom.daemon
+```
+
+The app registers it again next time it opens. Rebuilding is the same
+`macos/install.sh`; details and the daemon-only dev loop are in
+`macos/README.md`, and driving the daemon or checking the window from a
+terminal is in `docs/development.md`.
+
 ## Usage
 
 ```bash
@@ -104,7 +131,10 @@ instance runs at a time (`daemon.lock`). Do not run the daemon and the
 interactive `throwntom` TUI at the same time: they share `session.json`.
 
 Control the daemon from the command line with `tools/tomctl` (see
-`tools/tomctl/README.md` for usage and build instructions).
+`tools/tomctl/README.md` for usage and build instructions, and
+`docs/development.md` for driving phases and stopping the daemon). The state
+document's `paused_from` field names the phase a pause interrupted, so a
+client can keep showing that phase while paused.
 
 ## Config
 
@@ -194,8 +224,12 @@ Schedule supports day aliases: `"weekday"` expands to Mon-Fri, `"weekend"` to Sa
 - `tools/icon-colors.sh` — dominant colours of the app icon as hex (ImageMagick); keeps `DESIGN.md`'s `icon-*` tokens traceable
 - `tools/sonar-audit.sh` — reports SonarCloud issues/hotspots on a branch; CI runs it on main to flag drift
 - `tools/dev-quiet.sh` — runs throwntom against an isolated, silent config for manual testing (see [Dev tools](#dev-tools))
+- `tools/mascot-snap.sh` — renders every mascot pose offscreen to PNGs (see `docs/development.md`)
+- `tools/app-capture.sh` — screenshots the app window by window number, no Accessibility permission needed
 - `macos/Throwntom/` — Swift package: the macOS window app and daemon client
 - `macos/build.sh` — builds `Throwntom.app` with `throwntomd` embedded (see `macos/README.md`)
+- `macos/install.sh` — the dev loop: quit, stop the agent, build, install to `~/Applications`, open
+- `docs/development.md` — driving the daemon and checking the app from a terminal
 - `e2e/` — end-to-end tests (build tag: `e2e`)
 - `integration/` — integration tests (build tag: `integration`)
 

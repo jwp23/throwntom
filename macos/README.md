@@ -10,8 +10,12 @@ daemon; the app renders `DaemonState` and sends commands over the Unix socket at
 
 ## Build and run
 
-    macos/build.sh          # → macos/.build/Throwntom.app
+    macos/install.sh        # quit, stop the agent, build, copy to ~/Applications, open
+    macos/build.sh          # build only → macos/.build/Throwntom.app
     open macos/.build/Throwntom.app
+
+`install.sh` puts the bundle where Spotlight and Launchpad find it and runs the
+reload below for you; pass another directory to install elsewhere.
 
 On first launch the app registers its bundled launchd agent
 (`com.jwp23.throwntom.daemon`), which starts `throwntomd` and keeps it alive.
@@ -61,7 +65,17 @@ built by the tests with `go build` and run with `HOME` under `/tmp`.
 - Only one daemon can hold `~/.config/throwntom/daemon.lock`. Uninstall the
   dev agent before running the app, and quit the TUI: the TUI and the daemon
   share the session file.
-- `tools/tomctl state` / `tools/tomctl events` show what the app sees.
+- `tools/tomctl state` / `tools/tomctl events` show what the app sees;
+  `docs/development.md` covers driving phases, touring every mascot pose,
+  and screenshotting the window from a script.
+
+## Stopping
+
+Quitting the app leaves the daemon running under launchd (`KeepAlive`), so the
+timer and its end-of-phase reminder continue. **Stop** in the window idles the
+timer and **Skip Today** ends the day; to stop the daemon itself run
+`launchctl bootout gui/$(id -u)/com.jwp23.throwntom.daemon` — the app
+registers it again on its next launch.
 
 ## Layout
 
@@ -74,5 +88,5 @@ built by the tests with `go build` and run with `HOME` under `/tmp`.
   `docs/adr/003-clients-own-user-facing-notification.md` for why the app
   posts its own reminder notification instead of shelling out to a helper.
 - `bundle/` — `Info.plist` and the launchd agent plist copied into the app.
-- `build.sh`, `agent.sh` — build and dev-agent scripts.
+- `build.sh`, `install.sh`, `agent.sh` — build, install-and-open, and dev-agent scripts.
 - `swift-lint.sh` — Airbnb style check used by pre-commit and CI.
