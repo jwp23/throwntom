@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: Throwntom
-description: Visual identity of the throwntom pomodoro timer — terminal UI, macOS menu bar app, and app icon.
+description: Visual identity of the throwntom pomodoro timer — terminal UI, macOS window app, and app icon.
 omitted:
   - section: typography
     reason: "The TUI renders in whatever font the terminal uses; the macOS app uses SwiftUI's system text styles (.largeTitle, .title2, .body, .caption) with no explicit sizes or families in code."
@@ -205,10 +205,7 @@ Omitted (see front matter). Two things are still fixed in code and worth knowing
 
 - The TUI's only "type styles" are foreground colour; there is no bold, italic, or underline
   anywhere in `theme.go`.
-- The macOS popover uses `.headline` for the status line, body text for actions and tasks,
-  and `.caption` + `.secondary` for the connection/login-item note and for error and
-  permission captions (`PopoverCaption`), which are allowed to wrap rather than truncate
-  because the caption is a sentence that says what to do.
+- The macOS window uses `.largeTitle` bold for the phase name, `.title2` with monospaced digits for the countdown, `.body` for the next-stage line and tasks, `.caption` for the garden summary, section labels, notes and chip shortcut hints (the hints monospaced). Notes are sentences that say what to do, so they wrap rather than truncate.
 
 ## Layout
 
