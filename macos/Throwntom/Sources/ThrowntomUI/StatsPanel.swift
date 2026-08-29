@@ -43,6 +43,7 @@ struct StatsPanel: View {
         ProgressView().controlSize(.small)
 
       case .loaded(let rows):
+        Text(StatsRows.unitsHeader).font(.caption)
         Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 3) {
           ForEach(rows, id: \.label) { row in
             GridRow {
@@ -51,6 +52,7 @@ struct StatsPanel: View {
             }
           }
         }
+        Text(StatsRows.legend).font(.caption).fixedSize(horizontal: false, vertical: true)
 
       case .failed(let message):
         Text(message).font(.caption).fixedSize(horizontal: false, vertical: true)
