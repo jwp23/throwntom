@@ -9,7 +9,7 @@ struct TomatoGardenView: View {
   let garden: TomatoGarden
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 4) {
+    VStack(spacing: 4) {
       BlockFlowLayout(blockGap: Self.blockGap, rowSpacing: 4) {
         ForEach(Array(garden.blocks.enumerated()), id: \.offset) { _, block in
           HStack(spacing: 0) {
@@ -21,7 +21,7 @@ struct TomatoGardenView: View {
       }
       Text(garden.summary).font(.body)
     }
-    .frame(maxWidth: .infinity, alignment: .leading)
+    .frame(maxWidth: .infinity)
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(garden.summary)
   }

@@ -17,7 +17,6 @@ final class MainWindowContentTests: XCTestCase {
     )
     let c = content(state)
     XCTAssertEqual(c.scheme, Palette.scheme(for: .work))
-    XCTAssertEqual(c.glyph, .emoji("🍅"))
     XCTAssertEqual(c.title, "Pomodoro")
     XCTAssertEqual(c.countdown, "12:34")
     XCTAssertEqual(c.nextStage, "Next: Short break 5 min")
@@ -30,16 +29,14 @@ final class MainWindowContentTests: XCTestCase {
     XCTAssertNil(content(makeState(phase: .work, phaseEndAt: nil)).countdown)
   }
 
-  func testPausedUsesRemainingSecondsAndPauseSymbol() {
+  func testPausedUsesRemainingSeconds() {
     let c = content(makeState(phase: .paused, pausedRemaining: 61))
-    XCTAssertEqual(c.glyph, .symbol("pause.fill"))
     XCTAssertEqual(c.countdown, "01:01")
     XCTAssertEqual(c.primaryChip, .resume)
   }
 
   func testIdleHasNoCountdownAndStartIsPrimary() {
     let c = content(makeState(phase: .idle))
-    XCTAssertEqual(c.glyph, .emoji("🌱"))
     XCTAssertNil(c.countdown)
     XCTAssertEqual(c.chips, [.start, .newCycle, .skipToday])
     XCTAssertEqual(c.primaryChip, .start)
@@ -47,15 +44,9 @@ final class MainWindowContentTests: XCTestCase {
 
   func testAwaitingConfirmPromotesConfirm() {
     let c = content(makeState(phase: .awaitingConfirm))
-    XCTAssertEqual(c.glyph, .emoji("🔔"))
     XCTAssertEqual(c.title, "Confirm")
     XCTAssertEqual(c.primaryChip, .confirm)
     XCTAssertEqual(c.scheme, Palette.scheme(for: .awaitingConfirm))
-  }
-
-  func testBreakGlyphs() {
-    XCTAssertEqual(content(makeState(phase: .shortBreak)).glyph, .emoji("☕"))
-    XCTAssertEqual(content(makeState(phase: .longBreak)).glyph, .emoji("🌿"))
   }
 
   func testFocusedTasksFollowDaemonOrder() {
@@ -67,7 +58,6 @@ final class MainWindowContentTests: XCTestCase {
   func testDisconnectedShowsPlaceholderAndNoGarden() {
     let c = content(nil, connection: .reconnecting(attempt: 2), error: "socket closed")
     XCTAssertEqual(c.scheme, Palette.scheme(for: nil))
-    XCTAssertEqual(c.glyph, .symbol("bolt.horizontal.circle"))
     XCTAssertEqual(c.title, ConnectionStatus.placeholderText(state: nil, connection: .reconnecting(attempt: 2), now: now))
     XCTAssertNil(c.garden)
     XCTAssertEqual(c.chips, [])
@@ -82,12 +72,14 @@ final class MainWindowContentTests: XCTestCase {
     XCTAssertEqual(content(makeState(), panel: .stats).panel, .stats)
   }
 
-  func testOnlyAwaitingConfirmPulses() {
-    XCTAssertTrue(content(makeState(phase: .awaitingConfirm)).pulses)
-    for phase in [DaemonState.Phase.idle, .work, .shortBreak, .longBreak, .paused] {
-      XCTAssertFalse(content(makeState(phase: phase)).pulses, "\(phase)")
-    }
-    XCTAssertFalse(content(nil, connection: .connecting).pulses)
+  func testPoseFollowsThePhase() {
+    XCTAssertEqual(content(makeState(phase: .work)).pose, .work)
+    XCTAssertEqual(content(makeState(phase: .shortBreak)).pose, .shortBreak)
+    XCTAssertEqual(content(makeState(phase: .longBreak)).pose, .longBreak)
+    XCTAssertEqual(content(makeState(phase: .idle)).pose, .idle)
+    XCTAssertEqual(content(makeState(phase: .awaitingConfirm)).pose, .awaitingConfirm)
+    XCTAssertEqual(content(makeState(phase: .paused, pausedFrom: .shortBreak)).pose, MascotPose.shortBreak.paused())
+    XCTAssertEqual(content(nil, connection: .connecting).pose, .disconnected)
   }
 
   // MARK: Private

@@ -15,6 +15,7 @@ type State struct {
 	State               engine.State `json:"state"`
 	PhaseEndAt          *time.Time   `json:"phase_end_at"`
 	PausedRemaining     int          `json:"paused_remaining"`
+	PausedFrom          engine.State `json:"paused_from"`
 	CompletedToday      int          `json:"completed_today"`
 	WorkSessionsInBlock int          `json:"work_sessions_in_block"`
 	LongBreakEvery      int          `json:"long_break_every"`
@@ -37,6 +38,7 @@ func (c *Core) stateLocked() State {
 	s := State{
 		State:               state,
 		PausedRemaining:     int(snap.PausedRemaining / time.Second),
+		PausedFrom:          snap.Engine.PausedFrom,
 		CompletedToday:      snap.Engine.CompletedToday,
 		WorkSessionsInBlock: snap.Engine.WorkSessions,
 		LongBreakEvery:      c.longBreakEvery,

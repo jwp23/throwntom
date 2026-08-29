@@ -16,6 +16,9 @@ final class DesignTokensTests: XCTestCase {
       XCTAssertEqual(tokens["\(name)-chip"], scheme.secondaryChip.hex, "\(name)-chip")
       XCTAssertEqual(tokens["\(name)-panel"], scheme.panel.hex, "\(name)-panel")
     }
+    for (name, color) in MascotPalette.tokens {
+      XCTAssertEqual(tokens[name], color.hex, name)
+    }
   }
 
   // MARK: Private

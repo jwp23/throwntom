@@ -27,6 +27,11 @@ struct BlockFlowLayout: Layout {
     return rows
   }
 
+  /// The x-coordinate a row of `rowWidth` starts at to sit centred in `bounds`.
+  static func rowOrigin(bounds: CGRect, rowWidth: CGFloat) -> CGFloat {
+    bounds.minX + (bounds.width - rowWidth) / 2
+  }
+
   func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
     let width = proposal.width ?? .infinity
     let rows = rows(for: subviews, width: width)
@@ -38,7 +43,7 @@ struct BlockFlowLayout: Layout {
   func placeSubviews(in bounds: CGRect, proposal _: ProposedViewSize, subviews: Subviews, cache _: inout ()) {
     var y = bounds.minY
     for row in rows(for: subviews, width: bounds.width) {
-      var x = bounds.minX
+      var x = Self.rowOrigin(bounds: bounds, rowWidth: row.width)
       for index in row.indices {
         let size = subviews[index].sizeThatFits(.unspecified)
         subviews[index].place(at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: .unspecified)

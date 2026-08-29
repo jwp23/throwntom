@@ -4,7 +4,7 @@ import XCTest
 
 final class ConnectionStatusTests: XCTestCase {
   func testNilStateConnecting() {
-    XCTAssertEqual(ConnectionStatus.text(state: nil, connection: .connecting, now: .now), "Throwntom…")
+    XCTAssertEqual(ConnectionStatus.text(state: nil, connection: .connecting, now: .now), "Connecting…")
   }
 
   func testNilStateStartingDaemon() {
@@ -14,7 +14,7 @@ final class ConnectionStatusTests: XCTestCase {
   func testNilStateReconnecting() {
     XCTAssertEqual(
       ConnectionStatus.text(state: nil, connection: .reconnecting(attempt: 2), now: .now),
-      "Throwntom…",
+      "Reconnecting…",
     )
   }
 
@@ -27,6 +27,7 @@ final class ConnectionStatusTests: XCTestCase {
       state: .idle,
       phaseEndAt: nil,
       pausedRemaining: 0,
+      pausedFrom: .idle,
       completedToday: 0,
       workSessionsInBlock: 0,
       longBreakEvery: 4,
@@ -42,7 +43,7 @@ final class ConnectionStatusTests: XCTestCase {
   func testPlaceholderTextConnecting() {
     XCTAssertEqual(
       ConnectionStatus.placeholderText(state: nil, connection: .connecting, now: .now),
-      "Throwntom…",
+      "Connecting…",
     )
   }
 
@@ -56,7 +57,7 @@ final class ConnectionStatusTests: XCTestCase {
   func testPlaceholderTextReconnecting() {
     XCTAssertEqual(
       ConnectionStatus.placeholderText(state: nil, connection: .reconnecting(attempt: 2), now: .now),
-      "Throwntom…",
+      "Reconnecting…",
     )
   }
 

@@ -20,7 +20,7 @@ struct MainWindow: View {
       panel: environment.windowModel.panel,
       now: environment.ticker.now,
     )
-    VStack(alignment: .leading, spacing: 12) {
+    VStack(spacing: 12) {
       TimerHeader(content: content)
       if let garden = content.garden {
         TomatoGardenView(garden: garden)
@@ -36,7 +36,7 @@ struct MainWindow: View {
       }
     }
     .padding(16)
-    .frame(minWidth: 320, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    .frame(minWidth: 320, maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     .background(content.scheme.ground.color)
     .foregroundStyle(content.scheme.text.color)
     .animation(.easeOut(duration: 0.25), value: content.scheme)

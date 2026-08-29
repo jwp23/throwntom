@@ -43,6 +43,8 @@ public struct DaemonState: Codable, Equatable, Sendable {
   public var phaseEndAt: Date?
   /// Seconds left when paused.
   public var pausedRemaining: Int
+  /// The phase a pause interrupted; `.idle` whenever the timer is not paused.
+  public var pausedFrom: Phase
   public var completedToday: Int
   public var workSessionsInBlock: Int
   public var longBreakEvery: Int
