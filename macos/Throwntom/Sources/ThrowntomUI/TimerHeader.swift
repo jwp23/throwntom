@@ -1,15 +1,20 @@
 import SwiftUI
 
-/// Slot, phase name, countdown and the next stage — the part of the window that reads from across the room.
+/// The mascot over the phase name, countdown and next stage — the part of the window that reads
+/// from across the room.
 struct TimerHeader: View {
+  static let mascotSize: CGFloat = 200
+
   let content: MainWindowContent
 
   var body: some View {
-    HStack(alignment: .center, spacing: 14) {
-      MascotSlot(glyph: content.glyph, scheme: content.scheme, pulsing: content.pulses)
-      VStack(alignment: .leading, spacing: 2) {
+    VStack(spacing: 8) {
+      MascotView(pose: content.pose, scheme: content.scheme)
+        .frame(maxWidth: Self.mascotSize)
+      VStack(spacing: 2) {
         Text(content.title)
           .font(.largeTitle.weight(.bold))
+          .multilineTextAlignment(.center)
           .lineLimit(2)
           .fixedSize(horizontal: false, vertical: true)
         if let countdown = content.countdown {
@@ -20,5 +25,6 @@ struct TimerHeader: View {
         }
       }
     }
+    .frame(maxWidth: .infinity)
   }
 }

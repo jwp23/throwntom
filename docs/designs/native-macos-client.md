@@ -304,7 +304,7 @@ ThrowntomUI/
   ThrowntomApp, ThrowntomScenes      one Window scene and its .commands
   MainWindow, MainWindowContent      composition; pure "what shows" value
   TimerHeader                        mascot + phase + countdown, centred
-  Mascot/                            MascotView, MascotPose (values), one Shape file per part, one file per prop
+  Mascot/                            MascotView, MascotPose, MascotPoses, MascotMotion, TomatoBodyView, TomatoFaceView, ArmsView, HeldPropView, FurnitureView, MascotPalette, Units
   TomatoGarden, BlockFlowLayout       (done, in-block, every) → blocks; blocks → wrapped rows
   ActionChips, Chip
   FocusSection

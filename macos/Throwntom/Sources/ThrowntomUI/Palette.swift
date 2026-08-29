@@ -34,7 +34,7 @@ extension HexColor {
 // MARK: - PhaseScheme
 
 /// The colours of the window in one phase. Text is the dark ink on every phase ground; cream is
-/// reserved for the mascot slot and the primary chip's label, where it sits on the outline brown.
+/// reserved for the primary chip's label, where it sits on the outline brown.
 struct PhaseScheme: Equatable, Sendable {
   let ground: HexColor
   let text: HexColor
@@ -42,7 +42,6 @@ struct PhaseScheme: Equatable, Sendable {
   let primaryChipText: HexColor
   let secondaryChip: HexColor
   let secondaryChipText: HexColor
-  let slot: HexColor
   /// The ground under 28% black, precomputed so panel text can be contrast-tested.
   let panel: HexColor
   /// The panel's text colour: cream on every scheme.
@@ -104,7 +103,6 @@ enum Palette {
         primaryChipText: outline,
         secondaryChip: cream,
         secondaryChipText: outline,
-        slot: cream,
         panel: HexColor("#2A1E18"),
         panelText: cream,
       )
@@ -123,7 +121,6 @@ enum Palette {
       primaryChipText: cream,
       secondaryChip: HexColor(secondaryChip),
       secondaryChipText: white,
-      slot: cream,
       panel: HexColor(panel),
       panelText: cream,
     )
