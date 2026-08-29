@@ -13,25 +13,30 @@ final class MenuBindingTests: XCTestCase {
   func testNoTwoCommandsShareAKeyEquivalent() {
     for phase in Self.phases {
       for isEditing in [false, true] {
+        let commands = commands(phase: phase, isEditing: isEditing)
+        assertEveryMenuContributed(commands, phase: phase)
         var owner = Self.reserved
-        for binding in bindings(phase: phase, isEditing: isEditing) {
-          if let taken = owner[binding.shortcut] {
-            let where_ = "phase \(String(describing: phase)), editing \(isEditing)"
-            XCTFail("\(binding.shortcut.hint) is bound to both \(taken) and \(binding.title) (\(where_))")
+        for command in commands.compactMap(Bound.init) {
+          if let taken = owner[command.shortcut] {
+            let context = "phase \(String(describing: phase)), editing \(isEditing)"
+            XCTFail("\(command.shortcut.hint) is bound to both \(taken) and \(command.title) (\(context))")
           }
-          owner[binding.shortcut] = binding.title
+          owner[command.shortcut] = command.title
         }
       }
     }
   }
 
   /// The binding is what macOS listens for; `shortcutHint` is what the chips, hint lines and cheat
-  /// sheet print. Nothing in the type system ties them together, so rebinding a key without
-  /// editing its hint would leave the UI advertising a keystroke that does nothing.
+  /// sheet print. Nothing in the type system ties them together, so rebinding a key without editing
+  /// its hint would leave the UI advertising a keystroke that does nothing — and a verb that binds
+  /// no key at all must advertise none, or the cheat sheet invents one.
   func testEveryDisplayedHintMatchesTheKeyItIsBoundTo() {
     for phase in Self.phases {
-      for binding in bindings(phase: phase, isEditing: false) {
-        XCTAssertEqual(binding.displayedHint, binding.shortcut.hint, binding.title)
+      let commands = commands(phase: phase, isEditing: false)
+      assertEveryMenuContributed(commands, phase: phase)
+      for command in commands {
+        XCTAssertEqual(command.displayedHint, command.shortcut?.hint ?? "", command.title)
       }
     }
   }
@@ -47,9 +52,23 @@ final class MenuBindingTests: XCTestCase {
 
   // MARK: Private
 
-  private struct Binding {
+  /// One menu item flattened to what this file checks: what it is called, what it advertises, and
+  /// what it binds. `shortcut` is nil for the verbs that deliberately have no key.
+  private struct Command {
     let title: String
     let displayedHint: String
+    let shortcut: MenuShortcut?
+  }
+
+  /// A `Command` that does bind a key.
+  private struct Bound {
+    init?(_ command: Command) {
+      guard let shortcut = command.shortcut else { return nil }
+      title = command.title
+      self.shortcut = shortcut
+    }
+
+    let title: String
     let shortcut: MenuShortcut
   }
 
@@ -59,9 +78,13 @@ final class MenuBindingTests: XCTestCase {
   /// AppKit binds Quit itself, so no menu model of ours may claim it.
   private static let reserved = [MenuShortcut(key: "q", modifiers: .command): "Quit Throwntom"]
 
-  /// Every key equivalent the app binds for one snapshot: the four menu models, with the task menu
-  /// given a selected task so none of its verbs is withheld.
-  private func bindings(phase: DaemonState.Phase?, isEditing: Bool) -> [Binding] {
+  /// Timer 6 + Tasks 6 + View 3 + config 1. Asserting the exact number keeps these tests from
+  /// passing vacuously: an empty list would satisfy every loop below while checking nothing.
+  private static let commandCount = 16
+
+  /// Every command the app offers for one snapshot: the four menu models, with the task menu given
+  /// a selected task so none of its verbs is withheld.
+  private func commands(phase: DaemonState.Phase?, isEditing: Bool) -> [Command] {
     let model = TaskWindowModel()
     model.sync(tasks: TaskList(active: [makeTask(id: 1)], completed: []), focusedTaskIDs: [])
     let state = phase.map { makeState(phase: $0, morningPending: true) }
@@ -71,10 +94,12 @@ final class MenuBindingTests: XCTestCase {
       + collect(MenuModel.appConfig()) { $0.shortcutHint }
   }
 
-  private func collect<Action>(_ menu: MenuModel<Action>, hint: (Action) -> String) -> [Binding] {
-    menu.items.compactMap { item in
-      item.shortcut.map { Binding(title: item.title, displayedHint: hint(item.action), shortcut: $0) }
-    }
+  private func collect<Action>(_ menu: MenuModel<Action>, hint: (Action) -> String) -> [Command] {
+    menu.items.map { Command(title: $0.title, displayedHint: hint($0.action), shortcut: $0.shortcut) }
+  }
+
+  private func assertEveryMenuContributed(_ commands: [Command], phase: DaemonState.Phase?) {
+    XCTAssertEqual(commands.count, Self.commandCount, "menu commands went missing in \(String(describing: phase))")
   }
 
 }
