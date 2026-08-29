@@ -52,14 +52,31 @@ enum HeldProps {
   static let cableLeft = DesignShape { path, units in
     path.move(units, 35, 85)
     path.curve(units, 40, 95, 48, 95, 50, 90)
-    path.line(units, 54, 87)
-    path.line(units, 58, 90)
+  }
+
+  static let cablePlug = DesignShape { path, units in
+    path.polygon(units, [(50, 87), (56, 87), (56, 93), (50, 93)])
+  }
+
+  static let cableProngs = DesignShape { path, units in
+    path.move(units, 56, 88.5)
+    path.line(units, 60, 88.5)
+    path.move(units, 56, 91.5)
+    path.line(units, 60, 91.5)
   }
 
   static let cableRight = DesignShape { path, units in
     path.move(units, 65, 85)
     path.curve(units, 72, 88, 80, 92, 88, 88)
-    path.line(units, 94, 88)
+  }
+
+  static let cableSocket = DesignShape { path, units in
+    path.polygon(units, [(88, 84.5), (96, 84.5), (96, 91.5), (88, 91.5)])
+  }
+
+  static let cableSocketHoles = DesignShape { path, units in
+    path.circle(units, 91, 88, 0.9)
+    path.circle(units, 93.5, 88, 0.9)
   }
 
   /// The "!" beside a raised hand.
@@ -180,6 +197,12 @@ struct HeldPropView: View {
         Palette.cream.color,
         style: StrokeStyle(lineWidth: 2.5 * unit, lineCap: .round, lineJoin: .round),
       )
+      HeldProps.cablePlug.fill(Palette.cream.color)
+      HeldProps.cablePlug.stroke(outline, lineWidth: 1.5 * unit)
+      HeldProps.cableProngs.stroke(outline, style: StrokeStyle(lineWidth: 1.5 * unit, lineCap: .round))
+      HeldProps.cableSocket.fill(Palette.cream.color)
+      HeldProps.cableSocket.stroke(outline, lineWidth: 1.5 * unit)
+      HeldProps.cableSocketHoles.fill(outline)
     }
   }
 

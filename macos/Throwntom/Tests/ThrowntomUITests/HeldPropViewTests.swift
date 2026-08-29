@@ -39,7 +39,10 @@ final class HeldPropViewTests: XCTestCase {
 
   func testCableEndsLeaveBothHands() {
     XCTAssertEqual(HeldProps.cableLeft.path(in: canvas).boundingRect.minX, 35, accuracy: 1)
-    XCTAssertEqual(HeldProps.cableRight.path(in: canvas).boundingRect.maxX, 94, accuracy: 1)
+    XCTAssertEqual(HeldProps.cableRight.path(in: canvas).boundingRect.maxX, 88, accuracy: 1)
+    XCTAssertEqual(HeldProps.cablePlug.path(in: canvas).boundingRect.maxX, 56)
+    XCTAssertEqual(HeldProps.cableProngs.path(in: canvas).boundingRect.maxX, 60)
+    XCTAssertEqual(HeldProps.cableSocket.path(in: canvas).boundingRect.minX, 88)
   }
 
   @MainActor
