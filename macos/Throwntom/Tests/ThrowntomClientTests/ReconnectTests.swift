@@ -148,7 +148,9 @@ final class ReconnectTests: XCTestCase {
     defer { client.stop() }
 
     try await waitUntil { client.connection == .startingDaemon }
-    try await waitUntil { client.unresolvedError == "The timer could not be started." }
+    try await waitUntil { client.unresolvedError != nil }
+
+    XCTAssertEqual(client.unresolvedError, "The timer could not be started.")
   }
 
   /// The daemon answered, so telling the reader it could not be reached would send them after
@@ -176,6 +178,7 @@ final class ReconnectTests: XCTestCase {
     try await waitUntil { transport.dials >= DaemonClient.failuresBeforeRegistering }
     try await Task.sleep(for: .milliseconds(200))
 
+    XCTAssertEqual(client.connection, .startingDaemon, "the reconnect loop is still running, just waiting")
     XCTAssertEqual(
       transport.dials,
       DaemonClient.failuresBeforeRegistering,
