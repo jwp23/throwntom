@@ -56,6 +56,7 @@ final class CountdownTests: XCTestCase {
       state: phase,
       phaseEndAt: seconds.map { now.addingTimeInterval($0) },
       pausedRemaining: 0,
+      pausedFrom: .idle,
       completedToday: 3,
       workSessionsInBlock: 1,
       longBreakEvery: 4,

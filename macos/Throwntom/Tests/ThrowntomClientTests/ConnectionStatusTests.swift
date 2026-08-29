@@ -27,6 +27,7 @@ final class ConnectionStatusTests: XCTestCase {
       state: .idle,
       phaseEndAt: nil,
       pausedRemaining: 0,
+      pausedFrom: .idle,
       completedToday: 0,
       workSessionsInBlock: 0,
       longBreakEvery: 4,
