@@ -80,6 +80,7 @@ final class StubReminderPresenter: ReminderPresenter {
   private(set) var posts = [Post]()
   private(set) var morningPosts = [Post]()
   private(set) var withdrawals = 0
+  private(set) var attentionRequests = 0
 
   func registerReminderButtons() {
     registeredButtons = true
@@ -101,6 +102,10 @@ final class StubReminderPresenter: ReminderPresenter {
 
   func withdrawReminder() {
     withdrawals += 1
+  }
+
+  func requestAttention() {
+    attentionRequests += 1
   }
 }
 
