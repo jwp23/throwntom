@@ -14,6 +14,7 @@ final class PaletteTests: XCTestCase {
       XCTAssertGreaterThanOrEqual(Contrast.ratio(s.text, s.ground), 4.5, "\(name) text on ground")
       XCTAssertGreaterThanOrEqual(Contrast.ratio(s.primaryChipText, s.primaryChip), 4.5, "\(name) primary chip text")
       XCTAssertGreaterThanOrEqual(Contrast.ratio(s.secondaryChipText, s.secondaryChip), 4.5, "\(name) secondary chip text")
+      XCTAssertGreaterThanOrEqual(Contrast.ratio(s.panelText, s.panel), 4.5, "\(name) panel text")
     }
   }
 
@@ -21,6 +22,9 @@ final class PaletteTests: XCTestCase {
     for (name, s) in Palette.schemes {
       XCTAssertGreaterThanOrEqual(Contrast.ratio(s.primaryChip, s.ground), 3, "\(name) primary chip on ground")
       XCTAssertGreaterThanOrEqual(Contrast.ratio(s.secondaryChip, s.ground), 3, "\(name) secondary chip on ground")
+      // Panel vs ground only needs a visible step, not a text-contrast ratio: disconnected is
+      // 1.18, the six phases are ≈1.74.
+      XCTAssertGreaterThanOrEqual(Contrast.ratio(s.panel, s.ground), 1.15, "\(name) panel on ground")
     }
   }
 

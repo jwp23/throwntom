@@ -34,7 +34,7 @@ final class StatsPanelTests: XCTestCase {
 
   func testPanelBodyBuilds() throws {
     let environment = AppEnvironment(transport: try StubTransport(states: []))
-    _ = StatsPanel(client: environment.client).body
+    _ = StatsPanel(client: environment.client, scheme: Palette.scheme(for: .work)).body
   }
 
   // MARK: Private

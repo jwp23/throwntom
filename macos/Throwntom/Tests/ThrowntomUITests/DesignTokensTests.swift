@@ -14,6 +14,7 @@ final class DesignTokensTests: XCTestCase {
     for (name, scheme) in Palette.schemes {
       XCTAssertEqual(tokens[name], scheme.ground.hex, name)
       XCTAssertEqual(tokens["\(name)-chip"], scheme.secondaryChip.hex, "\(name)-chip")
+      XCTAssertEqual(tokens["\(name)-panel"], scheme.panel.hex, "\(name)-panel")
     }
   }
 

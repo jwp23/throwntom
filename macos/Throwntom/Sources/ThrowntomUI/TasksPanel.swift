@@ -23,7 +23,7 @@ struct TasksPanel: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
-      Text("Tasks").font(.caption).textCase(.uppercase).opacity(0.8)
+      Text("Tasks").font(.caption).textCase(.uppercase)
       List(selection: $model.selectedID) {
         if model.isEditing {
           NewTaskRow(model: model) { line in DaemonDispatch.send(line, to: environment.client) }
@@ -44,10 +44,11 @@ struct TasksPanel: View {
       .listStyle(.plain)
       .scrollContentBackground(.hidden)
       .frame(minHeight: 160, maxHeight: 280)
-      Text(TaskHints.line).font(.caption.monospaced()).opacity(0.75)
+      Text(TaskHints.line).font(.caption.monospaced())
     }
     .padding(10)
-    .background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 8))
+    .foregroundStyle(scheme.panelText.color)
+    .background(scheme.panel.color, in: RoundedRectangle(cornerRadius: 8))
   }
 
   // MARK: Private

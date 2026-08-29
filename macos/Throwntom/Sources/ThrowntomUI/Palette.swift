@@ -35,6 +35,10 @@ struct PhaseScheme: Equatable, Sendable {
   let secondaryChip: HexColor
   let secondaryChipText: HexColor
   let slot: HexColor
+  /// The ground under 28% black, precomputed so panel text can be contrast-tested.
+  let panel: HexColor
+  /// The panel's text colour: cream on every scheme.
+  let panelText: HexColor
 }
 
 // MARK: - Palette
@@ -61,12 +65,12 @@ enum Palette {
 
   static func scheme(for phase: DaemonState.Phase?) -> PhaseScheme {
     switch phase {
-    case .work: jewel(ground: "#D9651A", secondaryChip: "#622D0C")
-    case .shortBreak: jewel(ground: "#1E9AA3", secondaryChip: "#0D4549")
-    case .longBreak: jewel(ground: "#5A8CE0", secondaryChip: "#283F65")
-    case .idle: jewel(ground: "#B8961F", secondaryChip: "#53440E")
-    case .paused: jewel(ground: "#8A8A8E", secondaryChip: "#3E3E40")
-    case .awaitingConfirm: jewel(ground: "#E8583A", secondaryChip: "#68281A")
+    case .work: jewel(ground: "#D9651A", secondaryChip: "#622D0C", panel: "#9C4913")
+    case .shortBreak: jewel(ground: "#1E9AA3", secondaryChip: "#0D4549", panel: "#166F75")
+    case .longBreak: jewel(ground: "#5A8CE0", secondaryChip: "#283F65", panel: "#4165A1")
+    case .idle: jewel(ground: "#B8961F", secondaryChip: "#53440E", panel: "#846C16")
+    case .paused: jewel(ground: "#8A8A8E", secondaryChip: "#3E3E40", panel: "#636366")
+    case .awaitingConfirm: jewel(ground: "#E8583A", secondaryChip: "#68281A", panel: "#A73F2A")
     case nil:
       // Disconnected state renders no chips; both primary and secondary share the cream/outline pairing.
       PhaseScheme(
@@ -77,14 +81,17 @@ enum Palette {
         secondaryChip: cream,
         secondaryChipText: outline,
         slot: cream,
+        panel: HexColor("#2A1E18"),
+        panelText: cream,
       )
     }
   }
 
   // MARK: Private
 
-  /// The secondary chip is the ground under 55% black, precomputed so it can be contrast-tested.
-  private static func jewel(ground: String, secondaryChip: String) -> PhaseScheme {
+  /// The secondary chip is the ground under 55% black, the panel the ground under 28% black,
+  /// both precomputed so they can be contrast-tested.
+  private static func jewel(ground: String, secondaryChip: String, panel: String) -> PhaseScheme {
     PhaseScheme(
       ground: HexColor(ground),
       text: ink,
@@ -93,6 +100,8 @@ enum Palette {
       secondaryChip: HexColor(secondaryChip),
       secondaryChipText: white,
       slot: cream,
+      panel: HexColor(panel),
+      panelText: cream,
     )
   }
 

@@ -8,7 +8,7 @@ struct FocusSection: View {
   var body: some View {
     if !tasks.isEmpty {
       VStack(alignment: .leading, spacing: 2) {
-        Text("Focus").font(.caption).textCase(.uppercase).opacity(0.8)
+        Text("Focus").font(.caption).textCase(.uppercase)
         ForEach(tasks) { task in
           Label {
             Text(task.description)

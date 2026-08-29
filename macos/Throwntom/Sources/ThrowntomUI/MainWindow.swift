@@ -32,7 +32,7 @@ struct MainWindow: View {
         TasksPanel(environment: environment, scheme: content.scheme)
       }
       if content.panel == .stats {
-        StatsPanel(client: environment.client)
+        StatsPanel(client: environment.client, scheme: content.scheme)
       }
     }
     .padding(16)
@@ -40,6 +40,7 @@ struct MainWindow: View {
     .background(content.scheme.ground.color)
     .foregroundStyle(content.scheme.text.color)
     .animation(.easeOut(duration: 0.25), value: content.scheme)
+    .animation(.easeOut(duration: 0.25), value: content.panel)
     .onExitCommand { escape() }
     .sheet(isPresented: Bindable(environment.windowModel).showsShortcuts) {
       ShortcutSheet(environment: environment)

@@ -46,6 +46,13 @@ colors:
   macos-awaiting-confirm-chip: "#68281A"
   macos-disconnected: "#3A2A22"
   macos-disconnected-chip: "#FFF6EA"
+  macos-work-panel: "#9C4913"
+  macos-short-break-panel: "#166F75"
+  macos-long-break-panel: "#4165A1"
+  macos-idle-panel: "#846C16"
+  macos-paused-panel: "#636366"
+  macos-awaiting-confirm-panel: "#A73F2A"
+  macos-disconnected-panel: "#2A1E18"
 spacing:
   row: 2px
   stack: 8px
@@ -132,6 +139,27 @@ components:
     backgroundColor: "{colors.macos-awaiting-confirm-chip}"
   chip-secondary-disconnected:
     backgroundColor: "{colors.macos-disconnected-chip}"
+  panel-work:
+    backgroundColor: "{colors.macos-work-panel}"
+    textColor: "{colors.macos-cream}"
+  panel-short-break:
+    backgroundColor: "{colors.macos-short-break-panel}"
+    textColor: "{colors.macos-cream}"
+  panel-long-break:
+    backgroundColor: "{colors.macos-long-break-panel}"
+    textColor: "{colors.macos-cream}"
+  panel-idle:
+    backgroundColor: "{colors.macos-idle-panel}"
+    textColor: "{colors.macos-cream}"
+  panel-paused:
+    backgroundColor: "{colors.macos-paused-panel}"
+    textColor: "{colors.macos-cream}"
+  panel-awaiting-confirm:
+    backgroundColor: "{colors.macos-awaiting-confirm-panel}"
+    textColor: "{colors.macos-cream}"
+  panel-disconnected:
+    backgroundColor: "{colors.macos-disconnected-panel}"
+    textColor: "{colors.macos-cream}"
   mascot-slot:
     backgroundColor: "{colors.macos-cream}"
     width: "{spacing.slot-size}"
@@ -220,7 +248,7 @@ The macOS window is one vertical stack with 16pt padding: timer header (72pt slo
 ## Elevation & Depth
 
 Flat. The TUI has no depth at all; hierarchy is carried by line order and by colour on the
-first line only. The macOS client inherits the system window chrome; panels are the ground under 28% black with an 8pt radius, chips 6pt, the slot 10pt. Nothing casts a shadow.
+first line only. The macOS client inherits the system window chrome; panels are the `*-panel` tokens, the ground darkened by 28%, with cream text, an 8pt radius, chips 6pt, the slot 10pt. Nothing casts a shadow.
 
 ## Shapes
 
@@ -268,9 +296,9 @@ each line clamped.
 
 ### Task row (macOS)
 
-`star.fill` in system yellow when focused, otherwise a `circle` in `.secondary`;
-description in `.primary`, or struck through and `.secondary` when done. Empty task list is
-a `ContentUnavailableView` with the `bolt.horizontal.circle` symbol.
+`star.fill` in system yellow when focused, otherwise a `circle` in the panel's inherited
+text colour; description in that same inherited colour, struck through (never dimmed) when
+done.
 
 ### Mascot slot (macOS)
 

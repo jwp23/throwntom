@@ -33,10 +33,11 @@ struct StatsPanel: View {
   // MARK: Internal
 
   let client: DaemonClient
+  let scheme: PhaseScheme
 
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
-      Text("Stats").font(.caption).textCase(.uppercase).opacity(0.8)
+      Text("Stats").font(.caption).textCase(.uppercase)
       switch loader.outcome {
       case .loading:
         ProgressView().controlSize(.small)
@@ -45,7 +46,7 @@ struct StatsPanel: View {
         Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 3) {
           ForEach(rows, id: \.label) { row in
             GridRow {
-              Text(row.label).opacity(0.8)
+              Text(row.label)
               Text(row.value).fontWeight(.semibold).monospacedDigit()
             }
           }
@@ -57,7 +58,8 @@ struct StatsPanel: View {
     }
     .padding(10)
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 8))
+    .foregroundStyle(scheme.panelText.color)
+    .background(scheme.panel.color, in: RoundedRectangle(cornerRadius: 8))
     .task { await loader.load(from: client) }
   }
 
