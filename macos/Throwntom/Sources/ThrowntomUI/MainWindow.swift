@@ -40,6 +40,11 @@ struct MainWindow: View {
     .onExitCommand { escape() }
     .onChange(of: environment.client.tasks, initial: true) { syncModel() }
     .onChange(of: environment.client.state?.focusedTaskIds, initial: true) { syncModel() }
+    // Re-read the permission whenever the user comes back, so granting it in System Settings clears the note without a relaunch.
+    .task { await environment.responder.refreshAuthorization() }
+    .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+      Task { await environment.responder.refreshAuthorization() }
+    }
   }
 
   /// Copies the daemon's task list and focus into the model the list and menus read from.
