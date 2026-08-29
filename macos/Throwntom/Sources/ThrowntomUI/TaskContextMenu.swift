@@ -19,31 +19,22 @@ enum TaskHints {
 /// Right-click on a task row: every task verb, with its shortcut, applied to that row.
 struct TaskContextMenu: View {
 
+  // MARK: Internal
+
   let task: TaskItem
-  let client: DaemonClient
-  let model: TaskWindowModel
+  let environment: AppEnvironment
 
   var body: some View {
-    let menu = MenuModel.tasks(model: model)
-    ForEach(Array(menu.groups.enumerated()), id: \.offset) { index, group in
-      if index > 0 {
-        Divider()
-      }
-      ForEach(group) { item in
-        Button("\(item.title)  \(item.action.shortcutHint)") { run(item.action) }
-          .disabled(!item.isEnabled)
-      }
+    MenuGroups(menu: MenuModel.tasks(model: environment.model)) { item in
+      Button("\(item.title)  \(item.action.shortcutHint)") { run(item.action) }
+        .disabled(!item.isEnabled)
     }
   }
 
   /// Selects the row the menu was opened on, then behaves exactly like the Tasks menu.
   func run(_ action: TaskAction) {
-    model.selectedID = task.id
-    if action == .newTask {
-      model.beginNewTask()
-    } else if let line = model.command(for: action) {
-      DaemonDispatch.send(line, to: client)
-    }
+    environment.model.selectedID = task.id
+    TaskActionDispatch.run(action, environment: environment)
   }
 
 }
