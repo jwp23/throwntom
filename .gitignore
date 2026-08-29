@@ -26,3 +26,6 @@
 *.db
 .beads-credential-key
 .beads/proxieddb/
+
+# brainstorming visual-companion mockups
+.claude/brainstorm/
