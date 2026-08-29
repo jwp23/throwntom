@@ -244,6 +244,7 @@ Omitted (see front matter). Two things are still fixed in code and worth knowing
 - The TUI's only "type styles" are foreground colour; there is no bold, italic, or underline
   anywhere in `theme.go`.
 - The macOS window uses `.largeTitle` bold for the phase name, `.title2` with monospaced digits for the countdown, `.body` for the next-stage line, tasks, the garden summary and the shortcut hints (hints monospaced), `.caption` for section labels and notes. Notes are sentences that say what to do, so they wrap rather than truncate.
+- A panel's or sheet's shortcut hint (`ShortcutHint`) is monospaced `.body` at medium weight in that surface's own text colour — never `.secondary` and never smaller — and it wraps rather than truncating, because the shortcut is the part a new user opened the panel to read.
 
 ## Layout
 
@@ -331,6 +332,7 @@ The README tomato drawn in code on a 100×100 canvas scaled to 200pt: a radial-g
   rest) rather than adding new hues, and keep every pair above 4.5:1 on both white and black.
 - Don't let a meaning rest on colour alone; pair it with a glyph, as the states and tiers do.
 - Don't colour the prompt or secondary hint, and never render a timer state in red.
+- Don't dim a keyboard shortcut. Hints carry their surface's full text colour so they clear 4.5:1 like everything else on it.
 - Do keep the ASCII icon set to plain ASCII; add any new state to both the emoji and ASCII
   tables at once.
 - Do keep the macOS palette in `Palette.swift` and these tokens in step; a new ground needs a `*-chip` partner and must pass `PaletteTests`. Don't add fonts; the system text styles are the only type.

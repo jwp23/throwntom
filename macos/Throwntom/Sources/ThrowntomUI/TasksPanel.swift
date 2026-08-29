@@ -34,7 +34,7 @@ struct TasksPanel: View {
           .frame(maxWidth: .infinity, minHeight: 160, alignment: .center)
       } else {
         taskList
-        Text(TaskHints.line).font(.body.monospaced())
+        ShortcutHint(TaskHints.line)
       }
     }
     .padding(10)

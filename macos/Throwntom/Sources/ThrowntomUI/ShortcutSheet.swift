@@ -61,7 +61,7 @@ struct ShortcutSheet: View {
             ForEach(section.entries, id: \.title) { entry in
               GridRow {
                 Text(entry.title)
-                Text(entry.hint).font(.body.monospaced()).foregroundStyle(.secondary)
+                ShortcutHint(entry.hint)
               }
             }
           }
