@@ -10,13 +10,25 @@ import (
 // flight from the new ones: the phase keeps the time it has already spent and
 // runs for whatever the new duration leaves. A new duration shorter than the
 // elapsed time means the phase should already be over, so it ends at once.
+//
+// Every argument must be positive, as New requires: these come from a
+// validated config.Config, and longBreakEvery is a divisor.
 func (t *Timer) ApplyDurations(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery int) {
 	t.mu.Lock()
 	defer t.notifyChange()
 	defer t.mu.Unlock()
-	defer t.transitionLocked()
 
 	state := t.engine.State()
+	// Report a transition only when the phase actually ends. Most reloads
+	// change nothing about the engine's state, and announcing one anyway
+	// would answer whatever reminder is outstanding — cancelling a morning
+	// nudge the user has not acknowledged, which only rings once a day.
+	defer func() {
+		if t.engine.State() != state {
+			t.transitionLocked()
+		}
+	}()
+
 	elapsed, running := t.elapsedInPhaseLocked(state)
 
 	t.workDuration = time.Duration(workMinutes) * time.Minute

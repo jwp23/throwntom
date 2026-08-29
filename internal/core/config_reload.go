@@ -9,12 +9,26 @@ import (
 )
 
 // ApplyConfig puts a reloaded config in force at once, in-flight phase
-// included: ADR-006 (3). Everything the daemon derives from config is
-// rebuilt, so an edit never needs a restart to take effect.
+// included: ADR-006 (3). Phase durations, the cycle length, the schedule and
+// the reminder policy all take effect without a restart. Two things do not,
+// each for a reason named where it is settled: morning_reminder_pending
+// below, and sound_command, which the client builds its notifier from before
+// the core exists.
 func (c *Core) ApplyConfig(cfg config.Config) {
 	c.mu.Lock()
+	// A stopped core takes no more config. Without this, a reload arriving
+	// after Stop could arm a phase timer that outlives the daemon's shutdown
+	// and fire a reminder into a process on its way out. The daemon already
+	// stops its watcher first; this keeps the invariant here, where it can be
+	// checked, rather than in the caller.
+	if c.stopped {
+		c.mu.Unlock()
+		return
+	}
 	c.longBreakEvery = cfg.Pomodoro.LongBreakEvery
-	c.morningPending = cfg.MorningReminderPending
+	// morning_reminder_pending is deliberately not reloaded: it answers
+	// whether today's reminder is owed at start-up, a question Start has
+	// already settled by the time any reload arrives.
 	c.scheduler = scheduler.New(config.ScheduleDayTimes(cfg.Schedule))
 	c.reminder.setPolicy(reminder.NewPolicy(
 		time.Duration(cfg.RepeatSecs)*time.Second,

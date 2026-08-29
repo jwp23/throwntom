@@ -81,6 +81,53 @@ func TestWatcherIgnoresUnchangedFile(t *testing.T) {
 	}
 }
 
+// Writing a file is not atomic: a poll can land between the truncate and the
+// write. An empty config parses as every default, so applying one would
+// replace the user's durations behind their back.
+func TestWatcherIgnoresAHalfWrittenFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	writeConfig(t, path, "[pomodoro]\nwork_minutes = 40\n")
+
+	w := Watcher{Path: path, Interval: testInterval}
+	var applied []Config
+	w.OnChange = func(cfg Config) { applied = append(applied, cfg) }
+
+	// The truncated file is seen once and then replaced, exactly as an
+	// editor's non-atomic write looks to a poller.
+	state := watchState{applied: []byte("[pomodoro]\nwork_minutes = 40\n")}
+	state.seen = state.applied
+	writeConfig(t, path, "")
+	state = w.poll(state)
+	writeConfig(t, path, "[pomodoro]\nwork_minutes = 40\n")
+	state = w.poll(state)
+	state = w.poll(state)
+
+	if len(applied) != 0 {
+		t.Fatalf("expected nothing applied from a half-written file, got %+v", applied)
+	}
+}
+
+func TestWatcherReportsAnUnreadableFileOnlyOnce(t *testing.T) {
+	dir := t.TempDir()
+	// A directory where the config should be is readable as a path but not
+	// as a file, so every poll fails the same way.
+	path := filepath.Join(dir, "config.toml")
+	if err := os.Mkdir(path, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	var errs []error
+	w := Watcher{Path: path, Interval: testInterval, OnError: func(err error) { errs = append(errs, err) }}
+	state := watchState{}
+	for i := 0; i < 5; i++ {
+		state = w.poll(state)
+	}
+
+	if len(errs) != 1 {
+		t.Fatalf("expected one report of a repeating error, got %d", len(errs))
+	}
+}
+
 func TestWatcherReportsInvalidConfigWithoutApplying(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	writeConfig(t, path, "[pomodoro]\nwork_minutes = 25\n")

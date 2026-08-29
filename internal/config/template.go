@@ -42,6 +42,7 @@ const Template = `# throwntom configuration.
 # emoji = true
 
 # [pomodoro] sets the length of each phase and how often a long break comes.
+# Uncomment the [pomodoro] header too when you uncomment any key under it.
 # [pomodoro]
 
 # Minutes of focused work in one pomodoro.
@@ -59,14 +60,15 @@ const Template = `# throwntom configuration.
 # [[schedule]] is when the morning reminder is due. Repeat the block for
 # different times on different days. "days" accepts Sun, Mon, Tue, Wed, Thu,
 # Fri, Sat and the aliases "weekday" and "weekend"; an alias covers only the
-# days no other block names. "time" is 24-hour HH:MM.
+# days no other block names. "time" is 24-hour HH:MM. Uncomment the
+# [[schedule]] header along with the keys under it.
 # [[schedule]]
 # days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
 # time = "09:15"
 
 # [stats] sets the thresholds the daily counts are coloured against: a day
 # below tier_low is light, below tier_mid is moderate, and at or above
-# tier_mid is a full day.
+# tier_mid is a full day. Uncomment the [stats] header too.
 # [stats]
 # tier_low = 2
 # tier_mid = 5

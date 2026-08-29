@@ -52,6 +52,41 @@ func TestApplyConfigShortensRunningPhase(t *testing.T) {
 	}
 }
 
+// A reload must not answer a reminder the user has not: the morning nudge
+// only fires once a day, so cancelling it on a config edit loses it for good.
+func TestApplyConfigLeavesAnOutstandingReminderRinging(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+	defer c.Stop()
+	c.reminder.raise(reminderMorning)
+
+	cfg.Pomodoro.WorkMinutes = 50
+	c.ApplyConfig(cfg)
+
+	if got := c.reminder.outstanding(); got != reminderMorning {
+		t.Fatalf("expected the morning reminder to survive a reload, got %v", got)
+	}
+}
+
+func TestApplyConfigOnAStoppedCoreDoesNothing(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+	c.execute(cmdStart)
+	before := c.State()
+	c.Stop()
+
+	cfg.Pomodoro.WorkMinutes = 50
+	c.ApplyConfig(cfg)
+
+	after := c.State()
+	if !after.PhaseEndAt.Equal(*before.PhaseEndAt) {
+		t.Fatalf("expected a stopped core to ignore the reload, phase end moved %s → %s",
+			before.PhaseEndAt, after.PhaseEndAt)
+	}
+}
+
 func TestApplyConfigUpdatesLongBreakEvery(t *testing.T) {
 	cfg := config.Default()
 	cfg.MorningReminderPending = false

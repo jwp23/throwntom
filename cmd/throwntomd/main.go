@@ -25,10 +25,14 @@ func main() {
 		os.Exit(1)
 	}
 	// A first run leaves the user a documented config to edit rather than
-	// nothing at all. A file that already exists is untouched.
-	if err := config.EnsureFile(resolvedConfig); err != nil {
-		fmt.Fprintf(os.Stderr, "config error: %v\n", err)
-		os.Exit(1)
+	// nothing at all. A file that already exists is untouched, and a path the
+	// user named is never created: a typo there should fail loudly rather
+	// than quietly start on defaults.
+	if *configPath == "" {
+		if err := config.EnsureFile(resolvedConfig); err != nil {
+			fmt.Fprintf(os.Stderr, "config error: %v\n", err)
+			os.Exit(1)
+		}
 	}
 	cfg, err := config.LoadFile(resolvedConfig)
 	if err != nil {

@@ -176,13 +176,8 @@ func (t *Timer) Confirm() {
 	defer t.mu.Unlock()
 	defer t.transitionLocked()
 	t.engine.ConfirmNext()
-	switch t.engine.State() {
-	case engine.Work:
-		t.startPhaseTimerLocked(t.workDuration)
-	case engine.ShortBreak:
-		t.startPhaseTimerLocked(t.shortBreakDuration)
-	case engine.LongBreak:
-		t.startPhaseTimerLocked(t.longBreakDuration)
+	if d := t.phaseDurationLocked(t.engine.State()); d > 0 {
+		t.startPhaseTimerLocked(d)
 	}
 }
 
@@ -232,14 +227,8 @@ func (t *Timer) Resume() bool {
 	defer t.transitionLocked()
 	d := t.pausedRemaining
 	if d <= 0 {
-		switch t.engine.State() {
-		case engine.Work:
-			d = t.workDuration
-		case engine.ShortBreak:
-			d = t.shortBreakDuration
-		case engine.LongBreak:
-			d = t.longBreakDuration
-		default:
+		d = t.phaseDurationLocked(t.engine.State())
+		if d <= 0 {
 			return false
 		}
 	}
@@ -269,16 +258,7 @@ func (t *Timer) NextStage() (engine.State, time.Duration) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	next := t.engine.NextPhase()
-	switch next {
-	case engine.Work:
-		return next, t.workDuration
-	case engine.ShortBreak:
-		return next, t.shortBreakDuration
-	case engine.LongBreak:
-		return next, t.longBreakDuration
-	default:
-		return next, 0
-	}
+	return next, t.phaseDurationLocked(next)
 }
 
 func (t *Timer) StatusLine() string {

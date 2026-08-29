@@ -260,10 +260,22 @@ already be over. A file that does not parse is reported on the daemon's
 stderr and ignored; the config in force stays in force.
 
 Reloading covers `[pomodoro]`, `[[schedule]]`, `repeat_secs` and
-`repeat_limit_secs`. Two settings do not reload: `sound_command`, because the
-daemon builds its notifier at startup, and the client-side `emoji` and
-`[stats]` tiers, which `throwntom` reads once when it launches. Those need a
-restart of the process that reads them.
+`repeat_limit_secs`. The rest needs a restart of whichever process reads it:
+
+- `sound_command` — the daemon builds its notifier once, at startup.
+- `morning_reminder_pending` — it answers whether today's morning reminder is
+  owed when the daemon starts, a question already settled by the time an edit
+  arrives.
+- `emoji` and the `[stats]` tiers — client settings, read by `throwntom` when
+  it launches.
+
+An edit made while the daemon is *stopped* is a different case: the phase that
+was in flight comes back with the end time it already had (see [A phase counts
+through downtime](#a-phase-counts-through-downtime)), so a duration changed
+during the outage applies to the next phase, not the one that was running.
+Editing the same value with the daemon up re-derives the running phase
+immediately. Which of the two should win is still open — tracked on
+`throwntom-3tu`.
 
 If you only need to silence *one* running reminder rather than sound in
 general (for example, ducking out of a meeting), don't edit the config —
