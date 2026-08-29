@@ -3,11 +3,11 @@ enum ViewActionDispatch {
   @MainActor
   static func show(_ action: ViewAction, in model: WindowModel) {
     switch action {
-    case .tasks,
-         .stats:
-      if let panel = action.panel {
-        model.toggle(panel)
-      }
+    case .tasks:
+      model.toggle(.tasks)
+
+    case .stats:
+      model.toggle(.stats)
 
     case .shortcuts:
       model.showsShortcuts = true

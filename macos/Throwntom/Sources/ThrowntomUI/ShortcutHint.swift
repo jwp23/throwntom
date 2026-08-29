@@ -23,10 +23,4 @@ struct ShortcutHint: View {
       .fixedSize(horizontal: false, vertical: true)
   }
 
-  /// The colour a hint reads in on a panel: the panel's full text colour, which `PaletteTests`
-  /// already holds to 4.5:1.
-  static func color(on scheme: PhaseScheme) -> HexColor {
-    scheme.panelText
-  }
-
 }

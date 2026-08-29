@@ -254,7 +254,7 @@ newline in it; the prompt. Every line is clamped to terminal width minus one by
 `clampANSILine`, with a `...` ellipsis when at least four columns are available and a hard
 cut otherwise; nothing wraps, nothing is centred, there are no margins. The status line is `<icon> <coloured text>`, with a single space between.
 
-The macOS window is one vertical stack with 16pt padding: timer header (200pt mascot, then phase name, countdown and next stage, all centred), tomato garden, count line, timer chips, command chips, reminder banner and errors, focus list, then an optional tasks or stats panel — every section centred under the mascot. Panels expand the window downward; the minimum width is 320pt and the mascot shrinks with the width. Both chip rows flow to the window width rather than truncating.
+The macOS window is one vertical stack with 16pt padding: timer header (200pt mascot, then phase name, countdown and next stage, all centred), tomato garden, count line, timer chips, command chips, reminder banner and errors, focus list, then an optional tasks or stats panel — every section centred under the mascot. Panels expand the window downward; the minimum width is 320pt and the mascot shrinks with the width. The command row flows to the window width rather than truncating.
 
 ## Elevation & Depth
 
