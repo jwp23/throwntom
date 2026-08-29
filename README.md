@@ -194,7 +194,7 @@ Schedule supports day aliases: `"weekday"` expands to Mon-Fri, `"weekend"` to Sa
 - `tools/icon-colors.sh` — dominant colours of the app icon as hex (ImageMagick); keeps `DESIGN.md`'s `icon-*` tokens traceable
 - `tools/sonar-audit.sh` — reports SonarCloud issues/hotspots on a branch; CI runs it on main to flag drift
 - `tools/dev-quiet.sh` — runs throwntom against an isolated, silent config for manual testing (see [Dev tools](#dev-tools))
-- `macos/Throwntom/` — Swift package: menu bar app and daemon client
+- `macos/Throwntom/` — Swift package: the macOS window app and daemon client
 - `macos/build.sh` — builds `Throwntom.app` with `throwntomd` embedded (see `macos/README.md`)
 - `e2e/` — end-to-end tests (build tag: `e2e`)
 - `integration/` — integration tests (build tag: `integration`)

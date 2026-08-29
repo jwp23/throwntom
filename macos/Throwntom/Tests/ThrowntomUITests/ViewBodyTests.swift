@@ -4,7 +4,7 @@ import XCTest
 @testable import ThrowntomUI
 
 /// Builds every view and scene body in each state the app can be in. What a SwiftUI body decides
-/// is asserted against `MenuModel` and `TaskWindowContent`; what is left here is that the bodies
+/// is asserted against `MenuModel` and `MainWindowContent`; what is left here is that the bodies
 /// themselves build without trapping, which is the part no plain unit test can reach.
 @MainActor
 final class ViewBodyTests: XCTestCase {
@@ -64,19 +64,14 @@ final class ViewBodyTests: XCTestCase {
 
   private func buildEveryBody(of environment: AppEnvironment) {
     _ = ThrowntomScenes(environment: environment).body
-    _ = AppMenus(client: environment.client, model: environment.model).body
-    _ = TaskWindow(client: environment.client, model: environment.model).body
-    _ = PopoverView(
-      client: environment.client,
-      ticker: environment.ticker,
-      registrar: environment.registrar,
-      responder: environment.responder,
-    ).body
+    _ = AppMenus(environment: environment).body
+    _ = MainWindow(environment: environment).body
+    environment.windowModel.panel = .tasks
+    _ = MainWindow(environment: environment).body
     _ = NewTaskRow(model: environment.model) { _ in }.body
-    _ = TimerActionButton(action: .start, client: environment.client).body
-    _ = TimerActionButton(action: .skipToday, client: environment.client).body
     _ = TaskRow(task: makeTask(id: 1), focused: true).body
     _ = TaskRow(task: makeTask(id: 2, done: true), focused: false).body
+    _ = LoginItemToggle(registrar: environment.registrar).body
   }
 
   private func shutDown(_ environment: AppEnvironment) {

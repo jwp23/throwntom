@@ -90,7 +90,7 @@ final class LoginItemSettingTests: XCTestCase {
     XCTAssertEqual(afterFailure, LoginItemSetting(isOn: false, message: "Login item: Operation not permitted"))
 
     // The toggle's isOn snapped back to false, which changes it again and re-fires onChange with
-    // the opposite value, exactly what PopoverView.setLoginItem receives next.
+    // the opposite value, exactly what LoginItemToggle receives next.
     let afterBounce = LoginItemSetting.afterSetting(afterFailure.isOn, in: registrar, current: afterFailure)
 
     XCTAssertEqual(afterBounce, afterFailure, "the bounce must not erase the failure message")

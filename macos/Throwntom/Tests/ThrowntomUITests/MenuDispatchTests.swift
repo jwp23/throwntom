@@ -24,7 +24,7 @@ final class MenuDispatchTests: XCTestCase {
 
     menus.run(.newTask)
 
-    XCTAssertTrue(menus.model.isEditing)
+    XCTAssertTrue(menus.environment.model.isEditing)
     try await settle()
     XCTAssertTrue(transport.commands.isEmpty)
   }
@@ -32,11 +32,11 @@ final class MenuDispatchTests: XCTestCase {
   func testTaskItemSendsTheCommandForTheSelectedTask() async throws {
     let transport = try StubTransport(states: [])
     let menus = try makeMenus(transport)
-    menus.model.sync(
+    menus.environment.model.sync(
       tasks: TaskList(active: [makeTask(id: 7), makeTask(id: 8)], completed: []),
       focusedTaskIDs: [],
     )
-    menus.model.selectedID = 8
+    menus.environment.model.selectedID = 8
 
     menus.run(.complete)
 
@@ -57,23 +57,24 @@ final class MenuDispatchTests: XCTestCase {
     XCTAssertTrue(transport.commands.isEmpty)
   }
 
-  func testTimerActionButtonPostsSnoozeWithItsDefaultMinutes() async throws {
+  func testSnoozePostsItsDefaultMinutes() async throws {
     let transport = try StubTransport(states: [])
     let environment = AppEnvironment(transport: transport)
 
-    await TimerActionButton(action: .snooze, client: environment.client).perform()
+    DaemonDispatch.perform(.snooze, on: environment.client)
 
+    try await waitUntil { !transport.commands.isEmpty }
     XCTAssertEqual(
       transport.commands,
       [StubTransport.Request(method: "POST", path: "/v1/timer/snooze", body: #"{"minutes":10}"#)],
     )
   }
 
-  func testTaskWindowSendsTheLineTheInlineEditorCommits() async throws {
+  func testDaemonDispatchSendsTheLineTheInlineEditorCommits() async throws {
     let transport = try StubTransport(states: [])
     let environment = AppEnvironment(transport: transport)
 
-    TaskWindow(client: environment.client, model: environment.model).send("task add write it down")
+    DaemonDispatch.send("task add write it down", to: environment.client)
 
     try await waitUntil { !transport.commands.isEmpty }
     XCTAssertEqual(
@@ -86,11 +87,21 @@ final class MenuDispatchTests: XCTestCase {
     )
   }
 
+  func testViewItemTogglesThePanel() throws {
+    let menus = try makeMenus(try StubTransport(states: []))
+    menus.show(.tasks)
+    XCTAssertEqual(menus.environment.windowModel.panel, .tasks)
+    menus.show(.stats)
+    XCTAssertEqual(menus.environment.windowModel.panel, .stats)
+    menus.show(.shortcuts)
+    XCTAssertTrue(menus.environment.windowModel.showsShortcuts)
+  }
+
   // MARK: Private
 
   private func makeMenus(_ transport: StubTransport) throws -> AppMenus {
     let environment = AppEnvironment(transport: transport)
-    return AppMenus(client: environment.client, model: environment.model)
+    return AppMenus(environment: environment)
   }
 
   /// Gives the detached Task a menu action spawns time to reach the transport.

@@ -1,6 +1,6 @@
 # Throwntom for macOS
 
-Menu bar client for `throwntomd`. All timer and task logic stays in the Go
+macOS client for `throwntomd`: one phase-coloured window, reached with ⌘-Tab or the Dock. All timer and task logic stays in the Go
 daemon; the app renders `DaemonState` and sends commands over the Unix socket at
 `~/.config/throwntom/daemon.sock`. Design: `docs/designs/native-macos-client.md`.
 
@@ -23,7 +23,7 @@ reconnects with backoff and, after three failures, re-registers the agent.
 
 If the agent is enabled in Login Items but launchd has no job for it (after a
 `bootout`, or a rebuild), the app unregisters and re-registers it after three
-failed connection attempts; the menu bar shows "Starting timer…" meanwhile.
+failed connection attempts; the window's header shows "Starting timer…" meanwhile.
 
 ## Tests
 
