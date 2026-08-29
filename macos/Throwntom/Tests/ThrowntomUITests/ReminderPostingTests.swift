@@ -114,7 +114,9 @@ final class ReminderPostingTests: XCTestCase {
     XCTAssertEqual(presenter.attentionRequests, 1)
   }
 
-  func testReconnectingIntoAnAlreadyShownWaitDoesNotBounceAgain() async throws {
+  /// Losing the daemon says nothing about whether the user still owes an answer, so a reconnect
+  /// into the wait already on screen is silent: the same banner, posted once, bounced once.
+  func testReconnectingIntoAnAlreadyShownWaitIsSilent() async throws {
     let presenter = StubReminderPresenter()
     let responder = try makeResponder(presenter)
     let waiting = makeState(phase: .awaitingConfirm, nextStage: shortBreak)
@@ -123,7 +125,21 @@ final class ReminderPostingTests: XCTestCase {
     await responder.present(nil)
     await responder.present(waiting)
 
-    XCTAssertEqual(presenter.attentionRequests, 2, "a reconnect through nil re-posts, and each post bounces once")
+    XCTAssertEqual(presenter.attentionRequests, 1)
+    XCTAssertEqual(presenter.posts.count, 1)
+    XCTAssertEqual(presenter.withdrawals, 0)
+  }
+
+  /// The banner is how an unanswered reminder is answered. A daemon we cannot read has not
+  /// answered it, so taking the banner down would lose the reminder rather than retire it.
+  func testLosingTheDaemonLeavesTheBannerUp() async throws {
+    let presenter = StubReminderPresenter()
+    let responder = try makeResponder(presenter)
+
+    await responder.present(makeState(phase: .awaitingConfirm, nextStage: shortBreak))
+    await responder.present(nil)
+
+    XCTAssertEqual(presenter.withdrawals, 0)
   }
 
   func testAWaitingPhaseBouncesTheDockEvenWhenNotificationsAreDenied() async throws {

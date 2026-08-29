@@ -64,8 +64,11 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
     }
   }
 
-  /// Shows what the daemon's latest state means for the banner.
+  /// Shows what the daemon's latest state means for the banner. A state the app cannot read is
+  /// not an answer to an outstanding reminder, so it leaves both the banner and the state that
+  /// banner was decided from alone: reconnecting into the same wait posts and bounces nothing.
   func present(_ state: DaemonState?) async {
+    guard let state else { return }
     if ReminderBanner.wantsAttention(from: shownState, to: state) {
       presenter.requestAttention()
     }

@@ -38,9 +38,11 @@ enum ReminderBanner: Equatable {
 
   static let morningBody = "Ready to start your day?"
 
+  /// Both states are the daemon's own account of itself. A daemon that cannot be read gives no
+  /// account at all, which is not a change to decide from; the caller keeps the banner instead.
   static func decide(
     from previous: DaemonState?,
-    to current: DaemonState?,
+    to current: DaemonState,
     authorization: ReminderAuthorization,
   ) -> ReminderBanner {
     let previousWaiting = waitingKind(previous)
@@ -49,7 +51,7 @@ enum ReminderBanner: Equatable {
     }
     let waiting = waitingKind(current)
     guard waiting != previousWaiting else { return .unchanged }
-    guard let waiting, let current else { return .withdraw }
+    guard let waiting else { return .withdraw }
     switch waiting {
     case .cycle:
       return .post(title: title, body: current.nextStage?.summary ?? unnamedStage)
@@ -60,7 +62,7 @@ enum ReminderBanner: Equatable {
 
   /// Whether the Dock should bounce for this change, independent of whether a notification can
   /// be posted: a denied notification is not a reason to withhold the bounce.
-  static func wantsAttention(from previous: DaemonState?, to current: DaemonState?) -> Bool {
+  static func wantsAttention(from previous: DaemonState?, to current: DaemonState) -> Bool {
     let waiting = waitingKind(current)
     return waiting != nil && waitingKind(previous) != waiting
   }
