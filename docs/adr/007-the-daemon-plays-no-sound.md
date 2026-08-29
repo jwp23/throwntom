@@ -46,22 +46,33 @@ Consequences:
   intent, not a regression: quitting the client is the off switch.
 - The TUI is unchanged — audible, with the repeat loop, on macOS and Linux.
   It presents its own reminders because it is its own core, not a client.
-- On macOS the nag changes shape: one chime and one persistent banner, rather
-  than a sound repeated until the bound in `repeat_limit_secs` is reached. The
-  banner does not go away by itself, so the reminder is still outstanding
-  until it is answered; it just stops being loud about it.
-- `sound_command`, `repeat_limit_secs` and the system sound names now describe
-  the TUI only.
+- On macOS the nag keeps its cadence. Joe's requirement, 2026-08-29: "I do
+  want the repeated chime since that's the best reminder that I won't play."
+  A single chime plus a persistent banner is not enough — the repeat is the
+  part of the reminder that actually works. So the repeat loop reaches the
+  client: the daemon rings on its existing cadence, bounded by
+  `repeat_limit_secs`, and the client makes each ring audible. The daemon
+  still plays nothing itself; it publishes the ring and the client sounds it.
+- `sound_command` and the system sound names describe the TUI only.
+  `repeat_limit_secs` still bounds both, because it bounds the daemon's ring
+  cadence rather than any one program's audio.
 - On macOS the reminder is now only as audible as the user's notification
-  settings allow. `afplay` bypassed all of it; a banner's sound is suppressed
-  by Focus, by turning sound off for Throwntom, or by an alert style of None,
-  and a user who denies notifications outright is left with the Dock bounce
-  alone. The app already says so where the user can see it and offers the way
-  to undo it, which is the mitigation; the loss of a sound nothing could
-  silence is real regardless.
-- `test-sound` over the daemon API plays nothing while reporting success. It
-  is a TUI command that the daemon's generic command endpoint also happens to
-  expose; making it honest is tracked separately.
+  settings allow. `afplay` bypassed all of it; a banner's sound is subject to
+  Focus and to the notification settings for Throwntom, and a user who denies
+  notifications outright is left with the Dock bounce alone. Which settings
+  silence a banner is macOS's behaviour rather than this app's, and is not
+  asserted here beyond that.
+  The mitigation is partial and worth stating exactly: `ReminderAuthorization`
+  reads `UNAuthorizationStatus`, so the app tells the user when notifications
+  are denied or not yet allowed, and points at System Settings. It cannot see
+  Focus or a per-app sound setting, so a reminder silenced that way is
+  silenced with no explanation. The loss of a sound nothing could silence is
+  real regardless.
+- `test-sound` over the daemon API plays nothing while reporting success:
+  `handleTestSound` returns "Sound test played." whenever `PlaySound` returns
+  no error, which `Silent()` always does. It is a TUI command that the
+  daemon's generic command endpoint also happens to expose; making it honest
+  is throwntom-9vv.
 
 This depended on throwntom-8pc, which gave the morning nudge a macOS banner of
 its own. Before that the morning reminder was sound only on macOS, and
@@ -78,8 +89,13 @@ We give up audible reminders for a headless daemon on Linux with no client
 attached. Nothing presents that configuration today, and giving it sound back
 means giving it a client, which is the shape ADR-003 asks for anyway.
 
-Whether the repeat loop should reach the macOS client at all — a chime per
-repeat rather than one per banner — is deliberately left open. It would mean
-publishing a ring as an event rather than a state, and duplicating the
-reminder cadence into every client, which is not worth it for one repeat that
-a persistent banner already covers.
+The repeat loop does reach the macOS client: a chime per repeat, not one per
+banner. An earlier draft of this ADR left that open and guessed that a
+persistent banner made the repeat unnecessary. Joe rejected that on
+2026-08-29 — the repeated chime is the reminder he does not ignore — so the
+cadence is published rather than dropped, and the client sounds each ring.
+
+The cost is real and accepted: the reminder cadence now crosses the daemon's
+boundary, so a client must be told about a ring rather than deriving it from
+state alone. It stays the daemon's cadence, not a second one invented in each
+client, which is what keeps `repeat_limit_secs` meaning one thing.
