@@ -19,16 +19,19 @@ enum TaskHints {
 /// Right-click on a task row: every task verb, with its shortcut, applied to that row.
 struct TaskContextMenu: View {
 
-  // MARK: Internal
-
   let task: TaskItem
   let environment: AppEnvironment
 
   var body: some View {
-    MenuGroups(menu: MenuModel.tasks(model: environment.model)) { item in
+    MenuGroups(menu: MenuModel.tasks(model: environment.model, focusedRow: isRowFocused)) { item in
       Button("\(item.title)  \(item.action.shortcutHint)") { run(item.action) }
         .disabled(!item.isEnabled)
     }
+  }
+
+  /// The verbs read for the row the menu was opened on, which need not be the selected one.
+  var isRowFocused: Bool {
+    environment.model.focusedIDs.contains(task.id)
   }
 
   /// Selects the row the menu was opened on, then behaves exactly like the Tasks menu.

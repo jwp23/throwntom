@@ -40,13 +40,18 @@ struct MenuShortcut: Equatable {
 
 /// One row of a command menu: the verb it runs, how to reach it and whether it can run now.
 struct MenuItem<Action: MenuAction>: Identifiable {
+  init(action: Action, shortcut: MenuShortcut?, isEnabled: Bool, title: String? = nil) {
+    self.action = action
+    self.shortcut = shortcut
+    self.isEnabled = isEnabled
+    self.title = title ?? action.title
+  }
+
   let action: Action
   let shortcut: MenuShortcut?
   let isEnabled: Bool
-
-  var title: String {
-    action.title
-  }
+  /// Usually the action's own title; a toggle verb passes the wording for the current state.
+  let title: String
 
   var id: Action {
     action
@@ -90,14 +95,17 @@ extension MenuModel where Action == TimerAction {
 
 extension MenuModel where Action == TaskAction {
   /// The Tasks menu for the current editor state. Every verb but New Task needs a selection,
-  /// and the inline new-task row owns the keyboard while it is open.
+  /// and the inline new-task row owns the keyboard while it is open. `focusedRow` names the task
+  /// the menu was opened on when that is not the selected one, so Focus reads as its own undo.
   @MainActor
-  static func tasks(model: TaskWindowModel) -> MenuModel {
+  static func tasks(model: TaskWindowModel, focusedRow: Bool? = nil) -> MenuModel {
+    let focused = focusedRow ?? model.isSelectedFocused
     func item(_ action: TaskAction, _ key: KeyEquivalent, _ modifiers: EventModifiers) -> MenuItem<TaskAction> {
       MenuItem(
         action: action,
         shortcut: MenuShortcut(key: key, modifiers: modifiers),
         isEnabled: model.canPerform(action),
+        title: action.title(focused: focused),
       )
     }
     return MenuModel(groups: [
