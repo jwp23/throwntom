@@ -2,8 +2,8 @@
 
 Report and prune Launch Services registrations for `com.jwp23.throwntom`.
 
-```
-lsreg list    # every registration for the bundle id, marked live or stale
+```console
+lsreg list    # every registration for the bundle id, marked live, stale, or unknown
 lsreg prune   # unregister the stale ones, and only those
 ```
 
