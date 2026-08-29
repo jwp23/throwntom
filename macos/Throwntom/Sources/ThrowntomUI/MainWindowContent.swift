@@ -27,6 +27,7 @@ struct MainWindowContent: Equatable {
   ) {
     scheme = Palette.scheme(for: state?.state)
     glyph = Self.glyph(for: state?.state)
+    pose = MascotPose.pose(for: state?.state, pausedFrom: state?.pausedFrom ?? .idle)
     title = state?.state.displayName ?? ConnectionStatus.placeholderText(state: nil, connection: connection, now: now) ?? ""
     countdown = state.flatMap { Self.countdown(for: $0, now: now) }
     nextStage = state?.nextStage.map { "Next: \($0.summary)" }
@@ -44,6 +45,7 @@ struct MainWindowContent: Equatable {
 
   let scheme: PhaseScheme
   let glyph: MascotGlyph
+  let pose: MascotPose
   let title: String
   let countdown: String?
   let nextStage: String?

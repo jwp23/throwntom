@@ -90,6 +90,16 @@ final class MainWindowContentTests: XCTestCase {
     XCTAssertFalse(content(nil, connection: .connecting).pulses)
   }
 
+  func testPoseFollowsThePhase() {
+    XCTAssertEqual(content(makeState(phase: .work)).pose, .work)
+    XCTAssertEqual(content(makeState(phase: .shortBreak)).pose, .shortBreak)
+    XCTAssertEqual(content(makeState(phase: .longBreak)).pose, .longBreak)
+    XCTAssertEqual(content(makeState(phase: .idle)).pose, .idle)
+    XCTAssertEqual(content(makeState(phase: .awaitingConfirm)).pose, .awaitingConfirm)
+    XCTAssertEqual(content(makeState(phase: .paused, pausedFrom: .shortBreak)).pose, MascotPose.shortBreak.paused())
+    XCTAssertEqual(content(nil, connection: .connecting).pose, .disconnected)
+  }
+
   // MARK: Private
 
   private let now = Date(timeIntervalSince1970: 1_000_000)
