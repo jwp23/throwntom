@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - CharacterLayer
 
 /// One layer in the mascot character, in render order.
-enum CharacterLayer: Equatable {
+enum CharacterLayer: Hashable {
   case body
   case face
   case arms
@@ -59,7 +59,7 @@ struct MascotCharacterView: View {
 
   private var character: some View {
     ZStack {
-      ForEach(Array(Self.layers(for: pose).enumerated()), id: \.offset) { _, layer in
+      ForEach(Self.layers(for: pose), id: \.self) { layer in
         layerView(layer)
       }
     }

@@ -27,4 +27,12 @@ final class MascotViewTests: XCTestCase {
     XCTAssertEqual(MascotCharacterView.layers(for: .shortBreak), [.body, .face, .arms, .hands, .held(.drink)])
     XCTAssertEqual(MascotCharacterView.layers(for: .work), [.body, .face, .arms, .hands])
   }
+
+  func testLayersAreUniqueSoIdentityIsStable() {
+    let poses: [MascotPose] = [.work, .shortBreak, .longBreak, .idle, .awaitingConfirm, .disconnected]
+    for pose in poses {
+      let layers = MascotCharacterView.layers(for: pose)
+      XCTAssertEqual(Set(layers).count, layers.count)
+    }
+  }
 }

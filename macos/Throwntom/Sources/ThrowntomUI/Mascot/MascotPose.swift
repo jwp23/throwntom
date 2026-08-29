@@ -3,7 +3,7 @@ import Foundation
 // MARK: - HeldProp
 
 /// Something the tomato holds; it moves with the body.
-enum HeldProp: Equatable {
+enum HeldProp: Hashable {
   case drink
   case book
   case yoyo
