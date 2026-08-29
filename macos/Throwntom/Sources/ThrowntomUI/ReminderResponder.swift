@@ -70,6 +70,7 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
     shownState = state
     switch banner {
     case .post(let title, let body):
+      presenter.requestAttention()
       do {
         try await presenter.postReminder(title: title, body: body)
       } catch {
@@ -77,6 +78,7 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
       }
 
     case .postMorning(let title, let body):
+      presenter.requestAttention()
       do {
         try await presenter.postMorningReminder(title: title, body: body)
       } catch {

@@ -46,14 +46,17 @@ func makeState(
   nextStage: DaemonState.NextStage? = nil,
   snoozeUntil: Date? = nil,
   phaseEndAt: Date? = nil,
+  pausedRemaining: Int = 0,
+  completedToday: Int = 0,
+  workSessionsInBlock: Int = 0,
   focusedTaskIds: [Int] = [],
 ) -> DaemonState {
   DaemonState(
     state: phase,
     phaseEndAt: phaseEndAt,
-    pausedRemaining: 0,
-    completedToday: 0,
-    workSessionsInBlock: 0,
+    pausedRemaining: pausedRemaining,
+    completedToday: completedToday,
+    workSessionsInBlock: workSessionsInBlock,
     longBreakEvery: 4,
     nextStage: nextStage,
     morningPending: morningPending,
@@ -80,6 +83,7 @@ final class StubReminderPresenter: ReminderPresenter {
   private(set) var posts = [Post]()
   private(set) var morningPosts = [Post]()
   private(set) var withdrawals = 0
+  private(set) var attentionRequests = 0
 
   func registerReminderButtons() {
     registeredButtons = true
@@ -101,6 +105,10 @@ final class StubReminderPresenter: ReminderPresenter {
 
   func withdrawReminder() {
     withdrawals += 1
+  }
+
+  func requestAttention() {
+    attentionRequests += 1
   }
 }
 
