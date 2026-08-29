@@ -362,6 +362,10 @@ tools/tomctl/         daemon CLI
   drive (`macos/build.sh`, quit, bootout, reopen).
 - CI: Go workflow unchanged; the macOS job builds the bundle and runs
   `swift test`.
+- Swift, mascot: `MascotSnapshotTests` renders every pose and the motion
+  extremes through `ImageRenderer`; `tools/mascot-snap.sh [dir]` runs it with
+  `MASCOT_SNAPSHOT_DIR` set to write 2× PNGs for checking against
+  `docs/designs/mascot-poses.html` without launching the app.
 
 ## Delivery order
 
