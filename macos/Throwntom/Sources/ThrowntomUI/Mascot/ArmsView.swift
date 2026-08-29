@@ -11,6 +11,13 @@ struct Arm: Equatable {
     hand = CGPoint(hx, hy)
   }
 
+  init(shoulder: CGPoint, _ c1x: Double, _ c1y: Double, _ c2x: Double, _ c2y: Double, _ hx: Double, _ hy: Double) {
+    self.shoulder = shoulder
+    control1 = CGPoint(c1x, c1y)
+    control2 = CGPoint(c2x, c2y)
+    hand = CGPoint(hx, hy)
+  }
+
   var shoulder: CGPoint
   var control1: CGPoint
   var control2: CGPoint
