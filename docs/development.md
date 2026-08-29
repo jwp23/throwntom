@@ -1,7 +1,9 @@
 # Developing throwntom
 
-How to drive the daemon and the macOS app from a terminal — for people, and for an agent that
-has to check the UI without a human watching.
+How to drive the daemon and the macOS app from a terminal. Most of this exists so that a coding
+agent can build, run and *look at* the app on its own — without a human watching — and it works
+just as well for a developer at a terminal. The TUI is covered at the end; everything else here is
+about the daemon and the macOS app.
 
 ## The daemon from the command line
 
@@ -11,7 +13,7 @@ has to check the UI without a human watching.
 go build -o tomctl ./tools/tomctl           # or prefix each call with: go run ./tools/tomctl
 ./tomctl state                              # the State document (see docs/designs/native-macos-client.md)
 ./tomctl events                             # one State per line as it changes, until Ctrl-C
-./tomctl cmd pause                          # also: resume, stop, confirm, snooze 10, skip-today, new-cycle
+./tomctl cmd pause                          # also: resume, stop, confirm, snooze 10m, skip-today, new-cycle
 ./tomctl cmd task add "write tests"
 ```
 
@@ -54,6 +56,13 @@ after: the tour writes completed pomodoros into today's stats. Remove the `[pomo
 
 ## Seeing the app without a human
 
+This section is for autonomous verification: an agent (or a script) changes the daemon's state,
+captures what the window shows, and compares. It is also, in effect, a way to drive the app
+programmatically — everything the window *shows* follows the daemon, so the timer routes and
+`tomctl` are a complete remote control for the timer and tasks. What they cannot do is press the
+window's own controls (panels, the shortcut sheet); there is no AppleScript or accessibility
+automation, and no use case for one so far.
+
 - `tools/mascot-snap.sh [dir]` renders every mascot pose, the motion extremes and the timer header
   offscreen through `ImageRenderer` (no window, no permissions) into `docs/designs/mascot-screenshots`
   by default. It is the `MascotSnapshotTests` test with `MASCOT_SNAPSHOT_DIR` set.
@@ -67,6 +76,16 @@ after: the tour writes completed pomodoros into today's stats. Remove the `[pomo
 
 ## The macOS dev loop
 
-`macos/install.sh` quits the app, stops the agent, rebuilds, copies the bundle to `~/Applications`
-and opens it. The launch-agent label is shared by every build, so whichever bundle you opened last
-owns the registered daemon.
+`macos/install.sh` quits the app, stops the agent, rebuilds (about a minute), copies the bundle to
+`~/Applications` and opens it; allow up to half a minute of "Starting timer…" after that. The
+launch-agent label is shared by every build, so whichever bundle you opened last owns the
+registered daemon.
+
+## The terminal UI
+
+The TUI runs the engine in-process and does not use the daemon (throwntom-ii1 tracks making it a
+client). Run it from source with `go run ./cmd/throwntom`, or safely while a real session is running
+with `tools/dev-quiet.sh` (throwaway `HOME`, silent). Its tests are the Go unit tests
+(`go test -timeout 30s ./...`), the integration tests (`-tags=integration ./integration`) and the
+end-to-end tests (`-tags=e2e ./e2e`); the pre-commit hook runs the unit tests. Do not run the TUI and
+the daemon at the same time — they share `~/.config/throwntom/session.json`.

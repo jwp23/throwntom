@@ -6,37 +6,68 @@
 
 thrown tomatos => throwntom
 
-CLI-first pomodoro timer that won't let you forget to start timers, with repeating reminders until explicit confirmation.
+Pomodoro timer that won't let you forget to start timers, with repeating reminders until explicit confirmation.
 
-## Build
+## Interfaces
+
+throwntom is three programs that share one timer engine and one config:
+
+- **`throwntom`** — the original terminal UI. It runs the timer in-process and
+  does not use the daemon yet (that move is planned; see the Daemon section).
+- **`throwntomd`** — the background daemon: runs the timer, reminders and task
+  store and serves a JSON API on a Unix socket. Every graphical client is a
+  thin view over it.
+- **Throwntom.app** — the macOS window app, backed by `throwntomd`.
+
+Native Linux and Android clients are next. Once they exist the TUI is the odd
+one out — its own test surface for a timer the daemon already runs — so expect
+it to become a daemon client or be retired; it stays for now because some
+people simply prefer a terminal.
+
+Prerequisites: Go (version in `go.mod`) for the TUI and daemon; the macOS app
+additionally needs Xcode 26 with its command-line tools (`swift build` and the
+SDK come from it — see `macos/README.md`).
+
+## Terminal UI
+
+Build or install the TUI:
 
 ```bash
 go build -o throwntom ./cmd/throwntom
-```
-
-## Install
-
-```bash
 go install github.com/jwp23/throwntom/v3/cmd/throwntom@latest
 ```
+
+Run it:
+
+```bash
+throwntom
+throwntom --config path/to/config.toml
+```
+
+Build the daemon the same way (`go build -o throwntomd ./cmd/throwntomd`); on
+macOS the app bundle carries its own copy, so you only need this to run the
+daemon by hand.
 
 ## macOS app
 
 The macOS client is one phase-coloured window with the tomato mascot on top: it
-draws what `throwntomd` reports and sends the timer verbs back. It needs Xcode
-(see `macos/README.md` for versions) and Go.
+draws what `throwntomd` reports and sends the timer verbs back.
 
 ```bash
-macos/install.sh        # build, install to ~/Applications, open
+macos/install.sh        # build, install to ~/Applications, and open
 ```
 
-The first launch registers the bundled launchd agent that runs `throwntomd`;
-after that the app is in Spotlight and Launchpad, and Launch at Login is a
-toggle in its application menu. Press ⌘/ in the window for every shortcut.
+That takes about a minute. The first launch registers the bundled launchd agent
+that runs `throwntomd` — the window shows "Starting timer…" for up to half a
+minute while it comes up — and after that the app is in Spotlight and Launchpad,
+and Launch at Login is a toggle in its application menu. Phase changes post a
+notification and bounce the Dock icon as well as recolouring the window; press
+⌘/ in the window for every shortcut.
 
 Quitting the app does not stop the timer: the daemon keeps running (and keeps
-reminding you) under launchd. To stop it for the day use the window's **Stop**
-(idle the timer) or **Skip Today**; to stop the daemon itself, quit the app
+reminding you) under launchd. The window has no stop button yet: **Skip Today**
+(shown while idle) ends the day, and a running or owed phase is stopped from a
+terminal with `tools/tomctl cmd stop`. To stop the daemon itself, quit the app
 first — an open app re-registers the agent after a few failed connections —
 then:
 
@@ -49,16 +80,11 @@ The app registers it again the next time it opens. Rebuilding is the same
 `macos/README.md`, and driving the daemon or checking the window from a
 terminal is in `docs/development.md`.
 
-## Usage
-
-```bash
-throwntom
-throwntom --config path/to/config.toml
-```
-
 ## Commands
 
-Type these commands in the interactive prompt:
+The TUI reads these at its prompt; the daemon accepts the same lines through
+`tools/tomctl cmd <line>`. The macOS window exposes the timer verbs as buttons
+and menu items and the task commands through its tasks panel.
 
 - `start` - start work period
 - `new-cycle` - start a fresh cycle now (reset cycle progress, keep today's total)
@@ -129,8 +155,9 @@ Pomodoro counts carry a tier glyph and color (thresholds configurable):
 `throwntomd` runs the timer, reminders and task store as a background
 process and serves a JSON API over `~/.config/throwntom/daemon.sock`
 (see `docs/designs/native-macos-client.md` for the routes). Only one
-instance runs at a time (`daemon.lock`). Do not run the daemon and the
-interactive `throwntom` TUI at the same time: they share `session.json`.
+instance runs at a time (`daemon.lock`). The TUI does not talk to the daemon
+yet — it runs its own copy of the engine — so do not run both at the same
+time: they share `session.json`.
 
 Control the daemon from the command line with `tools/tomctl` (see
 `tools/tomctl/README.md` for usage and build instructions, and
@@ -187,6 +214,13 @@ makes noise:
 - **On Linux**, it is tried first and, if it fails, throwntom falls back to
   `paplay`, `canberra-gtk-play`, `aplay`, then the terminal bell.
 
+On macOS, to pick a different system sound (the built-in choice is Blow for
+the morning nudge, Glass for confirm reminders, Tink for `test-sound`):
+
+```toml
+sound_command = ["afplay", "/System/Library/Sounds/Purr.aiff"]
+```
+
 To silence sound entirely (e.g. while testing or in a meeting), set:
 
 ```toml
@@ -201,8 +235,8 @@ change — including `sound_command` — needs a restart to take effect.
 
 If you only need to silence *one* running reminder rather than sound in
 general (for example, ducking out of a meeting), don't edit the config —
-run `tools/tomctl cmd snooze` or `tools/tomctl cmd stop` against the running
-daemon instead.
+run `tools/tomctl cmd snooze 10m` or `tools/tomctl cmd stop` against the
+running daemon instead.
 
 Schedule supports day aliases: `"weekday"` expands to Mon-Fri, `"weekend"` to Sat-Sun. Specific-day entries automatically carve out from alias expansions.
 
@@ -240,7 +274,8 @@ Schedule supports day aliases: `"weekday"` expands to Mon-Fri, `"weekend"` to Sa
 ```bash
 go test -timeout 30s ./... -v
 go vet ./...
-go build ./cmd/throwntom
+go build ./cmd/throwntom ./cmd/throwntomd   # TUI and daemon
+cd macos/Throwntom && swift test            # macOS app (needs Xcode)
 ```
 
 ## Pre-commit checks

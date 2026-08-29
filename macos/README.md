@@ -6,21 +6,43 @@ daemon; the app renders `DaemonState` and sends commands over the Unix socket at
 
 ## Requirements
 
-- macOS 14+, Xcode 26 (`xcodebuild` and the Swift 6 toolchain), Go (see `go.mod`).
+Building the app — whether to install it or to develop on it — needs:
 
-## Build and run
+- macOS 14 or later to run it (built and tested on macOS 26).
+- Xcode 26 with its command-line tools: `build.sh` uses `swift build` and the
+  macOS SDK from it, and CI runs the tests with `xcodebuild`. There is no
+  prebuilt download.
+- Go (version in `go.mod`) to build the embedded `throwntomd`.
 
-    macos/install.sh        # quit, stop the agent, build, copy to ~/Applications, open
-    macos/build.sh          # build only → macos/.build/Throwntom.app
+## Install
+
+    macos/install.sh [dir]   # ~1 min: quit the app, stop its agent, build, copy to ~/Applications (or dir), open
+
+The bundle lands where Spotlight and Launchpad find it. Rebuilding after a
+change is the same command; it does the reload described under Development
+loop for you.
+
+## Build only
+
+    macos/build.sh [dir]     # → macos/.build/Throwntom.app (or dir); does not open it
     open macos/.build/Throwntom.app
 
-`install.sh` puts the bundle where Spotlight and Launchpad find it and runs the
-reload below for you; pass another directory to install elsewhere.
+A release build takes about a minute the first time and well under that
+afterwards.
+
+## First launch
 
 On first launch the app registers its bundled launchd agent
 (`com.jwp23.throwntom.daemon`), which starts `throwntomd` and keeps it alive.
 macOS shows a "Background item added" notification; nothing to approve. The
-agent appears in System Settings → General → Login Items.
+agent appears in System Settings → General → Login Items. Until the socket
+answers — up to about half a minute after registration — the window shows
+"Starting timer…" with the disconnected mascot.
+
+At the end of every phase the app posts a notification (it asks for
+permission the first time), plays the sound, bounces the Dock icon and
+recolours the window. The daemon never notifies on its own
+(`docs/adr/003-clients-own-user-facing-notification.md`).
 
 The app never spawns the daemon itself. If the socket is unreachable it
 reconnects with backoff and, after three failures, re-registers the agent.
@@ -57,7 +79,9 @@ built by the tests with `go build` and run with `HOME` under `/tmp`.
   agent's code signature at registration; `kickstart -k` fails with
   `OS_REASON_CODESIGNING`). Reload it: quit the app,
   `launchctl bootout gui/$(id -u)/com.jwp23.throwntom.daemon`, then reopen the
-  app — it re-registers the new binary.
+  app — it re-registers the new binary. Budget a minute for the rebuild and up
+  to half a minute of "Starting timer…" after reopening (the reconnect backoff;
+  throwntom-mwh). `macos/install.sh` runs this whole loop.
 - To develop without the app: `macos/agent.sh install` runs
   `macos/.build/throwntomd` under a separate label (`com.jwp23.throwntom.dev`)
   logging to `~/.config/throwntom/daemon.log`; `restart` reloads it after a
@@ -72,8 +96,9 @@ built by the tests with `go build` and run with `HOME` under `/tmp`.
 ## Stopping
 
 Quitting the app leaves the daemon running under launchd (`KeepAlive`), so the
-timer and its end-of-phase reminder continue. **Stop** in the window idles the
-timer and **Skip Today** ends the day; to stop the daemon itself, quit the app
+timer and its end-of-phase reminder continue. The window has no stop button
+yet: **Skip Today** (offered while idle) ends the day, and a running or owed
+phase is stopped with `tools/tomctl cmd stop`; to stop the daemon itself, quit the app
 first (an open app re-registers the agent after three failed connections), then
 run `launchctl bootout gui/$(id -u)/com.jwp23.throwntom.daemon` — the app
 registers it again on its next launch.
