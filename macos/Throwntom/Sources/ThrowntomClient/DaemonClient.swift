@@ -107,6 +107,12 @@ public final class DaemonClient {
     }
   }
 
+  public func stats() async throws -> StatsSummary {
+    let response = try await transport.request("GET", DaemonAPI.stats, body: nil)
+    try Self.check(response)
+    return try DaemonJSON.goFieldDecoder.decode(StatsSummary.self, from: response.body)
+  }
+
   // MARK: Private
 
   private let transport: DaemonTransport
@@ -191,6 +197,7 @@ private enum DaemonAPI {
   static let command = "/v1/command"
   static let tasks = "/v1/tasks"
   static let events = "/v1/events"
+  static let stats = "/v1/stats"
   static let snooze = "/v1/timer/snooze"
 
   static func timer(_ verb: TimerVerb) -> String {
