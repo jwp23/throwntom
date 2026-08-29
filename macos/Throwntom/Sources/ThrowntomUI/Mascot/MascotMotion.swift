@@ -33,7 +33,7 @@ enum MascotMotion {
       frame.bobDegrees = breatheDegrees * sin(2 * .pi * seconds / breathePeriod)
     }
     if motions.contains(.blink) {
-      frame.blinking = seconds.truncatingRemainder(dividingBy: blinkInterval) < blinkDuration
+      frame.blinking = seconds.truncatingRemainder(dividingBy: blinkInterval) >= blinkInterval - blinkDuration
     }
     if motions.contains(.yoyo) {
       let swing = 0.5 - 0.5 * cos(2 * .pi * seconds / yoyoPeriod)

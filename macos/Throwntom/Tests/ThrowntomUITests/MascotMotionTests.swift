@@ -16,10 +16,12 @@ final class MascotMotionTests: XCTestCase {
   }
 
   func testBlinkIsBriefAndPeriodic() {
-    XCTAssertTrue(MascotMotion.frame(at: MascotMotion.blinkInterval + 0.05, motions: [.blink]).blinking)
-    XCTAssertFalse(MascotMotion.frame(at: MascotMotion.blinkInterval + 0.2, motions: [.blink]).blinking)
+    XCTAssertFalse(MascotMotion.frame(at: 0, motions: [.blink]).blinking)
     XCTAssertFalse(MascotMotion.frame(at: 1, motions: [.blink]).blinking)
-    XCTAssertFalse(MascotMotion.frame(at: MascotMotion.blinkInterval + 0.05, motions: [.breathe]).blinking)
+    XCTAssertTrue(MascotMotion.frame(at: MascotMotion.blinkInterval - 0.05, motions: [.blink]).blinking)
+    XCTAssertFalse(MascotMotion.frame(at: MascotMotion.blinkInterval + 0.05, motions: [.blink]).blinking)
+    XCTAssertTrue(MascotMotion.frame(at: 2 * MascotMotion.blinkInterval - 0.05, motions: [.blink]).blinking)
+    XCTAssertFalse(MascotMotion.frame(at: MascotMotion.blinkInterval - 0.05, motions: [.breathe]).blinking)
   }
 
   func testYoyoDropsAndReturns() {
