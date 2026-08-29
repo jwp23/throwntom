@@ -45,6 +45,7 @@ enum HeldProps {
   // units (the body is rotated -12°) is this direction.
   static let yoyoHand = CGPoint(77, 91.4)
   static let yoyoDirection = CGPoint(-0.208, 0.978)
+  static let yoyoAcross = CGPoint(0.978, 0.208)
   static let yoyoDiscRadius = 5.5
 
   /// A yanked cable, one end in each hand.
@@ -92,6 +93,15 @@ enum HeldProps {
     DesignShape { path, units in
       let end = yoyoEnd(drop: drop + yoyoDiscRadius)
       path.circle(units, end.x, end.y, 1.5)
+    }
+  }
+
+  static func yoyoGroove(drop: Double) -> DesignShape {
+    DesignShape { path, units in
+      let centre = yoyoEnd(drop: drop + yoyoDiscRadius)
+      let across = CGPoint(yoyoAcross.x * yoyoDiscRadius, yoyoAcross.y * yoyoDiscRadius)
+      path.move(units, centre.x - across.x, centre.y - across.y)
+      path.line(units, centre.x + across.x, centre.y + across.y)
     }
   }
 }
@@ -155,6 +165,7 @@ struct HeldPropView: View {
       HeldProps.yoyoString(drop: yoyoDrop).stroke(outline, lineWidth: 1.5 * unit)
       HeldProps.yoyoDisc(drop: yoyoDrop).fill(MascotPalette.sky.color)
       HeldProps.yoyoDisc(drop: yoyoDrop).stroke(outline, lineWidth: 2 * unit)
+      HeldProps.yoyoGroove(drop: yoyoDrop).stroke(outline, lineWidth: 1.5 * unit)
       HeldProps.yoyoAxle(drop: yoyoDrop).fill(outline)
     }
   }

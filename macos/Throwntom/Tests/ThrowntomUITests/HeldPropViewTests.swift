@@ -29,6 +29,14 @@ final class HeldPropViewTests: XCTestCase {
     XCTAssertEqual(HeldProps.yoyoString(drop: 18).path(in: canvas).currentPoint?.y ?? 0, far.midY, accuracy: 8)
   }
 
+  func testYoyoGrooveSpansTheDisc() {
+    let groove = HeldProps.yoyoGroove(drop: 10).path(in: canvas).boundingRect
+    let disc = HeldProps.yoyoDisc(drop: 10).path(in: canvas).boundingRect
+    XCTAssertEqual(groove.width, 2 * 0.978 * HeldProps.yoyoDiscRadius, accuracy: 0.1)
+    XCTAssertEqual(groove.midX, disc.midX, accuracy: 0.1)
+    XCTAssertEqual(groove.midY, disc.midY, accuracy: 0.1)
+  }
+
   func testCableEndsLeaveBothHands() {
     XCTAssertEqual(HeldProps.cableLeft.path(in: canvas).boundingRect.minX, 35, accuracy: 1)
     XCTAssertEqual(HeldProps.cableRight.path(in: canvas).boundingRect.maxX, 94, accuracy: 1)
