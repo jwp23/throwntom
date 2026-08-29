@@ -45,21 +45,29 @@ public final class DaemonClient {
   /// must not be hidden by the connection guard below.
   public private(set) var commandError: String?
 
-  /// Whether the daemon has ever answered. Until it has, the connection states are the whole
-  /// story and the window has nothing to add to them.
+  /// Whether the daemon has ever answered — bytes arrived, whether or not they parsed. Until it
+  /// has, the connection states are the whole story and the window has nothing to add to them.
   public private(set) var hasConnected = false
+
+  /// Set when launchd refuses to start the daemon, cleared when it accepts or the daemon answers.
+  /// Kept apart from `lastError` because the dial errors that follow would otherwise overwrite
+  /// it within one backoff step, leaving the window on "Starting timer…" explaining nothing.
+  public private(set) var registrationError: String?
 
   /// The last error while it still matters: reconnecting hides `lastError` without forgetting
   /// it, but a refused command is shown regardless of connection state.
   ///
-  /// A first launch reports nothing here. `Connection` already says "Starting timer…" while the
-  /// client dials, and a note under it saying the timer is restarting would be both untrue —
-  /// nothing has restarted yet — and a second, competing message. Only a connection that was
-  /// established and then lost is a reconnect worth narrating.
+  /// The reconnect note is suppressed wherever `Connection` is already saying it. "Starting
+  /// timer…" and a note reading "Timer is restarting…" are two messages competing to say one
+  /// thing, so the status line wins; and before the daemon has ever answered the note is untrue
+  /// as well, because nothing has restarted yet. A failure to start the daemon at all is not a
+  /// competing message but the reason nothing is happening, so it still reports.
   public var unresolvedError: String? {
     if let commandError {
       commandError
-    } else if connection == .connected || !hasConnected {
+    } else if let registrationError {
+      registrationError
+    } else if connection == .connected || connection == .startingDaemon || !hasConnected {
       nil
     } else {
       lastError
@@ -152,9 +160,12 @@ public final class DaemonClient {
     while !Task.isCancelled {
       do {
         for try await frame in transport.events(DaemonAPI.events) {
+          // Before the decode: the daemon has answered even if we cannot read what it said, and
+          // a daemon that is up but talking nonsense has still been reached.
+          hasConnected = true
+          registrationError = nil
           let decoded = try DaemonJSON.decoder.decode(DaemonState.self, from: frame)
           retries.reset()
-          hasConnected = true
           connection = .connected
           state = decoded
           await refreshTasks()
@@ -185,9 +196,10 @@ public final class DaemonClient {
   private func registerAgent() -> Bool {
     do {
       try registrar.ensureAgentRegistered()
+      registrationError = nil
       return true
     } catch {
-      lastError = "The timer could not be started."
+      registrationError = "The timer could not be started."
       return false
     }
   }

@@ -87,10 +87,27 @@ struct RefusingRegistrar: LaunchAgentRegistrar {
   }
 }
 
+// MARK: - UndecodableFrameTransport
+
+/// A daemon that answers, but whose frames the client cannot decode. Proves the client counts
+/// the daemon as having answered even when it cannot read what it said.
+struct UndecodableFrameTransport: DaemonTransport {
+  func request(_: String, _: String, body _: Data?) async throws -> HTTPResponse {
+    HTTPResponse(status: 200, headers: [:], body: Data(#"{"active":[],"done":[]}"#.utf8))
+  }
+
+  func events(_: String) -> AsyncThrowingStream<Data, Error> {
+    AsyncThrowingStream { continuation in
+      continuation.yield(Data("not a state document".utf8))
+    }
+  }
+}
+
 // MARK: - DroppingTransport
 
 /// A daemon that connects, holds the stream open, and goes away when the test says so. The
 /// connection stays established until `drop()`, so a test can observe both sides of the drop.
+/// Single use: once dropped it stays dropped, so one instance models one daemon's lifetime.
 // Every mutable member is read and written under `lock`.
 // swiftlint:disable:next no_unchecked_sendable
 final class DroppingTransport: DaemonTransport, @unchecked Sendable {
@@ -230,9 +247,9 @@ final class ReconnectTests: XCTestCase {
     defer { client.stop() }
 
     try await waitUntil { client.connection == .startingDaemon }
-    try await waitUntil { client.lastError != nil }
+    try await waitUntil { client.unresolvedError != nil }
 
-    XCTAssertEqual(client.lastError, "The timer could not be started.")
+    XCTAssertEqual(client.unresolvedError, "The timer could not be started.")
   }
 
   /// The daemon answered, so telling the reader it could not be reached would send them after
@@ -266,6 +283,57 @@ final class ReconnectTests: XCTestCase {
       DaemonClient.failuresBeforeRegistering,
       "a rewound backoff would have dialled again 10 ms later",
     )
+  }
+
+  /// The collision Joe banned is a property of the status line, not of connection history: an
+  /// outage after a real connection also reaches "Starting timer…" on its third failure, and the
+  /// note must not appear under it there either.
+  func testNoNoteOnceTheStatusLineSaysStartingTimer() async throws {
+    let transport = DroppingTransport()
+    let client = DaemonClient(
+      transport: transport,
+      registrar: RecordingRegistrar(),
+      backoff: [.milliseconds(10), .milliseconds(10), .seconds(30)],
+    )
+    client.start()
+    defer { client.stop() }
+    try await waitUntil { client.connection == .connected }
+    transport.drop()
+
+    try await waitUntil { client.connection == .startingDaemon }
+
+    XCTAssertTrue(client.hasConnected, "this outage follows a real connection")
+    XCTAssertNil(client.unresolvedError, "the status line is already saying it")
+  }
+
+  /// A launchd refusal is the reason nothing is happening, so it has to outlive the dial errors
+  /// that follow it. Otherwise the window sits on "Starting timer…" forever explaining nothing.
+  func testARegistrationFailureIsNotClobberedByLaterDialErrors() async throws {
+    let transport = OutageTransport()
+    let client = DaemonClient(transport: transport, registrar: RefusingRegistrar(), backoff: [.milliseconds(10)])
+    client.start()
+    defer { client.stop() }
+
+    try await waitUntil { transport.dials >= DaemonClient.failuresBeforeRegistering * 2 + 1 }
+
+    XCTAssertEqual(client.unresolvedError, "The timer could not be started.")
+  }
+
+  /// "Answered" means bytes arrived, not that they parsed. A daemon that is up but talking
+  /// nonsense has still been reached, and losing it is still a reconnect.
+  func testAnUndecodableFrameStillCountsAsHavingReachedTheDaemon() async throws {
+    let client = DaemonClient(
+      transport: UndecodableFrameTransport(),
+      registrar: RecordingRegistrar(),
+      backoff: [.seconds(30)],
+    )
+    client.start()
+    defer { client.stop() }
+
+    try await waitUntil { client.connection == .reconnecting(attempt: 1) }
+
+    XCTAssertTrue(client.hasConnected, "the daemon answered, we just could not read it")
+    XCTAssertEqual(client.unresolvedError, "The timer sent a reply we could not read.")
   }
 
   // MARK: Private
