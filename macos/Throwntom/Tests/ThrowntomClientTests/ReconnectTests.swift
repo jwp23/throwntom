@@ -87,6 +87,53 @@ struct RefusingRegistrar: LaunchAgentRegistrar {
   }
 }
 
+// MARK: - DroppingTransport
+
+/// A daemon that connects, holds the stream open, and goes away when the test says so. The
+/// connection stays established until `drop()`, so a test can observe both sides of the drop.
+// Every mutable member is read and written under `lock`.
+// swiftlint:disable:next no_unchecked_sendable
+final class DroppingTransport: DaemonTransport, @unchecked Sendable {
+
+  // MARK: Internal
+
+  /// Ends the established stream, as a daemon exiting under the client would.
+  func drop() {
+    let live = lock.withLock {
+      hasDropped = true
+      return continuation
+    }
+    live?.finish(throwing: Self.reset)
+  }
+
+  func request(_: String, _: String, body _: Data?) async throws -> HTTPResponse {
+    HTTPResponse(status: 200, headers: [:], body: Data(#"{"active":[],"done":[]}"#.utf8))
+  }
+
+  func events(_: String) -> AsyncThrowingStream<Data, Error> {
+    AsyncThrowingStream { continuation in
+      let isGone = lock.withLock {
+        self.continuation = continuation
+        return hasDropped
+      }
+      guard !isGone else {
+        continuation.finish(throwing: Self.reset)
+        return
+      }
+      continuation.yield(Data(StateDecodingTests.idleJSON.utf8))
+    }
+  }
+
+  // MARK: Private
+
+  private static let reset = DaemonError.transport("connection reset")
+
+  private let lock = NSLock()
+  private var hasDropped = false
+  private var continuation: AsyncThrowingStream<Data, Error>.Continuation?
+
+}
+
 // MARK: - GarbledTransport
 
 /// A daemon that answers, but with a body the client cannot decode.
@@ -132,7 +179,42 @@ final class ReconnectTests: XCTestCase {
     client.start()
     defer { client.stop() }
 
-    try await waitUntil { client.unresolvedError != nil }
+    try await waitUntil { client.lastError != nil }
+    XCTAssertEqual(client.lastError, "Timer is restarting…")
+  }
+
+  /// A first launch already says "Starting timer…" in the status line. A note under it saying
+  /// the timer is restarting is both untrue - nothing has restarted yet - and a second, competing
+  /// message, so the cold-launch state carries no note at all.
+  func testAColdFirstLaunchShowsNoNoteUnderTheStatusLine() async throws {
+    let client = DaemonClient(
+      transport: OutageTransport(),
+      registrar: RecordingRegistrar(),
+      backoff: [.milliseconds(10)],
+    )
+    client.start()
+    defer { client.stop() }
+
+    try await waitUntil { client.connection == .startingDaemon }
+
+    XCTAssertNotNil(client.lastError, "the outage is still recorded")
+    XCTAssertNil(client.unresolvedError, "but the window shows the status line alone")
+  }
+
+  /// The other direction: once a connection has actually been established, losing it is a real
+  /// reconnect and does earn the note. Without this the suppression above would be satisfied by
+  /// a note that never appears at all.
+  func testALostConnectionDoesShowTheNote() async throws {
+    let transport = DroppingTransport()
+    let client = DaemonClient(transport: transport, registrar: RecordingRegistrar(), backoff: [.seconds(30)])
+    client.start()
+    defer { client.stop() }
+    try await waitUntil { client.connection == .connected }
+    XCTAssertNil(client.unresolvedError, "nothing to report while connected")
+
+    transport.drop()
+
+    try await waitUntil { client.connection != .connected }
     XCTAssertEqual(client.unresolvedError, "Timer is restarting…")
   }
 
@@ -148,9 +230,9 @@ final class ReconnectTests: XCTestCase {
     defer { client.stop() }
 
     try await waitUntil { client.connection == .startingDaemon }
-    try await waitUntil { client.unresolvedError != nil }
+    try await waitUntil { client.lastError != nil }
 
-    XCTAssertEqual(client.unresolvedError, "The timer could not be started.")
+    XCTAssertEqual(client.lastError, "The timer could not be started.")
   }
 
   /// The daemon answered, so telling the reader it could not be reached would send them after

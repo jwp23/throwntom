@@ -45,12 +45,21 @@ public final class DaemonClient {
   /// must not be hidden by the connection guard below.
   public private(set) var commandError: String?
 
+  /// Whether the daemon has ever answered. Until it has, the connection states are the whole
+  /// story and the window has nothing to add to them.
+  public private(set) var hasConnected = false
+
   /// The last error while it still matters: reconnecting hides `lastError` without forgetting
   /// it, but a refused command is shown regardless of connection state.
+  ///
+  /// A first launch reports nothing here. `Connection` already says "Starting timer…" while the
+  /// client dials, and a note under it saying the timer is restarting would be both untrue —
+  /// nothing has restarted yet — and a second, competing message. Only a connection that was
+  /// established and then lost is a reconnect worth narrating.
   public var unresolvedError: String? {
     if let commandError {
       commandError
-    } else if connection == .connected {
+    } else if connection == .connected || !hasConnected {
       nil
     } else {
       lastError
@@ -145,6 +154,7 @@ public final class DaemonClient {
         for try await frame in transport.events(DaemonAPI.events) {
           let decoded = try DaemonJSON.decoder.decode(DaemonState.self, from: frame)
           retries.reset()
+          hasConnected = true
           connection = .connected
           state = decoded
           await refreshTasks()
