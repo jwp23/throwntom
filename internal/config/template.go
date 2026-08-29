@@ -28,8 +28,13 @@ const Template = `# throwntom configuration.
 # Seconds a reminder keeps repeating before it gives up.
 # repeat_limit_secs = 300
 
-# Command run to play a reminder sound, as a list of arguments. Empty means
-# no sound. The sound name is appended as the final argument.
+# Command run to play a reminder sound, as a list of arguments: the first is
+# the executable, the rest are its arguments. It is run exactly as written.
+# The sound name is not passed to it, so one command serves every sound and
+# the morning nudge, the confirm reminder and the sound test cannot be told
+# apart by ear. Leaving this empty keeps the platform's own sounds: the macOS
+# system sounds, or on Linux paplay, canberra-gtk-play, aplay and finally the
+# terminal bell.
 # macOS example: sound_command = ["afplay", "/System/Library/Sounds/Glass.aiff"]
 # Linux example: sound_command = ["paplay", "/usr/share/sounds/freedesktop/stereo/complete.oga"]
 # sound_command = []
