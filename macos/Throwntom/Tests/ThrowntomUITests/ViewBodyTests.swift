@@ -74,6 +74,7 @@ final class ViewBodyTests: XCTestCase {
     _ = TaskRow(task: makeTask(id: 1), focused: true).body
     _ = TaskRow(task: makeTask(id: 2, done: true), focused: false).body
     _ = LoginItemToggle(registrar: environment.registrar).body
+    _ = ShortcutSheet(environment: environment).body
   }
 
   private func shutDown(_ environment: AppEnvironment) {

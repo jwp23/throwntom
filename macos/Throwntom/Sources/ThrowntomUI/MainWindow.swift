@@ -41,6 +41,9 @@ struct MainWindow: View {
     .foregroundStyle(content.scheme.text.color)
     .animation(.easeOut(duration: 0.25), value: content.scheme)
     .onExitCommand { escape() }
+    .sheet(isPresented: Bindable(environment.windowModel).showsShortcuts) {
+      ShortcutSheet(environment: environment)
+    }
     .onChange(of: environment.client.tasks, initial: true) { syncModel() }
     .onChange(of: environment.client.state?.focusedTaskIds, initial: true) { syncModel() }
     // Re-read the permission whenever the user comes back, so granting it in System Settings clears the note without a relaunch.
