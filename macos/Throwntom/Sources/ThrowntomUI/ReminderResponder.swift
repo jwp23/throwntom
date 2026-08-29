@@ -33,7 +33,7 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
   /// suppresses the banner and hides the only buttons the user has.
   nonisolated static let presentationOptions: UNNotificationPresentationOptions = [.banner, .list]
 
-  /// What the popover says about reminders macOS will not deliver. Silent until macOS answers.
+  /// What the window says about reminders macOS will not deliver. Silent until macOS answers.
   private(set) var authorization = ReminderAuthorization()
 
   /// Claims the delegate, puts the reminder's buttons on record, and starts following the daemon.
@@ -50,8 +50,8 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
     }
   }
 
-  /// Raises and withdraws the banner as daemon state arrives. The popover is closed almost all the
-  /// time a reminder is due, so noticing one cannot depend on a view being on screen.
+  /// Raises and withdraws the banner as daemon state arrives. The window is closed or backgrounded
+  /// almost all the time a reminder is due, so noticing one cannot depend on a view being on screen.
   func followDaemonState() {
     withObservationTracking {
       _ = client.state
@@ -66,11 +66,13 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
 
   /// Shows what the daemon's latest state means for the banner.
   func present(_ state: DaemonState?) async {
+    if ReminderBanner.wantsAttention(from: shownState, to: state) {
+      presenter.requestAttention()
+    }
     let banner = ReminderBanner.decide(from: shownState, to: state, authorization: authorization)
     shownState = state
     switch banner {
     case .post(let title, let body):
-      presenter.requestAttention()
       do {
         try await presenter.postReminder(title: title, body: body)
       } catch {
@@ -78,7 +80,6 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
       }
 
     case .postMorning(let title, let body):
-      presenter.requestAttention()
       do {
         try await presenter.postMorningReminder(title: title, body: body)
       } catch {
@@ -106,10 +107,10 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
   }
 
   /// Asks macOS to deliver reminders and keeps what it said. macOS shows the prompt as an
-  /// ordinary banner in the corner of the screen, which a menu bar app has nothing else to
-  /// draw the eye to; a prompt that is never answered is recorded as a refusal and is never
-  /// raised again. Keeping the answer is what turns that dead end into something the user can
-  /// see and undo.
+  /// ordinary banner in the corner of the screen, easy to miss with the window elsewhere on
+  /// screen or closed entirely; a prompt that is never answered is recorded as a refusal and is
+  /// never raised again. Keeping the answer is what turns that dead end into something the user
+  /// can see and undo.
   func requestAuthorization() async {
     do {
       let granted = try await authorizer.requestAuthorization()
@@ -143,7 +144,7 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
       do {
         try await ReminderNotification.answer(action, using: client)
       } catch {
-        // Already recorded on `client` for the popover caption; nothing more to do here.
+        // Already recorded on `client` for the window's caption; nothing more to do here.
       }
       completion()
     }

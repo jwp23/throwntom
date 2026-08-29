@@ -58,6 +58,13 @@ enum ReminderBanner: Equatable {
     }
   }
 
+  /// Whether the Dock should bounce for this change, independent of whether a notification can
+  /// be posted: a denied notification is not a reason to withhold the bounce.
+  static func wantsAttention(from previous: DaemonState?, to current: DaemonState?) -> Bool {
+    let waiting = waitingKind(current)
+    return waiting != nil && waitingKind(previous) != waiting
+  }
+
   // MARK: Private
 
   /// The two reminders the daemon ever raises. At most one is outstanding at a time: the cycle

@@ -4,7 +4,7 @@ import XCTest
 @testable import ThrowntomUI
 
 /// How the app raises and removes the reminder banner as the daemon's state arrives. The banner is
-/// the only way a reminder can be answered while the popover is closed, and the app that posts it is
+/// the only way a reminder can be answered while the window is closed, and the app that posts it is
 /// the only one macOS delivers the answer to.
 @MainActor
 final class ReminderPostingTests: XCTestCase {
@@ -68,7 +68,7 @@ final class ReminderPostingTests: XCTestCase {
   }
 
   /// The whole path: a frame off the daemon's event stream ends up as a banner, with no view on
-  /// screen to notice it. The popover is closed almost all the time a reminder arrives.
+  /// screen to notice it. The window is closed almost all the time a reminder arrives.
   func testAWaitArrivingOnTheEventStreamRaisesTheBanner() async throws {
     let presenter = StubReminderPresenter()
     let environment = AppEnvironment(
@@ -123,7 +123,18 @@ final class ReminderPostingTests: XCTestCase {
     await responder.present(nil)
     await responder.present(waiting)
 
-    XCTAssertEqual(presenter.attentionRequests, presenter.posts.count, "attention follows the banner exactly")
+    XCTAssertEqual(presenter.attentionRequests, 2, "a reconnect through nil re-posts, and each post bounces once")
+  }
+
+  func testAWaitingPhaseBouncesTheDockEvenWhenNotificationsAreDenied() async throws {
+    let presenter = StubReminderPresenter()
+    presenter.refusal = notificationsNotAllowed
+    let responder = try makeResponder(presenter)
+
+    await responder.present(makeState(phase: .awaitingConfirm, nextStage: shortBreak))
+
+    XCTAssertEqual(presenter.attentionRequests, 1)
+    XCTAssertTrue(presenter.posts.isEmpty)
   }
 
   // MARK: Private

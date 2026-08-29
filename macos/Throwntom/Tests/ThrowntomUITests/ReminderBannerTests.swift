@@ -173,6 +173,27 @@ final class ReminderBannerTests: XCTestCase {
     XCTAssertEqual(banner, .withdraw)
   }
 
+  func testWantsAttentionOnAFreshWaitRegardlessOfAuthorization() {
+    XCTAssertTrue(ReminderBanner.wantsAttention(from: makeState(phase: .idle), to: makeState(phase: .awaitingConfirm)))
+  }
+
+  func testWantsAttentionIsFalseWhileTheSameWaitContinues() {
+    let waiting = makeState(phase: .awaitingConfirm)
+    XCTAssertFalse(ReminderBanner.wantsAttention(from: waiting, to: waiting))
+  }
+
+  func testWantsAttentionIsFalseLeavingTheWait() {
+    XCTAssertFalse(ReminderBanner.wantsAttention(from: makeState(phase: .awaitingConfirm), to: makeState(phase: .shortBreak)))
+  }
+
+  func testWantsAttentionOnTheFirstStateEverSeen() {
+    XCTAssertTrue(ReminderBanner.wantsAttention(from: nil, to: makeState(phase: .awaitingConfirm)))
+  }
+
+  func testWantsAttentionOnAFreshMorningWait() {
+    XCTAssertTrue(ReminderBanner.wantsAttention(from: makeState(phase: .idle), to: makeState(phase: .idle, morningPending: true)))
+  }
+
   // MARK: Private
 
   private let shortBreak = DaemonState.NextStage(state: .shortBreak, duration: 300)
