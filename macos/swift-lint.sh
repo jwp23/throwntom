@@ -18,16 +18,16 @@ SWIFT_VERSION=6.3
 
 PKG="$(cd "$(dirname "$0")/Throwntom" && pwd)"
 mode=lint
-[ "${1:-}" = "--fix" ] && mode=fix
+[[ "${1:-}" == "--fix" ]] && mode=fix
 
 require_version() {
   local tool="$1" want="$2" have
   have="$("$tool" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)"
-  if [ -z "$have" ]; then
+  if [[ -z "$have" ]]; then
     echo "swift-lint: $tool not installed (want $want): brew install $tool" >&2
     exit 2
   fi
-  if [ "$have" != "$want" ]; then
+  if [[ "$have" != "$want" ]]; then
     echo "swift-lint: $tool is $have, want $want" >&2
     exit 2
   fi
@@ -40,7 +40,7 @@ cd "$PKG"
 format_args=(--config .swiftformat --swiftversion "$SWIFT_VERSION" --cache ignore Sources Tests)
 lint_args=(--config .swiftlint.yml --strict --quiet Sources Tests)
 
-if [ "$mode" = fix ]; then
+if [[ "$mode" == fix ]]; then
   swiftformat "${format_args[@]}"
   swiftlint --fix "${lint_args[@]}"
 else
