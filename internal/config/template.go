@@ -18,11 +18,14 @@ import (
 const Template = `# throwntom configuration.
 #
 # Every setting below is shown with its default and commented out.
-# Uncomment a line to change it. The daemon watches this file and picks an
-# edit up within a few seconds, the pomodoro already running included:
-# shortening work_minutes below the time the current pomodoro has already
-# spent ends it. [pomodoro], [[schedule]], repeat_secs and repeat_limit_secs
-# reload this way; each setting that does not says so under its own heading.
+# Uncomment a line to change it. Reloading belongs to the throwntomd daemon:
+# it watches this file and picks an edit up within a few seconds, the pomodoro
+# already running included — shortening work_minutes below the time the
+# current pomodoro has already spent ends it. The daemon reloads [pomodoro],
+# [[schedule]], repeat_secs and repeat_limit_secs; the settings it does not
+# reload say so under their own heading. Running throwntom by itself, without
+# the daemon, reloads nothing at all: it reads this file once as it launches,
+# so there every setting waits for the next launch.
 # An empty file is read as a save still in flight and ignored, so emptying
 # this one resets nothing: delete it instead and the daemon writes a fresh
 # copy the next time it starts.
@@ -52,8 +55,8 @@ const Template = `# throwntom configuration.
 # answers a question only start-up asks.
 # morning_reminder_pending = true
 
-# Whether the interface uses emoji. The throwntom terminal interface reads
-# this once, as it launches, so a reload does not apply it.
+# Whether the interface uses emoji. This one belongs to the throwntom
+# terminal interface; the daemon has no use for it.
 # emoji = true
 
 # [pomodoro] sets the length of each phase and how often a long break comes.
@@ -84,9 +87,9 @@ const Template = `# throwntom configuration.
 # [stats] sets the thresholds the daily counts are coloured against: a day
 # above tier_mid is a full day, one above tier_low is moderate, and anything
 # else is light. Both are strict, so with the defaults a day of 2 is light
-# and a day of 5 is moderate. The throwntom terminal interface reads these
-# once, as it launches, so a reload does not apply them. Uncomment the
-# [stats] header too.
+# and a day of 5 is moderate. These belong to the throwntom terminal
+# interface; the daemon has no use for them. Uncomment the [stats] header
+# too.
 # [stats]
 # tier_low = 2
 # tier_mid = 5

@@ -39,9 +39,10 @@ agent appears in System Settings → General → Login Items. Until the socket
 answers — up to about half a minute after registration — the window shows
 "Starting timer…" with the disconnected mascot.
 
-When a reminder is outstanding — a phase awaiting confirmation, or the
-morning nudge — the app posts a notification (it asks for permission the
-first time), bounces the Dock icon and recolours the window. The banner
+The window is phase-coloured throughout, so its ground follows the current
+phase as it changes. When a reminder is outstanding — a phase awaiting
+confirmation, or the morning nudge — the app also posts a notification (it
+asks for permission the first time) and bounces the Dock icon. The banner
 itself is silent: the sound is the daemon's, played on its own repeat
 schedule. What the client owns is the visible notification
 (`docs/adr/003-clients-own-user-facing-notification.md`).
