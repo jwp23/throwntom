@@ -125,6 +125,34 @@ final class TaskMenuModelTests: XCTestCase {
     XCTAssertTrue(menu.items.allSatisfy { $0.shortcut != nil })
   }
 
+  func testFocusReadsUnfocusWhenTheSelectedTaskIsFocused() throws {
+    let model = TaskWindowModel()
+    model.sync(tasks: TaskList(active: [makeTask(id: 1), makeTask(id: 2)], completed: []), focusedTaskIDs: [2])
+
+    model.selectedID = 1
+    XCTAssertEqual(try XCTUnwrap(MenuModel.tasks(model: model).item(for: .focus)).title, "Focus")
+
+    model.selectedID = 2
+    XCTAssertEqual(try XCTUnwrap(MenuModel.tasks(model: model).item(for: .focus)).title, "Unfocus")
+  }
+
+  func testARowOverridesTheSelectionsFocusState() throws {
+    let model = TaskWindowModel()
+    model.sync(tasks: TaskList(active: [makeTask(id: 1), makeTask(id: 2)], completed: []), focusedTaskIDs: [2])
+    model.selectedID = 1
+
+    let menu = MenuModel.tasks(model: model, focusedRow: true)
+
+    XCTAssertEqual(try XCTUnwrap(menu.item(for: .focus)).title, "Unfocus")
+  }
+
+  func testOtherVerbsKeepTheirTitleWhateverTheFocusState() {
+    let model = TaskWindowModel()
+    model.sync(tasks: TaskList(active: [makeTask(id: 1)], completed: []), focusedTaskIDs: [1])
+
+    XCTAssertEqual(MenuModel.tasks(model: model).item(for: .complete)?.title, TaskAction.complete.title)
+  }
+
   // MARK: Private
 
   private func enabledActions(_ menu: MenuModel<TaskAction>) -> [TaskAction] {
