@@ -140,10 +140,13 @@ If the saved session is from a different day, it is discarded and throwntom star
 ### A phase counts through downtime
 
 A pomodoro is wall-clock time, so a running phase keeps counting while nothing
-is running: the session stores an absolute end time, not a remaining duration.
-Restarting the daemon ten minutes into a 25-minute pomodoro leaves 15 minutes,
-not 25, and a phase whose end time passed while the daemon was down comes back
-already complete and awaiting confirmation. This is deliberate — see
+is running: the session stores when the phase began, not how much of it was
+left. Restarting the daemon ten minutes into a 25-minute pomodoro leaves 15
+minutes, not 25, and a phase that ran out while the daemon was down comes back
+already complete and awaiting confirmation. Time spent is what carries across
+the outage; the duration it is measured against always comes from your current
+config, so an edit made during the outage still applies. This is deliberate —
+see
 [ADR-006](docs/adr/006-daemon-lifecycle-and-config-reload.md). Stopping the
 timer service is therefore not a way to pause: use `pause`, which stores the
 remaining duration instead.
@@ -270,13 +273,13 @@ Reloading covers `[pomodoro]`, `[[schedule]]`, `repeat_secs` and
 - `emoji` and the `[stats]` tiers — client settings, read by `throwntom` when
   it launches.
 
-An edit made while the daemon is *stopped* is a different case: the phase that
-was in flight comes back with the end time it already had (see [A phase counts
-through downtime](#a-phase-counts-through-downtime)), so a duration changed
-during the outage applies to the next phase, not the one that was running.
-Editing the same value with the daemon up re-derives the running phase
-immediately. Which of the two should win is still open — tracked on
-`throwntom-3tu`.
+An edit made while the daemon is *stopped* lands the same way. The phase that
+was in flight keeps the time it had already spent — that keeps accruing
+through the outage, see [A phase counts through
+downtime](#a-phase-counts-through-downtime) — but it is measured against the
+duration in your config now. Changing `work_minutes` from 25 to 50 with the
+daemon stopped and restarting ten minutes in leaves forty minutes, exactly as
+it would have with the daemon running.
 
 If you only need to silence *one* running reminder rather than sound in
 general (for example, ducking out of a meeting), don't edit the config —
