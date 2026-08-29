@@ -65,6 +65,7 @@ final class CountdownTests: XCTestCase {
       snoozeUntil: nil,
       statusLine: line,
       focusedTaskIds: [],
+      reminderRings: 0,
     )
   }
 

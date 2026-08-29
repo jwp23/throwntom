@@ -113,7 +113,7 @@ func TestStateJSONTags(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, key := range []string{`"state":"idle"`, `"phase_end_at":null`, `"paused_remaining":0`, `"paused_from":"idle"`, `"completed_today":0`, `"work_sessions_in_block":0`, `"long_break_every":`, `"next_stage":null`, `"morning_pending":false`, `"snooze_until":null`, `"status_line":"`, `"focused_task_ids":`} {
+	for _, key := range []string{`"state":"idle"`, `"phase_end_at":null`, `"paused_remaining":0`, `"paused_from":"idle"`, `"completed_today":0`, `"work_sessions_in_block":0`, `"long_break_every":`, `"next_stage":null`, `"morning_pending":false`, `"snooze_until":null`, `"status_line":"`, `"focused_task_ids":`, `"reminder_rings":`} {
 		if !strings.Contains(string(raw), key) {
 			t.Fatalf("missing %s in %s", key, raw)
 		}
@@ -128,8 +128,8 @@ func TestStatePublishesTheReminderRingCount(t *testing.T) {
 	if got := c.State().ReminderRings; got != 0 {
 		t.Fatalf("expected no rings before a reminder, got %d", got)
 	}
-	c.reminder.ring()
-	c.reminder.ring()
+	_ = c.reminder.ring()
+	_ = c.reminder.ring()
 	if got := c.State().ReminderRings; got != 2 {
 		t.Fatalf("expected the published count to follow the rings, got %d", got)
 	}

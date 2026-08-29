@@ -156,6 +156,47 @@ final class ReminderPostingTests: XCTestCase {
     XCTAssertEqual(presenter.withdrawals, 0)
   }
 
+  /// Joe's requirement, 2026-08-29: the repeated chime is the reminder that works. The daemon
+  /// plays no sound, so every ring after the first has to be sounded here.
+  func testEachNewRingChimes() async throws {
+    let presenter = StubReminderPresenter()
+    let responder = try makeResponder(presenter)
+    let waiting = { (rings: Int) in
+      makeState(phase: .awaitingConfirm, nextStage: self.shortBreak, reminderRings: rings)
+    }
+
+    await responder.present(waiting(1))
+    XCTAssertEqual(presenter.posts.count, 1)
+    XCTAssertEqual(presenter.chimes, 0, "the banner carries the first chime as it posts")
+
+    await responder.present(waiting(2))
+    await responder.present(waiting(3))
+    XCTAssertEqual(presenter.chimes, 2, "each further ring is sounded")
+    XCTAssertEqual(presenter.posts.count, 1, "a ring is a chime, not another banner")
+  }
+
+  /// A repeat of the state the app has already seen is not a new ring, so it stays quiet.
+  func testTheSameRingDoesNotChimeTwice() async throws {
+    let presenter = StubReminderPresenter()
+    let responder = try makeResponder(presenter)
+    let waiting = makeState(phase: .awaitingConfirm, nextStage: shortBreak, reminderRings: 4)
+
+    await responder.present(waiting)
+    await responder.present(waiting)
+    XCTAssertEqual(presenter.chimes, 0)
+  }
+
+  /// Retiring the wait resets the count, and a reset is not a ring: going back to zero must
+  /// not be heard as a chime when the next wait begins.
+  func testAResetRingCountDoesNotChime() async throws {
+    let presenter = StubReminderPresenter()
+    let responder = try makeResponder(presenter)
+
+    await responder.present(makeState(phase: .awaitingConfirm, nextStage: shortBreak, reminderRings: 3))
+    await responder.present(makeState(phase: .work, reminderRings: 0))
+    XCTAssertEqual(presenter.chimes, 0)
+  }
+
   func testAWaitingPhaseBouncesTheDockEvenWhenNotificationsAreDenied() async throws {
     let presenter = StubReminderPresenter()
     presenter.refusal = notificationsNotAllowed

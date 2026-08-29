@@ -75,6 +75,7 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
   /// banner was decided from alone: reconnecting into the same wait posts and bounces nothing.
   func present(_ state: DaemonState?) async {
     guard let state else { return }
+    chimeForNewRings(in: state)
     if ReminderBanner.wantsAttention(from: shownState, to: state) {
       presenter.requestAttention()
     }
@@ -184,5 +185,22 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
 
   /// The daemon state the banner on screen was decided from.
   private var shownState: DaemonState?
+
+  /// The ring count this app has already accounted for, or nil before it has read any state.
+  /// Nil is what keeps a reconnect quiet: rings the app was not there to hear are adopted,
+  /// not replayed as a burst of chimes.
+  private var heardRings: Int?
+
+  /// Sounds the repeats the daemon rang while the app was watching. Only a climb is a ring:
+  /// the count resets when a wait is retired, and a reset is not something to be heard. The
+  /// first ring of a wait is the banner's own sound, so it is counted here without chiming -
+  /// otherwise a posting reminder would sound twice at once.
+  private func chimeForNewRings(in state: DaemonState) {
+    defer { heardRings = state.reminderRings }
+    guard let heardRings, state.reminderRings > heardRings else { return }
+    for _ in heardRings ..< state.reminderRings {
+      presenter.chime()
+    }
+  }
 
 }

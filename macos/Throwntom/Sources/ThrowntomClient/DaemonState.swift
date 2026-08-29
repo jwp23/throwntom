@@ -53,4 +53,8 @@ public struct DaemonState: Codable, Equatable, Sendable {
   public var snoozeUntil: Date?
   public var statusLine: String
   public var focusedTaskIds: [Int]
+  /// How many chimes the outstanding reminder has asked for, resetting when it is retired.
+  /// The daemon plays no sound of its own (ADR-007), so the client sounds the repeat by
+  /// watching this climb.
+  public var reminderRings: Int
 }

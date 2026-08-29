@@ -67,6 +67,7 @@ final class TimerActionsTests: XCTestCase {
       snoozeUntil: nil,
       statusLine: "",
       focusedTaskIds: [],
+      reminderRings: 0,
     )
   }
 

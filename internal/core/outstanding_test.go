@@ -304,8 +304,8 @@ func TestEachRingRaisesThePublishedCount(t *testing.T) {
 		t.Fatalf("expected raising to ring once, got %d", got)
 	}
 
-	r.ring()
-	r.ring()
+	_ = r.ring()
+	_ = r.ring()
 	if got := r.ringCount(); got != 3 {
 		t.Fatalf("expected each ring to raise the count, got %d", got)
 	}
@@ -341,7 +341,7 @@ func TestRingCountIsPublishedInState(t *testing.T) {
 	changes := 0
 	r.onChange = func() { mu.Lock(); changes++; mu.Unlock() }
 
-	r.ring()
+	_ = r.ring()
 	mu.Lock()
 	got := changes
 	mu.Unlock()
