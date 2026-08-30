@@ -131,6 +131,16 @@ public enum StatsRows {
     public let value: String
   }
 
+  /// What the two numbers in a period row are, so "7 · 2h 55m" is not a guess.
+  public static let unitsHeader = "Pomodoros · focus time"
+
+  /// The two rows whose numbers do not explain themselves. The wording follows
+  /// `computeStreaks` and `computePatterns` in internal/analytics.
+  public static let legend = """
+    Streak: days in a row, up to today, with at least one pomodoro; best is the longest such run. \
+    Best hour: the hour of day you have completed the most pomodoros in.
+    """
+
   public static func rows(_ s: StatsSummary) -> [Row] {
     let streak = s.streaks.current
     return [

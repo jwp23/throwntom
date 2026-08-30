@@ -23,7 +23,10 @@ extension ViewAction: MenuAction { }
 // MARK: - MenuShortcut
 
 /// The key binding of a menu item. Separate from the item so items without one are expressible.
-struct MenuShortcut: Equatable {
+struct MenuShortcut: Hashable {
+
+  // MARK: Internal
+
   let key: KeyEquivalent
   let modifiers: EventModifiers
 
@@ -31,22 +34,67 @@ struct MenuShortcut: Equatable {
     KeyboardShortcut(key, modifiers: modifiers)
   }
 
+  /// The canonical way to write this binding: the modifier glyphs in the order this app writes them
+  /// (⌘ before ⇧), then the key. Each action still carries its own `shortcutHint` for display, since
+  /// those live in `ThrowntomClient` and cannot reach this type; `MenuBindingTests` holds every one
+  /// of them to this rendering, so a rebinding cannot leave the UI advertising the old key.
+  var hint: String {
+    var glyphs = ""
+    if modifiers.contains(.command) {
+      glyphs += "⌘"
+    }
+    if modifiers.contains(.shift) {
+      glyphs += "⇧"
+    }
+    if modifiers.contains(.option) {
+      glyphs += "⌥"
+    }
+    if modifiers.contains(.control) {
+      glyphs += "⌃"
+    }
+    return glyphs + Self.glyph(for: key)
+  }
+
   static func ==(lhs: MenuShortcut, rhs: MenuShortcut) -> Bool {
     lhs.key.character == rhs.key.character && lhs.modifiers == rhs.modifiers
   }
+
+  func hash(into hasher: inout Hasher) {
+    hasher.combine(key.character)
+    hasher.combine(modifiers.rawValue)
+  }
+
+  // MARK: Private
+
+  /// The keys that print as a symbol rather than as themselves.
+  private static func glyph(for key: KeyEquivalent) -> String {
+    switch key.character {
+    case KeyEquivalent.return.character: "⏎"
+    case KeyEquivalent.delete.character: "⌫"
+    case KeyEquivalent.upArrow.character: "↑"
+    case KeyEquivalent.downArrow.character: "↓"
+    default: String(key.character).uppercased()
+    }
+  }
+
 }
 
 // MARK: - MenuItem
 
 /// One row of a command menu: the verb it runs, how to reach it and whether it can run now.
 struct MenuItem<Action: MenuAction>: Identifiable {
+  init(action: Action, shortcut: MenuShortcut?, isEnabled: Bool, title: String? = nil) {
+    self.action = action
+    self.shortcut = shortcut
+    self.isEnabled = isEnabled
+    self.title = title ?? action.title
+  }
+
   let action: Action
   let shortcut: MenuShortcut?
   let isEnabled: Bool
-
-  var title: String {
-    action.title
-  }
+  /// Usually the action's own title; a toggle verb passes the wording for the current state.
+  let title: String
 
   var id: Action {
     action
@@ -59,6 +107,11 @@ struct MenuItem<Action: MenuAction>: Identifiable {
 /// Deciding what a menu offers here keeps that decision out of the SwiftUI `Commands` body.
 struct MenuModel<Action: MenuAction> {
   let groups: [[MenuItem<Action>]]
+
+  /// Every item in menu order, ignoring where the separators fall.
+  var items: [MenuItem<Action>] {
+    groups.flatMap { $0 }
+  }
 }
 
 extension MenuModel where Action == TimerAction {
@@ -90,14 +143,17 @@ extension MenuModel where Action == TimerAction {
 
 extension MenuModel where Action == TaskAction {
   /// The Tasks menu for the current editor state. Every verb but New Task needs a selection,
-  /// and the inline new-task row owns the keyboard while it is open.
+  /// and the inline new-task row owns the keyboard while it is open. `focusedRow` names the task
+  /// the menu was opened on when that is not the selected one, so Focus reads as its own undo.
   @MainActor
-  static func tasks(model: TaskWindowModel) -> MenuModel {
+  static func tasks(model: TaskWindowModel, focusedRow: Bool? = nil) -> MenuModel {
+    let focused = focusedRow ?? model.isSelectedFocused
     func item(_ action: TaskAction, _ key: KeyEquivalent, _ modifiers: EventModifiers) -> MenuItem<TaskAction> {
       MenuItem(
         action: action,
         shortcut: MenuShortcut(key: key, modifiers: modifiers),
         isEnabled: model.canPerform(action),
+        title: action.title(focused: focused),
       )
     }
     return MenuModel(groups: [
@@ -116,16 +172,31 @@ extension MenuModel where Action == TaskAction {
 }
 
 extension MenuModel where Action == ViewAction {
+  /// The View menu: the two panels and the cheat sheet.
   @MainActor
   static func view(model: WindowModel) -> MenuModel {
     MenuModel(groups: [[
       MenuItem(action: .tasks, shortcut: MenuShortcut(key: "t", modifiers: .command), isEnabled: true),
-      MenuItem(action: .stats, shortcut: MenuShortcut(key: "d", modifiers: [.command, .shift]), isEnabled: true),
+      MenuItem(action: .stats, shortcut: MenuShortcut(key: "i", modifiers: [.command, .shift]), isEnabled: true),
       MenuItem(
         action: .shortcuts,
         shortcut: MenuShortcut(key: "/", modifiers: .command),
         isEnabled: !model.showsShortcuts,
       ),
     ]])
+  }
+
+  /// The app menu's config item, where macOS expects ⌘, to sit.
+  static func appConfig() -> MenuModel {
+    MenuModel(groups: [[
+      MenuItem(action: .openConfig, shortcut: MenuShortcut(key: ",", modifiers: .command), isEnabled: true)
+    ]])
+  }
+
+  /// The chip row under the timer verbs: every command the menu bar shows something for, in one
+  /// group, so a new user reaches the panels, the cheat sheet and the config without the menu bar.
+  @MainActor
+  static func windowCommands(model: WindowModel) -> MenuModel {
+    MenuModel(groups: [view(model: model).items + appConfig().items])
   }
 }
