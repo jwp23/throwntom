@@ -111,6 +111,18 @@ func TestPostCommandRejectsQuit(t *testing.T) {
 	}
 }
 
+func TestPostCommandRejectsTestSound(t *testing.T) {
+	srv, _ := newTestServer(t)
+	resp := postJSON(t, srv.URL+"/v1/command", commandRequest{Line: "test-sound"})
+	if resp.StatusCode != 400 {
+		t.Fatalf("status %d", resp.StatusCode)
+	}
+	want := "test-sound is not available over the API: the daemon plays no sound"
+	if e := decode[errorResponse](t, resp); e.Error != want {
+		t.Fatalf("error %q, want %q", e.Error, want)
+	}
+}
+
 func TestPostCommandBadJSONIs400(t *testing.T) {
 	srv, _ := newTestServer(t)
 	resp, err := http.Post(srv.URL+"/v1/command", "application/json", bytes.NewReader([]byte("{")))

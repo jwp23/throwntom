@@ -54,20 +54,36 @@ func (s *server) postCommand(w http.ResponseWriter, r *http.Request) {
 // runCommand executes one command line and writes the outcome; shared by
 // the command endpoint and the verb/task routes.
 func (s *server) runCommand(w http.ResponseWriter, line string) {
-	if isQuitLine(line) {
-		writeError(w, http.StatusBadRequest, errors.New("quit is not available over the API"))
+	if err := unavailableOverAPI(line); err != nil {
+		writeError(w, http.StatusBadRequest, err)
 		return
 	}
 	resp := s.core.Execute(line)
 	writeCommandOutcome(w, resp)
 }
 
-// isQuitLine reports whether line asks the core to exit. The API has no notion
-// of exiting: running quit would stop the morning reminder and leave the daemon
-// serving a half-stopped core.
-func isQuitLine(line string) bool {
+// unavailableOverAPI reports why the daemon refuses line, or nil if it will
+// run it. Both refusals are commands the core offers its terminal caller that
+// mean nothing here:
+//
+// quit — the API has no notion of exiting; running it would stop the morning
+// reminder and leave the daemon serving a half-stopped core.
+//
+// test-sound — the daemon's notifier is notifier.Silent() (ADR-007), so the
+// core's "Sound test played." would report success for audio nobody played.
+// Sound belongs to the client, and so does testing it.
+func unavailableOverAPI(line string) error {
 	fields := strings.Fields(line)
-	return len(fields) > 0 && (fields[0] == "quit" || fields[0] == "exit")
+	if len(fields) == 0 {
+		return nil
+	}
+	switch fields[0] {
+	case "quit", "exit":
+		return errors.New("quit is not available over the API")
+	case "test-sound":
+		return errors.New("test-sound is not available over the API: the daemon plays no sound")
+	}
+	return nil
 }
 
 const contentTypeJSON = "application/json"
