@@ -14,6 +14,11 @@ final class SnoozeChipTests: XCTestCase {
     XCTAssertEqual(chip.primaryAction, .snooze(minutes: SnoozeActions.defaultMinutes))
   }
 
+  func testTheChipBuildsWithAndWithoutASnooze() throws {
+    _ = try makeChip(snoozeUntil: nil).body
+    _ = try makeChip(snoozeUntil: Date().addingTimeInterval(600)).body
+  }
+
   /// The undo has to be where the snooze was. A user looking for the way out of a snooze reaches
   /// for the control that caused it, so the same chip cancels while one is running.
   func testWhileSnoozedTheSameChipIsTheUndo() throws {
@@ -28,6 +33,36 @@ final class SnoozeChipTests: XCTestCase {
     XCTAssertFalse(chip.model.isEnteringSnooze)
     chip.run(.custom)
     XCTAssertTrue(chip.model.isEnteringSnooze)
+  }
+
+  /// Every other verb, unlike `Custom…`, is a command line for the daemon.
+  func testAnOrdinaryVerbDispatchesToTheDaemonRatherThanOpeningTheField() async throws {
+    let transport = try StubTransport(states: [makeState(phase: .idle)])
+    let environment = AppEnvironment(transport: transport)
+    defer { environment.client.stop() }
+    environment.start()
+    try await waitUntil { environment.client.state != nil }
+    let content = MainWindowContent(
+      state: makeState(phase: .awaitingConfirm),
+      connection: .connected,
+      status: .running,
+      tasks: TaskList(),
+      error: nil,
+      panel: nil,
+      now: .now,
+    )
+    let chip = SnoozeChip(content: content, client: environment.client, model: environment.windowModel)
+    chip.run(.snooze(minutes: 10))
+    try await waitUntil { !transport.commands.isEmpty }
+    XCTAssertEqual(transport.commands.map(\.path), ["/v1/timer/snooze"])
+  }
+
+  /// `menuButton(for:)` is what `MenuGroups`' trailing closure delegates to, and the closure
+  /// itself only runs through the (untestable) rendering pass — so it is built directly here.
+  func testMenuButtonBuildsForAnEnabledAndADisabledItem() throws {
+    let chip = try makeChip(snoozeUntil: nil)
+    _ = chip.menuButton(for: MenuItem(action: .snooze(minutes: 10), shortcut: nil, isEnabled: true))
+    _ = chip.menuButton(for: MenuItem(action: .cancel, shortcut: nil, isEnabled: false))
   }
 
   func testTheChipIsOfferedForEveryStateThatCanSnooze() {

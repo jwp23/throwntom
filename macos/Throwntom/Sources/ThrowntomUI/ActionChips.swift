@@ -12,14 +12,20 @@ struct ActionChips: View {
   var body: some View {
     BlockFlowLayout.chipRow {
       ForEach(content.chips, id: \.self) { action in
-        // Snooze is the one verb with a duration to choose and an undo to offer, so it is a
-        // pull-down rather than a plain button. Everything else is one click and done.
-        if action == .snooze {
-          SnoozeChip(content: content, client: client, model: model)
-        } else {
-          chip(for: action)
-        }
+        row(for: action)
       }
+    }
+  }
+
+  /// Snooze is the one verb with a duration to choose and an undo to offer, so it is a pull-down
+  /// rather than a plain button. Everything else is one click and done. Built as its own method,
+  /// free of `ForEach`'s trailing closure, for the same testability reason as `chip(for:)`.
+  @ViewBuilder
+  func row(for action: TimerAction) -> some View {
+    if action == .snooze {
+      SnoozeChip(content: content, client: client, model: model)
+    } else {
+      chip(for: action)
     }
   }
 

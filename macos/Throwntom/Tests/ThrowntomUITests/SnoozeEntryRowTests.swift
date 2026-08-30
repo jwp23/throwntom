@@ -32,6 +32,18 @@ final class SnoozeEntryRowTests: XCTestCase {
     }
   }
 
+  func testTheRowBuilds() throws {
+    let (row, _, _, _) = try makeRow()
+    _ = row.body
+  }
+
+  /// The default `alert` is the real beep, not a stub — worth building at least once so the
+  /// default value itself is exercised rather than only the overridden one every other test uses.
+  func testTheRowBuildsWithItsDefaultAlert() throws {
+    let environment = AppEnvironment(transport: try StubTransport(states: []))
+    _ = SnoozeEntryRow(client: environment.client, model: environment.windowModel).body
+  }
+
   // MARK: Private
 
   /// A counter the row can report a refusal into, so the beep is observable.

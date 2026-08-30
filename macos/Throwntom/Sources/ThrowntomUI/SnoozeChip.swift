@@ -45,10 +45,7 @@ struct SnoozeChip: View {
 
   var body: some View {
     Menu {
-      MenuGroups(menu: menu) { item in
-        Button(item.title) { run(item.action) }
-          .disabled(!item.isEnabled)
-      }
+      MenuGroups(menu: menu) { item in menuButton(for: item) }
     } label: {
       ChipLabel(title: title, hint: hint, style: style)
     } primaryAction: {
@@ -58,6 +55,13 @@ struct SnoozeChip: View {
     .fixedSize()
     .accessibilityLabel(hint.isEmpty ? title : "\(title), \(hint)")
     .accessibilityHint("Press and hold to choose how long")
+  }
+
+  /// Built as its own method, free of `MenuGroups`' trailing closure, so it can be called and
+  /// asserted on directly instead of only through the (untestable) rendering pass.
+  func menuButton(for item: MenuItem<SnoozeAction>) -> some View {
+    Button(item.title) { run(item.action) }
+      .disabled(!item.isEnabled)
   }
 
   /// Runs a snooze verb, except `Custom…`, which is a question for the user rather than a command
