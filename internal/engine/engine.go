@@ -72,7 +72,11 @@ type Engine struct {
 	workSessionsBlock int
 	completedToday    int
 	workDayStarted    bool
-	workDate          time.Time
+	// dayEnded records that the user declared the work day over, which no
+	// other idle state means. It is the only way a client can tell "idle,
+	// ready to go" from "idle, done until tomorrow".
+	dayEnded bool
+	workDate time.Time
 }
 
 func New(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery int) *Engine {
@@ -96,11 +100,13 @@ func (e *Engine) StartWork() {
 		e.workDayStarted = true
 		e.workSessionsBlock = 0
 	}
+	e.dayEnded = false
 	e.state = Work
 	e.lastPhase = Work
 }
 
 func (e *Engine) StartNewCycle() {
+	e.dayEnded = false
 	e.workDayStarted = true
 	e.workSessionsBlock = 0
 	e.state = Work
@@ -168,11 +174,14 @@ func (e *Engine) SetLongBreakEvery(n int) {
 	e.longBreakEvery = n
 }
 
+// SkipToday ends the work day: the timer goes idle and stays there, and the
+// day is marked over so nothing reminds the user again until tomorrow.
 func (e *Engine) SkipToday() {
 	e.state = Idle
 	e.lastPhase = Idle
 	e.pausedFrom = Idle
 	e.workDayStarted = false
+	e.dayEnded = true
 }
 
 func (e *Engine) Pause() bool {
@@ -203,6 +212,7 @@ type Snapshot struct {
 	WorkSessions   int       `json:"work_sessions"`
 	CompletedToday int       `json:"completed_today"`
 	WorkDayStarted bool      `json:"work_day_started"`
+	DayEnded       bool      `json:"day_ended"`
 	WorkDate       time.Time `json:"work_date"`
 }
 
@@ -214,6 +224,7 @@ func (e *Engine) Snapshot() Snapshot {
 		WorkSessions:   e.workSessionsBlock,
 		CompletedToday: e.completedToday,
 		WorkDayStarted: e.workDayStarted,
+		DayEnded:       e.dayEnded,
 		WorkDate:       e.workDate,
 	}
 }
@@ -254,6 +265,7 @@ func (e *Engine) Restore(s Snapshot) {
 	e.workSessionsBlock = s.WorkSessions
 	e.completedToday = s.CompletedToday
 	e.workDayStarted = s.WorkDayStarted
+	e.dayEnded = s.DayEnded
 	e.workDate = s.WorkDate
 }
 
@@ -274,6 +286,7 @@ func (e *Engine) AdvanceDay(now time.Time) {
 	e.completedToday = 0
 	e.workSessionsBlock = 0
 	e.workDayStarted = false
+	e.dayEnded = false
 	e.workDate = now
 }
 

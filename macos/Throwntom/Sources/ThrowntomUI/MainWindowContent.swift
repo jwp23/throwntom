@@ -21,7 +21,9 @@ struct MainWindowContent: Equatable {
     serviceAction = ServiceActions.startOrStop(connection: connection, registrationFailed: registrationFailed)
     scheme = Palette.scheme(for: state?.state)
     pose = MascotPose.pose(for: state?.state, pausedFrom: state?.pausedFrom ?? .idle)
-    title = state?.state.displayName ?? ConnectionStatus.placeholderText(state: nil, connection: connection, now: now) ?? ""
+    title = state.map(Self.phaseTitle)
+      ?? ConnectionStatus.placeholderText(state: nil, connection: connection, now: now)
+      ?? ""
     countdown = state.flatMap { Self.countdown(for: $0, now: now) }
     nextStage = state?.nextStage.map { "Next: \($0.summary)" }
     garden = state
@@ -50,6 +52,16 @@ struct MainWindowContent: Equatable {
   let panel: WindowPanel?
 
   // MARK: Private
+
+  /// The phase's own name, except while the user has ended the day: the daemon is idle then, and
+  /// "Idle" would read as a timer waiting to be started rather than as a day that is over.
+  private static func phaseTitle(for state: DaemonState) -> String {
+    if state.state == .idle, state.dayEnded {
+      "Done for today"
+    } else {
+      state.state.displayName
+    }
+  }
 
   private static func countdown(for state: DaemonState, now: Date) -> String? {
     switch state.state {

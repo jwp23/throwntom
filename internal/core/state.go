@@ -21,9 +21,13 @@ type State struct {
 	LongBreakEvery      int          `json:"long_break_every"`
 	NextStage           *NextStage   `json:"next_stage"`
 	MorningPending      bool         `json:"morning_pending"`
-	SnoozeUntil         *time.Time   `json:"snooze_until"`
-	StatusLine          string       `json:"status_line"`
-	FocusedTaskIDs      []int        `json:"focused_task_ids"`
+	// DayEnded is true once the user has ended the work day, so a client can
+	// tell an idle timer that is ready to go from one that is done until
+	// tomorrow. Nothing else in this document distinguishes them.
+	DayEnded       bool       `json:"day_ended"`
+	SnoozeUntil    *time.Time `json:"snooze_until"`
+	StatusLine     string     `json:"status_line"`
+	FocusedTaskIDs []int      `json:"focused_task_ids"`
 	// ReminderRings counts the chimes the outstanding reminder has asked for,
 	// resetting when it is retired. The daemon plays no sound of its own
 	// (ADR-007), so a client sounds the repeat by watching this climb.
@@ -47,6 +51,7 @@ func (c *Core) stateLocked() State {
 		WorkSessionsInBlock: snap.Engine.WorkSessions,
 		LongBreakEvery:      c.longBreakEvery,
 		MorningPending:      morningPending,
+		DayEnded:            snap.Engine.DayEnded,
 		StatusLine:          statusLine,
 		FocusedTaskIDs:      c.focusedIDs(),
 		ReminderRings:       c.reminder.ringCount(),

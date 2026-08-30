@@ -33,7 +33,7 @@ public enum TimerAction: CaseIterable, Sendable {
     case .pause: "Pause"
     case .resume: "Resume"
     case .snooze: "Snooze \(TimerActions.defaultSnoozeMinutes) min"
-    case .skipToday: "Skip Today"
+    case .skipToday: "Done for Today"
     case .newCycle: "New Cycle"
     }
   }
@@ -80,6 +80,10 @@ public enum TimerActions {
   public static let defaultSnoozeMinutes = 10
 
   /// Verbs the daemon would accept in this state, in display order. Mirrors internal/core/commands.go.
+  ///
+  /// Ending the day comes last in every state rather than only while idle: `handleSkipToday` has
+  /// no state guard, and a user who is finished mid-pomodoro needs to be able to say so without
+  /// first pausing or waiting out the phase.
   public static func available(for state: DaemonState) -> [TimerAction] {
     switch state.state {
     case .idle:
@@ -92,13 +96,13 @@ public enum TimerActions {
     case .work,
          .shortBreak,
          .longBreak:
-      [.pause]
+      [.pause, .skipToday]
 
     case .paused:
-      [.resume]
+      [.resume, .skipToday]
 
     case .awaitingConfirm:
-      [.confirm, .snooze, .newCycle]
+      [.confirm, .snooze, .newCycle, .skipToday]
     }
   }
 
