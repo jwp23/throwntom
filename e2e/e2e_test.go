@@ -260,8 +260,8 @@ func TestInteractiveResizeSmokeNoLineClobber(t *testing.T) {
 	// byte in particular must not be written until bubbletea has taken the pty
 	// out of canonical mode, because until then the line discipline reads 0x03
 	// as INTR and kills the process group before the program sees a keystroke.
-	waitForOutput(t, out, 0, bracketedPasteEnable, "terminal switched to raw mode")
-	waitForOutput(t, out, 0, fullHeaderLine, "initial render")
+	waitForOutput(t, ctx, out, 0, bracketedPasteEnable, "terminal switched to raw mode")
+	waitForOutput(t, ctx, out, 0, fullHeaderLine, "initial render")
 
 	// Each resize is confirmed by output written after it was released, never
 	// by a total count of a line the startup render may also have produced.
@@ -270,11 +270,11 @@ func TestInteractiveResizeSmokeNoLineClobber(t *testing.T) {
 	// rule out.
 	mark := out.Len()
 	releaseResize(t, handshake, "narrow")
-	waitForOutput(t, out, mark, clampedHeaderLine, "re-render clamped by the narrow resize")
+	waitForOutput(t, ctx, out, mark, clampedHeaderLine, "re-render clamped by the narrow resize")
 
 	mark = out.Len()
 	releaseResize(t, handshake, "wide")
-	waitForOutput(t, out, mark, fullHeaderLine, "re-render restored by the wide resize")
+	waitForOutput(t, ctx, out, mark, fullHeaderLine, "re-render restored by the wide resize")
 
 	if _, err := stdin.Write([]byte{0x03}); err != nil {
 		t.Fatalf("write interrupt: %v", err)
@@ -351,15 +351,25 @@ func releaseResize(t *testing.T, handshake, step string) {
 // waitForOutput blocks until the run has written want somewhere past after.
 // Waiting on the output itself is what keeps this test honest: if a resize
 // never reaches the program, the expected re-render never arrives and the test
-// fails instead of quietly asserting nothing.
-func waitForOutput(t *testing.T, out *syncBuffer, after int, want, what string) {
+// fails instead of quietly asserting nothing. The wait also cannot outlive
+// ctx: without that bound, a wait started late in the command's own deadline
+// could keep polling for its own full timeout after ctx has already killed
+// the process the output can never arrive from.
+func waitForOutput(t *testing.T, ctx context.Context, out *syncBuffer, after int, want, what string) {
 	t.Helper()
 
 	deadline := time.Now().Add(waitForOutputTimeout)
+	if ctxDeadline, ok := ctx.Deadline(); ok && ctxDeadline.Before(deadline) {
+		deadline = ctxDeadline
+	}
 	for {
 		got := out.String()
 		if len(got) >= after && strings.Contains(got[after:], want) {
 			return
+		}
+		if err := ctx.Err(); err != nil {
+			t.Fatalf("context %v while waiting for %s (%q past byte %d), got %q",
+				err, what, want, after, got)
 		}
 		if time.Now().After(deadline) {
 			t.Fatalf("timed out after %s waiting for %s (%q past byte %d), got %q",
