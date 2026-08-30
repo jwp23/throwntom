@@ -107,7 +107,10 @@ func EnsureFile(path string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("create config directory: %w", err)
 	}
-	if err := atomicfile.Write(path, []byte(Template), 0o644); err != nil {
+	// Exclusive, not Write: the Stat above only rules out the common case. If
+	// another process creates path in the window before this call, Write
+	// would clobber its config; WriteExclusive leaves it alone instead.
+	if err := atomicfile.WriteExclusive(path, []byte(Template), 0o644); err != nil {
 		return fmt.Errorf("write default config %q: %w", path, err)
 	}
 	return nil
