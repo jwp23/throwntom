@@ -84,8 +84,15 @@ func buildCallbacks(cfg config.Config, c *core.Core) interactiveCallbacks {
 	}
 }
 
+// tuiNotifier plays the reminder in the terminal. Unlike the daemon the TUI
+// is not a publisher of state for someone else to present: it runs its own
+// core in front of the user, so it presents its own reminders.
+func tuiNotifier(cfg config.Config) (notifier.Notifier, error) {
+	return notifier.NewSystemNotifier(runtime.GOOS, os.Stdout, cfg.SoundCommand)
+}
+
 func buildTimerCore(cfg config.Config) (*core.Core, error) {
-	n, err := notifier.NewSystemNotifier(runtime.GOOS, os.Stdout, cfg.SoundCommand)
+	n, err := tuiNotifier(cfg)
 	if err != nil {
 		return nil, err
 	}

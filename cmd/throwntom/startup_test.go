@@ -10,6 +10,7 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/config"
 	"github.com/jwp23/throwntom/v3/internal/core"
 	"github.com/jwp23/throwntom/v3/internal/engine"
+	"github.com/jwp23/throwntom/v3/internal/notifier"
 	"github.com/jwp23/throwntom/v3/internal/pomodoro"
 	"github.com/jwp23/throwntom/v3/internal/session"
 )
@@ -167,5 +168,18 @@ func writeAwaitingConfirmSession(t *testing.T, path string) {
 	}
 	if err := session.Save(path, data); err != nil {
 		t.Fatalf("save session: %v", err)
+	}
+}
+
+// The TUI is not a client of the daemon: it builds its own core in-process and
+// is the only thing present to hear a reminder. Silencing the daemon must not
+// silence it too.
+func TestTUIKeepsAnAudibleNotifier(t *testing.T) {
+	n, err := tuiNotifier(config.Default())
+	if err != nil {
+		t.Fatalf("build notifier: %v", err)
+	}
+	if n == notifier.Silent() {
+		t.Fatal("expected the TUI to keep a notifier that plays sound")
 	}
 }

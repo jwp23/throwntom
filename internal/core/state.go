@@ -24,6 +24,10 @@ type State struct {
 	SnoozeUntil         *time.Time   `json:"snooze_until"`
 	StatusLine          string       `json:"status_line"`
 	FocusedTaskIDs      []int        `json:"focused_task_ids"`
+	// ReminderRings counts the chimes the outstanding reminder has asked for,
+	// resetting when it is retired. The daemon plays no sound of its own
+	// (ADR-007), so a client sounds the repeat by watching this climb.
+	ReminderRings int `json:"reminder_rings"`
 }
 
 func (c *Core) State() State {
@@ -45,6 +49,7 @@ func (c *Core) stateLocked() State {
 		MorningPending:      morningPending,
 		StatusLine:          statusLine,
 		FocusedTaskIDs:      c.focusedIDs(),
+		ReminderRings:       c.reminder.ringCount(),
 	}
 	if !snap.PhaseEndAt.IsZero() {
 		end := snap.PhaseEndAt

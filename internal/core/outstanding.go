@@ -59,6 +59,7 @@ type outstandingReminder struct {
 	loopCancel     context.CancelFunc
 	snoozeTimer    stopper
 	policy         reminder.Policy
+	rings          int
 	sound          func(reminderKind) error
 	now            func() time.Time
 	after          func(time.Duration, func()) stopper
@@ -95,6 +96,7 @@ func (r *outstandingReminder) raise(kind reminderKind) {
 	}
 	r.quietLocked()
 	r.kind = kind
+	r.rings = 0
 	r.startLoopLocked()
 	r.mu.Unlock()
 	r.notifyChange()
@@ -138,6 +140,7 @@ func (r *outstandingReminder) cancel() {
 	changed := r.kind != reminderNone
 	r.quietLocked()
 	r.kind = reminderNone
+	r.rings = 0
 	r.mu.Unlock()
 	if changed {
 		r.notifyChange()
@@ -207,9 +210,29 @@ func (r *outstandingReminder) quietLocked() {
 func (r *outstandingReminder) startLoopLocked() {
 	ctx, cancel := context.WithCancel(context.Background())
 	r.loopCancel = cancel
+	go reminder.New(r.policy, r.ring).Run(ctx)
+}
+
+// ring is one alert of the loop. The daemon plays nothing (ADR-007), so the
+// ring has to leave a mark a client can read: the count is what turns the
+// daemon's cadence into a chime somewhere else. The sound call stays because
+// a program that owns its own core - the TUI - is its own client.
+func (r *outstandingReminder) ring() error {
+	r.mu.Lock()
 	kind := r.kind
-	loop := reminder.New(r.policy, func() error { return r.sound(kind) })
-	go loop.Run(ctx)
+	r.rings++
+	r.mu.Unlock()
+	err := r.sound(kind)
+	r.notifyChange()
+	return err
+}
+
+// ringCount is how many chimes the outstanding wait has asked for. It resets
+// with the wait, so a client that has heard n rings can sound the rest.
+func (r *outstandingReminder) ringCount() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.rings
 }
 
 func dayKey(now time.Time) string {
