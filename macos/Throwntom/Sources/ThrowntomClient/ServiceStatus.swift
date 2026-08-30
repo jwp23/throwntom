@@ -120,8 +120,8 @@ public enum ServiceStatus: Hashable, Sendable {
   private var spokenLine: String? {
     switch self {
     case .stopped: "Timer service stopped."
-    case .launchRefused: "Timer service can\u{2019}t launch."
-    case .notAnswering: "Timer service isn\u{2019}t answering."
+    case .launchRefused: "Timer service can’t launch."
+    case .notAnswering: "Timer service isn’t answering."
     case .running,
          .reaching: nil
     }
