@@ -141,9 +141,20 @@ final class TaskMenuModelTests: XCTestCase {
     model.sync(tasks: TaskList(active: [makeTask(id: 1), makeTask(id: 2)], completed: []), focusedTaskIDs: [2])
     model.selectedID = 1
 
-    let menu = MenuModel.tasks(model: model, focusedRow: true)
+    let menu = MenuModel.tasks(model: model, on: 2)
 
     XCTAssertEqual(try XCTUnwrap(menu.item(for: .focus)).title, "Unfocus")
+  }
+
+  /// The context menu names the row it was opened on, so its verbs read for that row even when
+  /// the selection is elsewhere or absent.
+  func testANamedRowEnablesItsOwnVerbsWhateverTheSelection() {
+    let model = TaskWindowModel()
+    model.sync(tasks: TaskList(active: [makeTask(id: 1), makeTask(id: 2)], completed: []), focusedTaskIDs: [])
+    model.selectedID = nil
+
+    XCTAssertEqual(enabledActions(MenuModel.tasks(model: model, on: 2)), TaskAction.allCases)
+    XCTAssertEqual(enabledActions(MenuModel.tasks(model: model)), [.newTask], "no row named, no selection")
   }
 
   func testOtherVerbsKeepTheirTitleWhateverTheFocusState() {

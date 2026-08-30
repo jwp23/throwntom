@@ -26,12 +26,17 @@ public final class TaskWindowModel {
 
   /// Whether the selected task is one of the focused ones; false when nothing is selected.
   public var isSelectedFocused: Bool {
-    selectedID.map(focusedIDs.contains) ?? false
+    isFocused(selectedID)
   }
 
   /// Label of the collapsed completed section, e.g. "Completed (3)".
   public var completedSectionTitle: String {
     "Completed (\(tasks.completed.count))"
+  }
+
+  /// Whether a named task is one of the focused ones. No task named is no focus.
+  public func isFocused(_ id: Int?) -> Bool {
+    id.map(focusedIDs.contains) ?? false
   }
 
   /// Applies fresh daemon state, keeping the selection on the same task when it still exists.
@@ -71,14 +76,16 @@ public final class TaskWindowModel {
     }
   }
 
-  public func canPerform(_ action: TaskAction) -> Bool {
+  /// Whether an action can run on a task. `id` names the row the question is about — a context
+  /// menu asks about the row it was opened on; passing none asks about the selected row.
+  public func canPerform(_ action: TaskAction, on id: Int? = nil) -> Bool {
     if isEditing {
       return false
     }
     if action == .newTask {
       return true
     }
-    return selectedID.flatMap { TaskCommands.position(of: $0, in: tasks) } != nil
+    return (id ?? selectedID).flatMap { TaskCommands.position(of: $0, in: tasks) } != nil
   }
 
   /// Command string for an action on the selected task; nil when the action cannot run right now.

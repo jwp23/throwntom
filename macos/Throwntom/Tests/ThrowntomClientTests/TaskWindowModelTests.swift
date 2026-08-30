@@ -100,6 +100,25 @@ final class TaskWindowModelTests: XCTestCase {
     XCTAssertNil(n.command(for: .complete))
   }
 
+  func testCanPerformAnswersForANamedRowRatherThanTheSelection() {
+    let m = model(ids: [5, 6])
+    m.selectedID = nil
+
+    XCTAssertTrue(m.canPerform(.complete, on: 6), "the row the question is about is a valid target")
+    XCTAssertFalse(m.canPerform(.complete, on: 99), "a row that is not in the list is not")
+    XCTAssertFalse(m.canPerform(.complete), "with no row named, the empty selection still decides")
+  }
+
+  func testFocusStateAnswersForANamedRow() {
+    let m = model(ids: [5, 6])
+    m.sync(tasks: TaskList(active: [item(5), item(6)]), focusedTaskIDs: [6])
+    m.selectedID = 5
+
+    XCTAssertTrue(m.isFocused(6))
+    XCTAssertFalse(m.isFocused(5))
+    XCTAssertFalse(m.isFocused(nil))
+  }
+
   func testCompletedSectionTitleCountsCompletedTasks() {
     XCTAssertEqual(TaskWindowModel().completedSectionTitle, "Completed (0)")
     XCTAssertEqual(model(ids: [5]).completedSectionTitle, "Completed (1)")
