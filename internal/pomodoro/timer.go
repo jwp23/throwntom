@@ -213,6 +213,15 @@ func (t *Timer) OwedPhase() engine.State {
 	return t.engine.OwedPhase()
 }
 
+// OwedStage reports the phase Start would enter now and how long it would run
+// for, measured against the durations in force now the way NextStage is.
+func (t *Timer) OwedStage() (engine.State, time.Duration) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	owed := t.engine.OwedPhase()
+	return owed, t.phaseDurationLocked(owed)
+}
+
 // StartNewCycle abandons the current cycle and begins a fresh work period,
 // reporting the engine state as of the moment it did. Reporting from inside
 // the lock, the way Stop and Skip do, saves the caller a second, racy read:

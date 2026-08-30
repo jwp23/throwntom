@@ -238,6 +238,17 @@ func (c *Core) nextStageLocked() (engine.State, time.Duration, bool) {
 	return next, duration, true
 }
 
+// owedStageLocked reports the phase a start would enter and how long it would
+// run. Only an idle timer owes anything: while a phase is running, paused or
+// waiting to be confirmed, start is not the verb on offer.
+func (c *Core) owedStageLocked() (engine.State, time.Duration, bool) {
+	if c.timer.State() != engine.Idle {
+		return engine.Idle, 0, false
+	}
+	owed, duration := c.timer.OwedStage()
+	return owed, duration, true
+}
+
 // ErrorKind tells a caller why a command failed: a malformed request or a
 // valid command the current state refuses.
 type ErrorKind int

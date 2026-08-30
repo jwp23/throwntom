@@ -55,6 +55,58 @@ func TestStateAwaitingConfirmHasNextStage(t *testing.T) {
 	}
 }
 
+// Stop is a suspend, so an idle timer can owe a break. Without the owed stage
+// in the document a client shows Idle beside a Start control that will in fact
+// begin a short break.
+func TestStateIdleAfterStopNamesTheOwedBreak(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+	c.execute(cmdStart)
+	c.timer.CompletePeriod()
+	c.execute("stop")
+
+	s := c.State()
+	if s.State != engine.Idle {
+		t.Fatalf("expected the cycle suspended, got %s", s.State)
+	}
+	if s.OwedStage == nil {
+		t.Fatal("expected the owed stage to be named")
+	}
+	if s.OwedStage.State != engine.ShortBreak || s.OwedStage.DurationSeconds != 300 {
+		t.Fatalf("expected the owed short break, got %+v", s.OwedStage)
+	}
+}
+
+// Idle with nothing owed still answers the question, so a client never has to
+// guess what Start does.
+func TestStateIdleNamesWorkWhenNothingIsOwed(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+
+	s := c.State()
+	if s.OwedStage == nil || s.OwedStage.State != engine.Work {
+		t.Fatalf("expected work owed, got %+v", s.OwedStage)
+	}
+	if s.OwedStage.DurationSeconds != cfg.Pomodoro.WorkMinutes*60 {
+		t.Fatalf("expected the configured work duration, got %d", s.OwedStage.DurationSeconds)
+	}
+}
+
+// A phase in flight is not a debt: what start would do is beside the point
+// while there is nothing for it to do.
+func TestStateRunningPhaseOwesNothing(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+	c.execute(cmdStart)
+
+	if s := c.State(); s.OwedStage != nil {
+		t.Fatalf("expected no owed stage while a phase runs, got %+v", s.OwedStage)
+	}
+}
+
 func TestStatePausedRemaining(t *testing.T) {
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
@@ -113,7 +165,7 @@ func TestStateJSONTags(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, key := range []string{`"state":"idle"`, `"phase_end_at":null`, `"paused_remaining":0`, `"paused_from":"idle"`, `"completed_today":0`, `"work_sessions_in_block":0`, `"long_break_every":`, `"next_stage":null`, `"morning_pending":false`, `"snooze_until":null`, `"status_line":"`, `"focused_task_ids":`, `"reminder_rings":`, `"day_ended":false`} {
+	for _, key := range []string{`"state":"idle"`, `"phase_end_at":null`, `"paused_remaining":0`, `"paused_from":"idle"`, `"completed_today":0`, `"work_sessions_in_block":0`, `"long_break_every":`, `"next_stage":null`, `"owed_stage":{"state":"work",`, `"morning_pending":false`, `"snooze_until":null`, `"status_line":"`, `"focused_task_ids":`, `"reminder_rings":`, `"day_ended":false`} {
 		if !strings.Contains(string(raw), key) {
 			t.Fatalf("missing %s in %s", key, raw)
 		}

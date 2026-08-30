@@ -106,12 +106,19 @@ removed after the lock is won.
   "work_sessions_in_block": 1,
   "long_break_every": 4,
   "next_stage": {"state": "short_break", "duration": 300},  // seconds
+  "owed_stage": null,             // what start would enter; null unless idle
   "morning_pending": false,
   "snooze_until": null,
   "status_line": "Work 12:34",
   "focused_task_ids": [3]
 }
 ```
+
+`next_stage` is what `confirm` would move on to, and is present only at
+`awaiting_confirm`. `owed_stage` is what `start` would enter, and is present
+only while idle: stop suspends the cycle rather than abandoning it, so an idle
+timer can still owe the break it earned, and a client that shows a Start
+control reads this to say which phase that control will begin.
 
 `snooze_until` is the morning-reminder snooze deadline (null when no
 morning snooze is active). `status_line` is the same string the TUI shows; the core owns

@@ -42,6 +42,21 @@ func TestOwedPhaseReportsWhatStartWouldEnter(t *testing.T) {
 	}
 }
 
+// An owed break must be measured against its own duration. Answering with the
+// work duration is the bug that made a resumed 5m break run for 25 minutes.
+func TestOwedStageReportsThePhaseAndItsOwnDuration(t *testing.T) {
+	a := New(25, 5, 15, 4)
+	if state, d := a.OwedStage(); state != engine.Work || d != 25*time.Minute {
+		t.Fatalf("expected a 25m work period owed on a fresh timer, got %v %v", state, d)
+	}
+	a.Start()
+	a.CompletePeriod()
+	a.Stop()
+	if state, d := a.OwedStage(); state != engine.ShortBreak || d != 5*time.Minute {
+		t.Fatalf("expected a 5m short break owed, got %v %v", state, d)
+	}
+}
+
 // Stop must report the state as of when it actually stopped, not a state a
 // caller fetched earlier through a separate Snapshot call. The real deadline
 // callback runs in its own goroutine (time.AfterFunc) and can complete the
