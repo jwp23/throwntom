@@ -160,7 +160,8 @@ func TestSilentNotifierPlaysNothing(t *testing.T) {
 }
 
 func TestSilentNotifiersAreInterchangeable(t *testing.T) {
-	if Silent() != Silent() {
+	a, b := Silent(), Silent()
+	if a != b {
 		t.Fatal("expected every silent notifier to compare equal")
 	}
 }
