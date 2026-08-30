@@ -149,7 +149,8 @@ final class PersistedStopTests: XCTestCase {
   }
 
   /// The states this one has to stay distinguishable from: a first launch has recorded nothing,
-  /// and a client whose daemon died has an intent of running. Both dial; only a stop does not.
+  /// and a client whose daemon died has recorded nothing either, so both read as running. Both
+  /// dial; only a recorded stop does not.
   func testALaunchWithNoStoppedIntentDialsAsUsual() async throws {
     let transport = CountingTransport()
     let client = DaemonClient(

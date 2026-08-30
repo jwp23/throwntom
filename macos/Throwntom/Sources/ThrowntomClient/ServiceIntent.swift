@@ -53,10 +53,10 @@ public final class MemoryServiceIntentStore: ServiceIntentStore {
 
 /// The intent in the app's user defaults.
 ///
-/// Anything but a recorded stop reads as running, which is what keeps the three situations apart:
-/// a first launch has written nothing, a client whose daemon died has written `running`, and both
-/// want the daemon back. Only an explicit Stop does not, so only an explicit Stop is allowed to
-/// keep the client from dialling.
+/// Anything but a recorded stop reads as running, which is what keeps the situations apart.
+/// Nothing at all is written until a service verb is pressed, so a first launch and a launch after
+/// the daemon died both read as running — and both want the daemon back. Only an explicit Stop
+/// records otherwise, so only an explicit Stop can keep the client from dialling.
 public struct UserDefaultsServiceIntentStore: ServiceIntentStore {
 
   // MARK: Lifecycle
