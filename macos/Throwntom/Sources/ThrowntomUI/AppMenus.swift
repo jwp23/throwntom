@@ -26,6 +26,14 @@ struct AppMenus: Commands {
           .keyboardShortcut(item.shortcut?.keyboardShortcut)
           .disabled(!item.isEnabled)
       }
+      // The durations live in a submenu under the Timer menu's own Snooze, which keeps ⌘⇧S on
+      // the default and puts every other duration one level down rather than in the top list.
+      Menu("Snooze For") {
+        MenuGroups(menu: MenuModel.snooze(state: environment.client.state)) { item in
+          Button(item.title) { snooze(item.action) }
+            .disabled(!item.isEnabled)
+        }
+      }
       Divider()
       MenuGroups(menu: serviceMenu) { item in
         Button(item.title) { control(item.action) }
@@ -58,6 +66,17 @@ struct AppMenus: Commands {
 
   func perform(_ action: TimerAction) {
     DaemonDispatch.perform(action, on: environment.client)
+  }
+
+  /// `Custom…` opens the window's duration field rather than sending anything, so choosing it
+  /// from the menu bar brings the window forward to show what it is now asking for.
+  func snooze(_ action: SnoozeAction) {
+    if action == .custom {
+      environment.windowModel.isEnteringSnooze = true
+      NSApp.activate(ignoringOtherApps: true)
+    } else {
+      DaemonDispatch.perform(action, on: environment.client)
+    }
   }
 
   func control(_ action: ServiceAction) {

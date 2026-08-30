@@ -12,6 +12,13 @@ enum DaemonDispatch {
     }
   }
 
+  @MainActor
+  static func perform(_ action: SnoozeAction, on client: DaemonClient) {
+    Task {
+      do { try await client.perform(action) } catch { NSSound.beep() }
+    }
+  }
+
   /// Service lifecycle goes straight to launchd rather than over the socket, so unlike a timer
   /// verb it is synchronous and reports through the client's own error properties.
   @MainActor

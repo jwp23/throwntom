@@ -36,7 +36,15 @@ struct MainWindow: View {
       if let garden = content.garden {
         TomatoGardenView(garden: garden)
       }
-      ActionChips(content: content, client: environment.client)
+      ActionChips(content: content, client: environment.client, model: environment.windowModel)
+      if environment.windowModel.isEnteringSnooze {
+        SnoozeEntryRow(client: environment.client, model: environment.windowModel)
+      }
+      // Snoozing withdraws the reminder banner, so without this line an active snooze has no
+      // representation on screen at all.
+      if let snoozeNote = content.snoozeNote {
+        Text(snoozeNote).font(.caption)
+      }
       ServiceChip(content: content, client: environment.client)
         .padding(.top, Self.serviceChipGap)
       CommandChips(environment: environment, scheme: content.scheme)

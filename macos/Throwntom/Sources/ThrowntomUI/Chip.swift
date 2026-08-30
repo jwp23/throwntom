@@ -15,6 +15,30 @@ struct ChipStyle: Equatable {
   }
 }
 
+// MARK: - ChipLabel
+
+/// A chip's face: the title, its shortcut when it has one, and the rounded fill. Separate from
+/// `Chip` so the controls that are not buttons — the snooze pull-down — wear the same face
+/// without copying it.
+struct ChipLabel: View {
+  let title: String
+  let hint: String
+  let style: ChipStyle
+
+  var body: some View {
+    HStack(spacing: 6) {
+      Text(title).fontWeight(.semibold)
+      if !hint.isEmpty {
+        Text(hint).font(.body.monospaced())
+      }
+    }
+    .padding(.horizontal, 10)
+    .padding(.vertical, 5)
+    .background(style.fill.color, in: RoundedRectangle(cornerRadius: 6))
+    .foregroundStyle(style.text.color)
+  }
+}
+
 // MARK: - Chip
 
 /// A rounded button showing its title and, when it has one, its keyboard shortcut. The shortcut
@@ -39,16 +63,7 @@ struct Chip: View {
 
   var body: some View {
     Button(action: action) {
-      HStack(spacing: 6) {
-        Text(title).fontWeight(.semibold)
-        if !hint.isEmpty {
-          Text(hint).font(.body.monospaced())
-        }
-      }
-      .padding(.horizontal, 10)
-      .padding(.vertical, 5)
-      .background(style.fill.color, in: RoundedRectangle(cornerRadius: 6))
-      .foregroundStyle(style.text.color)
+      ChipLabel(title: title, hint: hint, style: style)
     }
     .buttonStyle(.plain)
     .accessibilityLabel(hint.isEmpty ? title : "\(title), \(hint)")

@@ -52,7 +52,7 @@ final class ChipTests: XCTestCase {
       panel: nil,
       now: .now,
     )
-    _ = ActionChips(content: content, client: environment.client).body
+    _ = ActionChips(content: content, client: environment.client, model: environment.windowModel).body
   }
 
   /// A plain `HStack` ran the timer verbs past the edge of a 320pt window. The row is built from
@@ -70,7 +70,11 @@ final class ChipTests: XCTestCase {
       now: .now,
     )
 
-    let timerRow = String(describing: type(of: ActionChips(content: content, client: environment.client).body))
+    let timerRow = String(describing: type(of: ActionChips(
+      content: content,
+      client: environment.client,
+      model: environment.windowModel,
+    ).body))
     let commandRow = String(
       describing: type(of: CommandChips(environment: environment, scheme: content.scheme).body)
     )
@@ -93,7 +97,7 @@ final class ChipTests: XCTestCase {
       panel: nil,
       now: .now,
     )
-    let chips = ActionChips(content: content, client: environment.client)
+    let chips = ActionChips(content: content, client: environment.client, model: environment.windowModel)
     let primary = chips.chip(for: .confirm)
     XCTAssertEqual(primary.title, TimerAction.confirm.title)
     XCTAssertEqual(primary.style, ChipStyle.style(primary: true, scheme: content.scheme))

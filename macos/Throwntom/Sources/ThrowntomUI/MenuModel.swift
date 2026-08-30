@@ -24,6 +24,10 @@ extension ViewAction: MenuAction { }
 
 extension ServiceAction: MenuAction { }
 
+// MARK: - SnoozeAction + MenuAction
+
+extension SnoozeAction: MenuAction { }
+
 // MARK: - MenuShortcut
 
 /// The key binding of a menu item. Separate from the item so items without one are expressible.
@@ -142,6 +146,28 @@ extension MenuModel where Action == TimerAction {
         item(.skipToday, nil),
         item(.newCycle, nil),
       ],
+    ])
+  }
+}
+
+extension MenuModel where Action == SnoozeAction {
+  /// The snooze lifecycle as one menu: how long to defer the reminder, a way to say a duration
+  /// the presets do not cover, and the undo. It is the whole feature in one place because the
+  /// user's question — "not now, but when?" — is one question.
+  ///
+  /// The durations stay enabled while a snooze is already running: the daemon replaces the
+  /// deadline rather than refusing (`outstandingReminder.suppress`), so changing your mind about
+  /// how long is one click, not a cancel that rings the reminder you were deferring.
+  static func snooze(state: DaemonState?) -> MenuModel {
+    let canDefer = state.map { TimerActions.available(for: $0).contains(.snooze) } ?? false
+    let isSnoozed = state?.snoozeUntil != nil
+    func item(_ action: SnoozeAction, isEnabled: Bool) -> MenuItem<SnoozeAction> {
+      MenuItem(action: action, shortcut: nil, isEnabled: isEnabled)
+    }
+    return MenuModel(groups: [
+      SnoozeActions.presets.map { item(.snooze(minutes: $0), isEnabled: canDefer) }
+        + [item(.custom, isEnabled: canDefer)],
+      [item(.cancel, isEnabled: isSnoozed)],
     ])
   }
 }

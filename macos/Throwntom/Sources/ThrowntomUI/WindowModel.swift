@@ -57,13 +57,21 @@ enum ViewAction: CaseIterable, Sendable {
 final class WindowModel {
   var panel: WindowPanel?
   var showsShortcuts = false
+  /// Whether the snooze chip's "Custom…" duration field is open. Closed on every launch, and
+  /// closed again the moment a duration is accepted or abandoned.
+  var isEnteringSnooze = false
 
   func toggle(_ panel: WindowPanel) {
     self.panel = self.panel == panel ? nil : panel
   }
 
-  /// Escape: the sheet goes first, then the panel. False when nothing was open.
+  /// Escape: the duration field first, then the sheet, then the panel. False when nothing was
+  /// open. Innermost first, so Escape always answers whatever the user is looking at.
   func dismiss() -> Bool {
+    if isEnteringSnooze {
+      isEnteringSnooze = false
+      return true
+    }
     if showsShortcuts {
       showsShortcuts = false
       return true
