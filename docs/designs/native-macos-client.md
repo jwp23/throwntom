@@ -117,8 +117,8 @@ removed after the lock is won.
 `next_stage` is what `confirm` would move on to, and is present only at
 `awaiting_confirm`. `owed_stage` is what `start` would enter, and is present
 only while idle: stop suspends the cycle rather than abandoning it, so an idle
-timer can still owe the break it earned, and a client that shows a Start
-control reads this to say which phase that control will begin.
+timer can still owe the break it earned. It is what lets a client showing a
+Start control name the phase that control will begin; no client reads it yet.
 
 `snooze_until` is the morning-reminder snooze deadline (null when no
 morning snooze is active). `status_line` is the same string the TUI shows; the core owns
