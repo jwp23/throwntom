@@ -229,7 +229,7 @@ are the dark-terminal variants; `-light` variants carry the light-terminal value
 - **Error (#B3001B / #FF5C5C):** Red, for the message line only when `IsError` is set. It
   never colours the status line; a timer state is never "red".
 
-**macOS grounds.** `macos-work`, `macos-short-break`, `macos-long-break`, `macos-idle`, `macos-paused` and `macos-awaiting-confirm` are mid-tone, saturated versions of the same six hues and fill the entire window; `macos-disconnected` is a dark brown used while the daemon is unreachable. All text on a ground is `macos-ink` (cream on disconnected). `macos-cream` is the label of the primary chip and the mascot's glint, page edges and drink; `macos-outline`, the icon's outline brown, is the primary chip. Each `*-chip` token is its ground under 55% black and carries white text, except `macos-disconnected-chip`, which is cream because that ground shows no chips. `PaletteTests` asserts text on ground and label on chip at 4.5:1 and chip on ground at 3:1; `DesignTokensTests` asserts these values equal `Palette.swift`. The look is the same in light and dark system appearance.
+**macOS grounds.** `macos-work`, `macos-short-break`, `macos-long-break`, `macos-idle`, `macos-paused` and `macos-awaiting-confirm` are mid-tone, saturated versions of the same six hues and fill the entire window; `macos-disconnected` is a dark brown used while the daemon is unreachable. All text on a ground is `macos-ink` (cream on disconnected). `macos-cream` is the label of the primary chip and the mascot's glint, page edges and drink; `macos-outline`, the icon's outline brown, is the primary chip. Each `*-chip` token is its ground under 55% black and carries white text, except `macos-disconnected-chip`, which is cream with `macos-outline` text because the only chip that ground ever shows is the one that starts the timer service, and it has to read as the way out. `PaletteTests` asserts text on ground and label on chip at 4.5:1 and chip on ground at 3:1; `DesignTokensTests` asserts these values equal `Palette.swift`. The look is the same in light and dark system appearance.
 
 **Mascot.** The `mascot-*` tokens are the character's own paint and never appear elsewhere: `mascot-body-light` → `mascot-body` → `mascot-body-dark` is the body's radial gradient (centre upper-left, dark at the rim); `mascot-leaf-light` → `mascot-leaf-dark` the leaf gradient; `mascot-blush` the cheeks; `mascot-prop-light`/`-dark` the laptop; `mascot-wood` the book; `mascot-sky` the drink, screen and yo-yo. The sofa is painted in the phase's tones: back `*-panel`, arms the ground under 19% black, seat the ground under 10% black, so it belongs to the room it is in. Hands are `mascot-body`; every outline is `macos-outline`.
 
@@ -254,7 +254,7 @@ newline in it; the prompt. Every line is clamped to terminal width minus one by
 `clampANSILine`, with a `...` ellipsis when at least four columns are available and a hard
 cut otherwise; nothing wraps, nothing is centred, there are no margins. The status line is `<icon> <coloured text>`, with a single space between.
 
-The macOS window is one vertical stack with 16pt padding: timer header (200pt mascot, then phase name, countdown and next stage, all centred), tomato garden, count line, timer chips, command chips, reminder banner and errors, focus list, then an optional tasks or stats panel — every section centred under the mascot. Panels expand the window downward; the minimum width is 320pt and the mascot shrinks with the width. The command row flows to the window width rather than truncating.
+The macOS window is one vertical stack with 16pt padding: timer header (200pt mascot, then phase name, countdown and next stage, all centred), tomato garden, count line, timer chips, the service chip, command chips, reminder banner and errors, focus list, then an optional tasks or stats panel — every section centred under the mascot. Panels expand the window downward; the minimum width is 320pt and the mascot shrinks with the width. The command row flows to the window width rather than truncating.
 
 ## Elevation & Depth
 
@@ -319,7 +319,9 @@ The README tomato drawn in code on a 100×100 canvas scaled to 200pt: a radial-g
 
 `<title>  <shortcut>`: the primary verb on `macos-outline` in `macos-cream`; every other verb on the phase's `*-chip` colour in white. The shortcut is monospaced body text in the same colour as the title.
 
-Two rows of chips sit under the timer: the timer verbs valid right now, then the command chips (Tasks, Stats, Keyboard Shortcuts, Open Config File…), which are always secondary so the timer's primary verb keeps the only strong chip on screen. The command row exists so nothing is reachable only from the menu bar; the menu bar remains the complete command list, and the row carries only the commands that show something, never every menu item.
+Three rows of chips sit under the timer: the timer verbs valid right now; the single service chip, which starts or stops the timer service itself; then the command chips (Tasks, Stats, Keyboard Shortcuts, Open Config File…), which are always secondary so the timer's primary verb keeps the only strong chip on screen. The command row exists so nothing is reachable only from the menu bar; the menu bar remains the complete command list, and the row carries only the commands that show something, never every menu item.
+
+The service chip is secondary while the service runs, so stopping the timer never outweighs the verb that runs it. When the service is stopped or launchd has refused to launch it there are no timer verbs above, and the chip turns primary and reads Start Timer Service: it is the only thing on that screen worth pressing.
 
 ### Tomato garden (macOS)
 
