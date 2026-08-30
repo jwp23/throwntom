@@ -45,12 +45,33 @@ public final class DaemonClient {
   /// must not be hidden by the connection guard below.
   public private(set) var commandError: String?
 
+  /// Whether the daemon has ever answered — bytes arrived, whether or not they parsed. Until it
+  /// has, the connection states are the whole story and the window has nothing to add to them.
+  public private(set) var hasConnected = false
+
+  /// Set when launchd refuses to start the daemon, cleared when it accepts or the daemon answers.
+  /// Kept apart from `lastError` because the dial errors that follow would otherwise overwrite
+  /// it within one backoff step, leaving the window on "Starting timer…" explaining nothing.
+  public private(set) var registrationError: String?
+
   /// The last error while it still matters: reconnecting hides `lastError` without forgetting
   /// it, but a refused command is shown regardless of connection state.
+  ///
+  /// The reconnect note is suppressed wherever `Connection` is already saying it. "Starting
+  /// timer…" and a note reading "Timer is restarting…" are two messages competing to say one
+  /// thing, so the status line wins; and before the daemon has ever answered the note is untrue
+  /// as well, because nothing has restarted yet. A failure to start the daemon at all is not a
+  /// competing message but the reason nothing is happening, so it still reports.
+  /// A live connection is checked before `registrationError` so that a stale refusal can never
+  /// be shown over a running timer, whatever happens to the code that clears it.
   public var unresolvedError: String? {
     if let commandError {
       commandError
     } else if connection == .connected {
+      nil
+    } else if let registrationError {
+      registrationError
+    } else if connection == .startingDaemon || !hasConnected {
       nil
     } else {
       lastError
@@ -103,7 +124,7 @@ public final class DaemonClient {
       try Self.check(response)
       tasks = try DaemonJSON.decoder.decode(TaskList.self, from: response.body)
     } catch {
-      lastError = String(describing: error)
+      lastError = Self.userMessage(error)
     }
   }
 
@@ -131,13 +152,27 @@ public final class DaemonClient {
       ?? String(decoding: body, as: UTF8.self)
   }
 
+  /// The window's wording for anything that goes wrong, so no view has to render a raw error.
+  /// Anything that is not a `DaemonError` got as far as a reply the client could not decode,
+  /// so it is reported as an unreadable answer rather than as an unreachable daemon.
+  private static func userMessage(_ error: Error) -> String {
+    (error as? DaemonError)?.userMessage ?? DaemonError.malformedResponse("\(error)").userMessage
+  }
+
   private func runStream() async {
-    var failures = 0
+    var retries = ReconnectBackoff(delays: backoff, registerEvery: Self.failuresBeforeRegistering)
     while !Task.isCancelled {
       do {
         for try await frame in transport.events(DaemonAPI.events) {
+          // Before the decode: the daemon has answered even if we cannot read what it said, and
+          // a daemon that is up but talking nonsense has still been reached.
+          hasConnected = true
+          registrationError = nil
           let decoded = try DaemonJSON.decoder.decode(DaemonState.self, from: frame)
-          failures = 0
+          // Below the decode, unlike the two above it: a daemon that is up but sending frames we
+          // cannot read must keep backing off. Resetting on an undecodable frame would spin the
+          // reconnect loop at the shortest delay for as long as it kept babbling.
+          retries.reset()
           connection = .connected
           state = decoded
           await refreshTasks()
@@ -147,25 +182,32 @@ public final class DaemonClient {
         if Task.isCancelled {
           return
         }
-        failures += 1
-        lastError = String(describing: error)
+        retries.recordFailure()
+        lastError = Self.userMessage(error)
         // A real outage matters more than a stale command refusal from before it started.
         commandError = nil
-        if failures > 0 && failures % Self.failuresBeforeRegistering == 0 {
-          registerAgent()
+        // Only a registration launchd accepted justifies retrying sooner: when the ask itself
+        // failed, nothing has been done about the outage and it keeps escalating.
+        if retries.shouldRegisterAgent, registerAgent() {
+          retries.agentRegistered()
         }
-        connection = failures >= Self.failuresBeforeRegistering ? .startingDaemon : .reconnecting(attempt: failures)
-        let delay = backoff[min(failures - 1, backoff.count - 1)]
-        try? await Task.sleep(for: delay)
+        connection = retries.failures >= Self.failuresBeforeRegistering
+          ? .startingDaemon
+          : .reconnecting(attempt: retries.failures)
+        try? await Task.sleep(for: retries.delay)
       }
     }
   }
 
-  private func registerAgent() {
+  /// Asks launchd to start the daemon. Returns whether the ask was accepted.
+  private func registerAgent() -> Bool {
     do {
       try registrar.ensureAgentRegistered()
+      registrationError = nil
+      return true
     } catch {
-      lastError = "register agent: \(error)"
+      registrationError = "The timer could not be started."
+      return false
     }
   }
 
@@ -183,7 +225,7 @@ public final class DaemonClient {
       commandError = nil
       return result
     } catch {
-      commandError = String(describing: error)
+      commandError = Self.userMessage(error)
       throw error
     }
   }

@@ -42,9 +42,13 @@ final class ReminderNotificationAnswerTests: XCTestCase {
     daemon.cleanup()
   }
 
+  /// Snoozing needs a reminder to snooze, so the test waits for the daemon to say it has one
+  /// rather than assuming the schedule raised it in time. Without the wait the POST can land
+  /// before the reminder exists and the daemon answers 409 "nothing to snooze".
   func testSnoozeActionSnoozesTheDaemon() async throws {
     let client = try await connectedClient()
     defer { client.stop() }
+    try await waitUntil { client.state?.morningPending == true }
     XCTAssertNil(client.state?.snoozeUntil)
 
     try await ReminderNotification.answer(.snooze, using: client)

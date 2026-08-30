@@ -24,6 +24,20 @@ public enum DaemonError: Error, Equatable {
   case timedOut(after: Duration)
 }
 
+extension DaemonError {
+  /// What the window says about this error. The daemon's own words for a refusal, since it
+  /// explains itself in plain language; a sentence of our own for everything else, because the
+  /// alternative is showing the reader a socket error verbatim.
+  public var userMessage: String {
+    switch self {
+    case .transport: "Timer is restarting…"
+    case .malformedResponse: "The timer sent a reply we could not read."
+    case .http(_, let message): message
+    case .timedOut: "The timer is not responding."
+    }
+  }
+}
+
 // MARK: - DaemonTransport
 
 /// How the client reaches throwntomd. One implementation today (Unix socket); a TCP one can be added behind this.
