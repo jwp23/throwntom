@@ -9,6 +9,16 @@ let mainWindowID = "main"
 /// optional panel. Everything it shows is decided by `MainWindowContent`.
 struct MainWindow: View {
 
+  /// The gap between the window's stacked sections.
+  static let sectionSpacing: CGFloat = 12
+
+  /// Extra space above the service chip, on top of `sectionSpacing`. It is not one of the timer
+  /// verbs above it — it turns the whole timer service off, and a service the user stops stays
+  /// stopped — so it must not read as another one. The Timer menu separates the same two groups
+  /// with a divider; here the separation is positional, which needs no rule colour of its own and
+  /// overstates nothing: stopping discards no progress (ADR-006), so a destructive tint would lie.
+  static let serviceChipGap: CGFloat = 12
+
   let environment: AppEnvironment
 
   var body: some View {
@@ -21,13 +31,14 @@ struct MainWindow: View {
       panel: environment.windowModel.panel,
       now: environment.ticker.now,
     )
-    VStack(spacing: 12) {
+    VStack(spacing: Self.sectionSpacing) {
       TimerHeader(content: content)
       if let garden = content.garden {
         TomatoGardenView(garden: garden)
       }
       ActionChips(content: content, client: environment.client)
       ServiceChip(content: content, client: environment.client)
+        .padding(.top, Self.serviceChipGap)
       CommandChips(environment: environment, scheme: content.scheme)
       WindowNotes(error: content.error, responder: environment.responder)
       FocusSection(tasks: content.focused)

@@ -64,6 +64,18 @@ final class ServiceChipTests: XCTestCase {
     _ = ServiceChip(content: serviceContent(connection: .stopped), client: client()).body
   }
 
+  /// throwntom-d6e: the chip that turns the timer service off must not sit in the timer verbs'
+  /// own rhythm, or it reads as one more verb a row below Pause. Joe ruled the separation is
+  /// positional rather than a destructive tint — stopping discards no progress, so red would
+  /// overstate it — which makes this gap the whole of the distinction and worth pinning down.
+  func testTheServiceChipIsSetApartFromTheTimerVerbs() {
+    XCTAssertGreaterThanOrEqual(
+      MainWindow.sectionSpacing + MainWindow.serviceChipGap,
+      MainWindow.sectionSpacing * 2,
+      "the service chip has to read as its own group, not as another timer verb",
+    )
+  }
+
   // MARK: Private
 
   /// Every client here is torn down with the test: `startService()` starts a real reconnect loop,
