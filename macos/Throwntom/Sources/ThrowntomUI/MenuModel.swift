@@ -20,6 +20,10 @@ extension TaskAction: MenuAction { }
 
 extension ViewAction: MenuAction { }
 
+// MARK: - ServiceAction + MenuAction
+
+extension ServiceAction: MenuAction { }
+
 // MARK: - MenuShortcut
 
 /// The key binding of a menu item. Separate from the item so items without one are expressible.
@@ -139,6 +143,15 @@ extension MenuModel where Action == TimerAction {
         item(.newCycle, nil),
       ],
     ])
+  }
+}
+
+extension MenuModel where Action == ServiceAction {
+  /// The timer service's own group in the Timer menu: one toggle, worded for what pressing it
+  /// does. Always enabled — the whole point is that it works when nothing else does.
+  static func service(connection: DaemonClient.Connection, registrationFailed: Bool) -> MenuModel {
+    let action = ServiceActions.startOrStop(connection: connection, registrationFailed: registrationFailed)
+    return MenuModel(groups: [[MenuItem(action: action, shortcut: nil, isEnabled: true)]])
   }
 }
 

@@ -72,7 +72,11 @@ type Engine struct {
 	workSessionsBlock int
 	completedToday    int
 	workDayStarted    bool
-	workDate          time.Time
+	// dayEnded records that the user declared the work day over, which no
+	// other idle state means. It is the only way a client can tell "idle,
+	// ready to go" from "idle, done until tomorrow".
+	dayEnded bool
+	workDate time.Time
 	// skipped records that the phase behind lastPhase was cut short by the
 	// user rather than served. A skipped work period earns no long break, and
 	// no phase skipped this way counts as completed. Any completed period
@@ -114,6 +118,7 @@ func (e *Engine) StartWork() {
 		e.workDayStarted = true
 		e.workSessionsBlock = 0
 	}
+	e.dayEnded = false
 	e.state = next
 	e.lastPhase = next
 }
@@ -160,6 +165,7 @@ func (e *Engine) breakAfterWork() State {
 }
 
 func (e *Engine) StartNewCycle() {
+	e.dayEnded = false
 	e.skipped = false
 	e.workDayStarted = true
 	e.workSessionsBlock = 0
@@ -226,12 +232,15 @@ func (e *Engine) SetLongBreakEvery(n int) {
 	e.longBreakEvery = n
 }
 
+// SkipToday ends the work day: the timer goes idle and stays there, and the
+// day is marked over so nothing reminds the user again until tomorrow.
 func (e *Engine) SkipToday() {
 	e.skipped = false
 	e.state = Idle
 	e.lastPhase = Idle
 	e.pausedFrom = Idle
 	e.workDayStarted = false
+	e.dayEnded = true
 }
 
 // SkipPhase ends the running phase early at the user's request, reaching the
@@ -279,6 +288,7 @@ type Snapshot struct {
 	WorkSessions   int       `json:"work_sessions"`
 	CompletedToday int       `json:"completed_today"`
 	WorkDayStarted bool      `json:"work_day_started"`
+	DayEnded       bool      `json:"day_ended"`
 	WorkDate       time.Time `json:"work_date"`
 	// Skipped reports that the phase in LastPhase was skipped rather than
 	// served, so nothing about it should be recorded as completed.
@@ -293,6 +303,7 @@ func (e *Engine) Snapshot() Snapshot {
 		WorkSessions:   e.workSessionsBlock,
 		CompletedToday: e.completedToday,
 		WorkDayStarted: e.workDayStarted,
+		DayEnded:       e.dayEnded,
 		WorkDate:       e.workDate,
 		Skipped:        e.skipped,
 	}
@@ -309,6 +320,11 @@ func (s Snapshot) Invalid() string {
 	if !s.WorkDayStarted && (s.State != Idle || s.LastPhase != Idle) {
 		return "work_day_started is false but state/last_phase is not idle"
 	}
+	// Only SkipToday sets day_ended, and it closes the work day and goes idle in
+	// the same move; every other transition clears it.
+	if s.DayEnded && (s.State != Idle || s.WorkDayStarted) {
+		return "day_ended is true but the work day is not closed and idle"
+	}
 	if s.State == AwaitingConfirm {
 		switch s.LastPhase {
 		case Work, ShortBreak, LongBreak:
@@ -316,14 +332,21 @@ func (s Snapshot) Invalid() string {
 			return "awaiting_confirm with an unreachable last_phase"
 		}
 	}
-	if s.State == Paused {
-		switch s.PausedFrom {
-		case Work, ShortBreak, LongBreak:
-		default:
-			return "paused with an unreachable paused_from"
-		}
+	if s.State == Paused && !isTimedPhase(s.PausedFrom) {
+		return "paused with an unreachable paused_from"
 	}
 	return ""
+}
+
+// isTimedPhase reports whether s is one of the three phases that run on a
+// clock, which are the only ones a confirm or a pause can have come from.
+func isTimedPhase(s State) bool {
+	switch s {
+	case Work, ShortBreak, LongBreak:
+		return true
+	default:
+		return false
+	}
 }
 
 func (e *Engine) Restore(s Snapshot) {
@@ -333,6 +356,7 @@ func (e *Engine) Restore(s Snapshot) {
 	e.workSessionsBlock = s.WorkSessions
 	e.completedToday = s.CompletedToday
 	e.workDayStarted = s.WorkDayStarted
+	e.dayEnded = s.DayEnded
 	e.workDate = s.WorkDate
 	e.skipped = s.Skipped
 }
@@ -354,6 +378,7 @@ func (e *Engine) AdvanceDay(now time.Time) {
 	e.completedToday = 0
 	e.workSessionsBlock = 0
 	e.workDayStarted = false
+	e.dayEnded = false
 	// A new day owes nothing: yesterday's suspended cycle does not carry over.
 	e.lastPhase = Idle
 	e.skipped = false

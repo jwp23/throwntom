@@ -58,6 +58,9 @@ app's menus use, so it can't drift out of sync.
 If the agent is enabled in Login Items but launchd has no job for it (after a
 `bootout`, or a rebuild), the app unregisters and re-registers it after three
 failed connection attempts; the window's header shows "Starting timer…" meanwhile.
+If launchd refuses outright the header reads "Timer service can't launch" and the
+note under it names launchd and points at the **Start Timer Service** chip, which
+retries the registration.
 
 ## Tests
 
@@ -101,12 +104,33 @@ built by the tests with `go build` and run with `HOME` under `/tmp`.
 ## Stopping
 
 Quitting the app leaves the daemon running under launchd (`KeepAlive`), so the
-timer and its end-of-phase reminder continue. The window has no stop button
-yet: **Skip Today** (offered while idle) ends the day, and a running or owed
-phase is stopped with `tools/tomctl cmd stop`; to stop the daemon itself, quit the app
-first (an open app re-registers the agent after three failed connections), then
-run `launchctl bootout gui/$(id -u)/com.jwp23.throwntom.daemon` — the app
-registers it again on its next launch.
+timer and its end-of-phase reminder continue. That is deliberate: the daemon
+exists to keep you on track when you forget the app
+(`docs/adr/006-daemon-lifecycle-and-config-reload.md`). There are two ways to
+make it stop, and they mean different things.
+
+- **Done for Today** — a chip in the window and an item in the Timer menu,
+  offered whatever the timer is doing. Ends the work day: the phase stops and
+  nothing reminds you again until tomorrow. The window then reads "Done for
+  today" rather than "Idle", and it survives a daemon restart.
+- **Stop Timer Service** — the chip under the timer verbs, and the group below
+  the divider in the Timer menu. Unregisters the `launchd` agent and stops the
+  daemon, so nothing is timing at all; the window turns dark and offers **Start
+  Timer Service**. Use it when you want the machine quiet, not just the day
+  over.
+
+  The stop holds for as long as the app stays open. It is **not** yet persisted:
+  the next launch of the app dials, fails three times, and re-registers the
+  agent, so a stopped service comes back when you next open Throwntom (or at
+  login, if Launch at Login is on). Whether it should survive a restart is an
+  open question — bead `throwntom-faa`. Until that is settled, quit the app to
+  keep the service down.
+
+A single phase can still be stopped without ending the day with
+`tools/tomctl cmd stop`. `launchctl bootout gui/$(id -u)/com.jwp23.throwntom.daemon`
+does what Stop Timer Service does; note that an app which has not been told to
+stop re-registers the agent after three failed connections, so quit it first if
+you boot the agent out by hand.
 
 ## Layout
 

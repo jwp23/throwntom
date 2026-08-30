@@ -3,11 +3,11 @@ import XCTest
 
 final class StateDecodingTests: XCTestCase {
   /// Captured from GET /v1/state on a fresh throwntomd.
-  static let idleJSON = #"{"state":"idle","phase_end_at":null,"paused_remaining":0,"paused_from":"idle","completed_today":0,"work_sessions_in_block":0,"long_break_every":4,"next_stage":null,"morning_pending":true,"snooze_until":null,"status_line":"Idle  Today: 0  Cycle: 0/4","focused_task_ids":[],"reminder_rings":0}"#
+  static let idleJSON = #"{"state":"idle","phase_end_at":null,"paused_remaining":0,"paused_from":"idle","completed_today":0,"work_sessions_in_block":0,"long_break_every":4,"next_stage":null,"morning_pending":true,"snooze_until":null,"status_line":"Idle  Today: 0  Cycle: 0/4","focused_task_ids":[],"reminder_rings":0,"day_ended":false}"#
 
-  static let workJSON = #"{"state":"work","phase_end_at":"2026-08-25T10:25:00.123456789-07:00","paused_remaining":0,"paused_from":"idle","completed_today":3,"work_sessions_in_block":1,"long_break_every":4,"next_stage":{"state":"short_break","duration":300},"morning_pending":false,"snooze_until":"2026-08-25T09:00:00Z","status_line":"Pomodoro  12:34  Today: 3  Cycle: 1/4","focused_task_ids":[3,7],"reminder_rings":2}"#
+  static let workJSON = #"{"state":"work","phase_end_at":"2026-08-25T10:25:00.123456789-07:00","paused_remaining":0,"paused_from":"idle","completed_today":3,"work_sessions_in_block":1,"long_break_every":4,"next_stage":{"state":"short_break","duration":300},"morning_pending":false,"snooze_until":"2026-08-25T09:00:00Z","status_line":"Pomodoro  12:34  Today: 3  Cycle: 1/4","focused_task_ids":[3,7],"reminder_rings":2,"day_ended":false}"#
 
-  static let pausedJSON = #"{"state":"paused","phase_end_at":null,"paused_remaining":900,"paused_from":"long_break","completed_today":4,"work_sessions_in_block":0,"long_break_every":4,"next_stage":{"state":"work","duration":1500},"morning_pending":false,"snooze_until":null,"status_line":"Paused","focused_task_ids":[],"reminder_rings":0}"#
+  static let pausedJSON = #"{"state":"paused","phase_end_at":null,"paused_remaining":900,"paused_from":"long_break","completed_today":4,"work_sessions_in_block":0,"long_break_every":4,"next_stage":{"state":"work","duration":1500},"morning_pending":false,"snooze_until":null,"status_line":"Paused","focused_task_ids":[],"reminder_rings":0,"day_ended":false}"#
 
   func testDecodesPausedFrom() throws {
     let s = try DaemonJSON.decoder.decode(DaemonState.self, from: Data(Self.pausedJSON.utf8))
@@ -15,6 +15,14 @@ final class StateDecodingTests: XCTestCase {
     XCTAssertEqual(s.pausedFrom, .longBreak)
     let idle = try DaemonJSON.decoder.decode(DaemonState.self, from: Data(Self.idleJSON.utf8))
     XCTAssertEqual(idle.pausedFrom, .idle)
+  }
+
+  /// The wire key the daemon writes for an ended work day; `internal/core/state_test.go` holds
+  /// the daemon to the same name.
+  func testDecodesTheEndedDayFlag() throws {
+    let ended = Self.idleJSON.replacingOccurrences(of: #""day_ended":false"#, with: #""day_ended":true"#)
+    XCTAssertTrue(try DaemonJSON.decoder.decode(DaemonState.self, from: Data(ended.utf8)).dayEnded)
+    XCTAssertFalse(try DaemonJSON.decoder.decode(DaemonState.self, from: Data(Self.idleJSON.utf8)).dayEnded)
   }
 
   func testDecodesIdleState() throws {

@@ -32,8 +32,8 @@ final class TimerMenuModelTests: XCTestCase {
     let working = MenuModel.timer(state: makeState(phase: .work), isEditing: false)
     let paused = MenuModel.timer(state: makeState(phase: .paused), isEditing: false)
 
-    XCTAssertEqual(enabledActions(working), [.pause, .skip])
-    XCTAssertEqual(enabledActions(paused), [.resume])
+    XCTAssertEqual(enabledActions(working), [.pause, .skip, .skipToday])
+    XCTAssertEqual(enabledActions(paused), [.resume, .skipToday])
     XCTAssertTrue(working.items.contains { $0.action == .pause })
     XCTAssertTrue(paused.items.contains { $0.action == .resume })
   }
@@ -50,7 +50,7 @@ final class TimerMenuModelTests: XCTestCase {
   func testEditingDoesNotDisableTheOtherVerbs() {
     let menu = MenuModel.timer(state: makeState(phase: .awaitingConfirm), isEditing: true)
 
-    XCTAssertEqual(enabledActions(menu), [.snooze, .newCycle])
+    XCTAssertEqual(enabledActions(menu), [.snooze, .skipToday, .newCycle])
   }
 
   func testCycleVerbsSitBelowTheirOwnSeparator() {
@@ -237,4 +237,35 @@ final class MenuGroupsTests: XCTestCase {
     _ = groups.groupView(index: 1, group: menu.groups[1])
   }
 
+}
+
+// MARK: - ServiceMenuModelTests
+
+/// The Timer menu's service group: one toggle whose title says what pressing it does, so the
+/// menu bar carries Start and Stop exactly as the window does (ADR-006).
+final class ServiceMenuModelTests: XCTestCase {
+  func testRunningServiceOffersStop() {
+    let menu = MenuModel.service(connection: .connected, registrationFailed: false)
+
+    XCTAssertEqual(menu.items.map(\.title), ["Stop Timer Service"])
+    XCTAssertTrue(menu.items.allSatisfy(\.isEnabled))
+  }
+
+  func testStoppedServiceOffersStart() {
+    let menu = MenuModel.service(connection: .stopped, registrationFailed: false)
+
+    XCTAssertEqual(menu.items.map(\.title), ["Start Timer Service"])
+  }
+
+  func testRefusedLaunchOffersStartRatherThanARetryOfItsOwn() {
+    let menu = MenuModel.service(connection: .startingDaemon, registrationFailed: true)
+
+    XCTAssertEqual(menu.items.map(\.title), ["Start Timer Service"])
+  }
+
+  /// Stopping the service is deliberate and heavy, so it claims no key: a stray keystroke must
+  /// not be able to take the timer down.
+  func testTheServiceToggleBindsNoKey() {
+    XCTAssertNil(MenuModel.service(connection: .connected, registrationFailed: false).items.first?.shortcut)
+  }
 }

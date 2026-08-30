@@ -65,11 +65,17 @@ the window, and a reminder left outstanding posts a notification and bounces the
 Dock icon; press ⌘/ in the window for every shortcut.
 
 Quitting the app does not stop the timer: the daemon keeps running (and keeps
-reminding you) under launchd. The window has no stop button yet: **Skip Today**
-(shown while idle) ends the day, and a running or owed phase is stopped from a
-terminal with `tools/tomctl cmd stop`. To stop the daemon itself, quit the app
-first — an open app re-registers the agent after a few failed connections —
-then:
+reminding you) under launchd. That is deliberate — see
+`docs/adr/006-daemon-lifecycle-and-config-reload.md`. Two controls in the window
+(and in the Timer menu) end it, and they mean different things: **Done for
+Today** ends the work day, so nothing reminds you again until tomorrow, and
+**Stop Timer Service** boots the launchd agent out, so the daemon exits and
+nothing is timing at all. A single phase is stopped without ending the day from
+a terminal with `tools/tomctl cmd stop`.
+
+The equivalent of Stop Timer Service by hand — note that an app which has not
+been told to stop re-registers the agent after a few failed connections, so quit
+it first:
 
 ```bash
 launchctl bootout gui/$(id -u)/com.jwp23.throwntom.daemon
