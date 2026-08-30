@@ -273,6 +273,7 @@ Schedule supports day aliases: `"weekday"` expands to Mon-Fri, `"weekend"` to Sa
 - `tools/dev-quiet.sh` — runs throwntom against an isolated, silent config for manual testing (see [Dev tools](#dev-tools))
 - `tools/mascot-snap.sh` — renders every mascot pose offscreen to PNGs (see `docs/development.md`)
 - `tools/app-capture.sh` — screenshots the app window by window number, no Accessibility permission needed
+- `tools/lsreg/` — lists and prunes Launch Services registrations left behind by worktree builds (see `tools/lsreg/README.md`)
 - `macos/Throwntom/` — Swift package: the macOS window app and daemon client
 - `macos/build.sh` — builds `Throwntom.app` with `throwntomd` embedded (see `macos/README.md`)
 - `macos/install.sh` — the dev loop: quit, stop the agent, build, install to `~/Applications`, open
