@@ -48,6 +48,12 @@ struct SnoozeChip: View {
     isSnoozed ? .cancel : .snooze(minutes: SnoozeActions.defaultMinutes)
   }
 
+  /// ⌘⇧S snoozes; nothing binds the undo. The chip advertises the key only while it is the thing
+  /// the key does, so it never offers a keystroke that would do the opposite of what it says.
+  var hint: String {
+    isSnoozed ? "" : TimerAction.snooze.shortcutHint
+  }
+
   var body: some View {
     Menu {
       MenuGroups(menu: MenuModel.snooze(state: client.state)) { item in
@@ -55,7 +61,7 @@ struct SnoozeChip: View {
           .disabled(!item.isEnabled)
       }
     } label: {
-      ChipLabel(title: title, hint: TimerAction.snooze.shortcutHint, style: style)
+      ChipLabel(title: title, hint: hint, style: style)
     } primaryAction: {
       run(primaryAction)
     }

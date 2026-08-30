@@ -45,6 +45,14 @@ final class SnoozeChipTests: XCTestCase {
     XCTAssertTrue(TimerActions.available(for: snoozed).contains(.snooze))
   }
 
+  /// ⌘⇧S is bound to Snooze, not to cancelling one. Advertising it beside "Cancel Snooze" would
+  /// promise a key that does the opposite of the chip it sits on — the exact mismatch
+  /// `MenuBindingTests` exists to stop, which it cannot see because a chip binds nothing itself.
+  func testTheChipStopsAdvertisingTheSnoozeKeyOnceItIsTheUndo() throws {
+    XCTAssertEqual(try makeChip(snoozeUntil: nil).hint, "⌘⇧S")
+    XCTAssertEqual(try makeChip(snoozeUntil: Date().addingTimeInterval(600)).hint, "")
+  }
+
   // MARK: Private
 
   private func makeChip(snoozeUntil: Date?) throws -> SnoozeChip {
