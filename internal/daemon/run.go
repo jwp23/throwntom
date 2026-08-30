@@ -40,6 +40,9 @@ func watchConfig(ctx context.Context, path string, baseline []byte, c *core.Core
 			fmt.Fprintf(os.Stderr, "throwntomd: keeping the current config: %v\n", err)
 		},
 	}
+	// cancel is deliberately not deferred: the watcher must outlive this
+	// function. It is called by the stop func returned below, which every
+	// exit path of Run invokes.
 	watchCtx, cancel := context.WithCancel(ctx)
 	done := make(chan struct{})
 	go func() {
@@ -71,7 +74,11 @@ func Run(ctx context.Context, cfg config.Config, n notifier.Notifier, paths core
 		return err
 	}
 	c.Start(ctx)
-	stopWatching := func() {}
+	stopWatching := func() {
+		// Without a config file there is no watcher, so there is nothing to
+		// stop; this stands in for one so the shutdown paths below stay
+		// unconditional.
+	}
 	if paths.Config != "" {
 		stopWatching = watchConfig(ctx, paths.Config, configBytes, c)
 	}
