@@ -284,16 +284,26 @@ func (t *Timer) Resume() bool {
 	defer t.notifyChange()
 	defer t.mu.Unlock()
 	defer t.transitionLocked()
+	elapsed := t.pausedElapsed
 	d := t.pausedRemaining
 	if d <= 0 {
-		d = t.phaseDurationLocked(t.engine.State())
-		if d <= 0 {
+		// pausedRemaining is only ever clamped to zero, never negative, so a
+		// zero here means the phase's own duration had already been fully
+		// served when Pause observed it — not that nothing is configured.
+		// The fallback must still know what was left, which is the current
+		// duration minus what pausedElapsed says was already spent.
+		total := t.phaseDurationLocked(t.engine.State())
+		if total <= 0 {
 			return false
 		}
+		d = total - elapsed
 	}
-	elapsed := t.pausedElapsed
 	t.pausedRemaining = 0
 	t.pausedElapsed = 0
+	if d <= 0 {
+		t.completePeriodLocked()
+		return true
+	}
 	t.startPhaseFromLocked(t.now().Add(-elapsed), d)
 	return true
 }
