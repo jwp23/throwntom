@@ -39,9 +39,9 @@ decisions, and all three were hit for real on 2026-08-27:
 > stopped — and ADR-008 settles it. Decisions (1) and (3) stand as written.
 
 > Superseded in part 2026-08-30 by
-> [ADR-009](009-a-stopped-timer-service-stays-stopped.md): decision (1) did not
+> [ADR-010](010-a-stopped-timer-service-stays-stopped.md): decision (1) did not
 > say how long a stop lasts, and the implementation made it last one app
-> session. ADR-009 settles it — a stop persists across launches — and adds the
+> session. ADR-010 settles it — a stop persists across launches — and adds the
 > window's obligation to say so. The rest of decision (1) stands as written.
 
 ## Trade-offs

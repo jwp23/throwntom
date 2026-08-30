@@ -1,4 +1,4 @@
-# ADR-009: A stopped timer service stays stopped
+# ADR-010: A stopped timer service stays stopped
 
 ## Context
 
