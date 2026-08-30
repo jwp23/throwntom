@@ -74,6 +74,29 @@ automation, and no use case for one so far.
   Settings → Accessibility → Display and repeat the check — nothing should move.
 - `tools/dev-quiet.sh` runs the TUI against a throwaway `HOME` with sound disabled.
 
+## The README banner
+
+`docs/images/throwntom.png` is generated, not hand-edited. The art was exported opaque over an
+off-white backdrop, which reads as white blocks on a dark-themed page, so the committed source
+keeps that original and the banner is regenerated with a real alpha channel:
+
+```bash
+tools/unmatte-white-background.swift docs/images/throwntom-source.png docs/images/throwntom.png
+tools/unmatte-white-background.swift --verify docs/images/throwntom-source.png docs/images/throwntom.png
+```
+
+The tool flood-fills the backdrop inward from the four corners, so white *inside* the art — the
+badge ring, the wordmark outline — is enclosed by opaque pixels and is never reached, and it
+un-composites each background pixel from the backdrop colour it samples at the corner. The soft
+edge keeps its exact coverage, so the banner over white is the original pixel for pixel while the
+corners are fully transparent. `--verify` asserts exactly that and exits non-zero otherwise; run it
+after any regeneration. The reported surround percentage (about 4.6%) is the leak check: a fill
+that escaped into the artwork would claim most of the image.
+
+Do not apply `macos/mask-icon.swift` here. That masks the *app icon* to Apple's continuous-corner
+squircle, and the banner is different art with a soft, full-bleed edge of its own — a geometric
+mask fits it no better than 5px and would clip the artwork.
+
 ## The macOS dev loop
 
 `macos/install.sh` quits the app, stops the agent, rebuilds (about a minute), copies the bundle to
