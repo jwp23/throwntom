@@ -55,8 +55,12 @@ func (c *Core) handleStart(parts []string) commandResult {
 	c.reminder.cancel()
 	// The focus prompt asks which tasks this pomodoro is for, so it belongs
 	// only to a start that actually begins work — not to one resuming a break
-	// a stop left owed.
-	if owed, _ := c.timer.OwedStage(); c.tasks != nil && owed == engine.Work {
+	// a stop left owed, and not to one aimed at a cycle that is already under
+	// way. Only an idle timer owes anything, which is why the question goes
+	// through owedStageLocked rather than the engine's raw owed phase: that
+	// reports Work for any non-idle state, so asking it directly opened the
+	// prompt on a start issued while paused or mid-phase.
+	if owed, _, ok := c.owedStageLocked(); ok && c.tasks != nil && owed == engine.Work {
 		return c.enterFocusPrompt("start")
 	}
 	before := c.timer.Start()

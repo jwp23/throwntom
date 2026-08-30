@@ -342,3 +342,44 @@ func TestConfirmToWorkSkipsFocusPromptWhenFocusedTasksExist(t *testing.T) {
 		t.Fatalf("expected 'task B', got %q", focused[0].Description)
 	}
 }
+
+// The focus prompt asks which tasks the next pomodoro is for, so it belongs to
+// a start that actually begins one. A paused cycle already has its focus: the
+// prompt would ask the question a second time and, because answering it starts
+// a phase, would turn a resume into a fresh pomodoro.
+func TestStartWhilePausedDoesNotEnterFocusPrompt(t *testing.T) {
+	c := newTestCoreWithTasks(t)
+	c.execute("task add something to do")
+	c.execute("start")
+	c.execute("")
+	if c.timer.State() != engine.Work {
+		t.Fatalf("expected a pomodoro running before the pause, got %s", c.timer.State())
+	}
+	c.execute("pause")
+	if c.timer.State() != engine.Paused {
+		t.Fatalf("expected paused, got %s", c.timer.State())
+	}
+
+	c.execute("start")
+	if c.FocusPromptPending() {
+		t.Fatal("expected no focus prompt for a start that is not beginning fresh work")
+	}
+}
+
+// Same rule from the other direction: a start while a phase is already running
+// is not beginning work either, so it must not ask which tasks that work is
+// for.
+func TestStartWhileRunningDoesNotEnterFocusPrompt(t *testing.T) {
+	c := newTestCoreWithTasks(t)
+	c.execute("task add something to do")
+	c.execute("start")
+	c.execute("")
+	if c.timer.State() != engine.Work {
+		t.Fatalf("expected a pomodoro running, got %s", c.timer.State())
+	}
+
+	c.execute("start")
+	if c.FocusPromptPending() {
+		t.Fatal("expected no focus prompt while a phase is already running")
+	}
+}
