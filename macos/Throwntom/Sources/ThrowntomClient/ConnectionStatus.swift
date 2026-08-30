@@ -1,5 +1,3 @@
-import Foundation
-
 /// The status text for a window with no phase of its own to name: the phrase for every service
 /// situation where nothing is counting. A window that still holds a phase names that phase instead
 /// and marks it itself (`MainWindowContent`), so no state is passed here and none is read.

@@ -119,9 +119,10 @@ struct MainWindow: View {
   /// platform's own mechanism for a change that is not a navigation: it does not move VoiceOver's
   /// cursor, so a user reading the focus list is told the service went down without losing their
   /// place. What to say — and when to say nothing — is `ServiceAnnouncer`.
+  @MainActor
   func announce(_ status: ServiceStatus) {
     guard let spoken = announcer.announcement(for: status) else { return }
-    AccessibilityNotification.Announcement(spoken).post()
+    AccessibilityNotification.Announcement(SpokenLine.attributed(spoken)).post()
   }
 
   /// Copies the daemon's task list and focus into the model the list and menus read from.
@@ -137,4 +138,19 @@ struct MainWindow: View {
     }
   }
 
+}
+
+// MARK: - SpokenLine
+
+/// How an announcement is dressed before it is posted.
+enum SpokenLine {
+  /// A default-priority announcement is dropped when VoiceOver is already mid-utterance, and
+  /// these are the lines that must not be dropped: the window has just lost its timer service and
+  /// there is no other signal that it has. High priority interrupts instead — the right trade for
+  /// an event this consequential, and `ServiceAnnouncer` is what keeps it rare enough to be one.
+  static func attributed(_ text: String) -> AttributedString {
+    var line = AttributedString(text)
+    line.accessibilitySpeechAnnouncementPriority = .high
+    return line
+  }
 }
