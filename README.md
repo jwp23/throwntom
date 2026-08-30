@@ -95,8 +95,8 @@ focus and so fail non-interactively — use the daemon's `/v1/timer/start` and
 window exposes the timer verbs as buttons and menu items and the task commands
 through its tasks panel.
 
-- `start` - start work period
-- `new-cycle` - start a fresh cycle now (reset cycle progress, keep today's total)
+- `start` - start work period, or take the phase you are owed (at the end of a phase it does what `confirm` does)
+- `new-cycle` - start a fresh cycle now (reset cycle progress, keep today's total; a finished phase is still counted)
 - `pause` - pause the active pomodoro or break timer
 - `resume` - resume a paused pomodoro or break timer
 - `skip` - end the running phase now and move to the next stage (the skipped phase is not counted)

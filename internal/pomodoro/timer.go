@@ -213,8 +213,14 @@ func (t *Timer) OwedPhase() engine.State {
 	return t.engine.OwedPhase()
 }
 
-func (t *Timer) StartNewCycle() {
+// StartNewCycle abandons the current cycle and begins a fresh work period,
+// reporting the engine state as of the moment it did. Reporting from inside
+// the lock, the way Stop and Skip do, saves the caller a second, racy read:
+// the phase deadline fires from its own goroutine and can otherwise complete
+// the phase between a caller's own Snapshot and this call.
+func (t *Timer) StartNewCycle() engine.Snapshot {
 	t.mu.Lock()
+	before := t.engine.Snapshot()
 	defer t.notifyChange()
 	defer t.mu.Unlock()
 	defer t.transitionLocked()
@@ -222,6 +228,7 @@ func (t *Timer) StartNewCycle() {
 	t.clearPhaseLocked()
 	t.engine.StartNewCycle()
 	t.startPhaseTimerLocked(t.workDuration)
+	return before
 }
 
 func (t *Timer) CompletePeriod() {
