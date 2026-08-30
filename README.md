@@ -208,6 +208,15 @@ overwritten. The macOS app opens this file with **Open Config File…** (⌘,).
 Example `config.toml`:
 
 ```toml
+# Settings outside a section must stay above [pomodoro]: TOML puts a bare key
+# written after a section header inside that section.
+repeat_secs = 20
+repeat_limit_secs = 300
+sound_command = ["paplay", "/usr/share/sounds/freedesktop/stereo/bell.oga"]
+morning_reminder_pending = true
+emoji = true
+float_window_when_waiting = false
+
 [pomodoro]
 work_minutes = 25
 short_break_minutes = 5
@@ -222,13 +231,6 @@ time = "09:15"
 [[schedule]]
 days = ["Fri"]
 time = "10:00"
-
-repeat_secs = 20
-repeat_limit_secs = 300
-sound_command = ["paplay", "/usr/share/sounds/freedesktop/stereo/bell.oga"]
-morning_reminder_pending = true
-emoji = true
-float_window_when_waiting = false
 
 [stats]
 tier_low = 2

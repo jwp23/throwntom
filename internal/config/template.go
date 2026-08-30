@@ -22,10 +22,11 @@ const Template = `# throwntom configuration.
 # it watches this file and picks an edit up within a few seconds, the pomodoro
 # already running included — shortening work_minutes below the time the
 # current pomodoro has already spent ends it. The daemon reloads [pomodoro],
-# [[schedule]], repeat_secs and repeat_limit_secs; the settings it does not
-# reload say so under their own heading. Running throwntom by itself, without
-# the daemon, reloads nothing at all: it reads this file once as it launches,
-# so there every setting waits for the next launch.
+# [[schedule]], repeat_secs, repeat_limit_secs and float_window_when_waiting;
+# the settings it does not reload say so under their own heading. Running
+# throwntom by itself, without the daemon, reloads nothing at all: it reads
+# this file once as it launches, so there every setting waits for the next
+# launch.
 # An empty file is read as a save still in flight and ignored, so emptying
 # this one resets nothing: delete it instead and the daemon writes a fresh
 # copy the next time it starts.
