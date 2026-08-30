@@ -1,5 +1,22 @@
+import Foundation
 import XCTest
 @testable import ThrowntomClient
+
+// MARK: - GatewayFailureTransport
+
+/// A daemon answering the way a proxy in front of it would: a failing status and a body that is
+/// not the daemon's own `{"error":…}` reply.
+struct GatewayFailureTransport: DaemonTransport {
+  func request(_: String, _: String, body _: Data?) async throws -> HTTPResponse {
+    HTTPResponse(status: 502, headers: [:], body: Data("<html><body>502 Bad Gateway</body></html>".utf8))
+  }
+
+  func events(_: String) -> AsyncThrowingStream<Data, Error> {
+    AsyncThrowingStream { $0.finish() }
+  }
+}
+
+// MARK: - DaemonErrorMessageTests
 
 /// The window renders these strings verbatim, so each one has to read as a sentence a reader
 /// can act on rather than as the error's own description.
@@ -35,16 +52,44 @@ final class DaemonErrorMessageTests: XCTestCase {
     XCTAssertEqual(DaemonClient.errorMessage(reply), "nothing to snooze: no reminder is outstanding")
   }
 
-  /// A body that is not the daemon's own error reply — a proxy's HTML page, an empty body — is
-  /// not a sentence, and the window renders these verbatim.
-  func testABodyThatIsNotAnErrorReplyNeverReachesTheReader() {
-    for body in ["<html><body>502 Bad Gateway</body></html>", "", "Internal Server Error"] {
+  /// A body that is not the daemon's own error reply — a proxy's HTML page, an empty body, an
+  /// `error` field with nothing in it — is not a sentence, and the window renders these verbatim.
+  /// An empty field is the one that would otherwise read as a blank failure.
+  func testABodyThatExplainsNothingNeverReachesTheReader() {
+    let bodies = [
+      "<html><body>502 Bad Gateway</body></html>",
+      "",
+      "Internal Server Error",
+      #"{"error":""}"#,
+      #"{"error":"   \n"}"#,
+      #"{"message":"ok"}"#,
+    ]
+
+    for body in bodies {
       XCTAssertEqual(
         DaemonClient.errorMessage(Data(body.utf8)),
-        "The timer refused that but did not say why.",
+        "The timer sent an error it did not explain.",
         "\(body)",
       )
     }
+  }
+
+  /// The wiring, not just the wording: a gateway body travels the real path a user's command
+  /// takes — `perform` → `check` → `errorMessage` → `DaemonError.http.userMessage` → the
+  /// `commandError` the window renders — and the body itself is nowhere in what comes out.
+  @MainActor
+  func testAGatewayBodyReachesTheWindowAsASentenceAndNotAsItself() async throws {
+    let client = DaemonClient(transport: GatewayFailureTransport(), registrar: RefusingRegistrar())
+
+    do {
+      try await client.perform(.start)
+      XCTFail("a 502 is not a started timer")
+    } catch let error as DaemonError {
+      XCTAssertEqual(error, .http(status: 502, message: "The timer sent an error it did not explain."))
+    }
+
+    XCTAssertEqual(client.commandError, "The timer sent an error it did not explain.")
+    XCTAssertFalse(try XCTUnwrap(client.commandError).contains("html"), "the body never reaches the window")
   }
 
   func testNoMessageLeaksTheErrorsOwnDescription() {

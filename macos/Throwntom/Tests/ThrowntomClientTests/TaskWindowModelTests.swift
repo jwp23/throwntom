@@ -90,13 +90,13 @@ final class TaskWindowModelTests: XCTestCase {
 
   func testCanPerformNeedsSelectionAndNoOpenEditor() {
     let m = model(ids: [])
-    XCTAssertFalse(m.canPerform(.complete))
-    XCTAssertTrue(m.canPerform(.newTask))
+    XCTAssertFalse(m.canPerform(.complete, on: m.selectedID))
+    XCTAssertTrue(m.canPerform(.newTask, on: m.selectedID))
     let n = model(ids: [5])
-    XCTAssertTrue(n.canPerform(.complete))
+    XCTAssertTrue(n.canPerform(.complete, on: n.selectedID))
     n.beginNewTask()
-    XCTAssertFalse(n.canPerform(.complete))
-    XCTAssertFalse(n.canPerform(.newTask))
+    XCTAssertFalse(n.canPerform(.complete, on: n.selectedID))
+    XCTAssertFalse(n.canPerform(.newTask, on: n.selectedID))
     XCTAssertNil(n.command(for: .complete))
   }
 
@@ -106,7 +106,7 @@ final class TaskWindowModelTests: XCTestCase {
 
     XCTAssertTrue(m.canPerform(.complete, on: 6), "the row the question is about is a valid target")
     XCTAssertFalse(m.canPerform(.complete, on: 99), "a row that is not in the list is not")
-    XCTAssertFalse(m.canPerform(.complete), "with no row named, the empty selection still decides")
+    XCTAssertFalse(m.canPerform(.complete, on: nil), "and no row at all is not")
   }
 
   func testFocusStateAnswersForANamedRow() {

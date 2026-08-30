@@ -149,12 +149,15 @@ extension MenuModel where Action == TaskAction {
   /// row, so a context menu on an unselected row does not describe a different task.
   @MainActor
   static func tasks(model: TaskWindowModel, on taskID: Int? = nil) -> MenuModel {
-    let focused = model.isFocused(taskID ?? model.selectedID)
+    // Resolved once: whether a verb can run and whether Focus reads as its own undo are two
+    // questions about one row, and reading the row twice is how they came to disagree.
+    let row = taskID ?? model.selectedID
+    let focused = model.isFocused(row)
     func item(_ action: TaskAction, _ key: KeyEquivalent, _ modifiers: EventModifiers) -> MenuItem<TaskAction> {
       MenuItem(
         action: action,
         shortcut: MenuShortcut(key: key, modifiers: modifiers),
-        isEnabled: model.canPerform(action, on: taskID),
+        isEnabled: model.canPerform(action, on: row),
         title: action.title(focused: focused),
       )
     }

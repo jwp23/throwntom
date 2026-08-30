@@ -8,13 +8,8 @@ struct ActionChips: View {
   let content: MainWindowContent
   let client: DaemonClient
 
-  /// Named so a test can hold this row to the same layout the command row uses.
-  var layout: BlockFlowLayout {
-    .chipRow
-  }
-
   var body: some View {
-    layout {
+    BlockFlowLayout.chipRow {
       ForEach(content.chips, id: \.self) { action in
         chip(for: action)
       }

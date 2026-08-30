@@ -55,9 +55,11 @@ final class ChipTests: XCTestCase {
     _ = ActionChips(content: content, client: environment.client).body
   }
 
-  /// A plain `HStack` ran the timer verbs past the edge of a 320pt window. Both chip rows now
-  /// flow through the same layout, so the wrapping `BlockFlowLayoutTests` covers applies to both.
-  func testTimerChipsFlowThroughTheSameLayoutAsTheCommandChips() throws {
+  /// A plain `HStack` ran the timer verbs past the edge of a 320pt window. The row is built from
+  /// `BlockFlowLayout` instead, which puts `_LayoutRoot<BlockFlowLayout>` in the body's type where
+  /// an `HStack` would name itself — so this fails if the row goes back to a stack. The wrapping
+  /// itself is `BlockFlowLayoutTests`; what is asserted here is that the timer row goes through it.
+  func testTimerChipsFlowRatherThanSitInOneStack() throws {
     let environment = AppEnvironment(transport: try StubTransport(states: []))
     let content = MainWindowContent(
       state: makeState(phase: .awaitingConfirm),
@@ -68,10 +70,13 @@ final class ChipTests: XCTestCase {
       now: .now,
     )
 
-    let layout: BlockFlowLayout = ActionChips(content: content, client: environment.client).layout
+    let timerRow = String(describing: type(of: ActionChips(content: content, client: environment.client).body))
+    let commandRow = String(
+      describing: type(of: CommandChips(environment: environment, scheme: content.scheme).body)
+    )
 
-    XCTAssertEqual(layout.blockGap, BlockFlowLayout.chipRow.blockGap)
-    XCTAssertEqual(layout.rowSpacing, BlockFlowLayout.chipRow.rowSpacing)
+    XCTAssertTrue(timerRow.contains("_LayoutRoot<BlockFlowLayout>"), timerRow)
+    XCTAssertTrue(commandRow.contains("_LayoutRoot<BlockFlowLayout>"), "both chip rows flow: \(commandRow)")
   }
 
   func testChipForActionMatchesTheActionAndDispatchesOnTap() async throws {

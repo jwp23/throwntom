@@ -45,9 +45,10 @@ public enum ReminderAlert {
     content.title = title
     content.body = body
     content.categoryIdentifier = categoryIdentifier
-    // The reminder's first sound. The daemon plays nothing (ADR-007), so a banner the user is
-    // not looking at is heard only if it brings its own. This is why the app asks for `.sound`
-    // authorization; the repeats after it are `SystemReminderPresenter.chime()`, not banners.
+    // The banner's own sound. The daemon plays nothing (ADR-007), so a banner the user is not
+    // looking at is heard only if it brings its own — which is what the app's `.sound`
+    // authorization is for. Repeat rings raise no further banner; they are
+    // `SystemReminderPresenter.chime()`.
     content.sound = .default
     return UNNotificationRequest(
       identifier: ReminderNotification.requestIdentifier,
