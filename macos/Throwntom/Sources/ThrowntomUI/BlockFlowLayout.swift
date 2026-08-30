@@ -7,6 +7,9 @@ struct BlockFlowLayout: Layout {
 
   // MARK: Internal
 
+  /// The layout both chip rows use, so the timer verbs and the window commands wrap alike.
+  static let chipRow = BlockFlowLayout(blockGap: 6, rowSpacing: 6)
+
   let blockGap: CGFloat
   let rowSpacing: CGFloat
 

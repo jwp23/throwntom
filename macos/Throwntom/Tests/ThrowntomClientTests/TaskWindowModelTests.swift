@@ -90,14 +90,33 @@ final class TaskWindowModelTests: XCTestCase {
 
   func testCanPerformNeedsSelectionAndNoOpenEditor() {
     let m = model(ids: [])
-    XCTAssertFalse(m.canPerform(.complete))
-    XCTAssertTrue(m.canPerform(.newTask))
+    XCTAssertFalse(m.canPerform(.complete, on: m.selectedID))
+    XCTAssertTrue(m.canPerform(.newTask, on: m.selectedID))
     let n = model(ids: [5])
-    XCTAssertTrue(n.canPerform(.complete))
+    XCTAssertTrue(n.canPerform(.complete, on: n.selectedID))
     n.beginNewTask()
-    XCTAssertFalse(n.canPerform(.complete))
-    XCTAssertFalse(n.canPerform(.newTask))
+    XCTAssertFalse(n.canPerform(.complete, on: n.selectedID))
+    XCTAssertFalse(n.canPerform(.newTask, on: n.selectedID))
     XCTAssertNil(n.command(for: .complete))
+  }
+
+  func testCanPerformAnswersForANamedRowRatherThanTheSelection() {
+    let m = model(ids: [5, 6])
+    m.selectedID = nil
+
+    XCTAssertTrue(m.canPerform(.complete, on: 6), "the row the question is about is a valid target")
+    XCTAssertFalse(m.canPerform(.complete, on: 99), "a row that is not in the list is not")
+    XCTAssertFalse(m.canPerform(.complete, on: nil), "and no row at all is not")
+  }
+
+  func testFocusStateAnswersForANamedRow() {
+    let m = model(ids: [5, 6])
+    m.sync(tasks: TaskList(active: [item(5), item(6)]), focusedTaskIDs: [6])
+    m.selectedID = 5
+
+    XCTAssertTrue(m.isFocused(6))
+    XCTAssertFalse(m.isFocused(5))
+    XCTAssertFalse(m.isFocused(nil))
   }
 
   func testCompletedSectionTitleCountsCompletedTasks() {
