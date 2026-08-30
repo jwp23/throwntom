@@ -3,6 +3,7 @@ package notifier
 import (
 	"bytes"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 )
@@ -155,6 +156,23 @@ func TestSilentNotifierPlaysNothing(t *testing.T) {
 	for _, name := range []string{"morning", "default", "test", "unknown"} {
 		if err := n.PlaySound(name); err != nil {
 			t.Fatalf("silent notifier reported %q as an error: %v", name, err)
+		}
+	}
+}
+
+// A process that has to say what its notifier will do must be able to ask,
+// rather than assume which one its composition root injected.
+func TestAudibleDistinguishesTheSilentNotifier(t *testing.T) {
+	if Audible(Silent()) {
+		t.Fatal("the silent notifier was reported as audible")
+	}
+	for name, n := range map[string]Notifier{
+		"macOS":   NewMacOSNotifier(),
+		"linux":   NewLinuxNotifier(io.Discard, nil),
+		"testing": NewTestNotifier(func(string, ...string) error { return nil }),
+	} {
+		if !Audible(n) {
+			t.Fatalf("the %s notifier was reported as silent", name)
 		}
 	}
 }

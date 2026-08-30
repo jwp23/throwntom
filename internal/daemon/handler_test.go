@@ -127,22 +127,49 @@ func TestPostCommandRejectsTestSound(t *testing.T) {
 	}
 }
 
+// The refusal is a fact about the notifier this daemon holds, not about the
+// API. daemon.Run accepts any notifier, so one that sounds must get the sound
+// it asked for rather than a message saying the daemon plays none.
+func TestPostCommandPlaysTestSoundWhenTheNotifierSounds(t *testing.T) {
+	played := make(chan string, 1)
+	c := newTestCoreWithNotifier(t, soundingNotifier{played: played})
+	srv := httptest.NewServer(NewHandler(c))
+	t.Cleanup(srv.Close)
+
+	resp := postJSON(t, srv.URL+"/v1/command", commandRequest{Line: "test-sound"})
+	if resp.StatusCode != 200 {
+		t.Fatalf("status %d", resp.StatusCode)
+	}
+	if got := decode[commandResponse](t, resp).Message; got != "Sound test played." {
+		t.Fatalf("message %q", got)
+	}
+	select {
+	case name := <-played:
+		if name != "test" {
+			t.Fatalf("played %q, want the test sound", name)
+		}
+	default:
+		t.Fatal("no sound was played")
+	}
+}
+
 // TestUnavailableOverAPI covers the ways a refused command can be written:
 // the guard splits the line the way the core does, so arguments and
 // surrounding space must not get one past it, and every other line must
 // still reach the core.
 func TestUnavailableOverAPI(t *testing.T) {
+	s := &server{core: newTestCore(t)}
 	refused := []string{
 		"quit", "exit", "quit now", "  quit  ",
 		"test-sound", "test-sound now", "  test-sound  ",
 	}
 	for _, line := range refused {
-		if err := unavailableOverAPI(line); err == nil {
+		if err := s.unavailableOverAPI(line); err == nil {
 			t.Errorf("%q was accepted", line)
 		}
 	}
 	for _, line := range []string{"", "   ", "start", "status", "task add write it up", "TEST-SOUND"} {
-		if err := unavailableOverAPI(line); err != nil {
+		if err := s.unavailableOverAPI(line); err != nil {
 			t.Errorf("%q was refused: %v", line, err)
 		}
 	}
