@@ -45,11 +45,9 @@ public enum ReminderAlert {
     content.title = title
     content.body = body
     content.categoryIdentifier = categoryIdentifier
-    // The banner's own sound. The daemon plays nothing (ADR-007), so a banner the user is not
-    // looking at is heard only if it brings its own — which is what the app's `.sound`
-    // authorization is for. Repeat rings raise no further banner; they are
-    // `SystemReminderPresenter.chime()`.
-    content.sound = .default
+    // No sound: the chime is the only audio path (ADR-009). A banner sounds once, when it posts,
+    // and the daemon's first ring lands in that same moment — so a banner sound could only
+    // double ring one, never carry a repeat.
     return UNNotificationRequest(
       identifier: ReminderNotification.requestIdentifier,
       content: content,

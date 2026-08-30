@@ -43,10 +43,11 @@ The window is phase-coloured throughout, so its ground follows the current
 phase as it changes. When a reminder is outstanding — a phase awaiting
 confirmation, or the morning nudge — the app also posts a notification (it
 asks for permission the first time) and bounces the Dock icon. The daemon
-plays no sound of its own; the banner chimes when it posts and again on each
-repeat the daemon publishes, until the reminder is answered
-(`docs/adr/003-clients-own-user-facing-notification.md`,
-`docs/adr/007-the-daemon-plays-no-sound.md`).
+plays no sound of its own, and neither does the banner: the app chimes once on
+every ring the daemon publishes, the first included, until the reminder is
+answered (`docs/adr/003-clients-own-user-facing-notification.md`,
+`docs/adr/007-the-daemon-plays-no-sound.md`,
+`docs/adr/009-the-chime-is-the-only-audio-path.md`).
 
 The app never spawns the daemon itself. If the socket is unreachable it
 reconnects with backoff and, after three failures, re-registers the agent.

@@ -237,15 +237,17 @@ tier_mid = 5
 `repeat_limit_secs` bounds how long an unanswered reminder keeps alerting, so a
 reminder nobody is around to acknowledge stops on its own rather than ringing
 until you quit. Like `sound_command` it describes the terminal UI: `throwntomd`
-plays nothing to repeat, and on macOS the app chimes on each published repeat
-tick until the reminder is answered.
+plays nothing to repeat, and on macOS the app chimes on each published ring,
+the first included, until the reminder is answered.
 
 ### `sound_command`
 
 `sound_command` applies to the terminal UI only. `throwntomd` plays no sound
 at all: it publishes state and each client presents it on its own platform,
-so on macOS the reminder is the app's banner and the chime that comes with it
-(see `docs/adr/007-the-daemon-plays-no-sound.md`).
+so on macOS the reminder is the app's banner plus a chime the app plays itself
+on every ring — the banner carries no sound (see
+`docs/adr/007-the-daemon-plays-no-sound.md`,
+`docs/adr/009-the-chime-is-the-only-audio-path.md`).
 
 `sound_command` is an optional TOML string array: the first item is the
 executable, the rest are its arguments. Setting it changes how the terminal UI
