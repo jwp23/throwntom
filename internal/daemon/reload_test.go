@@ -128,10 +128,11 @@ func TestRunUsesTheGivenBaselineNotAFreshRead(t *testing.T) {
 	}
 }
 
-// TestWatchConfigStopCancelsTheWatcher pins the invariant that lets
-// watchConfig hand its cancel func to the caller instead of deferring it:
-// the returned stop func must cancel the watcher context, so waiting on the
-// watcher goroutine returns rather than blocking forever.
+// TestWatchConfigStopCancelsTheWatcher pins the shutdown contract of the
+// func watchConfig returns: it must cancel the watcher context before waiting
+// on the watcher goroutine, so it terminates rather than blocking forever.
+// This breaks if Watcher.Run stops honouring ctx.Done, or if the stop func is
+// ever reduced to a bare receive on done.
 func TestWatchConfigStopCancelsTheWatcher(t *testing.T) {
 	restore := configPollInterval
 	configPollInterval = 5 * time.Millisecond
@@ -143,9 +144,7 @@ func TestWatchConfigStopCancelsTheWatcher(t *testing.T) {
 	if err := os.WriteFile(paths.Config, configBytes, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg := config.Default()
-	cfg.MorningReminderPending = false
-	c, err := core.New(cfg, noopNotifier{}, paths)
+	c, err := core.New(config.Default(), noopNotifier{}, paths)
 	if err != nil {
 		t.Fatal(err)
 	}
