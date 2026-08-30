@@ -301,7 +301,15 @@ func verify(input: String, output: String, settings: Options) {
     // not the composite tolerance — the tolerance exists only to absorb the
     // un-premultiply round-trip on partial-alpha pixels, which artwork pixels
     // left untouched do not have.
-    var surroundStillOpaque = 0
+    //
+    // A surround pixel is checked against its expected alpha, not just against
+    // 255: a pixel left a hair below fully opaque (alpha 254, source RGB
+    // unchanged) would pass a bare alpha != 255 check while still rendering as
+    // near-opaque background, and would separately pass the composite check
+    // below too, since a near-white pixel composited at alpha ~1 over a white
+    // backdrop reproduces the source almost exactly either way.
+    let expected = unmatte(source, surround: surround)
+    var surroundAlphaMismatch = 0
     var artworkChanged = 0
     var worst = 0
     var worstAt = (0, 0)
@@ -310,7 +318,8 @@ func verify(input: String, output: String, settings: Options) {
             let i = result.index(x, y)
             let alpha = Int(result.pixels[i + 3])
             if surround.mask[y * result.width + x] {
-                if alpha == 255 { surroundStillOpaque += 1 }
+                let expectedAlpha = Int(expected.pixels[i + 3])
+                if abs(alpha - expectedAlpha) > compositeTolerance { surroundAlphaMismatch += 1 }
             } else if (0..<4).contains(where: { result.pixels[i + $0] != source.pixels[i + $0] }) {
                 artworkChanged += 1
             }
@@ -326,12 +335,12 @@ func verify(input: String, output: String, settings: Options) {
             }
         }
     }
-    note("background pixels left opaque: \(surroundStillOpaque)")
+    note("background pixels not at expected alpha: \(surroundAlphaMismatch)")
     note("artwork pixels changed: \(artworkChanged)")
     note("worst channel difference over the source backdrop: \(worst) at \(worstAt.0),\(worstAt.1)")
 
-    if surroundStillOpaque != 0 {
-        failures.append("\(surroundStillOpaque) background pixels are still opaque; "
+    if surroundAlphaMismatch != 0 {
+        failures.append("\(surroundAlphaMismatch) background pixels are not at the expected alpha; "
             + "the surround was not removed")
     }
     if artworkChanged != 0 {
