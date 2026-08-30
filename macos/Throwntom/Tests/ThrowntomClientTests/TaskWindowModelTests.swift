@@ -18,6 +18,18 @@ final class TaskWindowModelTests: XCTestCase {
     XCTAssertNil(m.selectedID)
   }
 
+  func testSelectedFocusStateFollowsTheSelection() {
+    let m = model(ids: [5, 6])
+    m.sync(tasks: TaskList(active: [item(5), item(6)]), focusedTaskIDs: [6])
+
+    m.selectedID = 5
+    XCTAssertFalse(m.isSelectedFocused)
+    m.selectedID = 6
+    XCTAssertTrue(m.isSelectedFocused)
+    m.selectedID = nil
+    XCTAssertFalse(m.isSelectedFocused)
+  }
+
   func testMoveSelectionClampsAtEnds() {
     let m = model(ids: [5, 6, 7])
     m.moveSelection(by: 1)

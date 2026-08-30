@@ -17,7 +17,7 @@ public enum TaskAction: CaseIterable, Sendable {
     case .newTask: "New Task"
     case .complete: "Complete"
     case .delete: "Delete"
-    case .focus: "Toggle Focus"
+    case .focus: "Focus"
     case .moveUp: "Move Up"
     case .moveDown: "Move Down"
     }
@@ -32,6 +32,12 @@ public enum TaskAction: CaseIterable, Sendable {
     case .moveUp: "⌥↑"
     case .moveDown: "⌥↓"
     }
+  }
+
+  /// Focus is a toggle, so on an already-focused task the verb is the undo. Every other verb
+  /// reads the same whatever the task's focus state.
+  public func title(focused: Bool) -> String {
+    self == .focus && focused ? "Unfocus" : title
   }
 }
 

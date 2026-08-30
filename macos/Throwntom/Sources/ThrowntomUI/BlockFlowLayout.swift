@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Flows equally sized subviews (tomato blocks) into rows: as many per row as fit the proposed
-/// width, never fewer than one, `rowSpacing` between rows and `blockGap` between blocks.
+/// Flows subviews into centred rows: as many per row as fit the proposed width, never fewer than
+/// one, `rowSpacing` between rows and `blockGap` between subviews. Each subview keeps its natural
+/// size, so this serves both the garden's equal tomato blocks and the command chips' varied widths.
 struct BlockFlowLayout: Layout {
 
   // MARK: Internal
