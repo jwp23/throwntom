@@ -131,6 +131,7 @@ extension MenuModel where Action == TimerAction {
           isEnabled: available.contains(.confirm) && !isEditing,
         ),
         item(TimerActions.pauseOrResume(for: state?.state), MenuShortcut(key: "p", modifiers: .command)),
+        item(.skip, MenuShortcut(key: "k", modifiers: .command)),
         item(.snooze, MenuShortcut(key: "s", modifiers: [.command, .shift])),
       ],
       [

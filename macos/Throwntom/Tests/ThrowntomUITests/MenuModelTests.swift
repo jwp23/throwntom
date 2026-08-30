@@ -32,7 +32,7 @@ final class TimerMenuModelTests: XCTestCase {
     let working = MenuModel.timer(state: makeState(phase: .work), isEditing: false)
     let paused = MenuModel.timer(state: makeState(phase: .paused), isEditing: false)
 
-    XCTAssertEqual(enabledActions(working), [.pause])
+    XCTAssertEqual(enabledActions(working), [.pause, .skip])
     XCTAssertEqual(enabledActions(paused), [.resume])
     XCTAssertTrue(working.items.contains { $0.action == .pause })
     XCTAssertTrue(paused.items.contains { $0.action == .resume })
@@ -65,6 +65,7 @@ final class TimerMenuModelTests: XCTestCase {
 
     XCTAssertEqual(try XCTUnwrap(menu.item(for: .start)?.shortcut), MenuShortcut(key: "r", modifiers: .command))
     XCTAssertEqual(try XCTUnwrap(menu.item(for: .snooze)?.shortcut), MenuShortcut(key: "s", modifiers: [.command, .shift]))
+    XCTAssertEqual(try XCTUnwrap(menu.item(for: .skip)?.shortcut), MenuShortcut(key: "k", modifiers: .command))
     XCTAssertNil(try XCTUnwrap(menu.item(for: .skipToday)).shortcut)
     XCTAssertNil(try XCTUnwrap(menu.item(for: .newCycle)).shortcut)
   }

@@ -8,6 +8,7 @@ public enum TimerVerb: String, Sendable {
   case confirm
   case pause
   case resume
+  case skip
   case skipToday = "skip-today"
   case newCycle = "new-cycle"
 }
@@ -20,6 +21,7 @@ public enum TimerAction: CaseIterable, Sendable {
   case confirm
   case pause
   case resume
+  case skip
   case snooze
   case skipToday
   case newCycle
@@ -32,6 +34,7 @@ public enum TimerAction: CaseIterable, Sendable {
     case .confirm: "Confirm"
     case .pause: "Pause"
     case .resume: "Resume"
+    case .skip: "Skip"
     case .snooze: "Snooze \(TimerActions.defaultSnoozeMinutes) min"
     case .skipToday: "Skip Today"
     case .newCycle: "New Cycle"
@@ -45,6 +48,7 @@ public enum TimerAction: CaseIterable, Sendable {
     case .confirm: "⏎"
     case .pause,
          .resume: "⌘P"
+    case .skip: "⌘K"
     case .snooze: "⌘⇧S"
     case .skipToday,
          .newCycle: ""
@@ -67,6 +71,7 @@ public enum TimerAction: CaseIterable, Sendable {
     case .confirm: .confirm
     case .pause: .pause
     case .resume: .resume
+    case .skip: .skip
     case .skipToday: .skipToday
     case .newCycle: .newCycle
     case .snooze: nil
@@ -89,10 +94,11 @@ public enum TimerActions {
         [.start, .newCycle, .skipToday]
       }
 
+    // Skip ends the running phase, so it is on offer only while one is running.
     case .work,
          .shortBreak,
          .longBreak:
-      [.pause]
+      [.pause, .skip]
 
     case .paused:
       [.resume]
