@@ -157,9 +157,10 @@ Pomodoro counts carry a tier glyph and color (thresholds configurable):
 
 `throwntomd` runs the timer, reminders and task store as a background
 process and serves a JSON API over `~/.config/throwntom/daemon.sock`
-(see `docs/designs/native-macos-client.md` for the routes). Only one
-instance runs at a time (`daemon.lock`). The TUI does not talk to the daemon
-yet — it runs its own copy of the engine — so do not run both at the same
+(see `docs/designs/native-macos-client.md` for the routes). It plays no
+sound of its own — reminders are heard through whichever client is running.
+Only one instance runs at a time (`daemon.lock`). The TUI does not talk to the
+daemon yet — it runs its own copy of the engine — so do not run both at the same
 time: they share `session.json`.
 
 Control the daemon from the command line with `tools/tomctl` (see
@@ -203,12 +204,19 @@ tier_mid = 5
 
 `repeat_limit_secs` bounds how long an unanswered reminder keeps alerting, so a
 reminder nobody is around to acknowledge stops on its own rather than ringing
-until the daemon is stopped.
+until you quit. Like `sound_command` it describes the terminal UI: `throwntomd`
+plays nothing to repeat, and on macOS the app chimes on each published repeat
+tick until the reminder is answered.
 
 ### `sound_command`
 
+`sound_command` applies to the terminal UI only. `throwntomd` plays no sound
+at all: it publishes state and each client presents it on its own platform,
+so on macOS the reminder is the app's banner and the chime that comes with it
+(see `docs/adr/007-the-daemon-plays-no-sound.md`).
+
 `sound_command` is an optional TOML string array: the first item is the
-executable, the rest are its arguments. Setting it changes how throwntom
+executable, the rest are its arguments. Setting it changes how the terminal UI
 makes noise:
 
 - **On macOS**, it *replaces* the built-in sound entirely — throwntom runs
@@ -265,6 +273,7 @@ Schedule supports day aliases: `"weekday"` expands to Mon-Fri, `"weekend"` to Sa
 - `tools/dev-quiet.sh` — runs throwntom against an isolated, silent config for manual testing (see [Dev tools](#dev-tools))
 - `tools/mascot-snap.sh` — renders every mascot pose offscreen to PNGs (see `docs/development.md`)
 - `tools/app-capture.sh` — screenshots the app window by window number, no Accessibility permission needed
+- `tools/lsreg/` — lists and prunes Launch Services registrations left behind by worktree builds (see `tools/lsreg/README.md`)
 - `macos/Throwntom/` — Swift package: the macOS window app and daemon client
 - `macos/build.sh` — builds `Throwntom.app` with `throwntomd` embedded (see `macos/README.md`)
 - `macos/install.sh` — the dev loop: quit, stop the agent, build, install to `~/Applications`, open
@@ -316,6 +325,7 @@ session. Extra arguments (e.g. `--config`) are forwarded to `throwntom`.
 
 ## Notes
 
+- The daemon plays no sound; the notes below describe the terminal UI.
 - On macOS, notifier uses `afplay` with a system sound chosen by name
   (`morning`→Blow, `default`→Glass, `test`→Tink), unless `sound_command` is
   set, in which case that command replaces `afplay` for all of them.

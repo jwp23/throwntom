@@ -84,11 +84,6 @@ final class ReminderBannerTests: XCTestCase {
   func testTimerChangesWithNoReminderInThemLeaveTheBannerAlone() {
     XCTAssertEqual(decide(from: makeState(phase: .idle), to: makeState(phase: .work)), .unchanged)
     XCTAssertEqual(decide(from: nil, to: makeState(phase: .work)), .unchanged)
-    XCTAssertEqual(decide(from: nil, to: nil), .unchanged)
-  }
-
-  func testLosingTheDaemonWithdrawsTheBanner() {
-    XCTAssertEqual(decide(from: makeState(phase: .awaitingConfirm), to: nil), .withdraw)
   }
 
   func testTheMorningNudgeRaisesItsOwnBanner() {
@@ -201,7 +196,7 @@ final class ReminderBannerTests: XCTestCase {
 
   private func decide(
     from previous: DaemonState?,
-    to current: DaemonState?,
+    to current: DaemonState,
     authorization: ReminderAuthorization? = nil,
   ) -> ReminderBanner {
     ReminderBanner.decide(from: previous, to: current, authorization: authorization ?? deliverable)

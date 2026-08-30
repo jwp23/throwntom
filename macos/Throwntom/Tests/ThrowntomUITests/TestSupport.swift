@@ -46,6 +46,7 @@ func makeState(
   completedToday: Int = 0,
   workSessionsInBlock: Int = 0,
   focusedTaskIds: [Int] = [],
+  reminderRings: Int = 0,
 ) -> DaemonState {
   DaemonState(
     state: phase,
@@ -60,6 +61,7 @@ func makeState(
     snoozeUntil: snoozeUntil,
     statusLine: phase.displayName,
     focusedTaskIds: focusedTaskIds,
+    reminderRings: reminderRings,
   )
 }
 
@@ -81,9 +83,14 @@ final class StubReminderPresenter: ReminderPresenter {
   private(set) var morningPosts = [Post]()
   private(set) var withdrawals = 0
   private(set) var attentionRequests = 0
+  private(set) var chimes = 0
 
   func registerReminderButtons() {
     registeredButtons = true
+  }
+
+  func chime() {
+    chimes += 1
   }
 
   func postReminder(title: String, body: String) async throws {

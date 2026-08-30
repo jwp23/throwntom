@@ -36,6 +36,7 @@ final class ConnectionStatusTests: XCTestCase {
       snoozeUntil: nil,
       statusLine: "Idle",
       focusedTaskIds: [],
+      reminderRings: 0,
     )
     XCTAssertNil(ConnectionStatus.placeholderText(state: state, connection: .connected, now: .now))
   }

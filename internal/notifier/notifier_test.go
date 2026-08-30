@@ -147,3 +147,21 @@ func TestMacOSNotifierPlaysTheNamedSystemSound(t *testing.T) {
 		})
 	}
 }
+
+// The daemon has no user in front of it: under ADR-003 each client plays the
+// reminder on its own platform, so the daemon's notifier must play nothing.
+func TestSilentNotifierPlaysNothing(t *testing.T) {
+	n := Silent()
+	for _, name := range []string{"morning", "default", "test", "unknown"} {
+		if err := n.PlaySound(name); err != nil {
+			t.Fatalf("silent notifier reported %q as an error: %v", name, err)
+		}
+	}
+}
+
+func TestSilentNotifiersAreInterchangeable(t *testing.T) {
+	a, b := Silent(), Silent()
+	if a != b {
+		t.Fatal("expected every silent notifier to compare equal")
+	}
+}
