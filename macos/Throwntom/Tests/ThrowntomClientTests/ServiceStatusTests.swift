@@ -118,6 +118,22 @@ final class ServiceExplanationTests: XCTestCase {
     XCTAssertTrue(explanation.contains("Login Items"), explanation)
   }
 
+  /// A refused launch already has its sentence: the client writes `registrationError` at the
+  /// moment launchd says no, and the window shows that. A second one here would double it up.
+  func testTheStatusesThatNeedNoSentenceOfTheirOwnHaveNone() {
+    XCTAssertNil(ServiceStatus.launchRefused.explanation)
+    XCTAssertNil(ServiceStatus.running.explanation)
+    XCTAssertNil(ServiceStatus.reaching.explanation)
+  }
+
+}
+
+// MARK: - ServiceAnnouncementTests
+
+/// What a change of service situation says to assistive technology, and — as much of the point —
+/// when it says nothing at all.
+final class ServiceAnnouncementTests: XCTestCase {
+
   /// throwntom-07o. When the service goes down the whole window transforms at once — the chips
   /// go, the panel closes, the title and the sentence change. A sighted user sees that; without
   /// this a VoiceOver user is told nothing and the likeliest reading is that the app has hung.
@@ -173,14 +189,6 @@ final class ServiceExplanationTests: XCTestCase {
 
     XCTAssertEqual(spoken.count, 3)
     XCTAssertEqual(Set(spoken).count, 3, "\(spoken)")
-  }
-
-  /// A refused launch already has its sentence: the client writes `registrationError` at the
-  /// moment launchd says no, and the window shows that. A second one here would double it up.
-  func testTheStatusesThatNeedNoSentenceOfTheirOwnHaveNone() {
-    XCTAssertNil(ServiceStatus.launchRefused.explanation)
-    XCTAssertNil(ServiceStatus.running.explanation)
-    XCTAssertNil(ServiceStatus.reaching.explanation)
   }
 
 }
