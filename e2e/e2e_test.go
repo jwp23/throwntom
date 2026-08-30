@@ -36,7 +36,11 @@ const (
 	// the terminal, so it marks the moment the pty leaves canonical mode.
 	bracketedPasteEnable = "\x1b[?2004h"
 
-	waitForOutputTimeout = 30 * time.Second
+	// waitForOutputTimeout stays well inside the go test timeout CI gives the
+	// whole package, so a wait that never settles reports which observable was
+	// missing instead of letting the test binary die on the watchdog. A render
+	// takes well under a second, so this is generous.
+	waitForOutputTimeout = 10 * time.Second
 	waitForOutputPoll    = 10 * time.Millisecond
 )
 
