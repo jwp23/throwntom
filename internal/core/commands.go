@@ -93,7 +93,11 @@ func (c *Core) handleResume(_ []string) commandResult {
 // this left off. The event it logs is what terminates the pomodoro already
 // open in the log.
 func (c *Core) handleStop(_ []string) commandResult {
-	before := c.timer.Snapshot().Engine
+	// Stop reports the state as of when it actually stopped rather than a
+	// state fetched separately beforehand: the phase deadline runs on its
+	// own goroutine and could otherwise complete the phase in the gap
+	// between a Snapshot call here and Stop itself, leaving this stale.
+	before := c.timer.Stop()
 	// The phase the cycle is holding at was finished, and stop keeps it owed
 	// rather than confirming it. Nothing else logs that completion — confirm
 	// does, and a resuming start goes straight into the next phase — so
@@ -102,7 +106,6 @@ func (c *Core) handleStop(_ []string) commandResult {
 	if before.State == engine.AwaitingConfirm && !before.Skipped {
 		c.logConfirmCompletion(before.LastPhase)
 	}
-	c.timer.Stop()
 	if before.State != engine.Idle {
 		c.logEvent("stopped", nil)
 	}

@@ -315,14 +315,21 @@ func (t *Timer) Resume() bool {
 	return true
 }
 
-func (t *Timer) Stop() {
+// Stop suspends the cycle and reports the engine state as of the moment it
+// stopped. Reporting from inside the lock, the way Skip does, saves the
+// caller a second, racy read: the phase deadline fires from its own
+// goroutine and can otherwise complete the phase between a caller's own
+// Snapshot and this call, leaving the caller working from a stale state.
+func (t *Timer) Stop() engine.Snapshot {
 	t.mu.Lock()
+	before := t.engine.Snapshot()
 	defer t.notifyChange()
 	defer t.mu.Unlock()
 	defer t.transitionLocked()
 	t.stopTimerLocked()
 	t.clearPhaseLocked()
 	t.engine.Stop()
+	return before
 }
 
 // Skip ends the running phase now and moves to the next stage's confirmation.
