@@ -174,6 +174,25 @@ func TestRestoreWithoutAPhaseStartRecordsTheRestoreAsTheStart(t *testing.T) {
 	}
 }
 
+// A phase that began in the future is a clock that moved backwards, not time
+// owed back to the user: it counts as just begun rather than handing out the
+// skew as extra phase.
+func TestRestoreTreatsAFuturePhaseStartAsJustBegun(t *testing.T) {
+	now := time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC)
+	a := New(50, 5, 15, 4)
+	clock := newFakeClock(now)
+	a.setClock(clock)
+	snap := downSnapshot(now.Add(time.Hour))
+
+	if err := a.Restore(snap, now); err != nil {
+		t.Fatalf(fmtRestore, err)
+	}
+
+	if got := a.Snapshot().PhaseEndAt.Sub(now); got != 50*time.Minute {
+		t.Fatalf("expected the full 50m and not the hour of skew, got %s", got)
+	}
+}
+
 // The phase start survives a restore, so a session saved after coming back up
 // still measures elapsed from when the phase really began.
 func TestRestoreKeepsThePhaseStartForLaterSnapshots(t *testing.T) {
