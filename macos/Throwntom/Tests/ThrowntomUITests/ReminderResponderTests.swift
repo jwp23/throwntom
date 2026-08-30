@@ -62,9 +62,10 @@ final class ReminderResponderTests: XCTestCase {
   /// whole claim is that nothing failed.
   func testAReminderButtonPressedWhileTheServiceIsStoppedTouchesNothingAndSaysNothing() async throws {
     let transport = try StubTransport(states: [])
+    let presenter = StubReminderPresenter()
     let environment = AppEnvironment(
       transport: transport,
-      presenter: StubReminderPresenter(),
+      presenter: presenter,
       intents: MemoryServiceIntentStore(.stopped),
     )
     let reported = expectation(description: "macOS is told the answer was handled")
@@ -74,6 +75,39 @@ final class ReminderResponderTests: XCTestCase {
     await fulfillment(of: [reported], timeout: 5)
     XCTAssertTrue(transport.commands.isEmpty, "there is no daemon to confirm to")
     XCTAssertNil(environment.client.unresolvedError, "a stopped service is not a fault")
+  }
+
+  /// A button that vanishes without doing what it says is a small lie. Pressing Confirm with no
+  /// service behind it brings the window forward instead, where the screen this branch built says
+  /// which of the three situations you are in and offers Start Timer Service — the answer to "why
+  /// did nothing happen", rather than an alert invented for the occasion.
+  func testAReminderButtonWithNoServiceBehindItShowsTheWindowThatExplainsWhy() async throws {
+    let presenter = StubReminderPresenter()
+    let environment = AppEnvironment(
+      transport: try StubTransport(states: []),
+      presenter: presenter,
+      intents: MemoryServiceIntentStore(.stopped),
+    )
+    let reported = expectation(description: "macOS is told the answer was handled")
+
+    environment.responder.respond(to: ReminderNotification.Action.confirm.rawValue) { reported.fulfill() }
+
+    await fulfillment(of: [reported], timeout: 5)
+    XCTAssertEqual(presenter.windowReveals, 1)
+    XCTAssertEqual(presenter.withdrawals, 1, "and the banner it came from goes")
+  }
+
+  /// The reveal is for a dead press only. A button pressed against a live daemon confirms and
+  /// leaves the user where they were.
+  func testAReminderButtonWithADaemonBehindItDoesNotStealFocus() async throws {
+    let presenter = StubReminderPresenter()
+    let environment = AppEnvironment(transport: try StubTransport(states: []), presenter: presenter)
+    let reported = expectation(description: "macOS is told the answer was handled")
+
+    environment.responder.respond(to: ReminderNotification.Action.confirm.rawValue) { reported.fulfill() }
+
+    await fulfillment(of: [reported], timeout: 5)
+    XCTAssertEqual(presenter.windowReveals, 0)
   }
 
   /// And the banner itself goes, so the buttons are not left on screen doing nothing. Built from

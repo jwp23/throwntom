@@ -203,9 +203,9 @@ public final class DaemonClient {
     } catch {
       // A fetch this client itself cancelled is not a reply it could not read. `stopService()` and
       // `startService()` drop the stream while this may be suspended mid-request, and the socket
-      // resumes a cancelled operation with `CancellationError`, which is not a `DaemonError` — so
-      // without this guard it was reworded as an unreadable reply and left as a fault note on the
-      // very screen the user had just pressed Start on.
+      // resumes a cancelled operation with `CancellationError`, which is not a `DaemonError`, so
+      // it would otherwise be reworded as an unreadable reply and left as a fault note on the very
+      // screen the user had just pressed Start on.
       guard !Task.isCancelled else { return }
       lastError = Self.userMessage(error)
     }

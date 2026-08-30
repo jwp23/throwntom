@@ -277,7 +277,7 @@ final class ServiceDownWiringTests: XCTestCase {
     let environment = try stoppedEnvironment()
     environment.windowModel.panel = .tasks
 
-    let content = MainWindow(environment: environment).content
+    let content = MainWindow(environment: environment).windowContent
 
     XCTAssertEqual(content.title, "Timer service stopped")
     XCTAssertEqual(content.chips, [])
@@ -295,7 +295,7 @@ final class ServiceDownWiringTests: XCTestCase {
     try await waitUntil { environment.client.state != nil }
     environment.windowModel.panel = .tasks
 
-    let content = MainWindow(environment: environment).content
+    let content = MainWindow(environment: environment).windowContent
 
     XCTAssertEqual(content.title, "Pomodoro")
     XCTAssertFalse(content.chips.isEmpty)

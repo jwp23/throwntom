@@ -140,7 +140,31 @@ final class BackoffRegistrationCountTests: XCTestCase {
 @MainActor
 final class CancelledRefreshTests: XCTestCase {
 
-  func testATaskFetchCancelledByPressingStartLeavesNoFaultNote() async throws {
+  /// The behaviour under test is that nothing happens, which is the hardest kind of assertion to
+  /// place in time. It is placed by owning the task that runs the fetch: `await refreshing.value`
+  /// returns only once `refreshTasks` has finished, `catch` included, so the assertion cannot run
+  /// before the code it is about. No sleep, and no argument about which executor resumes what —
+  /// an earlier version of this test reasoned that the main actor's queue ordered it and was
+  /// wrong, because `DaemonTransport.request` is nonisolated: the continuation resumes on the
+  /// cooperative pool and only then hops back, behind anything the test has already enqueued.
+  func testACancelledTaskFetchLeavesNoFaultNote() async throws {
+    let transport = ParkingTasksTransport()
+    let client = DaemonClient(transport: transport, registrar: RecordingRegistrar(), backoff: [.seconds(30)])
+    let refreshing = Task { await client.refreshTasks() }
+    try await waitUntil("the task fetch to be in flight") { transport.isParked }
+
+    refreshing.cancel()
+    transport.releaseAsCancelled()
+    await refreshing.value
+
+    XCTAssertNil(client.lastError, "a fetch the client itself cancelled is not a reply it could not read")
+    XCTAssertNil(client.unresolvedError)
+  }
+
+  /// Why the guard above is reachable at all: the fetch the stream runs after each frame is still
+  /// outstanding when Start tears the stream down, so the cancellation lands inside it. Asserted on
+  /// the transport, which knows whether it has answered, rather than on a moment in time.
+  func testPressingStartCancelsATaskFetchThatIsStillInFlight() async throws {
     let transport = ParkingTasksTransport()
     let client = DaemonClient(transport: transport, registrar: RecordingRegistrar(), backoff: [.seconds(30)])
     client.start()
@@ -148,16 +172,8 @@ final class CancelledRefreshTests: XCTestCase {
     try await waitUntil("the task fetch to be in flight") { transport.isParked }
 
     client.startService()
-    transport.releaseAsCancelled()
 
-    // Ordered rather than timed. `releaseAsCancelled()` resumes the parked fetch from this test,
-    // which is on the main actor, and `refreshTasks` is main-actor too — so the resumption is
-    // enqueued there before this `yield` is, and the executor is serial. The `catch` under test
-    // has therefore run by the time the assertions below do, on any machine and under any load.
-    await Task.yield()
-
-    XCTAssertNil(client.lastError, "a fetch the client itself cancelled is not a reply it could not read")
-    XCTAssertNil(client.unresolvedError)
+    XCTAssertTrue(transport.isParked, "the fetch had not answered, so Start cancelled it mid-request")
   }
 
   /// The guard must not swallow a real failure: only a cancelled fetch is silent.

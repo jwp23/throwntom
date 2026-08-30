@@ -90,6 +90,14 @@ final class SystemReminderPresenter: ReminderPresenter {
     attentionRequest = NSApp.requestUserAttention(.criticalRequest)
   }
 
+  /// Activating alone is not enough: the app has one window (ADR-005) and it may be behind
+  /// others, so it is ordered to the front as well. Nothing is created here — a window the user
+  /// closed stays closed, and activating still puts the app in front of them.
+  func showWindow() {
+    NSApp.activate(ignoringOtherApps: true)
+    NSApp.windows.first { $0.canBecomeKey }?.makeKeyAndOrderFront(nil)
+  }
+
   /// One repeat of the reminder, played straight rather than through a second banner: the
   /// reminder already on screen is the one being repeated, and a banner per ring would leave
   /// the user a pile of them to dismiss. A missing sound is not worth failing over - the

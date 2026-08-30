@@ -160,7 +160,12 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
       // which `unresolvedError` reports ahead of the stopped state — a fault note on the one
       // screen whose whole claim is that nothing failed.
       guard client.serviceStatus.offersDaemonCommands else {
+        // Not silence. A button that disappears without doing what it says is a small lie, so the
+        // press is answered with the window instead: it names which of the three service-down
+        // situations this is and carries Start Timer Service. The banner goes with it, since the
+        // question it asked cannot be answered until the service is back.
         withdrawIfTheServiceIsGone()
+        presenter.showWindow()
         completion()
         return
       }
