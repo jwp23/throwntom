@@ -19,27 +19,34 @@ struct MainWindowContent: Equatable {
     now: Date,
   ) {
     serviceAction = ServiceActions.startOrStop(connection: connection, registrationFailed: registrationFailed)
-    scheme = Palette.scheme(for: state?.state)
-    pose = MascotPose.pose(for: state?.state, pausedFrom: state?.pausedFrom ?? .idle)
     // A refused launch outranks a retained phase: the daemon that phase came from is gone, so
-    // the title must say the launch failed rather than go on naming a phase nothing is running.
-    title = registrationFailed
-      ? ConnectionStatus.text(state: state, connection: connection, registrationFailed: true, now: now)
-      : state.map(Self.phaseTitle)
-        ?? ConnectionStatus.placeholderText(
-          state: nil,
-          connection: connection,
-          registrationFailed: false,
-          now: now,
-        )
-        ?? ""
-    countdown = state.flatMap { Self.countdown(for: $0, now: now) }
-    nextStage = state?.nextStage.map { "Next: \($0.summary)" }
-    garden = state
+    // nothing derived from it is true any more. The whole window drops to its disconnected
+    // presentation — no phase colour, countdown, garden, focus list, and above all no timer
+    // chips, which would dispatch to a daemon already confirmed gone.
+    //
+    // The state itself is not touched: the client goes on holding it, because the reconnect
+    // diffs against it (`ReminderResponder.heardRings` adopts the rings it missed rather than
+    // replaying them). Only the deriving stops. Nothing is lost by showing none of it either,
+    // since the daemon persists the day's real position in session.json and republishes it on
+    // the next connection (`internal/core/session.go`).
+    let shown = registrationFailed ? nil : state
+    scheme = Palette.scheme(for: shown?.state)
+    pose = MascotPose.pose(for: shown?.state, pausedFrom: shown?.pausedFrom ?? .idle)
+    title = shown.map(Self.phaseTitle)
+      ?? ConnectionStatus.placeholderText(
+        state: shown,
+        connection: connection,
+        registrationFailed: registrationFailed,
+        now: now,
+      )
+      ?? ""
+    countdown = shown.flatMap { Self.countdown(for: $0, now: now) }
+    nextStage = shown?.nextStage.map { "Next: \($0.summary)" }
+    garden = shown
       .map { TomatoGarden(completedToday: $0.completedToday, inBlock: $0.workSessionsInBlock, every: $0.longBreakEvery) }
-    chips = state.map(TimerActions.available(for:)) ?? []
+    chips = shown.map(TimerActions.available(for:)) ?? []
     primaryChip = [TimerAction.confirm, .start, .resume].first(where: chips.contains)
-    focused = state.map { tasks.focused(ids: $0.focusedTaskIds) } ?? []
+    focused = shown.map { tasks.focused(ids: $0.focusedTaskIds) } ?? []
     self.error = error
     self.panel = panel
   }
