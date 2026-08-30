@@ -8,6 +8,7 @@ import XCTest
 /// Every menu that dispatches to the daemon, on each of the three screens where there is no
 /// daemon to dispatch to. The window was fixed first and the menus were not, which was worse
 /// rather than merely incomplete: a key equivalent fires with no control on screen to look wrong.
+@MainActor
 final class ServiceDownMenuTests: XCTestCase {
 
   // MARK: Internal
@@ -116,7 +117,8 @@ final class ServiceDownWindowTests: XCTestCase {
 
     XCTAssertEqual(stopped.title, "Timer service stopped")
     XCTAssertEqual(stopped.serviceAction, .start)
-    XCTAssertTrue(try XCTUnwrap(stopped.notice).contains("You stopped"), try XCTUnwrap(stopped.notice))
+    let notice = try XCTUnwrap(stopped.notice)
+    XCTAssertTrue(notice.contains("You stopped"), notice)
     XCTAssertNil(stopped.error, "a choice is not a fault")
   }
 
@@ -125,7 +127,8 @@ final class ServiceDownWindowTests: XCTestCase {
     let stalled = content(makeState(phase: .work), connection: .startingDaemon, status: .notAnswering)
 
     XCTAssertEqual(stalled.title, "Timer service isn’t answering")
-    XCTAssertTrue(try XCTUnwrap(stalled.notice).contains("accepted"), try XCTUnwrap(stalled.notice))
+    let notice = try XCTUnwrap(stalled.notice)
+    XCTAssertTrue(notice.contains("accepted"), notice)
     XCTAssertEqual(stalled.serviceAction, .start)
   }
 
@@ -208,6 +211,17 @@ final class ServiceDownNoteTests: XCTestCase {
     let notes = WindowNotes(error: "something broke", notice: "you stopped it", responder: environment.responder)
 
     _ = notes.body
+  }
+
+  /// The wiring the persisted stop rests on. `AppEnvironment` builds the client, so a store that
+  /// never reached it would leave the ruling implemented and unused.
+  func testTheEnvironmentHandsTheRecordedIntentToItsClient() throws {
+    let environment = AppEnvironment(
+      transport: try StubTransport(states: []),
+      intents: MemoryServiceIntentStore(.stopped),
+    )
+
+    XCTAssertEqual(environment.client.serviceStatus, .stopped)
   }
 
 }

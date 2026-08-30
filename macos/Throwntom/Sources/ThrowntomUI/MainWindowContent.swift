@@ -12,36 +12,35 @@ struct MainWindowContent: Equatable {
   init(
     state: DaemonState?,
     connection: DaemonClient.Connection,
+    status: ServiceStatus,
     tasks: TaskList,
     error: String?,
-    registrationFailed: Bool = false,
     panel: WindowPanel?,
     now: Date,
   ) {
-    serviceAction = ServiceActions.startOrStop(connection: connection, registrationFailed: registrationFailed)
-    // A refused launch outranks a retained phase: the daemon that phase came from is gone, so
+    serviceAction = ServiceActions.startOrStop(status: status)
+    // An absent service outranks a retained phase: the daemon that phase came from is gone, so
     // nothing derived from it is true any more. The whole window drops to its disconnected
-    // presentation — no phase colour, countdown, garden, focus list, and above all no timer
+    // presentation — no phase colour, countdown, garden, focus list, panel, and above all no timer
     // chips, which would dispatch to a daemon already confirmed gone.
     //
     // Stopping here rather than clearing `DaemonClient.state` is deliberate. That state is the
     // client's, not this window's: `AppMenus` and `ShortcutSheet` build the Timer menu from it
     // and `MainWindow` syncs focus from it, so blanking it to dress one window would blank those
-    // too — and a view reaching back to edit the model is the wrong layer either way.
+    // too — and a view reaching back to edit the model is the wrong layer either way. The same
+    // goes for the panel: `WindowModel` keeps holding it, so it comes back with the daemon rather
+    // than having to be reopened.
     //
     // Showing none of it costs nothing durable: the daemon owns the day's real position, saves
     // it to session.json and republishes it on the next connection (`internal/core/session.go`).
     //
-    // `connection != .connected` keeps this in step with `DaemonClient.unresolvedError`, which
-    // lets a live connection outrank a refusal so a stale one can never be shown over a running
-    // timer. The combination is unreachable today — `runStream` clears `registrationError`
-    // before it reports `.connected` — but if it ever were, disagreeing would blank the window
-    // and suppress the note explaining why, which is worse than either alone.
-    let shown = registrationFailed && connection != .connected ? nil : state
+    // A live connection outranks a stale refusal inside `ServiceStatus.of`, matching
+    // `DaemonClient.unresolvedError`, so a note about launchd can never blank a running timer.
+    let shown = status.offersDaemonCommands ? state : nil
     scheme = Palette.scheme(for: shown?.state)
     pose = MascotPose.pose(for: shown?.state, pausedFrom: shown?.pausedFrom ?? .idle)
     title = shown.map(Self.phaseTitle)
-      ?? ConnectionStatus.text(state: nil, connection: connection, registrationFailed: registrationFailed, now: now)
+      ?? ConnectionStatus.text(state: nil, connection: connection, status: status, now: now)
     countdown = shown.flatMap { Self.countdown(for: $0, now: now) }
     nextStage = shown?.nextStage.map { "Next: \($0.summary)" }
     garden = shown
@@ -50,7 +49,10 @@ struct MainWindowContent: Equatable {
     primaryChip = [TimerAction.confirm, .start, .resume].first(where: chips.contains)
     focused = shown.map { tasks.focused(ids: $0.focusedTaskIds) } ?? []
     self.error = error
-    self.panel = panel
+    notice = status.explanation
+    // A panel left open when the service went down would show a stale list whose rows refuse, or
+    // open onto nothing at all.
+    self.panel = status.offersDaemonCommands ? panel : nil
   }
 
   // MARK: Internal
@@ -67,6 +69,10 @@ struct MainWindowContent: Equatable {
   let serviceAction: ServiceAction
   let focused: [TaskItem]
   let error: String?
+  /// Why nothing is running, on the screens where the title alone leaves that unanswered. Kept
+  /// apart from `error` because they are different things to read: one reports a fault, the other
+  /// explains a window doing exactly what it was asked to.
+  let notice: String?
   let panel: WindowPanel?
 
   // MARK: Private

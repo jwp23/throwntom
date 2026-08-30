@@ -25,9 +25,9 @@ struct MainWindow: View {
     let content = MainWindowContent(
       state: environment.client.state,
       connection: environment.client.connection,
+      status: environment.client.serviceStatus,
       tasks: environment.client.tasks,
       error: environment.client.unresolvedError,
-      registrationFailed: environment.client.registrationError != nil,
       panel: environment.windowModel.panel,
       now: environment.ticker.now,
     )
@@ -40,7 +40,7 @@ struct MainWindow: View {
       ServiceChip(content: content, client: environment.client)
         .padding(.top, Self.serviceChipGap)
       CommandChips(environment: environment, scheme: content.scheme)
-      WindowNotes(error: content.error, responder: environment.responder)
+      WindowNotes(error: content.error, notice: content.notice, responder: environment.responder)
       FocusSection(tasks: content.focused)
       if content.panel == .tasks {
         TasksPanel(environment: environment, scheme: content.scheme)

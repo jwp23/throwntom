@@ -190,10 +190,9 @@ final class PersistedStopTests: XCTestCase {
 // MARK: - FakeIntentStore
 
 /// The recorded intent, in memory, so a test can start a client on either footing without
-/// touching the user defaults of the machine running it.
-// Every mutable member is read and written under `lock`.
-// swiftlint:disable:next no_unchecked_sendable
-final class FakeIntentStore: ServiceIntentStore, @unchecked Sendable {
+/// touching the user defaults of the machine running it. Read and written only on the main actor,
+/// which is where the client that owns it lives.
+final class FakeIntentStore: ServiceIntentStore {
 
   // MARK: Lifecycle
 
@@ -205,26 +204,20 @@ final class FakeIntentStore: ServiceIntentStore, @unchecked Sendable {
 
   /// Every intent written, in order, so a test can tell "recorded running" from "recorded
   /// nothing" — which is the difference between honouring a refused stop and undoing it.
-  var saved: [ServiceIntent] {
-    lock.withLock { writes }
-  }
+  private(set) var saved = [ServiceIntent]()
 
   func loadIntent() -> ServiceIntent {
-    lock.withLock { stored }
+    stored
   }
 
   func save(_ intent: ServiceIntent) {
-    lock.withLock {
-      stored = intent
-      writes.append(intent)
-    }
+    stored = intent
+    saved.append(intent)
   }
 
   // MARK: Private
 
-  private let lock = NSLock()
   private var stored: ServiceIntent
-  private var writes = [ServiceIntent]()
 
 }
 

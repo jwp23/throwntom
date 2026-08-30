@@ -121,8 +121,14 @@ struct MenuModel<Action: MenuAction> {
 extension MenuModel where Action == TimerAction {
   /// The Timer menu for a daemon snapshot. A verb is enabled when the daemon would accept it,
   /// except that Confirm gives up the Return key while the inline new-task row is open.
-  static func timer(state: DaemonState?, isEditing: Bool) -> MenuModel {
-    let available = state.map(TimerActions.available(for:)) ?? []
+  ///
+  /// `daemonAvailable` is asked separately from the snapshot because the client goes on holding
+  /// that snapshot after the service is gone — the cheat sheet and the focus list read it, and
+  /// blanking it to dress the menus would blank those too. Reading enablement from the retained
+  /// state alone is what left ⌘P and ⌘K firing into a dead daemon with no control on screen to
+  /// look wrong.
+  static func timer(state: DaemonState?, isEditing: Bool, daemonAvailable: Bool) -> MenuModel {
+    let available = daemonAvailable ? state.map(TimerActions.available(for:)) ?? [] : []
     func item(_ action: TimerAction, _ shortcut: MenuShortcut?, isEnabled: Bool? = nil) -> MenuItem<TimerAction> {
       MenuItem(action: action, shortcut: shortcut, isEnabled: isEnabled ?? available.contains(action))
     }
@@ -149,9 +155,8 @@ extension MenuModel where Action == TimerAction {
 extension MenuModel where Action == ServiceAction {
   /// The timer service's own group in the Timer menu: one toggle, worded for what pressing it
   /// does. Always enabled — the whole point is that it works when nothing else does.
-  static func service(connection: DaemonClient.Connection, registrationFailed: Bool) -> MenuModel {
-    let action = ServiceActions.startOrStop(connection: connection, registrationFailed: registrationFailed)
-    return MenuModel(groups: [[MenuItem(action: action, shortcut: nil, isEnabled: true)]])
+  static func service(status: ServiceStatus) -> MenuModel {
+    MenuModel(groups: [[MenuItem(action: ServiceActions.startOrStop(status: status), shortcut: nil, isEnabled: true)]])
   }
 }
 
@@ -161,8 +166,11 @@ extension MenuModel where Action == TaskAction {
   /// menu was opened on, which need not be the selected one; passing none reads for the selection.
   /// Every verb — whether it can run, and whether Focus reads as its own undo — answers for that
   /// row, so a context menu on an unselected row does not describe a different task.
+  ///
+  /// Every verb here is a command line for the daemon, New Task included — the row it opens
+  /// exists to send one — so with no daemon there is nothing any of them can do.
   @MainActor
-  static func tasks(model: TaskWindowModel, on taskID: Int? = nil) -> MenuModel {
+  static func tasks(model: TaskWindowModel, on taskID: Int? = nil, daemonAvailable: Bool) -> MenuModel {
     // Resolved once: whether a verb can run and whether Focus reads as its own undo are two
     // questions about one row, and reading the row twice is how they came to disagree.
     let row = taskID ?? model.selectedID
@@ -171,7 +179,7 @@ extension MenuModel where Action == TaskAction {
       MenuItem(
         action: action,
         shortcut: MenuShortcut(key: key, modifiers: modifiers),
-        isEnabled: model.canPerform(action, on: row),
+        isEnabled: daemonAvailable && model.canPerform(action, on: row),
         title: action.title(focused: focused),
       )
     }
@@ -192,11 +200,20 @@ extension MenuModel where Action == TaskAction {
 
 extension MenuModel where Action == ViewAction {
   /// The View menu: the two panels and the cheat sheet.
+  ///
+  /// Decided per command rather than blanket-disabled. Both panels are daemon-backed — the task
+  /// list is fetched and its rows dispatch, the stats summary is fetched — so with no daemon they
+  /// open onto nothing. The cheat sheet is local and stays useful; taking it away would punish the
+  /// reader for the outage they are trying to understand.
   @MainActor
-  static func view(model: WindowModel) -> MenuModel {
+  static func view(model: WindowModel, daemonAvailable: Bool) -> MenuModel {
     MenuModel(groups: [[
-      MenuItem(action: .tasks, shortcut: MenuShortcut(key: "t", modifiers: .command), isEnabled: true),
-      MenuItem(action: .stats, shortcut: MenuShortcut(key: "i", modifiers: [.command, .shift]), isEnabled: true),
+      MenuItem(action: .tasks, shortcut: MenuShortcut(key: "t", modifiers: .command), isEnabled: daemonAvailable),
+      MenuItem(
+        action: .stats,
+        shortcut: MenuShortcut(key: "i", modifiers: [.command, .shift]),
+        isEnabled: daemonAvailable,
+      ),
       MenuItem(
         action: .shortcuts,
         shortcut: MenuShortcut(key: "/", modifiers: .command),
@@ -215,7 +232,7 @@ extension MenuModel where Action == ViewAction {
   /// The chip row under the timer verbs: every command the menu bar shows something for, in one
   /// group, so a new user reaches the panels, the cheat sheet and the config without the menu bar.
   @MainActor
-  static func windowCommands(model: WindowModel) -> MenuModel {
-    MenuModel(groups: [view(model: model).items + appConfig().items])
+  static func windowCommands(model: WindowModel, daemonAvailable: Bool) -> MenuModel {
+    MenuModel(groups: [view(model: model, daemonAvailable: daemonAvailable).items + appConfig().items])
   }
 }

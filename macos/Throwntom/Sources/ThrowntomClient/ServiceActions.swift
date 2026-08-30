@@ -28,19 +28,13 @@ public enum ServiceAction: CaseIterable, Sendable {
 
 public enum ServiceActions {
   /// The single control the window and the menu bar show. Start is offered exactly when the
-  /// daemon is not coming: the user stopped it, or launchd refused to launch it. Every other
-  /// connection state is on its way to a running daemon, so the useful verb there is Stop.
+  /// daemon is not coming: the user stopped it, launchd refused to launch it, or launchd accepted
+  /// and nothing arrived. A running or still-dialling service is on its way to a daemon, so the
+  /// useful verb there is Stop.
   ///
-  /// A refused launch resolving to Start is what lets the failure note point at this control
-  /// instead of growing a retry button of its own.
-  public static func startOrStop(
-    connection: DaemonClient.Connection,
-    registrationFailed: Bool,
-  ) -> ServiceAction {
-    if connection == .stopped || registrationFailed {
-      .start
-    } else {
-      .stop
-    }
+  /// The absent situations all resolving to Start is what lets each one's sentence point at this
+  /// one control instead of growing a retry button of its own.
+  public static func startOrStop(status: ServiceStatus) -> ServiceAction {
+    status.offersDaemonCommands ? .stop : .start
   }
 }

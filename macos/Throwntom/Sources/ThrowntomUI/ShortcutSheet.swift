@@ -18,15 +18,28 @@ enum ShortcutList {
     let entries: [Entry]
   }
 
+  /// The sheet is a reference to what the app binds, not a report of what is live this second: it
+  /// reads titles and keys and never enablement, and it dispatches nothing, so it is built with
+  /// the daemon assumed present and stays the same complete list on every screen. It is also one
+  /// of the few things still worth opening while the service is down, which is why the chip and
+  /// the menu item that open it stay live there.
   @MainActor
   static func sections(for environment: AppEnvironment) -> [Section] {
     [
       Section(
         name: "Timer",
-        entries: entries(MenuModel.timer(state: environment.client.state, isEditing: false)) { $0.shortcutHint },
+        entries: entries(
+          MenuModel.timer(state: environment.client.state, isEditing: false, daemonAvailable: true)
+        ) { $0.shortcutHint },
       ),
-      Section(name: "View", entries: entries(MenuModel.view(model: environment.windowModel)) { $0.shortcutHint }),
-      Section(name: "Tasks", entries: entries(MenuModel.tasks(model: environment.model)) { $0.shortcutHint }),
+      Section(
+        name: "View",
+        entries: entries(MenuModel.view(model: environment.windowModel, daemonAvailable: true)) { $0.shortcutHint },
+      ),
+      Section(
+        name: "Tasks",
+        entries: entries(MenuModel.tasks(model: environment.model, daemonAvailable: true)) { $0.shortcutHint },
+      ),
       Section(name: "App", entries: entries(MenuModel.appConfig()) { $0.shortcutHint } + [
         // Quit is AppKit's own item, so it is the one shortcut no menu model owns.
         Entry(title: "Quit Throwntom", hint: "⌘Q")

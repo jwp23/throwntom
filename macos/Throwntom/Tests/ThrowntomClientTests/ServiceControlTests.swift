@@ -87,24 +87,20 @@ final class ServiceControlTests: XCTestCase {
 
 final class ServiceActionsTests: XCTestCase {
   func testStopIsOfferedWhileTheServiceIsOnItsWayUpOrRunning() {
-    let running: [DaemonClient.Connection] = [.connected, .connecting, .reconnecting(attempt: 1), .startingDaemon]
-    for connection in running {
-      XCTAssertEqual(
-        ServiceActions.startOrStop(connection: connection, registrationFailed: false),
-        .stop,
-        "\(connection)",
-      )
+    for status in [ServiceStatus.running, .reaching] {
+      XCTAssertEqual(ServiceActions.startOrStop(status: status), .stop, "\(status)")
     }
   }
 
   func testStartIsOfferedOnceTheServiceIsStopped() {
-    XCTAssertEqual(ServiceActions.startOrStop(connection: .stopped, registrationFailed: false), .start)
+    XCTAssertEqual(ServiceActions.startOrStop(status: .stopped), .start)
   }
 
-  /// A refused launch is the other state whose way out is Start, which is why the failure note
-  /// can point at this one control instead of growing a retry button of its own.
-  func testStartIsOfferedWhenLaunchdRefusedToStartTheDaemon() {
-    XCTAssertEqual(ServiceActions.startOrStop(connection: .startingDaemon, registrationFailed: true), .start)
+  /// The other two situations whose way out is Start, which is why each one's sentence can point
+  /// at this single control instead of growing a retry button of its own.
+  func testStartIsOfferedWhenLaunchdRefusedOrTheDaemonNeverArrived() {
+    XCTAssertEqual(ServiceActions.startOrStop(status: .launchRefused), .start)
+    XCTAssertEqual(ServiceActions.startOrStop(status: .notAnswering), .start)
   }
 
   func testTitlesSayWhatPressingThemDoes() {

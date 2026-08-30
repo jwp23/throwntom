@@ -212,7 +212,7 @@ final class ParkingTasksTransport: DaemonTransport, @unchecked Sendable {
 
   // MARK: Private
 
-  private static let emptyTaskList = HTTPResponse(status: 200, headers: [:], body: Data(#"{"active":[],"done":[]}"#.utf8))
+  private static let emptyTaskList = HTTPResponse(status: 200, headers: [:], body: Data(#"{"active":[],"completed":[]}"#.utf8))
 
   private let lock = NSLock()
   private var fetches = 0

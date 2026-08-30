@@ -13,9 +13,10 @@ final class AppEnvironment {
     ticker: Ticker? = nil,
     authorizer: NotificationAuthorizer = SystemNotificationAuthorizer(),
     presenter: ReminderPresenter = SystemReminderPresenter(),
+    intents: ServiceIntentStore = MemoryServiceIntentStore(),
   ) {
     let registrar = SMAppServiceRegistrar()
-    let client = DaemonClient(transport: transport, registrar: registrar)
+    let client = DaemonClient(transport: transport, registrar: registrar, intents: intents)
     self.registrar = registrar
     self.ticker = ticker ?? Ticker()
     self.client = client
@@ -31,9 +32,14 @@ final class AppEnvironment {
   let model = TaskWindowModel()
   let windowModel = WindowModel()
 
-  /// What the app launches with: the daemon's Unix socket at its well-known path.
+  /// What the app launches with: the daemon's Unix socket at its well-known path, and the one
+  /// intent store that outlives the process — this is the single place persistence is asked for,
+  /// so nothing built for a test can write a stopped service into the user's defaults.
   static func live() -> AppEnvironment {
-    AppEnvironment(transport: UnixSocketTransport(socketPath: DaemonPaths.socketPath))
+    AppEnvironment(
+      transport: UnixSocketTransport(socketPath: DaemonPaths.socketPath),
+      intents: UserDefaultsServiceIntentStore(),
+    )
   }
 
   /// Starts the event stream and the countdown clock.

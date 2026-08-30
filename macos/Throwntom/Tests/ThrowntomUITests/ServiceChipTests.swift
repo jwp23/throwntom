@@ -94,9 +94,9 @@ final class ServiceChipTests: XCTestCase {
     MainWindowContent(
       state: state,
       connection: connection,
+      status: ServiceStatus.of(connection: connection, registrationFailed: registrationFailed, startStalled: false),
       tasks: TaskList(),
       error: nil,
-      registrationFailed: registrationFailed,
       panel: nil,
       now: .now,
     )
