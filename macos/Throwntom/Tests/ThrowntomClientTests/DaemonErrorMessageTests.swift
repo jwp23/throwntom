@@ -29,6 +29,24 @@ final class DaemonErrorMessageTests: XCTestCase {
     XCTAssertEqual(garbled.userMessage, "The timer sent a reply we could not read.")
   }
 
+  func testARefusalTheDaemonExplainsKeepsItsWords() {
+    let reply = Data(#"{"error":"nothing to snooze: no reminder is outstanding"}"#.utf8)
+
+    XCTAssertEqual(DaemonClient.errorMessage(reply), "nothing to snooze: no reminder is outstanding")
+  }
+
+  /// A body that is not the daemon's own error reply — a proxy's HTML page, an empty body — is
+  /// not a sentence, and the window renders these verbatim.
+  func testABodyThatIsNotAnErrorReplyNeverReachesTheReader() {
+    for body in ["<html><body>502 Bad Gateway</body></html>", "", "Internal Server Error"] {
+      XCTAssertEqual(
+        DaemonClient.errorMessage(Data(body.utf8)),
+        "The timer refused that but did not say why.",
+        "\(body)",
+      )
+    }
+  }
+
   func testNoMessageLeaksTheErrorsOwnDescription() {
     for error in Self.everyCase {
       XCTAssertFalse(error.userMessage.contains("DaemonError"), "\(error) leaks its type")

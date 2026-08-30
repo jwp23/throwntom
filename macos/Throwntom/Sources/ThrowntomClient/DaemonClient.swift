@@ -134,7 +134,21 @@ public final class DaemonClient {
     return try DaemonJSON.decoder.decode(StatsSummary.self, from: response.body)
   }
 
+  // MARK: Internal
+
+  /// The reader's version of a refusal. The daemon's own `{"error":…}` is already a sentence and
+  /// says the useful thing, so it is passed through; anything else — a proxy's HTML page, an empty
+  /// body — is not, and `DaemonError.http.userMessage` goes straight to the window.
+  /// Internal rather than private so this wording can be asserted on directly.
+  nonisolated static func errorMessage(_ body: Data) -> String {
+    (try? DaemonJSON.decoder.decode(ErrorReply.self, from: body))?.error ?? unexplainedRefusal
+  }
+
   // MARK: Private
+
+  /// What the window says when the daemon refused a request without saying why. The body it sent
+  /// instead is not shown: a transport or proxy body is not something a reader can act on.
+  nonisolated private static let unexplainedRefusal = "The timer refused that but did not say why."
 
   private let transport: DaemonTransport
   private let registrar: LaunchAgentRegistrar
@@ -145,11 +159,6 @@ public final class DaemonClient {
     guard (200..<300).contains(response.status) else {
       throw DaemonError.http(status: response.status, message: errorMessage(response.body))
     }
-  }
-
-  private static func errorMessage(_ body: Data) -> String {
-    (try? DaemonJSON.decoder.decode(ErrorReply.self, from: body))?.error
-      ?? String(decoding: body, as: UTF8.self)
   }
 
   /// The window's wording for anything that goes wrong, so no view has to render a raw error.
