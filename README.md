@@ -316,6 +316,7 @@ Schedule supports day aliases: `"weekday"` expands to Mon-Fri, `"weekend"` to Sa
 - `internal/task/` — task store
 - `tools/tomctl/` — command-line client for the daemon API
 - `tools/icon-colors.sh` — dominant colours of the app icon as hex (ImageMagick); keeps `DESIGN.md`'s `icon-*` tokens traceable
+- `tools/unmatte-white-background.swift` — recovers the alpha channel of art exported over white; regenerates `docs/images/throwntom.png` from `docs/images/throwntom-source.png` (see `docs/development.md`)
 - `tools/sonar-audit.sh` — reports SonarCloud issues/hotspots on a branch; CI runs it on main to flag drift
 - `tools/dev-quiet.sh` — runs throwntom against an isolated, silent config for manual testing (see [Dev tools](#dev-tools))
 - `tools/mascot-snap.sh` — renders every mascot pose offscreen to PNGs (see `docs/development.md`)
