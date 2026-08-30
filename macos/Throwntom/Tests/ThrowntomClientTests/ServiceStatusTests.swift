@@ -118,6 +118,63 @@ final class ServiceExplanationTests: XCTestCase {
     XCTAssertTrue(explanation.contains("Login Items"), explanation)
   }
 
+  /// throwntom-07o. When the service goes down the whole window transforms at once — the chips
+  /// go, the panel closes, the title and the sentence change. A sighted user sees that; without
+  /// this a VoiceOver user is told nothing and the likeliest reading is that the app has hung.
+  /// The announcement is the title and the sentence, because those are what the screen now says.
+  func testEachSettledAbsenceIsAnnouncedAsItsTitleAndItsSentence() throws {
+    XCTAssertEqual(
+      ServiceStatus.announcement(from: .running, to: .stopped),
+      "Timer service stopped. " + (try XCTUnwrap(ServiceStatus.stopped.explanation)),
+    )
+    XCTAssertEqual(
+      ServiceStatus.announcement(from: .running, to: .notAnswering),
+      "Timer service isn\u{2019}t answering. " + (try XCTUnwrap(ServiceStatus.notAnswering.explanation)),
+    )
+    XCTAssertEqual(
+      ServiceStatus.announcement(from: .running, to: .launchRefused),
+      "Timer service can\u{2019}t launch.",
+      "a refusal has no sentence of its own; the client writes registrationError instead",
+    )
+  }
+
+  /// Coming back is worth saying: the window has just regained its phase, its countdown and every
+  /// verb, and a reader who was told it went down is owed the other half.
+  func testRecoveryFromASettledAbsenceIsAnnounced() {
+    for absence in [ServiceStatus.stopped, .launchRefused, .notAnswering] {
+      XCTAssertEqual(ServiceStatus.announcement(from: absence, to: .running), "Timer service running.", "\(absence)")
+    }
+  }
+
+  /// Dialling is transient and says nothing, in both directions. A one-second blip of the socket
+  /// takes the window from running to reaching and back; announcing either edge would turn it into
+  /// a spoken interruption mid-pomodoro, which is worse than the silence this is fixing.
+  func testADiallingBlipIsNeverAnnounced() {
+    XCTAssertNil(ServiceStatus.announcement(from: .running, to: .reaching))
+    XCTAssertNil(ServiceStatus.announcement(from: .reaching, to: .running))
+    for absence in [ServiceStatus.stopped, .launchRefused, .notAnswering] {
+      XCTAssertNil(ServiceStatus.announcement(from: absence, to: .reaching), "\(absence)")
+    }
+  }
+
+  /// A status that has not changed is not news. `onChange` should not fire on an equal value, but
+  /// the rule belongs in the function rather than in the caller that happens to obey it.
+  func testAnUnchangedStatusIsNotAnnounced() {
+    for status in [ServiceStatus.running, .reaching, .stopped, .launchRefused, .notAnswering] {
+      XCTAssertNil(ServiceStatus.announcement(from: status, to: status), "\(status)")
+    }
+  }
+
+  /// The three absences must be told apart by ear as well as by eye — the same requirement the
+  /// titles carry, applied to the channel a VoiceOver user actually has.
+  func testTheThreeAbsencesAreAnnouncedDistinctly() {
+    let spoken = [ServiceStatus.stopped, .launchRefused, .notAnswering]
+      .compactMap { ServiceStatus.announcement(from: .running, to: $0) }
+
+    XCTAssertEqual(spoken.count, 3)
+    XCTAssertEqual(Set(spoken).count, 3, "\(spoken)")
+  }
+
   /// A refused launch already has its sentence: the client writes `registrationError` at the
   /// moment launchd says no, and the window shows that. A second one here would double it up.
   func testTheStatusesThatNeedNoSentenceOfTheirOwnHaveNone() {

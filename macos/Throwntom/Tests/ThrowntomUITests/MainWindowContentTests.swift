@@ -111,6 +111,70 @@ final class MainWindowContentTests: XCTestCase {
     XCTAssertEqual(c.error, "socket closed")
   }
 
+  /// throwntom-7rb. While the client is re-dialling it still holds the phase, and that phase is
+  /// still counting (ADR-008) — so the window goes on naming it and keeps its ground. What it must
+  /// not do is read as a live connection: before this, a reconnect was byte-for-byte the connected
+  /// window, and the only way to learn the daemon had gone was to wait for the retry budget to run
+  /// out. The mark is on the title alone; the ground, countdown and verbs stay as they were.
+  func testAReconnectHoldingAPhaseIsMarkedRatherThanReadingAsConnected() {
+    let live = makeState(phase: .work, phaseEndAt: now.addingTimeInterval(600))
+    let connected = content(live)
+    let dialling = content(live, connection: .reconnecting(attempt: 1))
+
+    XCTAssertEqual(connected.title, "Pomodoro")
+    XCTAssertEqual(dialling.title, "Pomodoro (reconnecting)")
+    XCTAssertNotEqual(connected.title, dialling.title)
+    XCTAssertEqual(dialling.countdown, connected.countdown)
+    XCTAssertEqual(dialling.scheme, connected.scheme)
+    XCTAssertEqual(dialling.chips, connected.chips)
+  }
+
+  /// Every way of being out of touch while holding a phase is marked, not just the middle one: a
+  /// launch already asked of launchd is no more connected than a plain retry.
+  func testEveryDiallingConnectionMarksARetainedPhase() {
+    let live = makeState(phase: .work, phaseEndAt: now.addingTimeInterval(600))
+    for connection in [DaemonClient.Connection.connecting, .reconnecting(attempt: 3), .startingDaemon] {
+      XCTAssertEqual(content(live, connection: connection).title, "Pomodoro (reconnecting)", "\(connection)")
+    }
+  }
+
+  /// The mark says the client is out of touch, so it must not appear when it is in touch. The
+  /// day-ended title is checked too, because it is the one title not taken from the phase name.
+  func testAConnectedWindowIsNeverMarked() {
+    XCTAssertEqual(content(makeState(phase: .idle)).title, "Idle")
+    XCTAssertEqual(
+      content(makeState(phase: .idle, dayEnded: true)).title,
+      "Done for today",
+    )
+  }
+
+  /// The three settled absences own the title outright; a reconnect mark there would put a phase
+  /// name on a screen that has deliberately dropped its phase.
+  func testTheSettledAbsencesKeepTheirOwnTitles() {
+    let live = makeState(phase: .work, phaseEndAt: now.addingTimeInterval(600))
+    XCTAssertEqual(content(live, connection: .stopped).title, "Timer service stopped")
+    XCTAssertEqual(
+      content(live, connection: .startingDaemon, registrationFailed: true).title,
+      "Timer service can\u{2019}t launch",
+    )
+    XCTAssertEqual(content(live, connection: .startingDaemon, startStalled: true).title, "Timer service isn\u{2019}t answering")
+  }
+
+  /// throwntom-46y. An idle timer can owe the break it earned (`internal/core/state.go`), so a
+  /// bare Start does not say which phase pressing it begins.
+  func testTheStartChipNamesThePhaseAnIdleStartWouldEnter() {
+    let owing = makeState(phase: .idle, owedStage: DaemonState.Stage(state: .shortBreak, duration: 300))
+    XCTAssertEqual(content(owing).title(for: .start), "Start Short break")
+    XCTAssertEqual(content(makeState(phase: .idle)).title(for: .start), "Start")
+  }
+
+  /// Only Start is reworded; every other verb says what it always said.
+  func testNoOtherVerbIsRewordedByTheOwedPhase() {
+    let owing = content(makeState(phase: .idle, owedStage: DaemonState.Stage(state: .work, duration: 1500)))
+    XCTAssertEqual(owing.title(for: .newCycle), TimerAction.newCycle.title)
+    XCTAssertEqual(owing.title(for: .skipToday), TimerAction.skipToday.title)
+  }
+
   func testStartingDaemonTitle() {
     XCTAssertEqual(content(nil, connection: .startingDaemon).title, "Starting timer…")
   }
@@ -139,12 +203,13 @@ final class MainWindowContentTests: XCTestCase {
     tasks: TaskList = TaskList(),
     error: String? = nil,
     registrationFailed: Bool = false,
+    startStalled: Bool = false,
     panel: WindowPanel? = nil,
   ) -> MainWindowContent {
     MainWindowContent(
       state: state,
       connection: connection,
-      status: ServiceStatus.of(connection: connection, registrationFailed: registrationFailed, startStalled: false),
+      status: ServiceStatus.of(connection: connection, registrationFailed: registrationFailed, startStalled: startStalled),
       tasks: tasks,
       error: error,
       panel: panel,
