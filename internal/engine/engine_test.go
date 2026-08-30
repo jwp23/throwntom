@@ -389,15 +389,18 @@ func TestSnapshotInvalidRejectsIncidentSnapshot(t *testing.T) {
 	}
 }
 
-func TestSnapshotInvalidRejectsBreakWithNoCompletions(t *testing.T) {
+// Skipping the first pomodoro of the day puts the engine in a break with
+// nothing completed, so this combination is reachable and must survive a
+// restart rather than being discarded as inconsistent.
+func TestSnapshotInvalidAcceptsBreakWithNoCompletions(t *testing.T) {
 	snap := Snapshot{
 		State:          ShortBreak,
 		LastPhase:      ShortBreak,
 		CompletedToday: 0,
 		WorkDayStarted: true,
 	}
-	if snap.Invalid() == "" {
-		t.Fatal("expected a break with completed_today=0 to be reported invalid")
+	if reason := snap.Invalid(); reason != "" {
+		t.Fatalf("expected a skipped-first-pomodoro break to be valid, got %q", reason)
 	}
 }
 

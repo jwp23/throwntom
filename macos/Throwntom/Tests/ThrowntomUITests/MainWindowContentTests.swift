@@ -21,7 +21,7 @@ final class MainWindowContentTests: XCTestCase {
     XCTAssertEqual(c.countdown, "12:34")
     XCTAssertEqual(c.nextStage, "Next: Short break 5 min")
     XCTAssertEqual(c.garden, TomatoGarden(completedToday: 5, inBlock: 1, every: 4))
-    XCTAssertEqual(c.chips, [.pause])
+    XCTAssertEqual(c.chips, [.pause, .skip])
     XCTAssertNil(c.primaryChip)
   }
 
