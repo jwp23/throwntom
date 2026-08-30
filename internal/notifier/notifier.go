@@ -69,6 +69,14 @@ func Silent() Notifier {
 	return silentNotifier{}
 }
 
+// Audible reports whether n can actually make a sound. Only the composition
+// root knows which notifier a process was given, so a process that has to
+// tell a user what sound it will produce asks here instead of assuming.
+func Audible(n Notifier) bool {
+	_, silent := n.(silentNotifier)
+	return !silent
+}
+
 func NewTestNotifier(run runner) Notifier {
 	return &macOSNotifier{run: run}
 }

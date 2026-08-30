@@ -216,6 +216,14 @@ func (c *Core) statusLocked() (statusLine string, state engine.State, morningPen
 	return c.timer.StatusLine(), c.timer.State(), c.reminder.outstanding() == reminderMorning
 }
 
+// PlaysSound reports whether this core's notifier makes a sound. The notifier
+// is chosen by the composition root and fixed for the core's life, so a caller
+// that has to say what sound this process will produce asks rather than
+// assuming which notifier it was given.
+func (c *Core) PlaysSound() bool {
+	return notifier.Audible(c.notifier)
+}
+
 func (c *Core) NextStage() (engine.State, time.Duration, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
