@@ -179,6 +179,10 @@
   An assertion downgraded inside a fix commit is treated as a defect signal.
 - This applies hardest to small fixes whose cause seems obvious — that is where
   RED gets skipped and where fixes have introduced their own bugs.
+- An approved test waiver (see Testing Strategy above) exempts a fix commit from
+  this gate too — state the waiver and the risk instead of the revert-fail-restore
+  result. Updating an existing regression test satisfies this gate the same as a
+  new one, provided it still fails on the pre-fix code.
 
 ## Working a bug from the tracker
 
