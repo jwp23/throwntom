@@ -1,5 +1,7 @@
 import Foundation
 
+// MARK: - ServiceStatus
+
 /// Whether the timer service is there, and when it is not, why not. The three absent readings are
 /// deliberately separate values: a service the user switched off, a service launchd would not
 /// launch, and a service still being dialled are three different situations, and the reader's next
@@ -121,4 +123,47 @@ public enum ServiceStatus: Hashable, Sendable {
          .reaching: nil
     }
   }
+}
+
+// MARK: - ServiceAnnouncer
+
+/// Turns the stream of service situations into the things worth saying about them.
+///
+/// The wording is `ServiceStatus.announcement(from:to:)`; what this adds is memory, and the memory
+/// is the whole difficulty. Every recovery reaches `.running` through `.reaching`, so a rule
+/// reading only the immediately previous value cannot tell a Start the user pressed and that
+/// worked — which they are owed, since silence after their own press reads as a control that did
+/// nothing — from a blink of the socket, which would be an interruption mid-pomodoro. Remembering
+/// the last *settled* situation separates them: the blip returns to the situation it left and says
+/// nothing, the Start does not and says so.
+public struct ServiceAnnouncer {
+
+  // MARK: Lifecycle
+
+  public init() { }
+
+  // MARK: Public
+
+  /// What to speak now the service is in `status`, or nil for nothing worth interrupting for.
+  ///
+  /// The first situation it is shown is the baseline and is never spoken: that one is the window
+  /// coming up, which the reader is already reading, not something that changed under them.
+  public mutating func announcement(for status: ServiceStatus) -> String? {
+    guard let settled else {
+      settled = status
+      return nil
+    }
+    let spoken = ServiceStatus.announcement(from: settled, to: status)
+    // Dialling is never what a later change is measured against: it is the step every recovery
+    // passes through, so recording it would erase the absence the recovery is recovering from.
+    if status != .reaching {
+      self.settled = status
+    }
+    return spoken
+  }
+
+  // MARK: Private
+
+  private var settled: ServiceStatus?
+
 }

@@ -192,3 +192,90 @@ final class ServiceAnnouncementTests: XCTestCase {
   }
 
 }
+
+// MARK: - ServiceAnnouncerTests
+
+/// The sequence, as opposed to the wording. Every recovery passes through `.reaching` on its way
+/// back, so a rule that reads only the immediately previous situation cannot tell a Start that
+/// worked from a socket that blinked. This is what tells them apart.
+final class ServiceAnnouncerTests: XCTestCase {
+
+  // MARK: Internal
+
+  /// The user pressed Start Timer Service and it worked. They are owed that: the press is theirs,
+  /// and silence after it reads as a control that did nothing.
+  func testAStartThatWorksIsAnnouncedEvenThoughItPassesThroughDialling() {
+    var announcer = announcer(startingIn: .running)
+
+    XCTAssertNotNil(announcer.announcement(for: .stopped))
+    XCTAssertNil(announcer.announcement(for: .reaching), "pressing Start says nothing on its own")
+    XCTAssertEqual(announcer.announcement(for: .running), "Timer service running.")
+  }
+
+  /// The same shape from the other two absences: what matters is the situation left behind, not
+  /// the dialling step in between.
+  func testRecoveryIsAnnouncedFromEveryAbsence() {
+    for absence in [ServiceStatus.launchRefused, .notAnswering] {
+      var announcer = announcer(startingIn: absence)
+      XCTAssertNil(announcer.announcement(for: .reaching), "\(absence)")
+      XCTAssertEqual(announcer.announcement(for: .running), "Timer service running.", "\(absence)")
+    }
+  }
+
+  /// A blink of the socket leaves `running` and comes back to it within a backoff step. Nobody was
+  /// told it went, so nobody is told it came back — otherwise the fix for silence becomes a spoken
+  /// interruption mid-pomodoro.
+  func testASocketBlipSaysNothingInEitherDirection() {
+    var announcer = announcer(startingIn: .running)
+
+    XCTAssertNil(announcer.announcement(for: .reaching))
+    XCTAssertNil(announcer.announcement(for: .running))
+  }
+
+  /// Repeated dial failures walk `.reaching` several times before settling. None of them speaks,
+  /// and none of them may erase the situation the announcer is measuring against.
+  func testAProlongedDialDoesNotForgetWhatItLeft() {
+    var announcer = announcer(startingIn: .stopped)
+
+    for _ in 0..<4 {
+      XCTAssertNil(announcer.announcement(for: .reaching))
+    }
+    XCTAssertEqual(announcer.announcement(for: .running), "Timer service running.")
+  }
+
+  /// Launching straight into a dial and arriving is not a recovery from anything: the user has
+  /// just opened the window and is reading it, and nobody was told a service was missing.
+  func testComingUpFromAColdStartIsNotAnnouncedAsARecovery() {
+    var announcer = announcer(startingIn: .reaching)
+
+    XCTAssertNil(announcer.announcement(for: .running))
+  }
+
+  /// A cold start that ends in one of the three still speaks: the window has just transformed into
+  /// a screen the reader has no other way to be told about.
+  func testAColdStartThatEndsInAnAbsenceIsStillAnnounced() {
+    var announcer = announcer(startingIn: .reaching)
+
+    XCTAssertEqual(announcer.announcement(for: .launchRefused), "Timer service can\u{2019}t launch.")
+  }
+
+  /// The same situation arriving twice is not news the second time.
+  func testAStatusThatDoesNotChangeIsNotRepeated() {
+    var announcer = announcer(startingIn: .running)
+
+    XCTAssertNotNil(announcer.announcement(for: .stopped))
+    XCTAssertNil(announcer.announcement(for: .stopped))
+  }
+
+  // MARK: Private
+
+  /// An announcer that has already seen the situation the window came up in. That first sighting
+  /// is deliberately silent — the app does not announce its own launch — which is asserted here
+  /// rather than left implicit, since every test below depends on it.
+  private func announcer(startingIn status: ServiceStatus) -> ServiceAnnouncer {
+    var announcer = ServiceAnnouncer()
+    XCTAssertNil(announcer.announcement(for: status), "the window coming up is not a change")
+    return announcer
+  }
+
+}

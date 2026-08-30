@@ -21,6 +21,11 @@ struct MainWindow: View {
 
   let environment: AppEnvironment
 
+  /// Remembers which service situation was last worth speaking about. Held by the window rather
+  /// than the client because it is a property of what this window has already said, not of the
+  /// service: a second window would have its own, and the client has no business tracking either.
+  @State var announcer = ServiceAnnouncer()
+
   /// Everything the window draws for this moment. A property rather than a `let` in `body` so
   /// `escape()` can ask what is actually on screen instead of re-deriving the rule. Named apart
   /// from the `content` each caller binds it to, so neither has to be written `self.content` —
@@ -92,8 +97,8 @@ struct MainWindow: View {
     // the title and the sentence change. A sighted user sees that happen; without this a VoiceOver
     // user is told nothing and the likeliest reading is that the app has stopped responding
     // (throwntom-07o). `ServiceStatus.announcement` decides both the wording and the silences.
-    .onChange(of: environment.client.serviceStatus) { previous, current in
-      announce(from: previous, to: current)
+    .onChange(of: environment.client.serviceStatus, initial: true) { _, current in
+      announce(current)
     }
     .onChange(of: environment.client.tasks, initial: true) { syncModel() }
     .onChange(of: environment.client.state?.focusedTaskIds, initial: true) { syncModel() }
@@ -113,9 +118,9 @@ struct MainWindow: View {
   /// Speaks a change of service situation to assistive technology. `.announcement` is the
   /// platform's own mechanism for a change that is not a navigation: it does not move VoiceOver's
   /// cursor, so a user reading the focus list is told the service went down without losing their
-  /// place. What to say — and when to say nothing — is `ServiceStatus.announcement`.
-  func announce(from previous: ServiceStatus, to current: ServiceStatus) {
-    guard let spoken = ServiceStatus.announcement(from: previous, to: current) else { return }
+  /// place. What to say — and when to say nothing — is `ServiceAnnouncer`.
+  func announce(_ status: ServiceStatus) {
+    guard let spoken = announcer.announcement(for: status) else { return }
     AccessibilityNotification.Announcement(spoken).post()
   }
 
