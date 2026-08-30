@@ -239,8 +239,9 @@ func (c *Core) nextStageLocked() (engine.State, time.Duration, bool) {
 }
 
 // owedStageLocked reports the phase a start would enter and how long it would
-// run. Only an idle timer owes anything: while a phase is running, paused or
-// waiting to be confirmed, start is not the verb on offer.
+// run. Only an idle timer owes anything: a running or paused phase has nothing
+// to resume, and at awaiting-confirm the phase start would enter is the one
+// NextStage already names.
 func (c *Core) owedStageLocked() (engine.State, time.Duration, bool) {
 	if c.timer.State() != engine.Idle {
 		return engine.Idle, 0, false
