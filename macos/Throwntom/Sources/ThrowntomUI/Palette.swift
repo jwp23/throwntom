@@ -95,7 +95,8 @@ enum Palette {
     case .paused: jewel(ground: "#8A8A8E", secondaryChip: "#3E3E40", panel: "#636366")
     case .awaitingConfirm: jewel(ground: "#E8583A", secondaryChip: "#68281A", panel: "#A73F2A")
     case nil:
-      // Disconnected state renders no chips; both primary and secondary share the cream/outline pairing.
+      // The only chip this ground ever shows is the one that starts the timer service, and it has
+      // to read as the way out, so both primary and secondary share the cream/outline pairing.
       PhaseScheme(
         ground: HexColor("#3A2A22"),
         text: cream,

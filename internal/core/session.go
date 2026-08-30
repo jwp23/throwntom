@@ -62,7 +62,9 @@ func (c *Core) loadSession() error {
 	c.timer.AdvanceDay(c.now())
 	// A restored day the user already ended owes no morning reminder either,
 	// and the engine is idle in that case, so the state check alone misses it.
-	if data.Timer.Engine.State != engine.Idle || data.Timer.Engine.DayEnded {
+	// Read day_ended from the advanced engine, not from the file: a rollover
+	// reopens the day, and the saved value would suppress the new day's reminder.
+	if data.Timer.Engine.State != engine.Idle || c.timer.Snapshot().Engine.DayEnded {
 		c.reminder.markTriggeredToday(c.now())
 	}
 	return nil

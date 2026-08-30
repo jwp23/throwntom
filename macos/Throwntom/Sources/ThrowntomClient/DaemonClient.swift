@@ -94,12 +94,15 @@ public final class DaemonClient {
     streamTask = nil
   }
 
-  /// Asks launchd for the daemon and reconnects. Also the way back from a refused launch, since
-  /// registering again is exactly what retries it.
+  /// Asks launchd for the daemon and dials it again. Also the way back from a refused launch,
+  /// where the stream is still alive and parked in its backoff: registering again retries launchd
+  /// but not the dial, so the loop is dropped and replaced rather than waited out. Otherwise the
+  /// user presses the control the failure note points at and nothing happens for eight seconds.
   public func startService() {
     commandError = nil
     connection = .connecting
     _ = registerAgent()
+    stop()
     start()
   }
 
@@ -116,6 +119,12 @@ public final class DaemonClient {
     state = nil
     registrationError = nil
     commandError = nil
+    // Back to the footing the app launches on. The daemon this client knew is gone, so the dials
+    // that follow a later Start are first dials, not a lost connection: `hasConnected` is what
+    // keeps the window quiet through them, and a `lastError` kept from the old daemon would
+    // otherwise surface the moment Start is pressed.
+    lastError = nil
+    hasConnected = false
     connection = .stopped
   }
 
@@ -195,6 +204,9 @@ public final class DaemonClient {
     while !Task.isCancelled {
       do {
         for try await frame in transport.events(DaemonAPI.events) {
+          // A cancelled loop must publish nothing: the service the user just stopped would
+          // otherwise come back on screen from a frame that was already in flight.
+          guard !Task.isCancelled else { return }
           // Before the decode: the daemon has answered even if we cannot read what it said, and
           // a daemon that is up but talking nonsense has still been reached.
           hasConnected = true

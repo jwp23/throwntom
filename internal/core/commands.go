@@ -129,7 +129,7 @@ func (c *Core) handleSkipToday(_ []string) commandResult {
 	c.reminder.skipToday(c.now())
 	c.timer.SkipToday()
 	c.logEvent("skipped_today", nil)
-	return commandResult{message: "Skipped reminders for today."}
+	return commandResult{message: "Done for today -- no more reminders until tomorrow."}
 }
 
 func (c *Core) handleTestSound(_ []string) commandResult {

@@ -238,24 +238,32 @@ func (s Snapshot) Invalid() string {
 	if !s.WorkDayStarted && (s.State != Idle || s.LastPhase != Idle) {
 		return "work_day_started is false but state/last_phase is not idle"
 	}
+	// Only SkipToday sets day_ended, and it closes the work day and goes idle in
+	// the same move; every other transition clears it.
+	if s.DayEnded && (s.State != Idle || s.WorkDayStarted) {
+		return "day_ended is true but the work day is not closed and idle"
+	}
 	if (s.LastPhase == ShortBreak || s.LastPhase == LongBreak) && s.CompletedToday == 0 {
 		return "last_phase is a break but completed_today is 0"
 	}
-	if s.State == AwaitingConfirm {
-		switch s.LastPhase {
-		case Work, ShortBreak, LongBreak:
-		default:
-			return "awaiting_confirm with an unreachable last_phase"
-		}
+	if s.State == AwaitingConfirm && !isTimedPhase(s.LastPhase) {
+		return "awaiting_confirm with an unreachable last_phase"
 	}
-	if s.State == Paused {
-		switch s.PausedFrom {
-		case Work, ShortBreak, LongBreak:
-		default:
-			return "paused with an unreachable paused_from"
-		}
+	if s.State == Paused && !isTimedPhase(s.PausedFrom) {
+		return "paused with an unreachable paused_from"
 	}
 	return ""
+}
+
+// isTimedPhase reports whether s is one of the three phases that run on a
+// clock, which are the only ones a confirm or a pause can have come from.
+func isTimedPhase(s State) bool {
+	switch s {
+	case Work, ShortBreak, LongBreak:
+		return true
+	default:
+		return false
+	}
 }
 
 func (e *Engine) Restore(s Snapshot) {

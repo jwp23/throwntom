@@ -87,7 +87,11 @@ public enum TimerActions {
   public static func available(for state: DaemonState) -> [TimerAction] {
     switch state.state {
     case .idle:
-      if state.morningPending {
+      // Not once the day is already ended: that screen is what the verb produces, and a chip
+      // that re-ends an ended day does nothing.
+      if state.dayEnded {
+        [.start, .newCycle]
+      } else if state.morningPending {
         [.start, .newCycle, .snooze, .skipToday]
       } else {
         [.start, .newCycle, .skipToday]
