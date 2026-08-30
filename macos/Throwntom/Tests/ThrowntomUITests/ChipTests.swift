@@ -55,6 +55,25 @@ final class ChipTests: XCTestCase {
     _ = ActionChips(content: content, client: environment.client).body
   }
 
+  /// A plain `HStack` ran the timer verbs past the edge of a 320pt window. Both chip rows now
+  /// flow through the same layout, so the wrapping `BlockFlowLayoutTests` covers applies to both.
+  func testTimerChipsFlowThroughTheSameLayoutAsTheCommandChips() throws {
+    let environment = AppEnvironment(transport: try StubTransport(states: []))
+    let content = MainWindowContent(
+      state: makeState(phase: .awaitingConfirm),
+      connection: .connected,
+      tasks: TaskList(),
+      error: nil,
+      panel: nil,
+      now: .now,
+    )
+
+    let layout: BlockFlowLayout = ActionChips(content: content, client: environment.client).layout
+
+    XCTAssertEqual(layout.blockGap, BlockFlowLayout.chipRow.blockGap)
+    XCTAssertEqual(layout.rowSpacing, BlockFlowLayout.chipRow.rowSpacing)
+  }
+
   func testChipForActionMatchesTheActionAndDispatchesOnTap() async throws {
     let transport = try StubTransport(states: [makeState(phase: .idle)])
     let environment = AppEnvironment(transport: transport)
