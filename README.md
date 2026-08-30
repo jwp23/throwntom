@@ -103,6 +103,7 @@ through its tasks panel.
 - `stop` - suspend the cycle and return to idle, keeping the owed phase and focused tasks
 - `confirm` - acknowledge transition and start next phase now
 - `snooze <duration>` - keep the owed phase and focused tasks, ask again later (example: `snooze 10m`)
+- `unsnooze` - end a snooze now and bring the reminder straight back
 - `skip-today` - stop reminders for the current day
 - `stats` - show productivity dashboard (today, week, month, all-time, streaks, patterns)
 - `status` - print current status
@@ -113,6 +114,11 @@ through its tasks panel.
 `snooze` works whenever a reminder is ringing, not just in the morning — including
 while waiting for `confirm` at the end of a pomodoro or break. It doesn't lose
 anything: it just asks again later.
+
+`unsnooze` undoes it. A snooze only silences the reminder — the reminder itself is
+still outstanding and unanswered — so ending the snooze early brings it back at
+once, exactly as running out the clock would have. That is what separates it from
+`start` and `skip-today`, which also clear a snooze but retire the reminder with it.
 
 `stop` is a suspend, not an abandon — for stepping into a meeting, not for ending
 the day. It returns the timer to idle but keeps the phase you were owed, your

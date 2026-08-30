@@ -21,7 +21,7 @@ var (
 
 // refusals are the sentinels for commands the current state does not allow;
 // classifyError maps them to ErrorRefused.
-var refusals = []error{errNotRunning, errNothingToSkip, errNothingToConfirm, errNotPaused, errNotWorkSession, errAlreadyFocused, errNoReminder}
+var refusals = []error{errNotRunning, errNothingToSkip, errNothingToConfirm, errNotPaused, errNotWorkSession, errAlreadyFocused, errNoReminder, errNoSnooze}
 
 func (c *Core) buildCommandHandlers() map[string]commandHandler {
 	return map[string]commandHandler{
@@ -33,6 +33,7 @@ func (c *Core) buildCommandHandlers() map[string]commandHandler {
 		"skip":       c.handleSkip,
 		"confirm":    c.handleConfirm,
 		"snooze":     c.handleSnooze,
+		"unsnooze":   c.handleUnsnooze,
 		"skip-today": c.handleSkipToday,
 		"test-sound": c.handleTestSound,
 		"status":     c.handleStatus,
@@ -183,6 +184,18 @@ func (c *Core) handleSnooze(parts []string) commandResult {
 	return commandResult{message: fmt.Sprintf("%s reminder snoozed for %s", kind.label(), parsed)}
 }
 
+// handleUnsnooze ends a snooze early. It is the inverse of snooze and nothing
+// more: the nudge comes straight back, where start and skip-today reach the
+// same deadline by retiring the reminder outright.
+func (c *Core) handleUnsnooze(_ []string) commandResult {
+	kind, err := c.reminder.unsuppress()
+	if err != nil {
+		return commandResult{err: err}
+	}
+	c.logEvent("unsnoozed", nil)
+	return commandResult{message: fmt.Sprintf("%s reminder is back.", kind.label())}
+}
+
 func (c *Core) handleSkipToday(_ []string) commandResult {
 	c.reminder.skipToday(c.now())
 	c.timer.SkipToday()
@@ -235,6 +248,7 @@ func Help() string {
 		"  skip               end this phase now and move to the next stage",
 		"  confirm            continue to next phase now",
 		"  snooze <duration>  keep the owed phase and focused tasks, ask again later (e.g., snooze 10m)",
+		"  unsnooze           end a snooze now and bring the reminder back",
 		"  skip-today         skip reminders for today",
 		"  stats              show productivity dashboard",
 		"  status             show current status",

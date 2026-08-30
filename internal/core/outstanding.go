@@ -46,7 +46,10 @@ type stopper interface {
 	Stop() bool
 }
 
-var errNoReminder = errors.New("nothing to snooze: no reminder is outstanding")
+var (
+	errNoReminder = errors.New("nothing to snooze: no reminder is outstanding")
+	errNoSnooze   = errors.New("nothing to cancel: no snooze is active")
+)
 
 // outstandingReminder is the one reminder the daemon can be waiting on. kind
 // says whether one is outstanding; snoozeUntil says whether it is quiet. now
@@ -127,11 +130,40 @@ func (r *outstandingReminder) resume(until time.Time) {
 		r.mu.Unlock()
 		return
 	}
-	r.snoozeUntil = time.Time{}
-	r.snoozeTimer = nil
-	r.startLoopLocked()
+	r.endSuppressionLocked()
 	r.mu.Unlock()
 	r.notifyChange()
+}
+
+// unsuppress ends the snooze now instead of at its deadline, and reports which
+// kind it woke. A snooze only silences the reminder — the reminder itself was
+// never answered (ADR-004) — so ending the suppression early leaves it
+// outstanding and ringing, exactly as its deadline would have. That is the
+// whole difference from cancel, which retires the reminder as well.
+func (r *outstandingReminder) unsuppress() (reminderKind, error) {
+	r.mu.Lock()
+	if r.kind == reminderNone || r.snoozeUntil.IsZero() {
+		r.mu.Unlock()
+		return reminderNone, errNoSnooze
+	}
+	kind := r.kind
+	r.endSuppressionLocked()
+	r.mu.Unlock()
+	r.notifyChange()
+	return kind, nil
+}
+
+// endSuppressionLocked clears the deadline and starts the reminder ringing
+// again. Stopping the timer matters only for the early exit: on the deadline's
+// own path it has already fired, and stopping a fired timer does nothing.
+// Callers must hold r.mu.
+func (r *outstandingReminder) endSuppressionLocked() {
+	if r.snoozeTimer != nil {
+		r.snoozeTimer.Stop()
+		r.snoozeTimer = nil
+	}
+	r.snoozeUntil = time.Time{}
+	r.startLoopLocked()
 }
 
 // cancel retires the outstanding reminder, ringing or snoozed.

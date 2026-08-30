@@ -366,3 +366,59 @@ func TestMorningReminderPolicyComesFromConfig(t *testing.T) {
 		t.Fatalf("expected %+v, got %+v", want, c.reminder.policy)
 	}
 }
+
+func TestUnsnoozeEndsTheSnoozeAndBringsTheReminderBack(t *testing.T) {
+	clk := mondayAt(10, 0)
+	c := startedCore(t, config.Default(), clk)
+	if result := c.execute("snooze 30m"); result.err != nil {
+		t.Fatalf(fmtSnoozeFailed, result.err)
+	}
+	result := c.execute("unsnooze")
+	if result.err != nil {
+		t.Fatalf("unsnooze failed: %v", result.err)
+	}
+	if !strings.Contains(result.message, "morning reminder") {
+		t.Fatalf("expected the message to name the kind it woke, got %q", result.message)
+	}
+	if _, ok := c.reminder.snoozeDeadline(); ok {
+		t.Fatal("expected the deadline cleared by unsnooze")
+	}
+	// The reminder was never answered, only suppressed (ADR-004), so ending the
+	// suppression leaves it outstanding rather than retiring it the way start does.
+	if c.reminder.outstanding() != reminderMorning {
+		t.Fatalf("expected the morning reminder still outstanding, got %v", c.reminder.outstanding())
+	}
+	_, _, pending := c.Status()
+	if !pending {
+		t.Fatal("expected morning_pending to stay true after unsnooze")
+	}
+}
+
+func TestUnsnoozeWithNoSnoozeIsRefused(t *testing.T) {
+	c := startedCore(t, config.Default(), mondayAt(10, 0))
+	result := c.execute("unsnooze")
+	if !errors.Is(result.err, errNoSnooze) {
+		t.Fatalf("expected errNoSnooze, got %v", result.err)
+	}
+	if classifyError(result.err) != ErrorRefused {
+		t.Fatal("expected a refusal, not a usage error")
+	}
+}
+
+func TestUnsnoozeDoesNotOutliveTheDeadlineItCancelled(t *testing.T) {
+	clk := mondayAt(10, 0)
+	c := startedCore(t, config.Default(), clk)
+	if result := c.execute("snooze 10m"); result.err != nil {
+		t.Fatalf(fmtSnoozeFailed, result.err)
+	}
+	if result := c.execute("unsnooze"); result.err != nil {
+		t.Fatalf("unsnooze failed: %v", result.err)
+	}
+	// Answering the reminder retires it; the cancelled deadline must not fire
+	// later and raise it from the dead.
+	c.execute(cmdStart)
+	clk.Advance(10 * time.Minute)
+	if c.reminder.outstanding() != reminderNone {
+		t.Fatalf("expected the cancelled deadline to be inert, got %v", c.reminder.outstanding())
+	}
+}
