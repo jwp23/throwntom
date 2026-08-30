@@ -9,6 +9,8 @@ public enum ConnectionStatus {
       return Countdown.tickedStatusLine(state, now: now)
     }
     switch connection {
+    case .stopped: return "Timer service stopped"
+
     case .startingDaemon: return "Starting timer…"
 
     case .connecting:

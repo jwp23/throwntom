@@ -17,6 +17,7 @@ struct MainWindow: View {
       connection: environment.client.connection,
       tasks: environment.client.tasks,
       error: environment.client.unresolvedError,
+      registrationFailed: environment.client.registrationError != nil,
       panel: environment.windowModel.panel,
       now: environment.ticker.now,
     )
@@ -26,6 +27,7 @@ struct MainWindow: View {
         TomatoGardenView(garden: garden)
       }
       ActionChips(content: content, client: environment.client)
+      ServiceChip(content: content, client: environment.client)
       CommandChips(environment: environment, scheme: content.scheme)
       WindowNotes(error: content.error, responder: environment.responder)
       FocusSection(tasks: content.focused)

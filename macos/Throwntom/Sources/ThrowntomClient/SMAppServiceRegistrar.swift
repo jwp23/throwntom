@@ -51,6 +51,12 @@ public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
     }
   }
 
+  /// Unregisters the agent, the ServiceManagement equivalent of `launchctl bootout`: launchd
+  /// unloads the job and the daemon exits. It stays down until something registers it again.
+  public func stopAgent() throws {
+    try agent.unregister()
+  }
+
   public func setLoginItem(_ enabled: Bool) throws {
     if enabled {
       try mainApp.register()

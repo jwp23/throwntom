@@ -24,6 +24,8 @@ public final class DaemonClient {
     case reconnecting(attempt: Int)
     /// Consecutive failures reached the threshold; the launchd agent has been asked to start the daemon.
     case startingDaemon
+    /// The user stopped the timer service. Nothing is dialling and nothing is wrong.
+    case stopped
   }
 
   nonisolated public static let failuresBeforeRegistering = 3
@@ -69,6 +71,8 @@ public final class DaemonClient {
       commandError
     } else if connection == .connected {
       nil
+    } else if connection == .stopped {
+      nil
     } else if let registrationError {
       registrationError
     } else if connection == .startingDaemon || !hasConnected {
@@ -83,9 +87,36 @@ public final class DaemonClient {
     streamTask = Task { await runStream() }
   }
 
+  /// Drops the event stream. This is what a quitting app runs, so it deliberately says nothing
+  /// to launchd: the daemon outlives its clients (ADR-006).
   public func stop() {
     streamTask?.cancel()
     streamTask = nil
+  }
+
+  /// Asks launchd for the daemon and reconnects. Also the way back from a refused launch, since
+  /// registering again is exactly what retries it.
+  public func startService() {
+    commandError = nil
+    connection = .connecting
+    _ = registerAgent()
+    start()
+  }
+
+  /// Takes the timer service down. Nothing changes unless launchd accepts: a refused stop leaves
+  /// a daemon that is still running, and claiming otherwise would leave the window lying about it.
+  public func stopService() {
+    do {
+      try registrar.stopAgent()
+    } catch {
+      commandError = "The timer service could not be stopped."
+      return
+    }
+    stop()
+    state = nil
+    registrationError = nil
+    commandError = nil
+    connection = .stopped
   }
 
   public func command(_ line: String) async throws -> String {

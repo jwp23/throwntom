@@ -14,9 +14,11 @@ struct MainWindowContent: Equatable {
     connection: DaemonClient.Connection,
     tasks: TaskList,
     error: String?,
+    registrationFailed: Bool = false,
     panel: WindowPanel?,
     now: Date,
   ) {
+    serviceAction = ServiceActions.startOrStop(connection: connection, registrationFailed: registrationFailed)
     scheme = Palette.scheme(for: state?.state)
     pose = MascotPose.pose(for: state?.state, pausedFrom: state?.pausedFrom ?? .idle)
     title = state?.state.displayName ?? ConnectionStatus.placeholderText(state: nil, connection: connection, now: now) ?? ""
@@ -41,6 +43,8 @@ struct MainWindowContent: Equatable {
   let garden: TomatoGarden?
   let chips: [TimerAction]
   let primaryChip: TimerAction?
+  /// Start or Stop for the timer service itself, which is offered whatever the timer is doing.
+  let serviceAction: ServiceAction
   let focused: [TaskItem]
   let error: String?
   let panel: WindowPanel?
