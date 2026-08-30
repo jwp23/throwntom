@@ -42,12 +42,25 @@ func (c *Core) buildCommandHandlers() map[string]commandHandler {
 
 func (c *Core) handleStart(_ []string) commandResult {
 	c.reminder.cancel()
-	if c.tasks != nil {
+	// The focus prompt asks which tasks this pomodoro is for, so it belongs
+	// only to a start that actually begins work — not to one resuming a break
+	// a stop left owed.
+	if c.tasks != nil && c.timer.OwedPhase() == engine.Work {
 		return c.enterFocusPrompt("start")
 	}
 	c.timer.Start()
-	c.logEvent("pomodoro_started", nil)
-	return commandResult{message: "Pomodoro started -- let's go!"}
+	state := c.timer.State()
+	c.logPhaseStart(state)
+	return commandResult{message: startedMessage(state)}
+}
+
+// startedMessage announces the phase a start entered, which after a stop may
+// be the break that stop left owed rather than a pomodoro.
+func startedMessage(state engine.State) string {
+	if state == engine.Work {
+		return "Pomodoro started -- let's go!"
+	}
+	return fmt.Sprintf("Back to your %s.", FriendlyStateName(state))
 }
 
 func (c *Core) handleNewCycle(_ []string) commandResult {
@@ -72,10 +85,14 @@ func (c *Core) handleResume(_ []string) commandResult {
 	return commandResult{message: "Resumed -- back at it!"}
 }
 
+// handleStop suspends the cycle. Stop is not an abandon: the phase the cycle
+// owes and the tasks in focus both survive it, so a later start picks up where
+// this left off. The event it logs is what terminates the pomodoro already
+// open in the log.
 func (c *Core) handleStop(_ []string) commandResult {
 	c.timer.Stop()
-	c.focused = nil
-	return commandResult{message: "Stopped. Back to idle."}
+	c.logEvent("stopped", nil)
+	return commandResult{message: "Stopped. Start again when you're ready."}
 }
 
 func (c *Core) handleConfirm(_ []string) commandResult {
@@ -83,7 +100,7 @@ func (c *Core) handleConfirm(_ []string) commandResult {
 	c.logConfirmCompletion(snap.Engine.LastPhase)
 	c.timer.Confirm()
 	state := c.timer.State()
-	c.logConfirmStart(state)
+	c.logPhaseStart(state)
 	if state == engine.Work && c.tasks != nil && len(c.focused) == 0 {
 		return c.enterFocusPrompt("confirm")
 	}
@@ -101,7 +118,9 @@ func (c *Core) logConfirmCompletion(lastPhase engine.State) {
 	}
 }
 
-func (c *Core) logConfirmStart(newState engine.State) {
+// logPhaseStart records the phase the timer has just entered, whether it was
+// reached by confirming the previous one or by starting after a stop.
+func (c *Core) logPhaseStart(newState engine.State) {
 	switch newState {
 	case engine.Work:
 		c.logEvent("pomodoro_started", nil)
@@ -173,7 +192,7 @@ func Help() string {
 		"  new-cycle          start a fresh cycle",
 		"  pause              pause the timer",
 		"  resume             resume the timer",
-		"  stop               stop and return to idle (forgets the owed phase and focused tasks)",
+		"  stop               suspend the cycle; start again to resume the owed phase",
 		"  confirm            continue to next phase now",
 		"  snooze <duration>  keep the owed phase and focused tasks, ask again later (e.g., snooze 10m)",
 		"  skip-today         skip reminders for today",

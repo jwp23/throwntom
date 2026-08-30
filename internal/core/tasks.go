@@ -280,9 +280,10 @@ func (c *Core) finalizeFocusPrompt() commandResult {
 	c.pendingFocusAction = ""
 	if action == "start" {
 		c.timer.Start()
-		c.logEvent("pomodoro_started", nil)
+		c.logPhaseStart(c.timer.State())
+		return commandResult{message: startedMessage(c.timer.State())}
 	}
-	return commandResult{message: "Pomodoro started -- let's go!"}
+	return commandResult{message: startedMessage(engine.Work)}
 }
 
 func (c *Core) FocusPrompt() string {

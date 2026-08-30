@@ -206,7 +206,14 @@ func (t *Timer) Start() {
 	defer t.mu.Unlock()
 	defer t.transitionLocked()
 	t.engine.StartWork()
-	t.startPhaseTimerLocked(t.workDuration)
+	t.startPhaseTimerLocked(t.phaseDurationLocked(t.engine.State()))
+}
+
+// OwedPhase reports the phase Start would enter now.
+func (t *Timer) OwedPhase() engine.State {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.engine.OwedPhase()
 }
 
 func (t *Timer) StartNewCycle() {

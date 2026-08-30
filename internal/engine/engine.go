@@ -90,14 +90,54 @@ func (e *Engine) State() State {
 	return e.state
 }
 
+// StartWork picks the cycle back up. A stop that suspended an owed phase left
+// that phase recorded in lastPhase, and it is what resumes; with nothing owed,
+// work begins. A day that has not started yet owes nothing by definition.
 func (e *Engine) StartWork() {
+	next := e.OwedPhase()
 	if !e.workDayStarted {
 		e.completedToday = 0
 		e.workDayStarted = true
 		e.workSessionsBlock = 0
 	}
-	e.state = Work
-	e.lastPhase = Work
+	e.state = next
+	e.lastPhase = next
+}
+
+// OwedPhase reports the phase a start would enter now, letting a caller
+// prepare for that phase before committing to it. Only an idle engine can owe
+// anything: lastPhase names the phase most recently entered, so while one is
+// running, paused or awaiting confirmation it describes the present rather
+// than a debt. A day that has not started owes nothing either.
+func (e *Engine) OwedPhase() State {
+	if !e.workDayStarted || e.state != Idle {
+		return Work
+	}
+	return e.owedPhase()
+}
+
+// owedPhase reports the phase a suspended cycle should resume into, given the
+// phase that last ran to completion. It is NextPhase's rule without
+// NextPhase's requirement that the engine be sitting in AwaitingConfirm.
+func (e *Engine) owedPhase() State {
+	switch e.lastPhase {
+	case Work:
+		return e.breakAfterWork()
+	case ShortBreak, LongBreak:
+		return Work
+	default:
+		return Work
+	}
+}
+
+// breakAfterWork reports which break a completed work period earns. A block
+// with no completed sessions in it has earned no long break, whatever the
+// remainder says.
+func (e *Engine) breakAfterWork() State {
+	if e.workSessionsBlock > 0 && e.workSessionsBlock%e.longBreakEvery == 0 {
+		return LongBreak
+	}
+	return ShortBreak
 }
 
 func (e *Engine) StartNewCycle() {
@@ -136,10 +176,7 @@ func (e *Engine) NextPhase() State {
 		return Idle
 	}
 	if e.lastPhase == Work {
-		if e.workSessionsBlock%e.longBreakEvery == 0 {
-			return LongBreak
-		}
-		return ShortBreak
+		return e.breakAfterWork()
 	}
 	return Work
 }
@@ -274,11 +311,20 @@ func (e *Engine) AdvanceDay(now time.Time) {
 	e.completedToday = 0
 	e.workSessionsBlock = 0
 	e.workDayStarted = false
+	// A new day owes nothing: yesterday's suspended cycle does not carry over.
+	e.lastPhase = Idle
 	e.workDate = now
 }
 
+// Stop suspends the cycle rather than abandoning it: the timer goes idle, but
+// a phase that ran to completion and is awaiting its successor stays owed, so
+// a later start gives back the break that was earned. Progress toward the long
+// break is kept either way. A phase cut short mid-flight was never finished
+// and owes nothing.
 func (e *Engine) Stop() {
+	if e.state != AwaitingConfirm {
+		e.lastPhase = Idle
+	}
 	e.state = Idle
-	e.lastPhase = Idle
 	e.pausedFrom = Idle
 }

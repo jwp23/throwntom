@@ -100,6 +100,21 @@ func TestComputeFocusMinutes(t *testing.T) {
 	}
 }
 
+// A stopped pomodoro is not focus time, and it must not leak into the next
+// completion's duration either.
+func TestStopClosesTheOpenPomodoro(t *testing.T) {
+	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		makeEvent("pomodoro_started", time.Date(2026, 3, 19, 10, 0, 0, 0, time.Local)),
+		makeEvent("stopped", time.Date(2026, 3, 19, 10, 10, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 11, 0, 0, 0, time.Local)),
+	}
+	dash := Compute(events, now)
+	if dash.Today.FocusMinutes != 0 {
+		t.Fatalf("expected a stop to end the open pomodoro, got %d focus minutes", dash.Today.FocusMinutes)
+	}
+}
+
 func TestComputePausesSnoozes(t *testing.T) {
 	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
 	events := []eventlog.Event{
