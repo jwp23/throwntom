@@ -80,6 +80,29 @@ final class TimerActionDispatchTests: XCTestCase {
     )
   }
 
+  func testASnoozeActionPostsTheMinutesItNames() async throws {
+    let (client, transport) = makeClient()
+    try await client.perform(.snooze(minutes: 45))
+    XCTAssertEqual(transport.requests.map(\.path), ["/v1/timer/snooze"])
+    let body = try XCTUnwrap(transport.requests.first?.body)
+    XCTAssertEqual(try JSONSerialization.jsonObject(with: body) as? [String: Int], ["minutes": 45])
+  }
+
+  func testCancellingASnoozeIsItsOwnVerbWithNoBody() async throws {
+    let (client, transport) = makeClient()
+    try await client.perform(.cancel)
+    XCTAssertEqual(transport.requests.map(\.path), ["/v1/timer/unsnooze"])
+    XCTAssertEqual(transport.requests.map(\.method), ["POST"])
+    XCTAssertEqual(transport.requests.compactMap(\.body), [])
+  }
+
+  func testCustomIsNotSomethingTheDaemonCanBeAsked() async throws {
+    // It names a question for the user, not a command; dispatching it must reach nothing.
+    let (client, transport) = makeClient()
+    try await client.perform(.custom)
+    XCTAssertEqual(transport.requests.count, 0)
+  }
+
   func testRefusalPropagatesSoCallersCanBeep() async throws {
     let (client, _) = makeClient(status: 409)
     do {

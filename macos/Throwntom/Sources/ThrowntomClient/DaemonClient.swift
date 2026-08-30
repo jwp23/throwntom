@@ -151,6 +151,16 @@ public final class DaemonClient {
     }
   }
 
+  /// Runs a snooze verb. `.custom` is the one action with nothing to send: it asks the user for a
+  /// duration, and the answer arrives later as an ordinary `.snooze`.
+  public func perform(_ action: SnoozeAction) async throws {
+    switch action {
+    case .snooze(let minutes): try await snooze(minutes: minutes)
+    case .cancel: try await timer(.unsnooze)
+    case .custom: break
+    }
+  }
+
   public func snooze(minutes: Int) async throws {
     try await runCommand {
       let body = try JSONSerialization.data(withJSONObject: ["minutes": minutes])
