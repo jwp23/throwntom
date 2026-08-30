@@ -48,9 +48,15 @@
   the old one superseded with a pointer to it. Do not rewrite the old decision.
 - Amend an existing ADR only in rare circumstances. Wanting the text to match
   today's behaviour is not one of them — that is what a superseding ADR is for.
-- A detail that has merely gone stale (a renamed flag, a rebound shortcut) does
-  not need touching at all: the ADR was accurate when written, and the current
-  value belongs in the design docs or the code, not in the decision record.
+- Distinguish a decision from a pointer. Adding a short dated note saying an
+  incidental detail has since changed — a renamed flag, a rebound shortcut —
+  does not alter the decision and is welcome: it stops a later reader treating
+  the stale value as current and "correcting" the code back to it. Recording a
+  NEW decision inside an old ADR is the thing to avoid, however much it feels
+  like clarification. Resolving an ambiguity between two clauses of an existing
+  ADR is a new decision.
+- Do not chase stale details. The current value lives in the design docs and the
+  code; the ADR only needs a note where silence would actively mislead.
 
 ## Mindset & Principles
 - Flag missing info and unsupported assumptions.
