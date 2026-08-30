@@ -82,9 +82,10 @@ final class MenuBindingTests: XCTestCase {
   /// AppKit binds Quit itself, so no menu model of ours may claim it.
   private static let reserved = [MenuShortcut(key: "q", modifiers: .command): "Quit Throwntom"]
 
-  /// Timer 6 + Tasks 6 + View 3 + config 1. Asserting the exact number keeps these tests from
-  /// passing vacuously: an empty list would satisfy every loop below while checking nothing.
-  private static let commandCount = 16
+  /// Timer 6 + service 1 + Tasks 6 + View 3 + config 1. Asserting the exact number keeps these
+  /// tests from passing vacuously: an empty list would satisfy every loop below while checking
+  /// nothing.
+  private static let commandCount = 17
 
   /// Every command the app offers for one snapshot: the four menu models, with the task menu given
   /// a selected task so none of its verbs is withheld.
@@ -93,6 +94,7 @@ final class MenuBindingTests: XCTestCase {
     model.sync(tasks: TaskList(active: [makeTask(id: 1)], completed: []), focusedTaskIDs: [])
     let state = phase.map { makeState(phase: $0, morningPending: true) }
     return collect(MenuModel.timer(state: state, isEditing: isEditing)) { $0.shortcutHint }
+      + collect(MenuModel.service(connection: .connected, registrationFailed: false)) { $0.shortcutHint }
       + collect(MenuModel.tasks(model: model)) { $0.shortcutHint }
       + collect(MenuModel.view(model: WindowModel())) { $0.shortcutHint }
       + collect(MenuModel.appConfig()) { $0.shortcutHint }

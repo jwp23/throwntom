@@ -226,3 +226,34 @@ final class MenuGroupsTests: XCTestCase {
   }
 
 }
+
+// MARK: - ServiceMenuModelTests
+
+/// The Timer menu's service group: one toggle whose title says what pressing it does, so the
+/// menu bar carries Start and Stop exactly as the window does (ADR-006).
+final class ServiceMenuModelTests: XCTestCase {
+  func testRunningServiceOffersStop() {
+    let menu = MenuModel.service(connection: .connected, registrationFailed: false)
+
+    XCTAssertEqual(menu.items.map(\.title), ["Stop Timer Service"])
+    XCTAssertTrue(menu.items.allSatisfy(\.isEnabled))
+  }
+
+  func testStoppedServiceOffersStart() {
+    let menu = MenuModel.service(connection: .stopped, registrationFailed: false)
+
+    XCTAssertEqual(menu.items.map(\.title), ["Start Timer Service"])
+  }
+
+  func testRefusedLaunchOffersStartRatherThanARetryOfItsOwn() {
+    let menu = MenuModel.service(connection: .startingDaemon, registrationFailed: true)
+
+    XCTAssertEqual(menu.items.map(\.title), ["Start Timer Service"])
+  }
+
+  /// Stopping the service is deliberate and heavy, so it claims no key: a stray keystroke must
+  /// not be able to take the timer down.
+  func testTheServiceToggleBindsNoKey() {
+    XCTAssertNil(MenuModel.service(connection: .connected, registrationFailed: false).items.first?.shortcut)
+  }
+}

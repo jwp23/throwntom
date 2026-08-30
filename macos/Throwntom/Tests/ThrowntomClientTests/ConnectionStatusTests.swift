@@ -22,6 +22,17 @@ final class ConnectionStatusTests: XCTestCase {
     XCTAssertEqual(ConnectionStatus.text(state: nil, connection: .connected, now: .now), "Throwntom")
   }
 
+  func testNilStateStopped() {
+    XCTAssertEqual(ConnectionStatus.text(state: nil, connection: .stopped, now: .now), "Timer service stopped")
+  }
+
+  func testPlaceholderTextStopped() {
+    XCTAssertEqual(
+      ConnectionStatus.placeholderText(state: nil, connection: .stopped, now: .now),
+      "Timer service stopped",
+    )
+  }
+
   func testPlaceholderTextNilWhenStatePresent() {
     let state = DaemonState(
       state: .idle,
