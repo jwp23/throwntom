@@ -6,7 +6,8 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/engine"
 )
 
-type NextStage struct {
+// Stage is a phase the timer could move into, and how long it would run for.
+type Stage struct {
 	State           engine.State `json:"state"`
 	DurationSeconds int          `json:"duration"`
 }
@@ -19,8 +20,15 @@ type State struct {
 	CompletedToday      int          `json:"completed_today"`
 	WorkSessionsInBlock int          `json:"work_sessions_in_block"`
 	LongBreakEvery      int          `json:"long_break_every"`
-	NextStage           *NextStage   `json:"next_stage"`
-	MorningPending      bool         `json:"morning_pending"`
+	// NextStage is what confirm would move on to, so it is present only while
+	// a finished phase is waiting to be confirmed.
+	NextStage *Stage `json:"next_stage"`
+	// OwedStage is what start would enter, so it is present only while the
+	// timer is idle and start is the verb on offer. Stop is a suspend, so an
+	// idle timer can owe the break it earned; without this a client shows Idle
+	// beside a Start control and cannot say which phase it will begin.
+	OwedStage      *Stage `json:"owed_stage"`
+	MorningPending bool   `json:"morning_pending"`
 	// DayEnded is true once the user has ended the work day, so a client can
 	// tell an idle timer that is ready to go from one that is done until
 	// tomorrow. Nothing else in this document distinguishes them.
@@ -61,7 +69,10 @@ func (c *Core) stateLocked() State {
 		s.PhaseEndAt = &end
 	}
 	if next, dur, ok := c.nextStageLocked(); ok {
-		s.NextStage = &NextStage{State: next, DurationSeconds: int(dur / time.Second)}
+		s.NextStage = &Stage{State: next, DurationSeconds: int(dur / time.Second)}
+	}
+	if owed, dur, ok := c.owedStageLocked(); ok {
+		s.OwedStage = &Stage{State: owed, DurationSeconds: int(dur / time.Second)}
 	}
 	if until, ok := c.reminder.snoozeDeadline(); ok {
 		s.SnoozeUntil = &until
