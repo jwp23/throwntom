@@ -3,8 +3,10 @@ import Foundation
 // MARK: - LaunchAgentRegistrar
 
 /// Drives the launchd agent that owns throwntomd. The app never spawns the daemon itself, and
-/// never stops it as a side effect of its own lifecycle: the daemon outlives every client
-/// (ADR-006), so the only way down is a user asking for it through `stopAgent`.
+/// the daemon outlives every client (ADR-006), so the only *deliberate* stop is a user asking
+/// for it through `stopAgent`. `ensureAgentRegistered` can also unregister-then-register when
+/// recovery finds the agent already `.enabled` (reloading a stale entry), which briefly stops a
+/// still-running daemon as a side effect — see `AgentRegistrationPlan`.
 public protocol LaunchAgentRegistrar: Sendable {
   /// Makes the agent load (or reload) the daemon; called after repeated connection failures and
   /// whenever the user starts the service by hand.

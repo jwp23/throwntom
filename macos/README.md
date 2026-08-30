@@ -114,8 +114,8 @@ make it stop, and they mean different things.
   nothing reminds you again until tomorrow. The window then reads "Done for
   today" rather than "Idle", and it survives a daemon restart.
 - **Stop Timer Service** — the chip under the timer verbs, and the group below
-  the divider in the Timer menu. Boots the launchd agent out, so the daemon
-  exits and nothing is timing at all; the window turns dark and offers **Start
+  the divider in the Timer menu. Unregisters the `launchd` agent and stops the
+  daemon, so nothing is timing at all; the window turns dark and offers **Start
   Timer Service**. Use it when you want the machine quiet, not just the day
   over.
 

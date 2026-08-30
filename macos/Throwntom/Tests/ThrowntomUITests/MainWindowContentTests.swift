@@ -93,9 +93,18 @@ final class MainWindowContentTests: XCTestCase {
     connection: DaemonClient.Connection = .connected,
     tasks: TaskList = TaskList(),
     error: String? = nil,
+    registrationFailed: Bool = false,
     panel: WindowPanel? = nil,
   ) -> MainWindowContent {
-    MainWindowContent(state: state, connection: connection, tasks: tasks, error: error, panel: panel, now: now)
+    MainWindowContent(
+      state: state,
+      connection: connection,
+      tasks: tasks,
+      error: error,
+      registrationFailed: registrationFailed,
+      panel: panel,
+      now: now,
+    )
   }
 
 }
@@ -120,5 +129,16 @@ extension MainWindowContentTests {
   /// A day the user ended is over only while the timer is idle; a running phase is its own answer.
   func testARunningPhaseIsNamedForThePhase() {
     XCTAssertEqual(content(makeState(phase: .work, dayEnded: true)).title, "Pomodoro")
+  }
+}
+
+// MARK: - RefusedLaunchContentTests
+
+/// throwntom-jtx: a refused launch has to say so even with a stale phase still in hand — the
+/// daemon that phase came from is gone, and the title must not go on describing it.
+extension MainWindowContentTests {
+  func testARefusedLaunchOutranksAStaleRetainedPhase() {
+    let stale = content(makeState(phase: .work), connection: .startingDaemon, registrationFailed: true)
+    XCTAssertEqual(stale.title, "Timer service can’t launch")
   }
 }

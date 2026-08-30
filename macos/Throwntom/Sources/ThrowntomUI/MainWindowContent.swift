@@ -21,14 +21,18 @@ struct MainWindowContent: Equatable {
     serviceAction = ServiceActions.startOrStop(connection: connection, registrationFailed: registrationFailed)
     scheme = Palette.scheme(for: state?.state)
     pose = MascotPose.pose(for: state?.state, pausedFrom: state?.pausedFrom ?? .idle)
-    title = state.map(Self.phaseTitle)
-      ?? ConnectionStatus.placeholderText(
-        state: nil,
-        connection: connection,
-        registrationFailed: registrationFailed,
-        now: now,
-      )
-      ?? ""
+    // A refused launch outranks a retained phase: the daemon that phase came from is gone, so
+    // the title must say the launch failed rather than go on naming a phase nothing is running.
+    title = registrationFailed
+      ? ConnectionStatus.text(state: state, connection: connection, registrationFailed: true, now: now)
+      : state.map(Self.phaseTitle)
+        ?? ConnectionStatus.placeholderText(
+          state: nil,
+          connection: connection,
+          registrationFailed: false,
+          now: now,
+        )
+        ?? ""
     countdown = state.flatMap { Self.countdown(for: $0, now: now) }
     nextStage = state?.nextStage.map { "Next: \($0.summary)" }
     garden = state
