@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -180,8 +181,8 @@ func TestStatePublishesTheReminderRingCount(t *testing.T) {
 	if got := c.State().ReminderRings; got != 0 {
 		t.Fatalf("expected no rings before a reminder, got %d", got)
 	}
-	_ = c.reminder.ring()
-	_ = c.reminder.ring()
+	_ = c.reminder.ring(context.Background(), false)
+	_ = c.reminder.ring(context.Background(), false)
 	if got := c.State().ReminderRings; got != 2 {
 		t.Fatalf("expected the published count to follow the rings, got %d", got)
 	}

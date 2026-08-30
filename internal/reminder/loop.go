@@ -38,10 +38,21 @@ func New(policy Policy, notify func() error) *Loop {
 	return &Loop{policy: policy, notify: notify}
 }
 
+// Ack says the reminder was answered, so it stops even the first alert: there
+// is nothing left to alert anyone about. That is what separates it from
+// cancelling Run's ctx, which only retires this loop and still owes the alert
+// the loop was started to make. The two are not interchangeable — a caller
+// that means "stop ringing" wants the ctx, and acking there silences a loop
+// whose goroutine has not been scheduled yet.
 func (l *Loop) Ack() {
 	l.acked.Store(true)
 }
 
+// Run alerts on the policy's cadence until it is acked, its ctx is cancelled
+// or the policy's bound is reached. The first alert is checked against acked
+// but deliberately not against ctx: an answered reminder has nothing to say,
+// while a retired one still made the alert it was started for, and which of
+// those happened must not depend on when this goroutine was scheduled.
 func (l *Loop) Run(ctx context.Context) {
 	if l.acked.Load() {
 		return
