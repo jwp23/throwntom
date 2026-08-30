@@ -205,8 +205,8 @@ tier_mid = 5
 `repeat_limit_secs` bounds how long an unanswered reminder keeps alerting, so a
 reminder nobody is around to acknowledge stops on its own rather than ringing
 until you quit. Like `sound_command` it describes the terminal UI: `throwntomd`
-plays nothing to repeat, and on macOS the app's banner stays up until it is
-answered rather than chiming again.
+plays nothing to repeat, and on macOS the app chimes on each published repeat
+tick until the reminder is answered.
 
 ### `sound_command`
 
