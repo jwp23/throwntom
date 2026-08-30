@@ -57,8 +57,8 @@ func pollUntil(
   line: UInt = #line,
   _ condition: () -> Bool,
 ) async -> TimeoutError? {
-  let deadline = Date().addingTimeInterval(timeout)
-  while Date() < deadline {
+  let deadline = Date.now.addingTimeInterval(timeout)
+  while Date.now < deadline {
     if condition() {
       return nil
     }
