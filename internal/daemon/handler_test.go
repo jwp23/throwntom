@@ -94,20 +94,57 @@ func TestPostCommandRefusedTransitionIs409(t *testing.T) {
 }
 
 func TestPostCommandRejectsQuit(t *testing.T) {
-	for _, line := range []string{"quit", "exit", "quit now"} {
+	for line, want := range map[string]string{
+		"quit":     "quit is not available over the API",
+		"exit":     "exit is not available over the API",
+		"quit now": "quit is not available over the API",
+	} {
 		c := newTestCoreWithMorning(t)
 		srv := httptest.NewServer(NewHandler(c))
 		resp := postJSON(t, srv.URL+"/v1/command", commandRequest{Line: line})
 		if resp.StatusCode != 400 {
 			t.Fatalf("%q: status %d", line, resp.StatusCode)
 		}
-		if e := decode[errorResponse](t, resp); e.Error != "quit is not available over the API" {
-			t.Fatalf("%q: error %q", line, e.Error)
+		if e := decode[errorResponse](t, resp); e.Error != want {
+			t.Fatalf("%q: error %q, want %q", line, e.Error, want)
 		}
 		if !c.State().MorningPending {
 			t.Fatalf("%q: morning reminder was stopped", line)
 		}
 		srv.Close()
+	}
+}
+
+func TestPostCommandRejectsTestSound(t *testing.T) {
+	srv, _ := newTestServer(t)
+	resp := postJSON(t, srv.URL+"/v1/command", commandRequest{Line: "test-sound"})
+	if resp.StatusCode != 400 {
+		t.Fatalf("status %d", resp.StatusCode)
+	}
+	want := "test-sound is not available over the API: the daemon plays no sound"
+	if e := decode[errorResponse](t, resp); e.Error != want {
+		t.Fatalf("error %q, want %q", e.Error, want)
+	}
+}
+
+// TestUnavailableOverAPI covers the ways a refused command can be written:
+// the guard splits the line the way the core does, so arguments and
+// surrounding space must not get one past it, and every other line must
+// still reach the core.
+func TestUnavailableOverAPI(t *testing.T) {
+	refused := []string{
+		"quit", "exit", "quit now", "  quit  ",
+		"test-sound", "test-sound now", "  test-sound  ",
+	}
+	for _, line := range refused {
+		if err := unavailableOverAPI(line); err == nil {
+			t.Errorf("%q was accepted", line)
+		}
+	}
+	for _, line := range []string{"", "   ", "start", "status", "task add write it up", "TEST-SOUND"} {
+		if err := unavailableOverAPI(line); err != nil {
+			t.Errorf("%q was refused: %v", line, err)
+		}
 	}
 }
 

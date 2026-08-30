@@ -48,7 +48,7 @@ final class SocketRequestLifecycleTests: XCTestCase {
     try await Task.sleep(for: .milliseconds(200))
     request.cancel()
 
-    try await waitUntil(timeout: 2) { outcome.isFinished }
+    try await waitUntil("the request to finish", timeout: 2) { outcome.isFinished }
     XCTAssertTrue(outcome.error is CancellationError, "unexpected \(String(describing: outcome.error))")
   }
 

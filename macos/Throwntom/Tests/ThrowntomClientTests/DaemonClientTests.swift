@@ -24,6 +24,44 @@ final class RecordingRegistrar: LaunchAgentRegistrar, @unchecked Sendable {
 
 }
 
+// MARK: - DialCountingTransport
+
+/// Counts event-stream dials on the way through to a real transport, so a test can wait for the
+/// reconnect loop to have actually run rather than for a stretch of wall clock that a loaded
+/// machine may spend doing nothing.
+// `_dials` is only touched under `lock`; DaemonTransport requires Sendable.
+// swiftlint:disable:next no_unchecked_sendable
+final class DialCountingTransport: DaemonTransport, @unchecked Sendable {
+
+  // MARK: Lifecycle
+
+  init(_ wrapped: DaemonTransport) {
+    self.wrapped = wrapped
+  }
+
+  // MARK: Internal
+
+  var dials: Int {
+    lock.withLock { _dials }
+  }
+
+  func request(_ method: String, _ path: String, body: Data?) async throws -> HTTPResponse {
+    try await wrapped.request(method, path, body: body)
+  }
+
+  func events(_ path: String) -> AsyncThrowingStream<Data, Error> {
+    lock.withLock { _dials += 1 }
+    return wrapped.events(path)
+  }
+
+  // MARK: Private
+
+  private let wrapped: DaemonTransport
+  private let lock = NSLock()
+  private var _dials = 0
+
+}
+
 // MARK: - DaemonClientTests
 
 @MainActor
@@ -49,7 +87,7 @@ final class DaemonClientTests: XCTestCase {
 
     let message = try await client.command("task add hello")
     XCTAssertFalse(message.isEmpty)
-    try await waitUntil { client.tasks.active.map(\.description) == ["hello"] }
+    try await waitUntil("the added task to reach the window") { client.tasks.active.map(\.description) == ["hello"] }
   }
 
   func testTimerVerbRefusedSurfacesAs409() async throws {
@@ -78,9 +116,9 @@ final class DaemonClientTests: XCTestCase {
     let client = try await connectedClient()
     defer { client.stop() }
     daemon.stop()
-    try await waitUntil { client.connection != .connected }
+    try await waitUntil("the connection to drop") { client.connection != .connected }
     try await daemon.start()
-    try await waitUntil(timeout: 10) { client.connection == .connected }
+    try await waitUntil("the client to reconnect", timeout: 10) { client.connection == .connected }
     XCTAssertEqual(client.state?.state, .idle)
   }
 
@@ -112,8 +150,8 @@ final class DaemonClientTests: XCTestCase {
     XCTAssertNotNil(client.unresolvedError, "the refusal should be visible on its own")
 
     daemon.stop()
-    try await waitUntil { client.connection != .connected }
-    try await waitUntil { client.unresolvedError == client.lastError }
+    try await waitUntil("the connection to drop") { client.connection != .connected }
+    try await waitUntil("the outage to replace the stale refusal") { client.unresolvedError == client.lastError }
   }
 
   func testConnectedClientHasNoErrorToShow() async throws {
@@ -126,22 +164,33 @@ final class DaemonClientTests: XCTestCase {
     let client = try await connectedClient()
     defer { client.stop() }
     daemon.stop()
-    try await waitUntil { client.unresolvedError != nil }
+    try await waitUntil("an error the window can show") { client.unresolvedError != nil }
     XCTAssertEqual(client.unresolvedError, client.lastError)
 
     try await daemon.start()
-    try await waitUntil(timeout: 10) { client.unresolvedError == nil }
+    try await waitUntil("the reconnect to clear the error", timeout: 10) { client.unresolvedError == nil }
     XCTAssertNotNil(client.lastError, "the error is only hidden, not forgotten")
   }
 
-  func testRegistersAgentPeriodicallyDuringPersistentOutage() async throws {
+  /// Over a real socket that never appears: launchd is asked once and then left to its own
+  /// KeepAlive. Asking again would unregister the job first, killing a daemon that had just
+  /// started, so the client keeps reporting the outage instead of repeating the ask.
+  func testRegistersTheAgentOnceAndKeepsReportingThePersistentOutage() async throws {
     let missing = UnixSocketTransport(socketPath: daemon.home.appendingPathComponent("nope.sock").path)
-    let client = DaemonClient(transport: missing, registrar: registrar, backoff: [.milliseconds(30)])
+    let transport = DialCountingTransport(missing)
+    let client = DaemonClient(transport: transport, registrar: registrar, backoff: [.milliseconds(30)])
     client.start()
     defer { client.stop() }
-    try await waitUntil { self.registrar.calls >= 1 }
+    try await waitUntil("the registration that ends the outage") { self.registrar.calls >= 1 }
     XCTAssertEqual(client.connection, .startingDaemon)
-    try await waitUntil(timeout: 3) { self.registrar.calls >= 3 }
+
+    // Waiting on dials rather than on wall clock: a loaded machine that managed only a couple of
+    // reconnects in a fixed sleep would pass this test with the repeat registration still in.
+    try await waitUntil("dials well past where repeat registrations would fall") {
+      transport.dials >= DaemonClient.failuresBeforeRegistering * 3 + 1
+    }
+
+    XCTAssertEqual(registrar.calls, 1, "further failures must not ask launchd again")
     XCTAssertEqual(client.connection, .startingDaemon)
   }
 
@@ -166,7 +215,7 @@ final class DaemonClientTests: XCTestCase {
   private func connectedClient() async throws -> DaemonClient {
     let client = DaemonClient(transport: UnixSocketTransport(socketPath: daemon.socketPath), registrar: registrar)
     client.start()
-    try await waitUntil { client.connection == .connected }
+    try await waitUntil("the client to connect") { client.connection == .connected }
     return client
   }
 

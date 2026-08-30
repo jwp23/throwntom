@@ -202,11 +202,7 @@ public final class DaemonClient {
         lastError = Self.userMessage(error)
         // A real outage matters more than a stale command refusal from before it started.
         commandError = nil
-        // Only a registration launchd accepted justifies retrying sooner: when the ask itself
-        // failed, nothing has been done about the outage and it keeps escalating.
-        if retries.shouldRegisterAgent, registerAgent() {
-          retries.agentRegistered()
-        }
+        retries.registerAgentIfDue { registerAgent() }
         connection = retries.failures >= Self.failuresBeforeRegistering
           ? .startingDaemon
           : .reconnecting(attempt: retries.failures)

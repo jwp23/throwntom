@@ -95,6 +95,53 @@ func normalize(cfg Config) Config {
 	return cfg
 }
 
+// TestTemplateWarnsAboutSectionOrdering keeps the footgun documented: the
+// warning must come before the first section header, where a reader adding a
+// top-level key is still looking.
+func TestTemplateWarnsAboutSectionOrdering(t *testing.T) {
+	if !strings.Contains(unwrapComments(Template), "must stay above the first [pomodoro] header") {
+		t.Fatal("template does not warn that top-level keys must precede any section header")
+	}
+	firstSection := strings.Index(Template, "\n# [pomodoro]\n")
+	if firstSection < 0 {
+		t.Fatal("template has no [pomodoro] header to order the warning against")
+	}
+	if warning := strings.Index(Template, "Settings outside a section"); warning > firstSection {
+		t.Fatalf("warning at %d comes after the first section header at %d", warning, firstSection)
+	}
+}
+
+// unwrapComments joins the template's wrapped comment prose into single
+// lines, so a phrase can be looked for without depending on where it wraps.
+func unwrapComments(template string) string {
+	return strings.ReplaceAll(template, "\n# ", " ")
+}
+
+// TestBareKeyAfterSectionHeaderIsReportedByItsAbsorbedPath is the behaviour
+// the template's ordering warning describes: TOML puts a bare key written
+// after a section header inside that table, and the error names it there.
+func TestBareKeyAfterSectionHeaderIsReportedByItsAbsorbedPath(t *testing.T) {
+	_, err := LoadBytes([]byte("[pomodoro]\nwork_minutes = 25\nrepeat_secs = 20\n"))
+	if err == nil {
+		t.Fatal("expected a config error")
+	}
+	if want := `unknown key "pomodoro.repeat_secs"`; err.Error() != want {
+		t.Fatalf("error %q, want %q", err, want)
+	}
+}
+
+// TestTemplateSaysSoundCommandIsTerminalOnly guards against the template
+// implying throwntomd plays sound_command after a restart: it plays no sound
+// at all (ADR-007), so the setting is the terminal interface's alone.
+func TestTemplateSaysSoundCommandIsTerminalOnly(t *testing.T) {
+	if strings.Contains(Template, "A change here waits for the daemon to restart") {
+		t.Error("template still says a daemon restart applies sound_command")
+	}
+	if !strings.Contains(unwrapComments(Template), "throwntomd plays no sound at all") {
+		t.Error("template does not say throwntomd plays no sound at all")
+	}
+}
+
 func TestEnsureFileWritesTemplateWhenMissing(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "nested", "config.toml")
 
