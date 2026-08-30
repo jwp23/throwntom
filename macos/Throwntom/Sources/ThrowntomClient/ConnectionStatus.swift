@@ -4,9 +4,21 @@ import Foundation
 /// state, `placeholderText` is the window's disconnected placeholder. View-independent so it
 /// can be unit tested.
 public enum ConnectionStatus {
-  public static func text(state: DaemonState?, connection: DaemonClient.Connection, now: Date) -> String {
+  /// `registrationFailed` outranks every dialling state. The reconnect loop keeps retrying after
+  /// launchd has refused, so the connection alone still reads as "starting" long after the start
+  /// has definitively failed; saying so would be wrong rather than merely redundant. The note
+  /// beside this line names launchd and points at Start Timer Service.
+  public static func text(
+    state: DaemonState?,
+    connection: DaemonClient.Connection,
+    registrationFailed: Bool = false,
+    now: Date,
+  ) -> String {
     if let state, connection == .connected {
       return Countdown.tickedStatusLine(state, now: now)
+    }
+    if registrationFailed, connection != .stopped {
+      return "Timer service can’t launch"
     }
     switch connection {
     case .stopped: return "Timer service stopped"
@@ -33,8 +45,13 @@ public enum ConnectionStatus {
 
   /// The text for the window's disconnected placeholder, or nil once daemon state has
   /// arrived and there is nothing to overlay.
-  public static func placeholderText(state: DaemonState?, connection: DaemonClient.Connection, now: Date) -> String? {
+  public static func placeholderText(
+    state: DaemonState?,
+    connection: DaemonClient.Connection,
+    registrationFailed: Bool = false,
+    now: Date,
+  ) -> String? {
     guard state == nil else { return nil }
-    return text(state: state, connection: connection, now: now)
+    return text(state: state, connection: connection, registrationFailed: registrationFailed, now: now)
   }
 }

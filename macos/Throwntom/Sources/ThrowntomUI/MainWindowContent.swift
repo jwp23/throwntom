@@ -22,7 +22,12 @@ struct MainWindowContent: Equatable {
     scheme = Palette.scheme(for: state?.state)
     pose = MascotPose.pose(for: state?.state, pausedFrom: state?.pausedFrom ?? .idle)
     title = state.map(Self.phaseTitle)
-      ?? ConnectionStatus.placeholderText(state: nil, connection: connection, now: now)
+      ?? ConnectionStatus.placeholderText(
+        state: nil,
+        connection: connection,
+        registrationFailed: registrationFailed,
+        now: now,
+      )
       ?? ""
     countdown = state.flatMap { Self.countdown(for: $0, now: now) }
     nextStage = state?.nextStage.map { "Next: \($0.summary)" }

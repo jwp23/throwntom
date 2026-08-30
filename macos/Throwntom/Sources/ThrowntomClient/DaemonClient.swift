@@ -237,7 +237,11 @@ public final class DaemonClient {
       registrationError = nil
       return true
     } catch {
-      registrationError = "The timer could not be started."
+      // Names what refused and what to press, because the status line above it can only say the
+      // service will not launch. The framework's own error stays out of it for the same reason
+      // every other error is reworded here: it names ServiceManagement internals, not a next step.
+      registrationError = "launchd refused to start the timer service. "
+        + "Press \(ServiceAction.start.title) to try again."
       return false
     }
   }
