@@ -144,3 +144,27 @@ final class EndOfDayActionTests: XCTestCase {
     XCTAssertFalse(makeClientState(phase: .idle).dayEnded)
   }
 }
+
+// MARK: - RefusedLaunchTests
+
+/// throwntom-jtx: when launchd will not start the daemon the window must say so and say what to
+/// do about it, rather than reporting a start that has definitively failed as still in progress.
+@MainActor
+final class RefusedLaunchTests: XCTestCase {
+  func testTheNoteNamesLaunchdAndTheControlThatRetriesIt() async throws {
+    let client = DaemonClient(
+      transport: OutageTransport(),
+      registrar: RecordingRegistrar(registerError: RecordingRegistrar.Denied()),
+      backoff: [.milliseconds(10)],
+    )
+    client.start()
+    defer { client.stop() }
+
+    try await waitUntil { client.registrationError != nil }
+
+    let note = try XCTUnwrap(client.registrationError)
+    XCTAssertTrue(note.contains("launchd"), note)
+    XCTAssertTrue(note.contains(ServiceAction.start.title), note)
+    XCTAssertEqual(client.unresolvedError, note)
+  }
+}

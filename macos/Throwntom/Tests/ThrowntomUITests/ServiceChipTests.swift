@@ -48,6 +48,18 @@ final class ServiceChipTests: XCTestCase {
     XCTAssertEqual(registrar.calls, [.stop])
   }
 
+  /// throwntom-jtx: a refused launch renders as the failure it is, and the control it points at
+  /// is this same chip rather than a retry button built only for that state.
+  func testARefusedLaunchNamesTheFailureAndOffersStart() {
+    let content = serviceContent(connection: .startingDaemon, registrationFailed: true)
+    XCTAssertEqual(content.title, "Timer service can\u{2019}t launch")
+    XCTAssertEqual(content.serviceAction, .start)
+
+    let chip = ServiceChip(content: content, client: client()).chip
+    XCTAssertEqual(chip.title, "Start Timer Service")
+    XCTAssertEqual(chip.style, ChipStyle.style(primary: true, scheme: content.scheme))
+  }
+
   func testServiceChipBuilds() {
     _ = ServiceChip(content: serviceContent(connection: .stopped), client: client()).body
   }

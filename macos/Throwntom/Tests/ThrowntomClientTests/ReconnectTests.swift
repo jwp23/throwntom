@@ -258,7 +258,7 @@ final class ReconnectTests: XCTestCase {
     try await waitUntil { client.connection == .startingDaemon }
     try await waitUntil { client.unresolvedError != nil }
 
-    XCTAssertEqual(client.unresolvedError, "The timer could not be started.")
+    XCTAssertEqual(client.unresolvedError, "launchd refused to start the timer service. Press Start Timer Service to try again.")
   }
 
   /// The daemon answered, so telling the reader it could not be reached would send them after
@@ -325,7 +325,7 @@ final class ReconnectTests: XCTestCase {
 
     try await waitUntil { transport.dials >= DaemonClient.failuresBeforeRegistering * 2 + 1 }
 
-    XCTAssertEqual(client.unresolvedError, "The timer could not be started.")
+    XCTAssertEqual(client.unresolvedError, "launchd refused to start the timer service. Press Start Timer Service to try again.")
   }
 
   /// "Answered" means bytes arrived, not that they parsed. A daemon that is up but talking
