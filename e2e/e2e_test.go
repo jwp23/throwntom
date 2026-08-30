@@ -100,6 +100,39 @@ func isolatedHomeEnv(t *testing.T, configTOML string) []string {
 	return append(os.Environ(), "HOME="+home)
 }
 
+// TestShellQuoteSurvivesAShell checks the quoting the way it is actually used:
+// the linux invocation hands these paths to a shell inside a command string, so
+// the only thing that matters is that the shell parses each one back as a
+// single word with every character intact and nothing expanded or executed.
+func TestShellQuoteSurvivesAShell(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX shell quoting is not used on windows")
+	}
+
+	for _, word := range []string{
+		"/tmp/fake-handshake",
+		"/tmp/o'brien/handshake",
+		"/tmp/two words/handshake",
+		"/tmp/`id`/handshake",
+		"/tmp/$HOME/handshake",
+		`/tmp/quote"and\slash/handshake`,
+		"/tmp/all'of $it `here`/handshake",
+	} {
+		t.Run(word, func(t *testing.T) {
+			// printf %s echoes the one argument the shell parsed, so any lost
+			// character, extra word split or expansion shows up as a mismatch.
+			script := "printf %s " + shellQuote(word)
+			out, err := exec.Command("sh", "-c", script).Output()
+			if err != nil {
+				t.Fatalf("run %q: %v", script, err)
+			}
+			if string(out) != word {
+				t.Fatalf("shell parsed %q as %q, want %q", script, out, word)
+			}
+		})
+	}
+}
+
 func TestScriptCommandInvocationLinuxUsesDashC(t *testing.T) {
 	args := scriptCommandInvocation("linux", "echo hi", "/tmp/fake-bin", "/tmp/fake-handshake")
 	got := strings.Join(args, " ")
