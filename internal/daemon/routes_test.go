@@ -182,3 +182,11 @@ func TestStatsReturnsDashboard(t *testing.T) {
 }
 
 func itoa(i int) string { return strconv.Itoa(i) }
+
+func TestSkipVerbIsRouted(t *testing.T) {
+	srv, _ := newTestServer(t)
+	postJSON(t, srv.URL+"/v1/timer/start", nil)
+	if resp := postJSON(t, srv.URL+"/v1/timer/skip", nil); resp.StatusCode != 200 {
+		t.Fatalf("expected skip to be an accepted timer verb, got status %d", resp.StatusCode)
+	}
+}

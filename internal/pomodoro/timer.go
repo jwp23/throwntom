@@ -325,6 +325,23 @@ func (t *Timer) Stop() {
 	t.engine.Stop()
 }
 
+// Skip ends the running phase now and moves to the next stage's confirmation.
+// It reports whether a phase was running; a refused skip changes nothing, so
+// it does not notify.
+func (t *Timer) Skip() bool {
+	t.mu.Lock()
+	if !t.engine.SkipPhase() {
+		t.mu.Unlock()
+		return false
+	}
+	defer t.notifyChange()
+	defer t.mu.Unlock()
+	defer t.transitionLocked()
+	t.stopTimerLocked()
+	t.clearPhaseLocked()
+	return true
+}
+
 func (t *Timer) State() engine.State {
 	t.mu.Lock()
 	defer t.mu.Unlock()

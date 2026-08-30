@@ -28,6 +28,7 @@ func (c *Core) buildCommandHandlers() map[string]commandHandler {
 		"pause":      c.handlePause,
 		"resume":     c.handleResume,
 		"stop":       c.handleStop,
+		"skip":       c.handleSkip,
 		"confirm":    c.handleConfirm,
 		"snooze":     c.handleSnooze,
 		"skip-today": c.handleSkipToday,
@@ -95,9 +96,23 @@ func (c *Core) handleStop(_ []string) commandResult {
 	return commandResult{message: "Stopped. Start again when you're ready."}
 }
 
+// handleSkip moves the cycle on early. The skipped phase is not credited, so
+// the event is a skip rather than a completion.
+func (c *Core) handleSkip(_ []string) commandResult {
+	snap := c.timer.Snapshot()
+	if !c.timer.Skip() {
+		return commandResult{err: errNotRunning}
+	}
+	c.logEvent("skipped", map[string]any{"phase": snap.Engine.State.String()})
+	next, _, _ := c.nextStageLocked()
+	return commandResult{message: fmt.Sprintf("Skipped -- %s next", FriendlyStateName(next))}
+}
+
 func (c *Core) handleConfirm(_ []string) commandResult {
 	snap := c.timer.Snapshot()
-	c.logConfirmCompletion(snap.Engine.LastPhase)
+	if !snap.Engine.Skipped {
+		c.logConfirmCompletion(snap.Engine.LastPhase)
+	}
 	c.timer.Confirm()
 	state := c.timer.State()
 	c.logPhaseStart(state)
@@ -193,6 +208,7 @@ func Help() string {
 		"  pause              pause the timer",
 		"  resume             resume the timer",
 		"  stop               suspend the cycle; start again to resume the owed phase",
+		"  skip               end this phase now and move to the next stage",
 		"  confirm            continue to next phase now",
 		"  snooze <duration>  keep the owed phase and focused tasks, ask again later (e.g., snooze 10m)",
 		"  skip-today         skip reminders for today",

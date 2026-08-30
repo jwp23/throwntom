@@ -93,6 +93,7 @@ through its tasks panel.
 - `new-cycle` - start a fresh cycle now (reset cycle progress, keep today's total)
 - `pause` - pause the active pomodoro or break timer
 - `resume` - resume a paused pomodoro or break timer
+- `skip` - end the running phase now and move to the next stage (the skipped phase is not counted)
 - `stop` - suspend the cycle and return to idle, keeping the owed phase and focused tasks
 - `confirm` - acknowledge transition and start next phase now
 - `snooze <duration>` - keep the owed phase and focused tasks, ask again later (example: `snooze 10m`)

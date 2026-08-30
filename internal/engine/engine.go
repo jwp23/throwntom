@@ -73,6 +73,11 @@ type Engine struct {
 	completedToday    int
 	workDayStarted    bool
 	workDate          time.Time
+	// skipped records that the phase behind lastPhase was cut short by the
+	// user rather than served. A skipped work period earns no long break, and
+	// no phase skipped this way counts as completed. Any completed period
+	// clears it.
+	skipped bool
 }
 
 func New(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery int) *Engine {
@@ -130,10 +135,15 @@ func (e *Engine) owedPhase() State {
 	}
 }
 
-// breakAfterWork reports which break a completed work period earns. A block
-// with no completed sessions in it has earned no long break, whatever the
-// remainder says.
+// breakAfterWork reports which break a work period earns. Only a completed one
+// can earn the long break: a skipped period left the block count untouched, so
+// the count either stands at zero or still describes the block whose long
+// break has already been taken. Either way the remainder lies, and the honest
+// answer is the short break.
 func (e *Engine) breakAfterWork() State {
+	if e.skipped {
+		return ShortBreak
+	}
 	if e.workSessionsBlock > 0 && e.workSessionsBlock%e.longBreakEvery == 0 {
 		return LongBreak
 	}
@@ -149,6 +159,7 @@ func (e *Engine) StartNewCycle() {
 }
 
 func (e *Engine) MarkPeriodComplete() {
+	e.skipped = false
 	if e.state == Work {
 		e.completedToday++
 		e.workSessionsBlock++
@@ -212,6 +223,23 @@ func (e *Engine) SkipToday() {
 	e.workDayStarted = false
 }
 
+// SkipPhase ends the running phase early at the user's request, reaching the
+// same boundary a phase that ran its course reaches: the next stage, awaiting
+// confirmation. Nothing is credited — a skipped pomodoro was not worked, so
+// counting it would inflate the day's total and the long-break cycle alike.
+// It reports whether a phase was running to skip.
+func (e *Engine) SkipPhase() bool {
+	switch e.state {
+	case Work, ShortBreak, LongBreak:
+		e.lastPhase = e.state
+		e.state = AwaitingConfirm
+		e.skipped = true
+		return true
+	default:
+		return false
+	}
+}
+
 func (e *Engine) Pause() bool {
 	switch e.state {
 	case Work, ShortBreak, LongBreak:
@@ -241,6 +269,9 @@ type Snapshot struct {
 	CompletedToday int       `json:"completed_today"`
 	WorkDayStarted bool      `json:"work_day_started"`
 	WorkDate       time.Time `json:"work_date"`
+	// Skipped reports that the phase in LastPhase was skipped rather than
+	// served, so nothing about it should be recorded as completed.
+	Skipped bool `json:"skipped"`
 }
 
 func (e *Engine) Snapshot() Snapshot {
@@ -252,6 +283,7 @@ func (e *Engine) Snapshot() Snapshot {
 		CompletedToday: e.completedToday,
 		WorkDayStarted: e.workDayStarted,
 		WorkDate:       e.workDate,
+		Skipped:        e.skipped,
 	}
 }
 
@@ -292,6 +324,7 @@ func (e *Engine) Restore(s Snapshot) {
 	e.completedToday = s.CompletedToday
 	e.workDayStarted = s.WorkDayStarted
 	e.workDate = s.WorkDate
+	e.skipped = s.Skipped
 }
 
 func IsSameDay(a, b time.Time) bool {
