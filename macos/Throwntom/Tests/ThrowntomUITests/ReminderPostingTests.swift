@@ -157,7 +157,8 @@ final class ReminderPostingTests: XCTestCase {
   }
 
   /// Joe's requirement, 2026-08-29: the repeated chime is the reminder that works. The daemon
-  /// plays no sound, so every ring after the first has to be sounded here.
+  /// plays no sound and the banner carries none (ADR-009), so every ring is sounded here —
+  /// including the first, which arrives in the same breath as the banner.
   func testEachNewRingChimes() async throws {
     let presenter = StubReminderPresenter()
     let responder = try makeResponder(presenter)
@@ -167,12 +168,48 @@ final class ReminderPostingTests: XCTestCase {
 
     await responder.present(waiting(1))
     XCTAssertEqual(presenter.posts.count, 1)
-    XCTAssertEqual(presenter.chimes, 0, "the banner carries the first chime as it posts")
+    XCTAssertEqual(presenter.chimes, 1, "ring one is sounded like any other ring")
 
     await responder.present(waiting(2))
     await responder.present(waiting(3))
-    XCTAssertEqual(presenter.chimes, 2, "each further ring is sounded")
+    XCTAssertEqual(presenter.chimes, 3, "each further ring is sounded")
     XCTAssertEqual(presenter.posts.count, 1, "a ring is a chime, not another banner")
+  }
+
+  /// The live case the launch-time path used to hide: by the time a second wait comes round the
+  /// app has long since read state, so ring one must be sounded by the chime or not at all.
+  func testTheFirstRingOfALaterWaitChimes() async throws {
+    let presenter = StubReminderPresenter()
+    let responder = try makeResponder(presenter)
+
+    await responder.present(makeState(phase: .work, reminderRings: 0))
+    await responder.present(makeState(phase: .awaitingConfirm, nextStage: shortBreak, reminderRings: 1))
+
+    XCTAssertEqual(presenter.chimes, 1)
+    XCTAssertEqual(presenter.posts.count, 1, "one banner, one chime — the reminder sounds once")
+  }
+
+  /// A wait already ringing when the app starts is still a reminder the user owes an answer to.
+  /// Nothing else would sound it: the banner is silent and the ring it arrived on is in the past.
+  func testAWaitAlreadyRingingWhenTheAppStartsIsHeard() async throws {
+    let presenter = StubReminderPresenter()
+    let responder = try makeResponder(presenter)
+
+    await responder.present(makeState(phase: .awaitingConfirm, nextStage: shortBreak, reminderRings: 1))
+
+    XCTAssertEqual(presenter.chimes, 1)
+  }
+
+  /// Rings the app was not there to hear are adopted, not replayed: a gap of four rings is one
+  /// reminder gone unanswered, not four alerts owed all at once.
+  func testRingsMissedWhileAwayChimeOnceNotAsABurst() async throws {
+    let presenter = StubReminderPresenter()
+    let responder = try makeResponder(presenter)
+
+    await responder.present(makeState(phase: .awaitingConfirm, nextStage: shortBreak, reminderRings: 1))
+    await responder.present(makeState(phase: .awaitingConfirm, nextStage: shortBreak, reminderRings: 5))
+
+    XCTAssertEqual(presenter.chimes, 2)
   }
 
   /// A repeat of the state the app has already seen is not a new ring, so it stays quiet.
@@ -183,7 +220,7 @@ final class ReminderPostingTests: XCTestCase {
 
     await responder.present(waiting)
     await responder.present(waiting)
-    XCTAssertEqual(presenter.chimes, 0)
+    XCTAssertEqual(presenter.chimes, 1)
   }
 
   /// Retiring the wait resets the count, and a reset is not a ring: going back to zero must
@@ -193,8 +230,9 @@ final class ReminderPostingTests: XCTestCase {
     let responder = try makeResponder(presenter)
 
     await responder.present(makeState(phase: .awaitingConfirm, nextStage: shortBreak, reminderRings: 3))
+    let afterTheWait = presenter.chimes
     await responder.present(makeState(phase: .work, reminderRings: 0))
-    XCTAssertEqual(presenter.chimes, 0)
+    XCTAssertEqual(presenter.chimes, afterTheWait)
   }
 
   func testAWaitingPhaseBouncesTheDockEvenWhenNotificationsAreDenied() async throws {
