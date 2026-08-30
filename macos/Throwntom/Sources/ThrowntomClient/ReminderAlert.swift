@@ -45,6 +45,9 @@ public enum ReminderAlert {
     content.title = title
     content.body = body
     content.categoryIdentifier = categoryIdentifier
+    // The reminder's whole sound. The daemon publishes state and plays nothing (ADR-003), so a
+    // banner the user is not looking at is heard only if it brings its own chime.
+    content.sound = .default
     return UNNotificationRequest(
       identifier: ReminderNotification.requestIdentifier,
       content: content,

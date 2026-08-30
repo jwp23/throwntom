@@ -7,11 +7,6 @@ import Foundation
 struct TimeoutError: Error { }
 
 extension MenuModel {
-  /// Every item in the menu, ignoring where the separators fall.
-  var items: [MenuItem<Action>] {
-    groups.flatMap { $0 }
-  }
-
   func item(for action: Action) -> MenuItem<Action>? {
     items.first { $0.action == action }
   }
@@ -51,6 +46,7 @@ func makeState(
   completedToday: Int = 0,
   workSessionsInBlock: Int = 0,
   focusedTaskIds: [Int] = [],
+  reminderRings: Int = 0,
 ) -> DaemonState {
   DaemonState(
     state: phase,
@@ -65,6 +61,7 @@ func makeState(
     snoozeUntil: snoozeUntil,
     statusLine: phase.displayName,
     focusedTaskIds: focusedTaskIds,
+    reminderRings: reminderRings,
   )
 }
 
@@ -86,9 +83,14 @@ final class StubReminderPresenter: ReminderPresenter {
   private(set) var morningPosts = [Post]()
   private(set) var withdrawals = 0
   private(set) var attentionRequests = 0
+  private(set) var chimes = 0
 
   func registerReminderButtons() {
     registeredButtons = true
+  }
+
+  func chime() {
+    chimes += 1
   }
 
   func postReminder(title: String, body: String) async throws {

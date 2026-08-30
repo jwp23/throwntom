@@ -125,6 +125,34 @@ final class TaskMenuModelTests: XCTestCase {
     XCTAssertTrue(menu.items.allSatisfy { $0.shortcut != nil })
   }
 
+  func testFocusReadsUnfocusWhenTheSelectedTaskIsFocused() throws {
+    let model = TaskWindowModel()
+    model.sync(tasks: TaskList(active: [makeTask(id: 1), makeTask(id: 2)], completed: []), focusedTaskIDs: [2])
+
+    model.selectedID = 1
+    XCTAssertEqual(try XCTUnwrap(MenuModel.tasks(model: model).item(for: .focus)).title, "Focus")
+
+    model.selectedID = 2
+    XCTAssertEqual(try XCTUnwrap(MenuModel.tasks(model: model).item(for: .focus)).title, "Unfocus")
+  }
+
+  func testARowOverridesTheSelectionsFocusState() throws {
+    let model = TaskWindowModel()
+    model.sync(tasks: TaskList(active: [makeTask(id: 1), makeTask(id: 2)], completed: []), focusedTaskIDs: [2])
+    model.selectedID = 1
+
+    let menu = MenuModel.tasks(model: model, focusedRow: true)
+
+    XCTAssertEqual(try XCTUnwrap(menu.item(for: .focus)).title, "Unfocus")
+  }
+
+  func testOtherVerbsKeepTheirTitleWhateverTheFocusState() {
+    let model = TaskWindowModel()
+    model.sync(tasks: TaskList(active: [makeTask(id: 1)], completed: []), focusedTaskIDs: [1])
+
+    XCTAssertEqual(MenuModel.tasks(model: model).item(for: .complete)?.title, TaskAction.complete.title)
+  }
+
   // MARK: Private
 
   private func enabledActions(_ menu: MenuModel<TaskAction>) -> [TaskAction] {
@@ -143,7 +171,7 @@ final class ViewMenuModelTests: XCTestCase {
     let menu = MenuModel.view(model: model)
     XCTAssertEqual(menu.items.map(\.title), ["Tasks", "Stats", "Keyboard Shortcuts"])
     XCTAssertEqual(menu.item(for: .tasks)?.shortcut, MenuShortcut(key: "t", modifiers: .command))
-    XCTAssertEqual(menu.item(for: .stats)?.shortcut, MenuShortcut(key: "d", modifiers: [.command, .shift]))
+    XCTAssertEqual(menu.item(for: .stats)?.shortcut, MenuShortcut(key: "i", modifiers: [.command, .shift]))
     XCTAssertEqual(menu.item(for: .shortcuts)?.shortcut, MenuShortcut(key: "/", modifiers: .command))
     XCTAssertTrue(menu.items.allSatisfy(\.isEnabled))
     model.showsShortcuts = true
@@ -151,7 +179,25 @@ final class ViewMenuModelTests: XCTestCase {
   }
 
   func testViewActionHintsMatchShortcuts() {
-    XCTAssertEqual(ViewAction.allCases.map(\.shortcutHint), ["⌘T", "⌘⇧D", "⌘/"])
+    XCTAssertEqual(ViewAction.allCases.map(\.shortcutHint), ["⌘T", "⌘⇧I", "⌘/", "⌘,"])
+  }
+
+  func testOpenConfigBelongsToTheAppMenuNotTheViewMenu() {
+    let menu = MenuModel.view(model: WindowModel())
+
+    XCTAssertFalse(menu.items.contains { $0.action == .openConfig }, "the View menu keeps its three items")
+    XCTAssertEqual(MenuModel.appConfig().items.map(\.title), ["Open Config File…"])
+    XCTAssertEqual(MenuModel.appConfig().item(for: .openConfig)?.shortcut, MenuShortcut(key: ",", modifiers: .command))
+    XCTAssertNil(ViewAction.openConfig.panel)
+  }
+
+  func testWindowCommandsAreTheViewMenuPlusTheConfigFile() {
+    let menu = MenuModel.windowCommands(model: WindowModel())
+
+    XCTAssertEqual(menu.groups.count, 1, "a chip row draws no separators")
+    XCTAssertEqual(menu.items.map(\.action), [.tasks, .stats, .shortcuts, .openConfig])
+    XCTAssertEqual(menu.items.map(\.title), ["Tasks", "Stats", "Keyboard Shortcuts", "Open Config File…"])
+    XCTAssertTrue(menu.items.allSatisfy(\.isEnabled))
   }
 
 }

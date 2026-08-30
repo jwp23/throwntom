@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jwp23/throwntom/v3/internal/config"
+	"github.com/jwp23/throwntom/v3/internal/notifier"
 	"github.com/jwp23/throwntom/v3/internal/reminder"
 	"github.com/jwp23/throwntom/v3/internal/scheduler"
 )
@@ -189,23 +190,27 @@ func TestOnChangeFiresOnlyOnObservableChange(t *testing.T) {
 	if count() != 0 {
 		t.Fatal("cancel with nothing outstanding must not notify")
 	}
+	// A ring is observable in its own right: the daemon plays no sound, so a
+	// client hears the repeat only by being told the count moved. Each raise
+	// and each resume therefore notifies twice - once for the change of state,
+	// once for the ring that change starts.
 	r.raise(reminderMorning)
 	waitForSounds(t, rec, 1)
 	r.raise(reminderMorning)
-	if count() != 1 {
-		t.Fatalf("expected 1 change after raise+repeat, got %d", count())
+	if count() != 2 {
+		t.Fatalf("expected raise and its ring to notify, and the repeat not to (2), got %d", count())
 	}
 	if _, err := r.suppress(clk.Now().Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
 	clk.Advance(time.Minute)
 	waitForSounds(t, rec, 2)
-	if count() != 3 {
-		t.Fatalf("expected suppress and resume to notify (3 total), got %d", count())
+	if count() != 5 {
+		t.Fatalf("expected suppress, resume and the resumed ring to notify (5 total), got %d", count())
 	}
 	r.cancel()
-	if count() != 4 {
-		t.Fatalf("expected cancel to notify (4 total), got %d", count())
+	if count() != 6 {
+		t.Fatalf("expected cancel to notify (6 total), got %d", count())
 	}
 }
 
@@ -241,5 +246,106 @@ func TestSkipTodayCancelsAndStampsDay(t *testing.T) {
 	}
 	if r.shouldRaiseMorning(time.Date(2026, 3, 2, 9, 15, 0, 0, time.Local), sched) {
 		t.Fatal("expected no trigger after skipToday")
+	}
+}
+
+// Silencing the daemon must silence only the sound. The state around a
+// reminder is what a client reads to raise its own banner, so suppressing
+// audio must not suppress a raise, a snooze deadline or a cancel.
+func TestSilentNotifierStillDrivesReminderState(t *testing.T) {
+	clk := newFakeClock(time.Date(2026, 3, 2, 10, 0, 0, 0, time.Local))
+	r := newOutstandingReminder(onePerRaise, notifier.Silent())
+	r.now = clk.Now
+	r.after = clk.After
+	t.Cleanup(r.cancel)
+
+	var mu sync.Mutex
+	changes := 0
+	r.onChange = func() { mu.Lock(); changes++; mu.Unlock() }
+	count := func() int { mu.Lock(); defer mu.Unlock(); return changes }
+
+	r.raise(reminderCycle)
+	if r.outstanding() != reminderCycle {
+		t.Fatalf("expected cycle outstanding, got %v", r.outstanding())
+	}
+	until := clk.Now().Add(10 * time.Minute)
+	if _, err := r.suppress(until); err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := r.snoozeDeadline(); !ok || !got.Equal(until) {
+		t.Fatalf("expected deadline %v published, got %v %v", until, got, ok)
+	}
+	clk.Advance(10 * time.Minute)
+	settle()
+	if _, ok := r.snoozeDeadline(); ok {
+		t.Fatal("expected the deadline cleared when the snooze ran out")
+	}
+	r.cancel()
+	if r.outstanding() != reminderNone {
+		t.Fatal("expected cancel to retire the reminder")
+	}
+	// Six, not four: the raise and the resume each also ring, and a ring is
+	// what a client reads to chime, so it notifies too.
+	if count() != 6 {
+		t.Fatalf("expected raise, suppress, resume, cancel and two rings to notify, got %d", count())
+	}
+}
+
+// Joe's requirement, 2026-08-29: the repeated chime is the reminder that
+// works, and the daemon no longer plays it. So each ring of the loop has to
+// become something a client can see and sound, and the count is that signal.
+func TestEachRingRaisesThePublishedCount(t *testing.T) {
+	r := newOutstandingReminder(onePerRaise, notifier.Silent())
+	t.Cleanup(r.cancel)
+
+	r.raise(reminderCycle)
+	settle()
+	if got := r.ringCount(); got != 1 {
+		t.Fatalf("expected raising to ring once, got %d", got)
+	}
+
+	_ = r.ring()
+	_ = r.ring()
+	if got := r.ringCount(); got != 3 {
+		t.Fatalf("expected each ring to raise the count, got %d", got)
+	}
+}
+
+// A ring is only meaningful while a reminder is outstanding: the count says
+// how many chimes this wait has asked for, so retiring the wait starts the
+// next one from silence rather than from wherever the last one stopped.
+func TestRetiringTheReminderResetsTheRingCount(t *testing.T) {
+	r := newOutstandingReminder(onePerRaise, notifier.Silent())
+	t.Cleanup(r.cancel)
+
+	r.raise(reminderCycle)
+	settle()
+	r.cancel()
+	if got := r.ringCount(); got != 0 {
+		t.Fatalf("expected cancel to reset the count, got %d", got)
+	}
+
+	r.raise(reminderMorning)
+	settle()
+	if got := r.ringCount(); got != 1 {
+		t.Fatalf("expected the next wait to start from one, got %d", got)
+	}
+}
+
+// The client hears the ring by reading state, so the count has to reach it.
+func TestRingCountIsPublishedInState(t *testing.T) {
+	r := newOutstandingReminder(onePerRaise, notifier.Silent())
+	t.Cleanup(r.cancel)
+
+	var mu sync.Mutex
+	changes := 0
+	r.onChange = func() { mu.Lock(); changes++; mu.Unlock() }
+
+	_ = r.ring()
+	mu.Lock()
+	got := changes
+	mu.Unlock()
+	if got != 1 {
+		t.Fatalf("expected a ring to notify observers, got %d", got)
 	}
 }

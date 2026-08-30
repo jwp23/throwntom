@@ -27,9 +27,9 @@ enum ShortcutList {
       ),
       Section(name: "View", entries: entries(MenuModel.view(model: environment.windowModel)) { $0.shortcutHint }),
       Section(name: "Tasks", entries: entries(MenuModel.tasks(model: environment.model)) { $0.shortcutHint }),
-      Section(name: "App", entries: [
-        Entry(title: "Open Config File…", hint: "⌘,"),
-        Entry(title: "Quit Throwntom", hint: "⌘Q"),
+      Section(name: "App", entries: entries(MenuModel.appConfig()) { $0.shortcutHint } + [
+        // Quit is AppKit's own item, so it is the one shortcut no menu model owns.
+        Entry(title: "Quit Throwntom", hint: "⌘Q")
       ]),
     ]
   }
@@ -37,7 +37,7 @@ enum ShortcutList {
   // MARK: Private
 
   private static func entries<Action>(_ menu: MenuModel<Action>, hint: (Action) -> String) -> [Entry] {
-    menu.groups.flatMap { $0 }.compactMap { item in
+    menu.items.compactMap { item in
       let h = hint(item.action)
       return h.isEmpty ? nil : Entry(title: item.title, hint: h)
     }
@@ -61,7 +61,7 @@ struct ShortcutSheet: View {
             ForEach(section.entries, id: \.title) { entry in
               GridRow {
                 Text(entry.title)
-                Text(entry.hint).font(.body.monospaced()).foregroundStyle(.secondary)
+                ShortcutHint(entry.hint)
               }
             }
           }

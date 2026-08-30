@@ -24,6 +24,11 @@ public final class TaskWindowModel {
     draft != nil
   }
 
+  /// Whether the selected task is one of the focused ones; false when nothing is selected.
+  public var isSelectedFocused: Bool {
+    selectedID.map(focusedIDs.contains) ?? false
+  }
+
   /// Label of the collapsed completed section, e.g. "Completed (3)".
   public var completedSectionTitle: String {
     "Completed (\(tasks.completed.count))"
