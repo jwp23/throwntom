@@ -144,16 +144,21 @@ extension MenuModel where Action == TimerAction {
 
 extension MenuModel where Action == TaskAction {
   /// The Tasks menu for the current editor state. Every verb but New Task needs a selection,
-  /// and the inline new-task row owns the keyboard while it is open. `focusedRow` names the task
-  /// the menu was opened on when that is not the selected one, so Focus reads as its own undo.
+  /// and the inline new-task row owns the keyboard while it is open. `taskID` names the row the
+  /// menu was opened on, which need not be the selected one; passing none reads for the selection.
+  /// Every verb — whether it can run, and whether Focus reads as its own undo — answers for that
+  /// row, so a context menu on an unselected row does not describe a different task.
   @MainActor
-  static func tasks(model: TaskWindowModel, focusedRow: Bool? = nil) -> MenuModel {
-    let focused = focusedRow ?? model.isSelectedFocused
+  static func tasks(model: TaskWindowModel, on taskID: Int? = nil) -> MenuModel {
+    // Resolved once: whether a verb can run and whether Focus reads as its own undo are two
+    // questions about one row, and reading the row twice is how they came to disagree.
+    let row = taskID ?? model.selectedID
+    let focused = model.isFocused(row)
     func item(_ action: TaskAction, _ key: KeyEquivalent, _ modifiers: EventModifiers) -> MenuItem<TaskAction> {
       MenuItem(
         action: action,
         shortcut: MenuShortcut(key: key, modifiers: modifiers),
-        isEnabled: model.canPerform(action),
+        isEnabled: model.canPerform(action, on: row),
         title: action.title(focused: focused),
       )
     }

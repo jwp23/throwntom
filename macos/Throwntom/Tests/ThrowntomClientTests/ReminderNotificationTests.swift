@@ -48,12 +48,12 @@ final class ReminderNotificationAnswerTests: XCTestCase {
   func testSnoozeActionSnoozesTheDaemon() async throws {
     let client = try await connectedClient()
     defer { client.stop() }
-    try await waitUntil { client.state?.morningPending == true }
+    try await waitUntil("the morning reminder to come due") { client.state?.morningPending == true }
     XCTAssertNil(client.state?.snoozeUntil)
 
     try await ReminderNotification.answer(.snooze, using: client)
 
-    try await waitUntil { client.state?.snoozeUntil != nil }
+    try await waitUntil("the snooze to be recorded") { client.state?.snoozeUntil != nil }
   }
 
   // MARK: Private
@@ -68,7 +68,7 @@ final class ReminderNotificationAnswerTests: XCTestCase {
       registrar: RecordingRegistrar(),
     )
     client.start()
-    try await waitUntil { client.connection == .connected }
+    try await waitUntil("the client to connect") { client.connection == .connected }
     return client
   }
 

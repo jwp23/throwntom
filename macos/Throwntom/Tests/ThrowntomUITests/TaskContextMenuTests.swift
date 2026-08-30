@@ -20,6 +20,17 @@ final class TaskContextMenuTests: XCTestCase {
     XCTAssertEqual(environment.model.selectedID, 8)
   }
 
+  func testTheMenuReadsForTheClickedRowNotTheSelection() throws {
+    let environment = AppEnvironment(transport: try StubTransport(states: []))
+    environment.model.sync(tasks: TaskList(active: [makeTask(id: 7), makeTask(id: 8)], completed: []), focusedTaskIDs: [8])
+    environment.model.selectedID = nil
+
+    let menu = TaskContextMenu(task: makeTask(id: 8), environment: environment).menu
+
+    XCTAssertTrue(menu.items.allSatisfy(\.isEnabled), "the clicked row is a valid target for every verb")
+    XCTAssertEqual(try XCTUnwrap(menu.item(for: .focus)).title, "Unfocus", "and it is the clicked row's focus state")
+  }
+
   func testNewTaskFromTheMenuOpensTheEditor() throws {
     let environment = AppEnvironment(transport: try StubTransport(states: []))
     let menu = TaskContextMenu(task: makeTask(id: 1), environment: environment)
