@@ -9,11 +9,23 @@ public final class DaemonClient {
 
   // MARK: Lifecycle
 
-  public init(transport: DaemonTransport, registrar: LaunchAgentRegistrar, backoff: [Duration] = DaemonClient.defaultBackoff) {
+  public init(
+    transport: DaemonTransport,
+    registrar: LaunchAgentRegistrar,
+    backoff: [Duration] = DaemonClient.defaultBackoff,
+    intents: ServiceIntentStore = MemoryServiceIntentStore(),
+  ) {
     precondition(!backoff.isEmpty, "backoff needs at least one delay")
     self.transport = transport
     self.registrar = registrar
     self.backoff = backoff
+    self.intents = intents
+    let recorded = intents.loadIntent()
+    intent = recorded
+    // A service the user stopped is stopped from the first frame of the launch, before anything
+    // dials. Coming up in `connecting` and correcting later would show a window that says the
+    // timer is on its way, which is the reading the stop was meant to end.
+    connection = recorded == .stopped ? .stopped : .connecting
   }
 
   // MARK: Public
@@ -29,6 +41,11 @@ public final class DaemonClient {
   }
 
   nonisolated public static let failuresBeforeRegistering = 3
+
+  /// Dials that must fail after launchd has accepted before the window stops calling the start
+  /// "in progress" and says it is not answering. Not one: a daemon takes a moment to open its
+  /// socket, and the first dial after an accepted ask routinely beats it there.
+  nonisolated public static let failuresBeforeReportingAStall = 3
   nonisolated public static let defaultBackoff: [Duration] = [
     .milliseconds(500),
     .seconds(1),
@@ -39,7 +56,7 @@ public final class DaemonClient {
 
   public private(set) var state: DaemonState?
   public private(set) var tasks = TaskList()
-  public private(set) var connection = Connection.connecting
+  public private(set) var connection: Connection
   public private(set) var lastError: String?
 
   /// Set when a user-triggered command is refused, cleared by the next one that succeeds.
@@ -55,6 +72,17 @@ public final class DaemonClient {
   /// Kept apart from `lastError` because the dial errors that follow would otherwise overwrite
   /// it within one backoff step, leaving the window on "Starting timer…" explaining nothing.
   public private(set) var registrationError: String?
+
+  /// Whether the timer service is there, and when it is not, why not. Every surface reads this
+  /// one property, so the window, the menu bar and the chip rows cannot disagree about which of
+  /// the three absent screens the user is looking at.
+  public var serviceStatus: ServiceStatus {
+    ServiceStatus.of(
+      connection: connection,
+      registrationFailed: registrationError != nil,
+      startStalled: startStalled,
+    )
+  }
 
   /// The last error while it still matters: reconnecting hides `lastError` without forgetting
   /// it, but a refused command is shown regardless of connection state.
@@ -82,8 +110,11 @@ public final class DaemonClient {
     }
   }
 
+  /// Begins dialling, unless the user stopped the service. Honouring the recorded intent here,
+  /// rather than inside the reconnect loop, is what keeps launchd out of it entirely: a loop that
+  /// never runs cannot reach its third failure and ask for the daemon back.
   public func start() {
-    guard streamTask == nil else { return }
+    guard intent == .running, streamTask == nil else { return }
     streamTask = Task { await runStream() }
   }
 
@@ -100,7 +131,9 @@ public final class DaemonClient {
   /// user presses the control the failure note points at and nothing happens for eight seconds.
   public func startService() {
     commandError = nil
+    startStalled = false
     connection = .connecting
+    record(.running)
     _ = registerAgent()
     stop()
     start()
@@ -116,8 +149,12 @@ public final class DaemonClient {
       return
     }
     stop()
+    // Recorded only once launchd has taken the agent down. A refused stop leaves a daemon still
+    // running, and an intent written here would take it down on the next launch instead.
+    record(.stopped)
     state = nil
     registrationError = nil
+    startStalled = false
     commandError = nil
     // Back to the footing the app launches on. The daemon this client knew is gone, so the dials
     // that follow a later Start are first dials, not a lost connection: `hasConnected` is what
@@ -164,6 +201,12 @@ public final class DaemonClient {
       try Self.check(response)
       tasks = try DaemonJSON.decoder.decode(TaskList.self, from: response.body)
     } catch {
+      // A fetch this client itself cancelled is not a reply it could not read. `stopService()` and
+      // `startService()` drop the stream while this may be suspended mid-request, and the socket
+      // resumes a cancelled operation with `CancellationError`, which is not a `DaemonError`, so
+      // it would otherwise be reworded as an unreadable reply and left as a fault note on the very
+      // screen the user had just pressed Start on.
+      guard !Task.isCancelled else { return }
       lastError = Self.userMessage(error)
     }
   }
@@ -175,6 +218,12 @@ public final class DaemonClient {
   }
 
   // MARK: Internal
+
+  /// Set when launchd accepted a request to start the daemon and the dials since have gone on
+  /// failing, so the daemon is not merely slow to arrive: it is not coming. Kept apart from
+  /// `registrationError`, which means launchd said no — these point the reader at different things
+  /// to check. Internal, because the window reads the situation through `serviceStatus`.
+  private(set) var startStalled = false
 
   /// The reader's version of a failed request. The daemon's own `{"error":…}` is already a
   /// sentence and says the useful thing, so it is passed through; anything else — a proxy's HTML
@@ -200,7 +249,12 @@ public final class DaemonClient {
   private let transport: DaemonTransport
   private let registrar: LaunchAgentRegistrar
   private let backoff: [Duration]
+  private let intents: ServiceIntentStore
   private var streamTask: Task<Void, Never>?
+
+  /// Whether the user wants a service running, as it stood when this client was built and as the
+  /// two service verbs have changed it since.
+  private var intent: ServiceIntent
 
   private static func check(_ response: HTTPResponse) throws {
     guard (200..<300).contains(response.status) else {
@@ -215,6 +269,11 @@ public final class DaemonClient {
     (error as? DaemonError)?.userMessage ?? DaemonError.malformedResponse("\(error)").userMessage
   }
 
+  private func record(_ intent: ServiceIntent) {
+    self.intent = intent
+    intents.save(intent)
+  }
+
   private func runStream() async {
     var retries = ReconnectBackoff(delays: backoff, registerEvery: Self.failuresBeforeRegistering)
     while !Task.isCancelled {
@@ -227,6 +286,7 @@ public final class DaemonClient {
           // a daemon that is up but talking nonsense has still been reached.
           hasConnected = true
           registrationError = nil
+          startStalled = false
           let decoded = try DaemonJSON.decoder.decode(DaemonState.self, from: frame)
           // Below the decode, unlike the two above it: a daemon that is up but sending frames we
           // cannot read must keep backing off. Resetting on an undecodable frame would spin the
@@ -246,6 +306,7 @@ public final class DaemonClient {
         // A real outage matters more than a stale command refusal from before it started.
         commandError = nil
         retries.registerAgentIfDue { registerAgent() }
+        startStalled = (retries.failuresSinceRegistration ?? 0) >= Self.failuresBeforeReportingAStall
         connection = retries.failures >= Self.failuresBeforeRegistering
           ? .startingDaemon
           : .reconnecting(attempt: retries.failures)

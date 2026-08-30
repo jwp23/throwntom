@@ -45,6 +45,7 @@ final class MascotSnapshotTests: XCTestCase {
       let content = MainWindowContent(
         state: phase.phase.map { makeState(phase: $0, pausedFrom: phase.pausedFrom) },
         connection: phase.phase == nil ? .connecting : .connected,
+        status: phase.phase == nil ? .reaching : .running,
         tasks: TaskList(),
         error: nil,
         panel: nil,

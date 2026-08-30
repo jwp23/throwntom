@@ -60,7 +60,10 @@ final class MainWindowContentTests: XCTestCase {
   func testDisconnectedShowsPlaceholderAndNoGarden() {
     let c = content(nil, connection: .reconnecting(attempt: 2), error: "socket closed")
     XCTAssertEqual(c.scheme, Palette.scheme(for: nil))
-    XCTAssertEqual(c.title, ConnectionStatus.text(state: nil, connection: .reconnecting(attempt: 2), now: now))
+    XCTAssertEqual(
+      c.title,
+      ConnectionStatus.text(state: nil, connection: .reconnecting(attempt: 2), status: .reaching, now: now),
+    )
     XCTAssertNil(c.garden)
     XCTAssertEqual(c.chips, [])
     XCTAssertEqual(c.error, "socket closed")
@@ -99,9 +102,9 @@ final class MainWindowContentTests: XCTestCase {
     MainWindowContent(
       state: state,
       connection: connection,
+      status: ServiceStatus.of(connection: connection, registrationFailed: registrationFailed, startStalled: false),
       tasks: tasks,
       error: error,
-      registrationFailed: registrationFailed,
       panel: panel,
       now: now,
     )

@@ -29,7 +29,11 @@ struct TaskContextMenu: View {
 
   /// The verbs read for the row the menu was opened on, which need not be the selected one.
   var menu: MenuModel<TaskAction> {
-    MenuModel.tasks(model: environment.model, on: task.id)
+    MenuModel.tasks(
+      model: environment.model,
+      on: task.id,
+      daemonAvailable: environment.client.serviceStatus.offersDaemonCommands,
+    )
   }
 
   var body: some View {

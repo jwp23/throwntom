@@ -15,6 +15,13 @@ protocol ReminderPresenter {
   func withdrawReminder()
   /// Draws the eye to the app without taking focus: on macOS, the Dock icon bounces.
   func requestAttention()
+  /// Raises the window so it can be read, without activating the app and without taking key
+  /// focus. This is a reply to something the user just pressed — what a reminder button does when
+  /// there is no timer service to answer it, so the window can say why instead of the button
+  /// vanishing in silence — but a nudge must never take the keyboard from whatever they are
+  /// typing in (throwntom-lbw). The name carries the constraint because nothing else can: an
+  /// implementation that reached for `activate` or `makeKeyAndOrderFront` would contradict it.
+  func showWindowWithoutFocus()
   /// Sounds one ring of the reminder. The banner carries no sound of its own (ADR-009), so this
   /// is the whole audio path — ring one included, and every repeat the daemon no longer plays.
   func chime()

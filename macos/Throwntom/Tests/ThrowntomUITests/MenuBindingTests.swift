@@ -93,10 +93,10 @@ final class MenuBindingTests: XCTestCase {
     let model = TaskWindowModel()
     model.sync(tasks: TaskList(active: [makeTask(id: 1)], completed: []), focusedTaskIDs: [])
     let state = phase.map { makeState(phase: $0, morningPending: true) }
-    return collect(MenuModel.timer(state: state, isEditing: isEditing)) { $0.shortcutHint }
-      + collect(MenuModel.service(connection: .connected, registrationFailed: false)) { $0.shortcutHint }
-      + collect(MenuModel.tasks(model: model)) { $0.shortcutHint }
-      + collect(MenuModel.view(model: WindowModel())) { $0.shortcutHint }
+    return collect(MenuModel.timer(state: state, isEditing: isEditing, daemonAvailable: true)) { $0.shortcutHint }
+      + collect(MenuModel.service(status: .running)) { $0.shortcutHint }
+      + collect(MenuModel.tasks(model: model, daemonAvailable: true)) { $0.shortcutHint }
+      + collect(MenuModel.view(model: WindowModel(), daemonAvailable: true)) { $0.shortcutHint }
       + collect(MenuModel.appConfig()) { $0.shortcutHint }
   }
 

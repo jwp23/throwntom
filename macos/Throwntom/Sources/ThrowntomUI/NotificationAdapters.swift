@@ -90,6 +90,22 @@ final class SystemReminderPresenter: ReminderPresenter {
     attentionRequest = NSApp.requestUserAttention(.criticalRequest)
   }
 
+  /// `orderFrontRegardless` is the whole implementation, and the two calls it is not are the
+  /// point: `NSApp.activate` moves the app in front of the one the user is typing in, and
+  /// `makeKeyAndOrderFront` hands it the keyboard. Joe rejected both outright (throwntom-lbw) —
+  /// a nudge that arrives mid-sentence must not cost you your place. Ordering front regardless
+  /// raises the window above other apps' windows while Throwntom stays inactive, so the
+  /// explanation is there to read the moment they look, and their typing goes on where it was.
+  ///
+  /// The app has one window (ADR-005); `canBecomeKey` picks it out from any panel or helper
+  /// without making it key. `isSheet` excludes the Keyboard Shortcuts sheet, which can also
+  /// become key while it is up: `NSApp.windows` guarantees no ordering, so without that
+  /// exclusion `first` could raise the sheet instead of the content window behind it. Nothing
+  /// is created here, so a window the user closed stays closed.
+  func showWindowWithoutFocus() {
+    NSApp.windows.first { $0.canBecomeKey && !$0.isSheet }?.orderFrontRegardless()
+  }
+
   /// One repeat of the reminder, played straight rather than through a second banner: the
   /// reminder already on screen is the one being repeated, and a banner per ring would leave
   /// the user a pile of them to dismiss. A missing sound is not worth failing over - the

@@ -62,13 +62,18 @@ final class WindowModel {
     self.panel = self.panel == panel ? nil : panel
   }
 
-  /// Escape: the sheet goes first, then the panel. False when nothing was open.
-  func dismiss() -> Bool {
+  /// Escape: the sheet goes first, then the panel. False when nothing was open, which is what
+  /// lets the caller fall through to cancelling a task edit.
+  ///
+  /// `panelIsShown` is asked rather than assumed because the window declines to draw a panel while
+  /// the timer service is down, without the model forgetting it. Closing something invisible would
+  /// eat the keystroke and never reach the edit cancel behind it.
+  func dismiss(panelIsShown: Bool) -> Bool {
     if showsShortcuts {
       showsShortcuts = false
       return true
     }
-    if panel != nil {
+    if panel != nil, panelIsShown {
       panel = nil
       return true
     }

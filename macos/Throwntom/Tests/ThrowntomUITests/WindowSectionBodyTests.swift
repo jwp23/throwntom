@@ -11,6 +11,7 @@ final class WindowSectionBodyTests: XCTestCase {
       let content = MainWindowContent(
         state: makeState(phase: phase),
         connection: .connected,
+        status: .running,
         tasks: TaskList(),
         error: nil,
         panel: nil,
@@ -21,6 +22,7 @@ final class WindowSectionBodyTests: XCTestCase {
     let disconnected = MainWindowContent(
       state: nil,
       connection: .connecting,
+      status: .reaching,
       tasks: TaskList(),
       error: nil,
       panel: nil,
@@ -39,7 +41,7 @@ final class WindowSectionBodyTests: XCTestCase {
     _ = FocusSection(tasks: []).body
     _ = FocusSection(tasks: [makeTask(id: 1), makeTask(id: 2)]).body
     let responder = AppEnvironment(transport: try StubTransport(states: [])).responder
-    _ = WindowNotes(error: nil, responder: responder).body
-    _ = WindowNotes(error: "socket closed", responder: responder).body
+    _ = WindowNotes(error: nil, notice: nil, responder: responder).body
+    _ = WindowNotes(error: "socket closed", notice: "You stopped the timer service.", responder: responder).body
   }
 }

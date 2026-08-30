@@ -72,7 +72,10 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
   /// not an answer to an outstanding reminder, so it leaves both the banner and the state that
   /// banner was decided from alone: reconnecting into the same wait posts and bounces nothing.
   func present(_ state: DaemonState?) async {
-    guard let state else { return }
+    guard let state else {
+      withdrawIfTheServiceIsGone()
+      return
+    }
     chimeForNewRings(in: state)
     if ReminderBanner.wantsAttention(from: shownState, to: state) {
       presenter.requestAttention()
@@ -149,6 +152,23 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
       return
     }
     Task { @MainActor in
+      // The banner is the one dispatch path the user can reach without the window, so it needs
+      // the same service gate every chip and menu item has. Without it a button pressed over a
+      // stopped service sends a command that is refused, and the refusal lands in `commandError`,
+      // which `unresolvedError` reports ahead of the stopped state — a fault note on the one
+      // screen whose whole claim is that nothing failed.
+      guard client.serviceStatus.offersDaemonCommands else {
+        // Not silence. A button that disappears without doing what it says is a small lie, so the
+        // press is answered with the window instead: it names which of the three service-down
+        // situations this is and carries Start Timer Service. The banner goes with it, since the
+        // question it asked cannot be answered until the service is back. The window is raised
+        // without focus — the user pressed a notification button, which is not a request to be
+        // pulled out of whatever they were typing in.
+        withdrawIfTheServiceIsGone()
+        presenter.showWindowWithoutFocus()
+        completion()
+        return
+      }
       do {
         try await ReminderNotification.answer(action, using: client)
       } catch {
@@ -187,6 +207,24 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
   /// The ring count this app has already accounted for. A wait that is already ringing when the
   /// app starts counts from zero, so it is heard rather than adopted in silence.
   private var heardRings = 0
+
+  /// Takes the banner down once there is no service to answer it. A reminder outlives the daemon
+  /// that raised it: macOS keeps it in Notification Center until something withdraws it, and
+  /// stopping the service clears the state this responder follows, so no later frame arrives to
+  /// retire it. Leaving it up offers buttons that cannot work.
+  ///
+  /// Forgetting `shownState` and `heardRings` with it is what makes the return quiet: the next
+  /// daemon state is read as the first one rather than as a change from a wait that is long over,
+  /// and rings counted by the old daemon are adopted rather than replayed. Zero is the forgotten
+  /// value for `heardRings` because it is non-optional (ADR-009's changed-count chime rule) — it
+  /// is also chimeForNewRings's own initial value, so the effect is identical to never having heard
+  /// a ring.
+  private func withdrawIfTheServiceIsGone() {
+    guard !client.serviceStatus.offersDaemonCommands else { return }
+    presenter.withdrawReminder()
+    shownState = nil
+    heardRings = 0
+  }
 
   /// Sounds the rings the daemon has made. Every ring sounds the same way, the first included -
   /// the banner carries no sound of its own (ADR-009).

@@ -47,6 +47,7 @@ final class ChipTests: XCTestCase {
     let content = MainWindowContent(
       state: makeState(phase: .awaitingConfirm),
       connection: .connected,
+      status: .running,
       tasks: TaskList(),
       error: nil,
       panel: nil,
@@ -64,6 +65,7 @@ final class ChipTests: XCTestCase {
     let content = MainWindowContent(
       state: makeState(phase: .awaitingConfirm),
       connection: .connected,
+      status: .running,
       tasks: TaskList(),
       error: nil,
       panel: nil,
@@ -88,6 +90,7 @@ final class ChipTests: XCTestCase {
     let content = MainWindowContent(
       state: makeState(phase: .awaitingConfirm),
       connection: .connected,
+      status: .running,
       tasks: TaskList(),
       error: nil,
       panel: nil,
