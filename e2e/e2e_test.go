@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -46,11 +47,14 @@ const (
 
 // resizeDriverScript resizes the pty the program is running on. stty needs the
 // terminal on its stdin, and a POSIX shell gives a background job /dev/null for
-// stdin, so it reads the controlling terminal directly. Each resize waits for a
+// stdin, so it reads the controlling terminal directly. It pins the starting
+// size first, because script hands over whatever size it could work out and the
+// run's first render has to be the wide one. Each resize then waits for a
 // handshake file from the test rather than for a fixed delay, and no failure is
 // swallowed: an stty that cannot resize produces no re-render, and the test
 // waiting on that re-render fails.
-const resizeDriverScript = `(
+const resizeDriverScript = `stty rows 40 cols 120 < /dev/tty
+(
   until [ -f "$2/narrow" ]; do sleep 0.01; done
   stty cols 24 < /dev/tty
   until [ -f "$2/wide" ]; do sleep 0.01; done
@@ -105,6 +109,9 @@ func TestScriptCommandInvocationLinuxUsesDashC(t *testing.T) {
 	if !strings.Contains(got, "/dev/null") {
 		t.Fatalf("expected linux invocation to include output file path, got %q", got)
 	}
+	if !strings.Contains(got, "/tmp/fake-handshake") {
+		t.Fatalf("expected linux invocation to pass the handshake dir, got %q", got)
+	}
 }
 
 func TestScriptCommandInvocationDarwinUsesBsdPositionalCommand(t *testing.T) {
@@ -114,6 +121,9 @@ func TestScriptCommandInvocationDarwinUsesBsdPositionalCommand(t *testing.T) {
 	}
 	if args[1] == "-c" {
 		t.Fatalf("did not expect script -c option for darwin invocation, got %v", args)
+	}
+	if !slices.Contains(args, "/tmp/fake-handshake") {
+		t.Fatalf("expected darwin invocation to pass the handshake dir, got %v", args)
 	}
 	if args[2] != "sh" || args[3] != "-c" {
 		t.Fatalf("expected positional sh -c command after script output file, got %v", args)
@@ -195,7 +205,7 @@ func TestInteractiveResizeSmokeNoLineClobber(t *testing.T) {
 	bin := buildBinary(t)
 	handshake := t.TempDir()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
 	args := scriptCommandInvocation(runtime.GOOS, resizeDriverScript, bin, handshake)
@@ -217,14 +227,21 @@ func TestInteractiveResizeSmokeNoLineClobber(t *testing.T) {
 	// byte in particular must not be written until bubbletea has taken the pty
 	// out of canonical mode, because until then the line discipline reads 0x03
 	// as INTR and kills the process group before the program sees a keystroke.
-	waitForOutput(t, out, bracketedPasteEnable, "terminal switched to raw mode")
-	waitForOutput(t, out, fullHeaderLine, "initial render")
+	waitForOutput(t, out, 0, bracketedPasteEnable, "terminal switched to raw mode")
+	waitForOutput(t, out, 0, fullHeaderLine, "initial render")
 
+	// Each resize is confirmed by output written after it was released, never
+	// by a total count of a line the startup render may also have produced.
+	// A count would let a second startup paint satisfy the wait before the
+	// resize even happened, which is the silent no-op this test exists to
+	// rule out.
+	mark := out.Len()
 	releaseResize(t, handshake, "narrow")
-	waitForOutput(t, out, clampedHeaderLine, "re-render clamped by the narrow resize")
+	waitForOutput(t, out, mark, clampedHeaderLine, "re-render clamped by the narrow resize")
 
+	mark = out.Len()
 	releaseResize(t, handshake, "wide")
-	waitForOutputCount(t, out, fullHeaderLine, 2, "re-render restored by the wide resize")
+	waitForOutput(t, out, mark, fullHeaderLine, "re-render restored by the wide resize")
 
 	if _, err := stdin.Write([]byte{0x03}); err != nil {
 		t.Fatalf("write interrupt: %v", err)
@@ -263,7 +280,8 @@ func scriptCommandInvocation(goos, scriptCmd, bin, handshake string) []string {
 		return []string{
 			"-q",
 			"-c",
-			fmt.Sprintf("sh -c '%s' sh %q %q", scriptCmd, bin, handshake),
+			fmt.Sprintf("sh -c %s sh %s %s",
+				shellQuote(scriptCmd), shellQuote(bin), shellQuote(handshake)),
 			"/dev/null",
 		}
 	}
@@ -279,6 +297,13 @@ func scriptCommandInvocation(goos, scriptCmd, bin, handshake string) []string {
 	}
 }
 
+// shellQuote makes s a single literal word for a POSIX shell. Only the linux
+// invocation needs it: script -c takes one command string, so the paths pass
+// through a shell instead of arriving as argv entries the way they do on bsd.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
 // releaseResize hands the driver script the go-ahead for one resize step. The
 // script waits for these files instead of sleeping, so each resize lands only
 // after the test has seen the run reach the state the resize is meant to probe.
@@ -290,28 +315,22 @@ func releaseResize(t *testing.T, handshake, step string) {
 	}
 }
 
-func waitForOutput(t *testing.T, out *syncBuffer, want, what string) {
-	t.Helper()
-
-	waitForOutputCount(t, out, want, 1, what)
-}
-
-// waitForOutputCount blocks until the run has written want at least count
-// times. Waiting on the output itself is what keeps this test honest: if a
-// resize never reaches the program, the expected re-render never arrives and
-// the test fails instead of quietly asserting nothing.
-func waitForOutputCount(t *testing.T, out *syncBuffer, want string, count int, what string) {
+// waitForOutput blocks until the run has written want somewhere past after.
+// Waiting on the output itself is what keeps this test honest: if a resize
+// never reaches the program, the expected re-render never arrives and the test
+// fails instead of quietly asserting nothing.
+func waitForOutput(t *testing.T, out *syncBuffer, after int, want, what string) {
 	t.Helper()
 
 	deadline := time.Now().Add(waitForOutputTimeout)
 	for {
 		got := out.String()
-		if strings.Count(got, want) >= count {
+		if len(got) >= after && strings.Contains(got[after:], want) {
 			return
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("timed out after %s waiting for %s (%q x%d), got %q",
-				waitForOutputTimeout, what, want, count, got)
+			t.Fatalf("timed out after %s waiting for %s (%q past byte %d), got %q",
+				waitForOutputTimeout, what, want, after, got)
 		}
 		time.Sleep(waitForOutputPoll)
 	}
@@ -334,6 +353,14 @@ func (b *syncBuffer) String() string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.buf.String()
+}
+
+// Len reports how much the run has written so far, which callers use to mark
+// where in the output a later wait must look past.
+func (b *syncBuffer) Len() int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Len()
 }
 
 // buildDaemonBinary builds throwntomd, the binary that owns the config file's
