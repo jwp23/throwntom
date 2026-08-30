@@ -97,14 +97,16 @@ struct AppMenus: Commands {
   }
 
   /// `Custom…` opens the window's duration field rather than sending anything, so choosing it
-  /// from the menu bar has to put that field in front of the user. Activating alone would not:
-  /// the menu bar works with the window closed, and a flag set behind a closed window is a
-  /// command that appears to do nothing and then ambushes the next person to open it.
+  /// from the menu bar has to put that field in front of the user: a flag set behind a closed
+  /// window is a command that appears to do nothing and then ambushes the next person to open it.
+  /// `openWindow` is enough. This is the app's main menu, which macOS only lets a user operate
+  /// while Throwntom is already frontmost, so the window opens key and `SnoozeEntryRow` focuses
+  /// the field itself on appear. Activating would be a no-op here, and throwntom-lbw bans it
+  /// where it is not: raising over another app steals the keyboard from whatever is being typed.
   func snooze(_ action: SnoozeAction) {
     guard let request = action.request else {
       environment.windowModel.isEnteringSnooze = true
       openWindow(id: mainWindowID)
-      NSApp.activate()
       return
     }
     DaemonDispatch.perform(request, on: environment.client)
