@@ -151,6 +151,7 @@ func (e *Engine) breakAfterWork() State {
 }
 
 func (e *Engine) StartNewCycle() {
+	e.skipped = false
 	e.workDayStarted = true
 	e.workSessionsBlock = 0
 	e.state = Work
@@ -217,6 +218,7 @@ func (e *Engine) SetLongBreakEvery(n int) {
 }
 
 func (e *Engine) SkipToday() {
+	e.skipped = false
 	e.state = Idle
 	e.lastPhase = Idle
 	e.pausedFrom = Idle
@@ -287,6 +289,10 @@ func (e *Engine) Snapshot() Snapshot {
 	}
 }
 
+// A break with completed_today of zero used to be unreachable and was rejected
+// here. Skipping the first pomodoro of the day reaches exactly that, so the
+// rule was discarding real sessions; see TestSkippedFirstBreakIsRestorable.
+//
 // Invalid reports why s is not reachable from the engine's own transitions,
 // or "" if it is. A hand-edited or concurrently-written session file can hold
 // combinations no sequence of StartWork/MarkPeriodComplete/ConfirmNext/Pause
@@ -295,9 +301,6 @@ func (e *Engine) Snapshot() Snapshot {
 func (s Snapshot) Invalid() string {
 	if !s.WorkDayStarted && (s.State != Idle || s.LastPhase != Idle) {
 		return "work_day_started is false but state/last_phase is not idle"
-	}
-	if (s.LastPhase == ShortBreak || s.LastPhase == LongBreak) && s.CompletedToday == 0 {
-		return "last_phase is a break but completed_today is 0"
 	}
 	if s.State == AwaitingConfirm {
 		switch s.LastPhase {
@@ -346,6 +349,7 @@ func (e *Engine) AdvanceDay(now time.Time) {
 	e.workDayStarted = false
 	// A new day owes nothing: yesterday's suspended cycle does not carry over.
 	e.lastPhase = Idle
+	e.skipped = false
 	e.workDate = now
 }
 

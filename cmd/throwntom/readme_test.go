@@ -22,6 +22,7 @@ func TestREADMEIncludesInstallAndCommands(t *testing.T) {
 		"`new-cycle`",
 		"`pause`",
 		"`resume`",
+		"`skip`",
 		"`stop`",
 		"`confirm`",
 		"`snooze <duration>`",

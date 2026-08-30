@@ -12,6 +12,7 @@ import (
 
 var (
 	errNotRunning     = errors.New("nothing to pause: timer is not running")
+	errNothingToSkip  = errors.New("nothing to skip: timer is not running")
 	errNotPaused      = errors.New("nothing to resume: timer is not paused")
 	errNotWorkSession = errors.New("only available during a work session")
 	errAlreadyFocused = errors.New("is already focused")
@@ -19,7 +20,7 @@ var (
 
 // refusals are the sentinels for commands the current state does not allow;
 // classifyError maps them to ErrorRefused.
-var refusals = []error{errNotRunning, errNotPaused, errNotWorkSession, errAlreadyFocused, errNoReminder}
+var refusals = []error{errNotRunning, errNothingToSkip, errNotPaused, errNotWorkSession, errAlreadyFocused, errNoReminder}
 
 func (c *Core) buildCommandHandlers() map[string]commandHandler {
 	return map[string]commandHandler{
@@ -91,19 +92,30 @@ func (c *Core) handleResume(_ []string) commandResult {
 // this left off. The event it logs is what terminates the pomodoro already
 // open in the log.
 func (c *Core) handleStop(_ []string) commandResult {
+	before := c.timer.Snapshot().Engine
+	// The phase the cycle is holding at was finished, and stop keeps it owed
+	// rather than confirming it. Nothing else logs that completion — confirm
+	// does, and a resuming start goes straight into the next phase — so
+	// without this the pomodoro counts in the engine and is missing from the
+	// stats, which is precisely the dangling-event defect stop was fixed for.
+	if before.State == engine.AwaitingConfirm && !before.Skipped {
+		c.logConfirmCompletion(before.LastPhase)
+	}
 	c.timer.Stop()
-	c.logEvent("stopped", nil)
+	if before.State != engine.Idle {
+		c.logEvent("stopped", nil)
+	}
 	return commandResult{message: "Stopped. Start again when you're ready."}
 }
 
 // handleSkip moves the cycle on early. The skipped phase is not credited, so
 // the event is a skip rather than a completion.
 func (c *Core) handleSkip(_ []string) commandResult {
-	snap := c.timer.Snapshot()
-	if !c.timer.Skip() {
-		return commandResult{err: errNotRunning}
+	skipped, ok := c.timer.Skip()
+	if !ok {
+		return commandResult{err: errNothingToSkip}
 	}
-	c.logEvent("skipped", map[string]any{"phase": snap.Engine.State.String()})
+	c.logEvent("skipped", map[string]any{"phase": skipped.String()})
 	next, _, _ := c.nextStageLocked()
 	return commandResult{message: fmt.Sprintf("Skipped -- %s next", FriendlyStateName(next))}
 }

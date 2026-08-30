@@ -81,3 +81,38 @@ func TestStartAfterStopStillPromptsForFocusWhenWorkIsOwed(t *testing.T) {
 		t.Fatal("expected the focus prompt when work is what starts")
 	}
 }
+
+// The engine counts the pomodoro that stop leaves owed, so the ledger must
+// count it too — nothing else will, because a resuming start goes straight
+// into the break rather than through confirm.
+func TestStopRecordsTheCompletionItPreserves(t *testing.T) {
+	c, path := newCoreWithEvents(t)
+	c.execute("start")
+	c.timer.CompletePeriod()
+	c.execute("stop")
+
+	if !hasEventType(readEvents(t, path), "pomodoro_completed") {
+		t.Fatal("stopping at awaiting-confirm lost the finished pomodoro from the log")
+	}
+}
+
+// A skipped phase was not served, so stopping on top of it records nothing.
+func TestStopAfterASkipRecordsNoCompletion(t *testing.T) {
+	c, path := newCoreWithEvents(t)
+	c.execute("start")
+	c.execute("skip")
+	c.execute("stop")
+
+	if hasEventType(readEvents(t, path), "pomodoro_completed") {
+		t.Fatal("a skipped pomodoro must not be recorded as completed by stop")
+	}
+}
+
+func TestStopWhileIdleLogsNothing(t *testing.T) {
+	c, path := newCoreWithEvents(t)
+	c.execute("stop")
+
+	if hasEventType(readEvents(t, path), "stopped") {
+		t.Fatal("stopping an idle timer is a no-op and must not log an event")
+	}
+}

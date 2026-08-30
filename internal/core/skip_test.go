@@ -2,9 +2,11 @@ package core
 
 import (
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/jwp23/throwntom/v3/internal/config"
 	"github.com/jwp23/throwntom/v3/internal/engine"
 )
 
@@ -48,10 +50,39 @@ func TestSkipRefusedWhenNothingIsRunning(t *testing.T) {
 	if result.err == nil {
 		t.Fatal("expected skip to be refused while idle")
 	}
-	if !errors.Is(result.err, errNotRunning) {
+	if !errors.Is(result.err, errNothingToSkip) {
 		t.Fatalf("expected a state refusal, got %v", result.err)
+	}
+	if !strings.Contains(result.err.Error(), "skip") {
+		t.Fatalf("a refused skip must not talk about pausing, got %q", result.err)
 	}
 	if classifyError(result.err) != ErrorRefused {
 		t.Fatal("expected skip's refusal to classify as ErrorRefused")
+	}
+}
+
+// core discards a session whose snapshot Invalid() rejects, so a skip must not
+// be able to write one: the round trip is what the user actually loses.
+func TestSessionSurvivesASkippedFirstPomodoro(t *testing.T) {
+	sessPath := filepath.Join(t.TempDir(), "session.json")
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+
+	c := newCore(cfg, noopNotifier{})
+	c.sessionPath = sessPath
+	defer c.Stop()
+	c.execute("start")
+	c.execute("skip")
+	c.execute("confirm") // into the short break
+	c.saveSession()
+
+	restored := newCore(cfg, noopNotifier{})
+	restored.sessionPath = sessPath
+	defer restored.Stop()
+	if err := restored.loadSession(); err != nil {
+		t.Fatalf("loadSession: %v", err)
+	}
+	if got := restored.timer.State(); got != engine.ShortBreak {
+		t.Fatalf("the session was discarded on restart; state is %v", got)
 	}
 }

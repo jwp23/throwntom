@@ -120,3 +120,21 @@ func TestSkipRefusedWhenNoPhaseIsRunning(t *testing.T) {
 		}
 	}
 }
+
+// Skipping the first pomodoro of the day reaches a break with nothing
+// completed. That combination must survive a restart: core discards a session
+// Invalid() rejects, taking the focused task list with it.
+func TestSkippedFirstBreakIsRestorable(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartWork()
+	e.SkipPhase()
+	e.ConfirmNext()
+
+	if reason := e.Snapshot().Invalid(); reason != "" {
+		t.Fatalf("a break entered by skipping is unrestorable: %q", reason)
+	}
+	e.MarkPeriodComplete()
+	if reason := e.Snapshot().Invalid(); reason != "" {
+		t.Fatalf("a completed break after a skip is unrestorable: %q", reason)
+	}
+}

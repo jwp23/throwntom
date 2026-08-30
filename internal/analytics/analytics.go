@@ -102,9 +102,11 @@ func (a *accumulator) processEvent(ev eventlog.Event, b periodBounds) {
 		a.hasStart = true
 	case "pomodoro_completed":
 		a.processCompletion(ev, dayKey, periods, active)
-	case "stopped":
-		// A stopped pomodoro was never finished, so the time it was open is
-		// not focus time and must not be charged to a later completion.
+	case "stopped",
+		"skipped":
+		// A pomodoro that was stopped or skipped was never finished, so the
+		// time it was open is not focus time and must not be charged to a
+		// later completion.
 		a.hasStart = false
 	case "paused":
 		a.dash.AllTime.Pauses++
