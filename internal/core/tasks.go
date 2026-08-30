@@ -286,7 +286,10 @@ func (c *Core) finalizeFocusPrompt() commandResult {
 	action := c.pendingFocusAction
 	c.pendingFocusAction = ""
 	if action == "start" {
-		c.timer.Start()
+		// The phase deadline can reach awaiting-confirm while the prompt is
+		// open, so this start can be the one that displaces a completion.
+		before := c.timer.Start()
+		c.logDisplacedCompletion(before)
 		c.logPhaseStart(c.timer.State())
 		return commandResult{message: startedMessage(c.timer.State())}
 	}

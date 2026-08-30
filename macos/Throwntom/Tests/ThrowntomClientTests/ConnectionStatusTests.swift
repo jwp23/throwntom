@@ -4,26 +4,32 @@ import XCTest
 
 final class ConnectionStatusTests: XCTestCase {
   func testNilStateConnecting() {
-    XCTAssertEqual(ConnectionStatus.text(state: nil, connection: .connecting, now: .now), "Connecting…")
+    XCTAssertEqual(ConnectionStatus.text(state: nil, connection: .connecting, status: .reaching, now: .now), "Connecting…")
   }
 
   func testNilStateStartingDaemon() {
-    XCTAssertEqual(ConnectionStatus.text(state: nil, connection: .startingDaemon, now: .now), "Starting timer…")
+    XCTAssertEqual(
+      ConnectionStatus.text(state: nil, connection: .startingDaemon, status: .reaching, now: .now),
+      "Starting timer…",
+    )
   }
 
   func testNilStateReconnecting() {
     XCTAssertEqual(
-      ConnectionStatus.text(state: nil, connection: .reconnecting(attempt: 2), now: .now),
+      ConnectionStatus.text(state: nil, connection: .reconnecting(attempt: 2), status: .reaching, now: .now),
       "Reconnecting…",
     )
   }
 
   func testNilStateConnected() {
-    XCTAssertEqual(ConnectionStatus.text(state: nil, connection: .connected, now: .now), "Throwntom")
+    XCTAssertEqual(ConnectionStatus.text(state: nil, connection: .connected, status: .running, now: .now), "Throwntom")
   }
 
   func testNilStateStopped() {
-    XCTAssertEqual(ConnectionStatus.text(state: nil, connection: .stopped, now: .now), "Timer service stopped")
+    XCTAssertEqual(
+      ConnectionStatus.text(state: nil, connection: .stopped, status: .stopped, now: .now),
+      "Timer service stopped",
+    )
   }
 
   /// A launchd refusal is definitive: nothing is starting, so the line must stop claiming a start
@@ -31,28 +37,56 @@ final class ConnectionStatusTests: XCTestCase {
   /// Service control, which the note beside this line points at.
   func testARefusedLaunchIsNamedRatherThanReportedAsStarting() {
     XCTAssertEqual(
-      ConnectionStatus.text(state: nil, connection: .startingDaemon, registrationFailed: true, now: .now),
+      ConnectionStatus.text(state: nil, connection: .startingDaemon, status: .launchRefused, now: .now),
       "Timer service can\u{2019}t launch",
     )
   }
 
+  /// The precedence itself now lives in `ServiceStatus.of`, so that is where it has to be checked:
+  /// asserting the same line for three connection values through `text` would restate one equality
+  /// three times, because on the refused path `text` never reads the connection at all.
   func testARefusedLaunchOutranksEveryDiallingState() {
     let dialling: [DaemonClient.Connection] = [.connecting, .reconnecting(attempt: 2), .startingDaemon]
     for connection in dialling {
       XCTAssertEqual(
-        ConnectionStatus.text(state: nil, connection: connection, registrationFailed: true, now: .now),
-        "Timer service can\u{2019}t launch",
+        ServiceStatus.of(connection: connection, registrationFailed: true, startStalled: false),
+        .launchRefused,
         "\(connection)",
       )
     }
+    XCTAssertEqual(
+      ConnectionStatus.text(state: nil, connection: .startingDaemon, status: .launchRefused, now: .now),
+      "Timer service can\u{2019}t launch",
+    )
   }
 
   /// A stopped service is not a failure, and the user asked for it: the refusal must not survive
   /// into the state that follows pressing Stop.
   func testAStoppedServiceIsStillReportedAsStopped() {
     XCTAssertEqual(
-      ConnectionStatus.text(state: nil, connection: .stopped, registrationFailed: false, now: .now),
+      ConnectionStatus.text(state: nil, connection: .stopped, status: .stopped, now: .now),
       "Timer service stopped",
     )
+  }
+
+  /// throwntom-azp. An accepted launch that brought no daemon reads as "starting" for ever if the
+  /// connection state is all this line has to go on.
+  func testAnAcceptedLaunchThatNeverArrivesIsNamedRatherThanReportedAsStarting() {
+    XCTAssertEqual(
+      ConnectionStatus.text(state: nil, connection: .startingDaemon, status: .notAnswering, now: .now),
+      "Timer service isn\u{2019}t answering",
+    )
+  }
+
+  /// The four lines a reader tells the situations apart by.
+  func testEverySituationWithoutARunningTimerSaysSomethingDifferent() {
+    let lines = [
+      ConnectionStatus.text(state: nil, connection: .stopped, status: .stopped, now: .now),
+      ConnectionStatus.text(state: nil, connection: .startingDaemon, status: .launchRefused, now: .now),
+      ConnectionStatus.text(state: nil, connection: .startingDaemon, status: .notAnswering, now: .now),
+      ConnectionStatus.text(state: nil, connection: .startingDaemon, status: .reaching, now: .now),
+    ]
+
+    XCTAssertEqual(Set(lines).count, lines.count, "\(lines)")
   }
 }

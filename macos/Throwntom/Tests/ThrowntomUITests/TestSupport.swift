@@ -48,6 +48,7 @@ func makeState(
   focusedTaskIds: [Int] = [],
   reminderRings: Int = 0,
   dayEnded: Bool = false,
+  floatWhenWaiting: Bool = false,
 ) -> DaemonState {
   DaemonState(
     state: phase,
@@ -64,6 +65,7 @@ func makeState(
     focusedTaskIds: focusedTaskIds,
     reminderRings: reminderRings,
     dayEnded: dayEnded,
+    floatWindowWhenWaiting: floatWhenWaiting,
   )
 }
 
@@ -85,6 +87,7 @@ final class StubReminderPresenter: ReminderPresenter {
   private(set) var morningPosts = [Post]()
   private(set) var withdrawals = 0
   private(set) var attentionRequests = 0
+  private(set) var windowReveals = 0
   private(set) var chimes = 0
 
   func registerReminderButtons() {
@@ -115,6 +118,10 @@ final class StubReminderPresenter: ReminderPresenter {
 
   func requestAttention() {
     attentionRequests += 1
+  }
+
+  func showWindowWithoutFocus() {
+    windowReveals += 1
   }
 }
 

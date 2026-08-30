@@ -30,13 +30,11 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
     URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension")
 
   /// How the reminder is shown while Throwntom is frontmost; otherwise macOS
-  /// suppresses the banner and hides the only buttons the user has. `.sound` is here for the
-  /// same reason: in the foreground macOS plays the banner's sound only when asked, and the
-  /// daemon has none of its own to fall back on.
+  /// suppresses the banner and hides the only buttons the user has. No `.sound`: that option
+  /// asks macOS to play the banner's own sound, and the banner has none (ADR-009).
   nonisolated static let presentationOptions: UNNotificationPresentationOptions = [
     .banner,
     .list,
-    .sound,
   ]
 
   /// What the window says about reminders macOS will not deliver. Silent until macOS answers.
@@ -74,7 +72,10 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
   /// not an answer to an outstanding reminder, so it leaves both the banner and the state that
   /// banner was decided from alone: reconnecting into the same wait posts and bounces nothing.
   func present(_ state: DaemonState?) async {
-    guard let state else { return }
+    guard let state else {
+      withdrawIfTheServiceIsGone()
+      return
+    }
     chimeForNewRings(in: state)
     if ReminderBanner.wantsAttention(from: shownState, to: state) {
       presenter.requestAttention()
@@ -151,6 +152,23 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
       return
     }
     Task { @MainActor in
+      // The banner is the one dispatch path the user can reach without the window, so it needs
+      // the same service gate every chip and menu item has. Without it a button pressed over a
+      // stopped service sends a command that is refused, and the refusal lands in `commandError`,
+      // which `unresolvedError` reports ahead of the stopped state — a fault note on the one
+      // screen whose whole claim is that nothing failed.
+      guard client.serviceStatus.offersDaemonCommands else {
+        // Not silence. A button that disappears without doing what it says is a small lie, so the
+        // press is answered with the window instead: it names which of the three service-down
+        // situations this is and carries Start Timer Service. The banner goes with it, since the
+        // question it asked cannot be answered until the service is back. The window is raised
+        // without focus — the user pressed a notification button, which is not a request to be
+        // pulled out of whatever they were typing in.
+        withdrawIfTheServiceIsGone()
+        presenter.showWindowWithoutFocus()
+        completion()
+        return
+      }
       do {
         try await ReminderNotification.answer(action, using: client)
       } catch {
@@ -186,21 +204,45 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
   /// The daemon state the banner on screen was decided from.
   private var shownState: DaemonState?
 
-  /// The ring count this app has already accounted for, or nil before it has read any state.
-  /// Nil is what keeps a reconnect quiet: rings the app was not there to hear are adopted,
-  /// not replayed as a burst of chimes.
-  private var heardRings: Int?
+  /// The ring count this app has already accounted for. A wait that is already ringing when the
+  /// app starts counts from zero, so it is heard rather than adopted in silence.
+  private var heardRings = 0
 
-  /// Sounds the repeats the daemon rang while the app was watching. Only a climb is a ring:
-  /// the count resets when a wait is retired, and a reset is not something to be heard. The
-  /// first ring of a wait is the banner's own sound, so it is counted here without chiming -
-  /// otherwise a posting reminder would sound twice at once.
+  /// Takes the banner down once there is no service to answer it. A reminder outlives the daemon
+  /// that raised it: macOS keeps it in Notification Center until something withdraws it, and
+  /// stopping the service clears the state this responder follows, so no later frame arrives to
+  /// retire it. Leaving it up offers buttons that cannot work.
+  ///
+  /// Forgetting `shownState` and `heardRings` with it is what makes the return quiet: the next
+  /// daemon state is read as the first one rather than as a change from a wait that is long over,
+  /// and rings counted by the old daemon are adopted rather than replayed. Zero is the forgotten
+  /// value for `heardRings` because it is non-optional (ADR-009's changed-count chime rule) — it
+  /// is also chimeForNewRings's own initial value, so the effect is identical to never having heard
+  /// a ring.
+  private func withdrawIfTheServiceIsGone() {
+    guard !client.serviceStatus.offersDaemonCommands else { return }
+    presenter.withdrawReminder()
+    shownState = nil
+    heardRings = 0
+  }
+
+  /// Sounds the rings the daemon has made. Every ring sounds the same way, the first included -
+  /// the banner carries no sound of its own (ADR-009).
+  ///
+  /// A ring is a count that has *changed* while a reminder is outstanding, not one that has
+  /// climbed. A restarted daemon counts its rings from zero again, so a new wait can arrive with
+  /// a lower count than the last one heard; waiting for it to climb past that figure would leave
+  /// a visibly waiting reminder silent for several rings. Requiring a wait is what keeps the
+  /// reset to zero at the end of one quiet, which is the case the climb test used to cover.
+  ///
+  /// A change of any size is one chime. Rings the app was not there to hear - across a reconnect,
+  /// or a wait already running at launch - are what make the gap bigger than one, and they are
+  /// past: the reminder still owed is a single reminder, not a backlog of alerts.
   private func chimeForNewRings(in state: DaemonState) {
     defer { heardRings = state.reminderRings }
-    guard let heardRings, state.reminderRings > heardRings else { return }
-    for _ in heardRings ..< state.reminderRings {
-      presenter.chime()
-    }
+    guard ReminderBanner.isWaiting(state), state.reminderRings > 0 else { return }
+    guard state.reminderRings != heardRings else { return }
+    presenter.chime()
   }
 
 }

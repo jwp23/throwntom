@@ -26,6 +26,7 @@ func (c *Core) ApplyConfig(cfg config.Config) {
 		return
 	}
 	c.longBreakEvery = cfg.Pomodoro.LongBreakEvery
+	c.floatWindowWhenWaiting = cfg.FloatWindowWhenWaiting
 	// morning_reminder_pending is deliberately not reloaded: it answers
 	// whether today's reminder is owed at start-up, a question Start has
 	// already settled by the time any reload arrives.

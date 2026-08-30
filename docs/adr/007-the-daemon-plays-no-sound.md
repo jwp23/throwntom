@@ -74,6 +74,12 @@ Consequences:
   daemon's generic command endpoint also happens to expose; making it honest
   is throwntom-9vv.
 
+> Superseded in part 2026-08-30 by
+> [ADR-009](009-the-chime-is-the-only-audio-path.md): the banners no longer set
+> `content.sound`, and the `NSSound` chime this ADR's trade-offs introduced is
+> the only audio path. Everything else here stands — the daemon plays nothing,
+> and the ring cadence is still published for the client to sound.
+
 This depended on throwntom-8pc, which gave the morning nudge a macOS banner of
 its own. Before that the morning reminder was sound only on macOS, and
 silencing the daemon would have removed it from the platform entirely.

@@ -60,6 +60,7 @@ final class SnoozeChipTests: XCTestCase {
     let content = MainWindowContent(
       state: makeState(phase: .awaitingConfirm, snoozeUntil: snoozeUntil),
       connection: .connected,
+      status: .running,
       tasks: TaskList(),
       error: nil,
       panel: nil,

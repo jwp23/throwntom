@@ -60,4 +60,8 @@ public struct DaemonState: Codable, Equatable, Sendable {
   /// Whether the user has ended the work day. The timer is idle either way, so this is the only
   /// thing that tells an idle timer waiting to be started from one that is done until tomorrow.
   public var dayEnded: Bool
+  /// The user's `float_window_when_waiting` setting, passed straight through by the daemon. It
+  /// decides nothing there: what a client does with its window is the client's (ADR-003), and the
+  /// setting rides state only because the config file it is written in is the daemon's.
+  public var floatWindowWhenWaiting: Bool
 }

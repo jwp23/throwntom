@@ -9,7 +9,10 @@ struct CommandChips: View {
   let scheme: PhaseScheme
 
   var menu: MenuModel<ViewAction> {
-    MenuModel.windowCommands(model: environment.windowModel)
+    MenuModel.windowCommands(
+      model: environment.windowModel,
+      daemonAvailable: environment.client.serviceStatus.offersDaemonCommands,
+    )
   }
 
   var body: some View {

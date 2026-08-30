@@ -18,11 +18,11 @@ struct SystemNotificationAuthorizer: NotificationAuthorizer {
     await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
   }
 
-  /// `.sound` is asked for because it is used: both reminder banners carry `content.sound`
-  /// (`ReminderAlert.request`), which is silent without this permission. The repeat chime is
-  /// `NSSound` and needs none of this.
+  /// `.alert` only. Every sound a reminder makes is `NSSound` played by this app
+  /// (`SystemReminderPresenter.chime()`), which needs no notification permission; the banners
+  /// carry no `content.sound` for a `.sound` grant to apply to (ADR-009).
   func requestAuthorization() async throws -> Bool {
-    try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
+    try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert])
   }
 }
 
@@ -88,6 +88,22 @@ final class SystemReminderPresenter: ReminderPresenter {
   func requestAttention() {
     guard attentionRequest == nil else { return }
     attentionRequest = NSApp.requestUserAttention(.criticalRequest)
+  }
+
+  /// `orderFrontRegardless` is the whole implementation, and the two calls it is not are the
+  /// point: `NSApp.activate` moves the app in front of the one the user is typing in, and
+  /// `makeKeyAndOrderFront` hands it the keyboard. Joe rejected both outright (throwntom-lbw) —
+  /// a nudge that arrives mid-sentence must not cost you your place. Ordering front regardless
+  /// raises the window above other apps' windows while Throwntom stays inactive, so the
+  /// explanation is there to read the moment they look, and their typing goes on where it was.
+  ///
+  /// The app has one window (ADR-005); `canBecomeKey` picks it out from any panel or helper
+  /// without making it key. `isSheet` excludes the Keyboard Shortcuts sheet, which can also
+  /// become key while it is up: `NSApp.windows` guarantees no ordering, so without that
+  /// exclusion `first` could raise the sheet instead of the content window behind it. Nothing
+  /// is created here, so a window the user closed stays closed.
+  func showWindowWithoutFocus() {
+    NSApp.windows.first { $0.canBecomeKey && !$0.isSheet }?.orderFrontRegardless()
   }
 
   /// One repeat of the reminder, played straight rather than through a second banner: the

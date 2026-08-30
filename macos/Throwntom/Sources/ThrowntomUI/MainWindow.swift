@@ -21,16 +21,24 @@ struct MainWindow: View {
 
   let environment: AppEnvironment
 
-  var body: some View {
-    let content = MainWindowContent(
+  /// Everything the window draws for this moment. A property rather than a `let` in `body` so
+  /// `escape()` can ask what is actually on screen instead of re-deriving the rule. Named apart
+  /// from the `content` each caller binds it to, so neither has to be written `self.content` —
+  /// which the formatter strips, leaving a line that reads as assigning to itself.
+  var windowContent: MainWindowContent {
+    MainWindowContent(
       state: environment.client.state,
       connection: environment.client.connection,
+      status: environment.client.serviceStatus,
       tasks: environment.client.tasks,
       error: environment.client.unresolvedError,
-      registrationFailed: environment.client.registrationError != nil,
       panel: environment.windowModel.panel,
       now: environment.ticker.now,
     )
+  }
+
+  var body: some View {
+    let content = windowContent
     VStack(spacing: Self.sectionSpacing) {
       TimerHeader(content: content)
       if let garden = content.garden {
@@ -48,7 +56,7 @@ struct MainWindow: View {
       ServiceChip(content: content, client: environment.client)
         .padding(.top, Self.serviceChipGap)
       CommandChips(environment: environment, scheme: content.scheme)
-      WindowNotes(error: content.error, responder: environment.responder)
+      WindowNotes(error: content.error, notice: content.notice, responder: environment.responder)
       FocusSection(tasks: content.focused)
       if content.panel == .tasks {
         TasksPanel(environment: environment, scheme: content.scheme)
@@ -60,6 +68,10 @@ struct MainWindow: View {
     .padding(16)
     .frame(minWidth: 320, maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     .background(content.scheme.ground.color)
+    .background(WindowElevator(floating: WindowElevation.floats(
+      during: environment.client.state,
+      connection: environment.client.connection,
+    )))
     .foregroundStyle(content.scheme.text.color)
     .animation(.easeOut(duration: 0.25), value: content.scheme)
     .animation(.easeOut(duration: 0.25), value: content.panel)
@@ -96,9 +108,10 @@ struct MainWindow: View {
     environment.model.sync(tasks: environment.client.tasks, focusedTaskIDs: environment.client.state?.focusedTaskIds)
   }
 
-  /// Escape closes whatever is open on top first; with nothing open it cancels a task edit.
+  /// Escape closes whatever is open on top first; with nothing open it cancels a task edit. A
+  /// panel the window is declining to draw counts as nothing open.
   func escape() {
-    if !environment.windowModel.dismiss() {
+    if !environment.windowModel.dismiss(panelIsShown: windowContent.panel != nil) {
       environment.model.cancelEdit()
     }
   }

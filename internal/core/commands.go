@@ -44,15 +44,23 @@ func (c *Core) buildCommandHandlers() map[string]commandHandler {
 	}
 }
 
-func (c *Core) handleStart(_ []string) commandResult {
+// handleStart picks the cycle up. A phase waiting to be confirmed has already
+// been earned, so start at that boundary means confirm: stop is a suspend and
+// the break it leaves owed survives it, and start must not be the one verb
+// that throws the same break — and the completion behind it — away.
+func (c *Core) handleStart(parts []string) commandResult {
+	if c.timer.State() == engine.AwaitingConfirm {
+		return c.handleConfirm(parts)
+	}
 	c.reminder.cancel()
 	// The focus prompt asks which tasks this pomodoro is for, so it belongs
 	// only to a start that actually begins work — not to one resuming a break
 	// a stop left owed.
-	if c.tasks != nil && c.timer.OwedPhase() == engine.Work {
+	if owed, _ := c.timer.OwedStage(); c.tasks != nil && owed == engine.Work {
 		return c.enterFocusPrompt("start")
 	}
-	c.timer.Start()
+	before := c.timer.Start()
+	c.logDisplacedCompletion(before)
 	state := c.timer.State()
 	c.logPhaseStart(state)
 	return commandResult{message: startedMessage(state)}
@@ -67,8 +75,13 @@ func startedMessage(state engine.State) string {
 	return fmt.Sprintf("Back to your %s.", FriendlyStateName(state))
 }
 
+// handleNewCycle abandons the cycle and begins a fresh one. A phase that was
+// waiting to be confirmed is still credited on the way past: the engine
+// counted it the moment it finished, and a new cycle is the user discarding
+// what comes next, not what they already did.
 func (c *Core) handleNewCycle(_ []string) commandResult {
-	c.timer.StartNewCycle()
+	before := c.timer.StartNewCycle()
+	c.logDisplacedCompletion(before)
 	c.logEvent("pomodoro_started", nil)
 	return commandResult{message: "New cycle started -- fresh start!"}
 }
@@ -99,14 +112,7 @@ func (c *Core) handleStop(_ []string) commandResult {
 	// own goroutine and could otherwise complete the phase in the gap
 	// between a Snapshot call here and Stop itself, leaving this stale.
 	before := c.timer.Stop()
-	// The phase the cycle is holding at was finished, and stop keeps it owed
-	// rather than confirming it. Nothing else logs that completion — confirm
-	// does, and a resuming start goes straight into the next phase — so
-	// without this the pomodoro counts in the engine and is missing from the
-	// stats, which is precisely the dangling-event defect stop was fixed for.
-	if before.State == engine.AwaitingConfirm && !before.Skipped {
-		c.logConfirmCompletion(before.LastPhase)
-	}
+	c.logDisplacedCompletion(before)
 	if before.State != engine.Idle {
 		c.logEvent("stopped", nil)
 	}
@@ -145,6 +151,17 @@ func (c *Core) handleConfirm(_ []string) commandResult {
 		return c.enterFocusPrompt("confirm")
 	}
 	return commandResult{message: fmt.Sprintf("Confirmed -- %s", FriendlyStateName(state))}
+}
+
+// logDisplacedCompletion credits a phase that was waiting to be confirmed when
+// a verb other than confirm moved the cycle past it. Only confirm logs a
+// completion, so without this the engine counts a pomodoro the event log never
+// sees and the dashboard silently loses it. A skipped phase was never earned
+// and is credited to nobody.
+func (c *Core) logDisplacedCompletion(before engine.Snapshot) {
+	if before.State == engine.AwaitingConfirm && !before.Skipped {
+		c.logConfirmCompletion(before.LastPhase)
+	}
 }
 
 func (c *Core) logConfirmCompletion(lastPhase engine.State) {
@@ -240,7 +257,7 @@ func parseSnoozeDuration(parts []string) (time.Duration, error) {
 func Help() string {
 	return strings.Join([]string{
 		"commands:",
-		"  start              start a pomodoro",
+		"  start              start a pomodoro, or take the phase you are owed",
 		"  new-cycle          start a fresh cycle",
 		"  pause              pause the timer",
 		"  resume             resume the timer",

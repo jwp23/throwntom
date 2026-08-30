@@ -23,7 +23,7 @@ struct AppMenus: Commands {
       Button("Open Notification Settings…") { environment.responder.openNotificationSettings() }
     }
     CommandMenu("Timer") {
-      MenuGroups(menu: MenuModel.timer(state: environment.client.state, isEditing: environment.model.isEditing)) { item in
+      MenuGroups(menu: timerMenu) { item in
         Button(item.title) { perform(item.action) }
           .keyboardShortcut(item.shortcut?.keyboardShortcut)
           .disabled(!item.isEnabled)
@@ -45,14 +45,14 @@ struct AppMenus: Commands {
       }
     }
     CommandMenu("View") {
-      MenuGroups(menu: MenuModel.view(model: environment.windowModel)) { item in
+      MenuGroups(menu: MenuModel.view(model: environment.windowModel, daemonAvailable: daemonAvailable)) { item in
         Button(item.title) { show(item.action) }
           .keyboardShortcut(item.shortcut?.keyboardShortcut)
           .disabled(!item.isEnabled)
       }
     }
     CommandMenu("Tasks") {
-      MenuGroups(menu: MenuModel.tasks(model: environment.model)) { item in
+      MenuGroups(menu: MenuModel.tasks(model: environment.model, daemonAvailable: daemonAvailable)) { item in
         Button(item.title) { run(item.action) }
           .keyboardShortcut(item.shortcut?.keyboardShortcut)
           .disabled(!item.isEnabled)
@@ -60,19 +60,36 @@ struct AppMenus: Commands {
     }
   }
 
+  /// Whether there is a daemon for these menus to dispatch to. Every menu that sends a command
+  /// asks it, so the menu bar cannot go on offering a verb the window has already withdrawn.
+  var daemonAvailable: Bool {
+    environment.client.serviceStatus.offersDaemonCommands
+  }
+
+  /// The timer verbs. Their key equivalents fire whether or not the menu is open, which is why
+  /// enablement here matters as much as it does in the window: a disabled item binds nothing.
+  var timerMenu: MenuModel<TimerAction> {
+    MenuModel.timer(
+      state: environment.client.state,
+      isEditing: environment.model.isEditing,
+      daemonAvailable: daemonAvailable,
+    )
+  }
+
   /// The durations behind the Timer menu's Snooze, read twice per build: once for the items and
-  /// once to decide whether the submenu itself is worth opening.
+  /// once to decide whether the submenu itself is worth opening. Gated on `daemonAvailable` the
+  /// same way `timerMenu` is: a snooze is a command line for the daemon like any other, and the
+  /// client keeps its last retained state after the service is gone, so without this gate the
+  /// submenu would go on offering durations — and Cancel Snooze, off a stale `snoozeUntil` — into
+  /// a daemon no longer there to answer them.
   var snoozeMenu: MenuModel<SnoozeAction> {
-    MenuModel.snooze(state: environment.client.state)
+    MenuModel.snooze(state: environment.client.state, daemonAvailable: daemonAvailable)
   }
 
   /// The service group of the Timer menu, below a divider: starting and stopping the daemon is
   /// not a timer verb, but it belongs to the same menu the timer is driven from.
   var serviceMenu: MenuModel<ServiceAction> {
-    MenuModel.service(
-      connection: environment.client.connection,
-      registrationFailed: environment.client.registrationError != nil,
-    )
+    MenuModel.service(status: environment.client.serviceStatus)
   }
 
   func perform(_ action: TimerAction) {

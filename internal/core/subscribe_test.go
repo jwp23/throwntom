@@ -74,6 +74,10 @@ func TestSubscribeDeliversTimerExpiry(t *testing.T) {
 	beforeExpiry := time.Now()
 	snap := c.timer.Snapshot()
 	snap.Engine.State = engine.Work
+	// A restored phase is measured against the current work duration from its
+	// recorded start (ADR-008), so back-date the start to leave 20ms of it.
+	work := time.Duration(cfg.Pomodoro.WorkMinutes) * time.Minute
+	snap.PhaseStartedAt = time.Now().Add(20*time.Millisecond - work)
 	snap.PhaseEndAt = time.Now().Add(20 * time.Millisecond)
 	if err := c.timer.Restore(snap, time.Now()); err != nil {
 		t.Fatal(err)

@@ -304,5 +304,6 @@ func makeClientState(phase: DaemonState.Phase = .idle, dayEnded: Bool = false) -
     focusedTaskIds: [],
     reminderRings: 0,
     dayEnded: dayEnded,
+    floatWindowWhenWaiting: false,
   )
 }

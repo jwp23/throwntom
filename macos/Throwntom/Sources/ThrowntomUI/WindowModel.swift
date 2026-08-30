@@ -67,7 +67,11 @@ final class WindowModel {
 
   /// Escape: the duration field first, then the sheet, then the panel. False when nothing was
   /// open. Innermost first, so Escape always answers whatever the user is looking at.
-  func dismiss() -> Bool {
+  ///
+  /// `panelIsShown` is asked rather than assumed because the window declines to draw a panel while
+  /// the timer service is down, without the model forgetting it. Closing something invisible would
+  /// eat the keystroke and never reach the edit cancel behind it.
+  func dismiss(panelIsShown: Bool) -> Bool {
     if isEnteringSnooze {
       isEnteringSnooze = false
       return true
@@ -76,7 +80,7 @@ final class WindowModel {
       showsShortcuts = false
       return true
     }
-    if panel != nil {
+    if panel != nil, panelIsShown {
       panel = nil
       return true
     }

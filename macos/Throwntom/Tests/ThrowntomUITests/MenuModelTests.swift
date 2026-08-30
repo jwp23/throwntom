@@ -10,27 +10,27 @@ final class TimerMenuModelTests: XCTestCase {
   // MARK: Internal
 
   func testWithoutDaemonStateEverythingIsDisabled() {
-    let menu = MenuModel.timer(state: nil, isEditing: false)
+    let menu = MenuModel.timer(state: nil, isEditing: false, daemonAvailable: true)
 
     XCTAssertFalse(menu.items.isEmpty)
     XCTAssertTrue(menu.items.allSatisfy { !$0.isEnabled })
   }
 
   func testIdleEnablesTheVerbsTheDaemonAccepts() {
-    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false)
+    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false, daemonAvailable: true)
 
     XCTAssertEqual(enabledActions(menu), [.start, .skipToday, .newCycle])
   }
 
   func testMorningPendingAlsoEnablesSnooze() {
-    let menu = MenuModel.timer(state: makeState(phase: .idle, morningPending: true), isEditing: false)
+    let menu = MenuModel.timer(state: makeState(phase: .idle, morningPending: true), isEditing: false, daemonAvailable: true)
 
     XCTAssertEqual(enabledActions(menu), [.start, .snooze, .skipToday, .newCycle])
   }
 
   func testWorkOffersPauseAndPausedOffersResume() {
-    let working = MenuModel.timer(state: makeState(phase: .work), isEditing: false)
-    let paused = MenuModel.timer(state: makeState(phase: .paused), isEditing: false)
+    let working = MenuModel.timer(state: makeState(phase: .work), isEditing: false, daemonAvailable: true)
+    let paused = MenuModel.timer(state: makeState(phase: .paused), isEditing: false, daemonAvailable: true)
 
     XCTAssertEqual(enabledActions(working), [.pause, .skip, .skipToday])
     XCTAssertEqual(enabledActions(paused), [.resume, .skipToday])
@@ -40,28 +40,28 @@ final class TimerMenuModelTests: XCTestCase {
 
   func testConfirmYieldsTheReturnKeyToTheNewTaskRow() throws {
     let state = makeState(phase: .awaitingConfirm)
-    let idle = MenuModel.timer(state: state, isEditing: false)
-    let editing = MenuModel.timer(state: state, isEditing: true)
+    let idle = MenuModel.timer(state: state, isEditing: false, daemonAvailable: true)
+    let editing = MenuModel.timer(state: state, isEditing: true, daemonAvailable: true)
 
     XCTAssertTrue(try XCTUnwrap(idle.item(for: .confirm)).isEnabled)
     XCTAssertFalse(try XCTUnwrap(editing.item(for: .confirm)).isEnabled)
   }
 
   func testEditingDoesNotDisableTheOtherVerbs() {
-    let menu = MenuModel.timer(state: makeState(phase: .awaitingConfirm), isEditing: true)
+    let menu = MenuModel.timer(state: makeState(phase: .awaitingConfirm), isEditing: true, daemonAvailable: true)
 
     XCTAssertEqual(enabledActions(menu), [.snooze, .skipToday, .newCycle])
   }
 
   func testCycleVerbsSitBelowTheirOwnSeparator() {
-    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false)
+    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false, daemonAvailable: true)
 
     XCTAssertEqual(menu.groups.count, 2)
     XCTAssertEqual(menu.groups.last?.map(\.action), [.skipToday, .newCycle])
   }
 
   func testTimedVerbsCarryTheirShortcutsAndCycleVerbsDoNot() throws {
-    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false)
+    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false, daemonAvailable: true)
 
     XCTAssertEqual(try XCTUnwrap(menu.item(for: .start)?.shortcut), MenuShortcut(key: "r", modifiers: .command))
     XCTAssertEqual(try XCTUnwrap(menu.item(for: .snooze)?.shortcut), MenuShortcut(key: "s", modifiers: [.command, .shift]))
@@ -71,7 +71,7 @@ final class TimerMenuModelTests: XCTestCase {
   }
 
   func testItemTitlesComeFromTheAction() throws {
-    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false)
+    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false, daemonAvailable: true)
 
     XCTAssertEqual(try XCTUnwrap(menu.item(for: .start)).title, TimerAction.start.title)
   }
@@ -92,7 +92,7 @@ final class TaskMenuModelTests: XCTestCase {
   // MARK: Internal
 
   func testWithoutTasksOnlyNewTaskIsEnabled() {
-    let menu = MenuModel.tasks(model: TaskWindowModel())
+    let menu = MenuModel.tasks(model: TaskWindowModel(), daemonAvailable: true)
 
     XCTAssertEqual(enabledActions(menu), [.newTask])
   }
@@ -101,7 +101,7 @@ final class TaskMenuModelTests: XCTestCase {
     let model = TaskWindowModel()
     model.sync(tasks: TaskList(active: [makeTask(id: 1)], completed: []), focusedTaskIDs: [])
 
-    XCTAssertEqual(enabledActions(MenuModel.tasks(model: model)), TaskAction.allCases)
+    XCTAssertEqual(enabledActions(MenuModel.tasks(model: model, daemonAvailable: true)), TaskAction.allCases)
   }
 
   func testEditingDisablesEveryVerb() {
@@ -109,11 +109,11 @@ final class TaskMenuModelTests: XCTestCase {
     model.sync(tasks: TaskList(active: [makeTask(id: 1)], completed: []), focusedTaskIDs: [])
     model.beginNewTask()
 
-    XCTAssertTrue(MenuModel.tasks(model: model).items.allSatisfy { !$0.isEnabled })
+    XCTAssertTrue(MenuModel.tasks(model: model, daemonAvailable: true).items.allSatisfy { !$0.isEnabled })
   }
 
   func testReorderingVerbsSitBelowTheirOwnSeparator() {
-    let menu = MenuModel.tasks(model: TaskWindowModel())
+    let menu = MenuModel.tasks(model: TaskWindowModel(), daemonAvailable: true)
 
     XCTAssertEqual(menu.groups.count, 2)
     XCTAssertEqual(menu.groups.first?.map(\.action), [.newTask, .complete, .delete, .focus])
@@ -121,7 +121,7 @@ final class TaskMenuModelTests: XCTestCase {
   }
 
   func testEveryTaskVerbKeepsAShortcut() {
-    let menu = MenuModel.tasks(model: TaskWindowModel())
+    let menu = MenuModel.tasks(model: TaskWindowModel(), daemonAvailable: true)
 
     XCTAssertTrue(menu.items.allSatisfy { $0.shortcut != nil })
   }
@@ -131,10 +131,10 @@ final class TaskMenuModelTests: XCTestCase {
     model.sync(tasks: TaskList(active: [makeTask(id: 1), makeTask(id: 2)], completed: []), focusedTaskIDs: [2])
 
     model.selectedID = 1
-    XCTAssertEqual(try XCTUnwrap(MenuModel.tasks(model: model).item(for: .focus)).title, "Focus")
+    XCTAssertEqual(try XCTUnwrap(MenuModel.tasks(model: model, daemonAvailable: true).item(for: .focus)).title, "Focus")
 
     model.selectedID = 2
-    XCTAssertEqual(try XCTUnwrap(MenuModel.tasks(model: model).item(for: .focus)).title, "Unfocus")
+    XCTAssertEqual(try XCTUnwrap(MenuModel.tasks(model: model, daemonAvailable: true).item(for: .focus)).title, "Unfocus")
   }
 
   func testARowOverridesTheSelectionsFocusState() throws {
@@ -142,7 +142,7 @@ final class TaskMenuModelTests: XCTestCase {
     model.sync(tasks: TaskList(active: [makeTask(id: 1), makeTask(id: 2)], completed: []), focusedTaskIDs: [2])
     model.selectedID = 1
 
-    let menu = MenuModel.tasks(model: model, on: 2)
+    let menu = MenuModel.tasks(model: model, on: 2, daemonAvailable: true)
 
     XCTAssertEqual(try XCTUnwrap(menu.item(for: .focus)).title, "Unfocus")
   }
@@ -154,15 +154,15 @@ final class TaskMenuModelTests: XCTestCase {
     model.sync(tasks: TaskList(active: [makeTask(id: 1), makeTask(id: 2)], completed: []), focusedTaskIDs: [])
     model.selectedID = nil
 
-    XCTAssertEqual(enabledActions(MenuModel.tasks(model: model, on: 2)), TaskAction.allCases)
-    XCTAssertEqual(enabledActions(MenuModel.tasks(model: model)), [.newTask], "no row named, no selection")
+    XCTAssertEqual(enabledActions(MenuModel.tasks(model: model, on: 2, daemonAvailable: true)), TaskAction.allCases)
+    XCTAssertEqual(enabledActions(MenuModel.tasks(model: model, daemonAvailable: true)), [.newTask], "no row named, no selection")
   }
 
   func testOtherVerbsKeepTheirTitleWhateverTheFocusState() {
     let model = TaskWindowModel()
     model.sync(tasks: TaskList(active: [makeTask(id: 1)], completed: []), focusedTaskIDs: [1])
 
-    XCTAssertEqual(MenuModel.tasks(model: model).item(for: .complete)?.title, TaskAction.complete.title)
+    XCTAssertEqual(MenuModel.tasks(model: model, daemonAvailable: true).item(for: .complete)?.title, TaskAction.complete.title)
   }
 
   // MARK: Private
@@ -180,14 +180,14 @@ final class ViewMenuModelTests: XCTestCase {
 
   func testViewMenuListsPanelsAndShortcutSheet() throws {
     let model = WindowModel()
-    let menu = MenuModel.view(model: model)
+    let menu = MenuModel.view(model: model, daemonAvailable: true)
     XCTAssertEqual(menu.items.map(\.title), ["Tasks", "Stats", "Keyboard Shortcuts"])
     XCTAssertEqual(menu.item(for: .tasks)?.shortcut, MenuShortcut(key: "t", modifiers: .command))
     XCTAssertEqual(menu.item(for: .stats)?.shortcut, MenuShortcut(key: "i", modifiers: [.command, .shift]))
     XCTAssertEqual(menu.item(for: .shortcuts)?.shortcut, MenuShortcut(key: "/", modifiers: .command))
     XCTAssertTrue(menu.items.allSatisfy(\.isEnabled))
     model.showsShortcuts = true
-    XCTAssertFalse(try XCTUnwrap(MenuModel.view(model: model).item(for: .shortcuts)?.isEnabled))
+    XCTAssertFalse(try XCTUnwrap(MenuModel.view(model: model, daemonAvailable: true).item(for: .shortcuts)?.isEnabled))
   }
 
   func testViewActionHintsMatchShortcuts() {
@@ -195,7 +195,7 @@ final class ViewMenuModelTests: XCTestCase {
   }
 
   func testOpenConfigBelongsToTheAppMenuNotTheViewMenu() {
-    let menu = MenuModel.view(model: WindowModel())
+    let menu = MenuModel.view(model: WindowModel(), daemonAvailable: true)
 
     XCTAssertFalse(menu.items.contains { $0.action == .openConfig }, "the View menu keeps its three items")
     XCTAssertEqual(MenuModel.appConfig().items.map(\.title), ["Open Config File…"])
@@ -204,7 +204,7 @@ final class ViewMenuModelTests: XCTestCase {
   }
 
   func testWindowCommandsAreTheViewMenuPlusTheConfigFile() {
-    let menu = MenuModel.windowCommands(model: WindowModel())
+    let menu = MenuModel.windowCommands(model: WindowModel(), daemonAvailable: true)
 
     XCTAssertEqual(menu.groups.count, 1, "a chip row draws no separators")
     XCTAssertEqual(menu.items.map(\.action), [.tasks, .stats, .shortcuts, .openConfig])
@@ -220,18 +220,18 @@ final class ViewMenuModelTests: XCTestCase {
 final class MenuGroupsTests: XCTestCase {
 
   func testBodyBuilds() {
-    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false)
+    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false, daemonAvailable: true)
     _ = MenuGroups(menu: menu) { item in Text(item.title) }.body
   }
 
   func testFirstGroupHasNoLeadingDivider() {
-    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false)
+    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false, daemonAvailable: true)
     let groups = MenuGroups(menu: menu) { item in Text(item.title) }
     _ = groups.groupView(index: 0, group: menu.groups[0])
   }
 
   func testLaterGroupsGetADivider() {
-    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false)
+    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false, daemonAvailable: true)
     XCTAssertGreaterThan(menu.groups.count, 1, "the divider branch needs a second group to exercise")
     let groups = MenuGroups(menu: menu) { item in Text(item.title) }
     _ = groups.groupView(index: 1, group: menu.groups[1])
@@ -245,20 +245,20 @@ final class MenuGroupsTests: XCTestCase {
 /// menu bar carries Start and Stop exactly as the window does (ADR-006).
 final class ServiceMenuModelTests: XCTestCase {
   func testRunningServiceOffersStop() {
-    let menu = MenuModel.service(connection: .connected, registrationFailed: false)
+    let menu = MenuModel.service(status: .running)
 
     XCTAssertEqual(menu.items.map(\.title), ["Stop Timer Service"])
     XCTAssertTrue(menu.items.allSatisfy(\.isEnabled))
   }
 
   func testStoppedServiceOffersStart() {
-    let menu = MenuModel.service(connection: .stopped, registrationFailed: false)
+    let menu = MenuModel.service(status: .stopped)
 
     XCTAssertEqual(menu.items.map(\.title), ["Start Timer Service"])
   }
 
   func testRefusedLaunchOffersStartRatherThanARetryOfItsOwn() {
-    let menu = MenuModel.service(connection: .startingDaemon, registrationFailed: true)
+    let menu = MenuModel.service(status: .launchRefused)
 
     XCTAssertEqual(menu.items.map(\.title), ["Start Timer Service"])
   }
@@ -266,6 +266,6 @@ final class ServiceMenuModelTests: XCTestCase {
   /// Stopping the service is deliberate and heavy, so it claims no key: a stray keystroke must
   /// not be able to take the timer down.
   func testTheServiceToggleBindsNoKey() {
-    XCTAssertNil(MenuModel.service(connection: .connected, registrationFailed: false).items.first?.shortcut)
+    XCTAssertNil(MenuModel.service(status: .running).items.first?.shortcut)
   }
 }

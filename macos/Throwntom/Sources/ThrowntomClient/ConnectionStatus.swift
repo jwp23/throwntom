@@ -1,44 +1,65 @@
 import Foundation
 
-/// The status text shown for the daemon connection: the phrase for every connection state, used
+/// The status text shown for the daemon connection: the phrase for every service situation, used
 /// wherever the window has no phase of its own to name. View-independent so it can be unit tested.
 public enum ConnectionStatus {
-  /// `registrationFailed` outranks every dialling state. The reconnect loop keeps retrying after
-  /// launchd has refused, so the connection alone still reads as "starting" long after the start
-  /// has definitively failed; saying so would be wrong rather than merely redundant. The note
-  /// beside this line names launchd and points at Start Timer Service.
+
+  // MARK: Public
+
+  /// `status` outranks the dialling states, which is why it is asked first. The reconnect loop
+  /// keeps retrying after launchd has refused and after an accepted start has gone silent, so the
+  /// connection alone still reads as "starting" long after the start has stopped being in
+  /// progress; saying so would be wrong rather than merely redundant.
+  ///
+  /// Each absent situation gets its own line, because the line is what a reader tells them apart
+  /// by: a service they switched off, a launch that failed, and a launch that was accepted and
+  /// brought nothing are three different things to do next. `connection` is still read for the
+  /// transient case, where the wording turns on whether this is a first dial or a lost one.
   public static func text(
     state: DaemonState?,
     connection: DaemonClient.Connection,
-    registrationFailed: Bool = false,
+    status: ServiceStatus,
     now: Date,
   ) -> String {
-    if let state, connection == .connected {
+    if let state, status == .running {
       return Countdown.tickedStatusLine(state, now: now)
     }
-    if registrationFailed, connection != .stopped {
-      return "Timer service can’t launch"
-    }
-    switch connection {
+    switch status {
     case .stopped: return "Timer service stopped"
 
-    case .startingDaemon: return "Starting timer…"
+    case .launchRefused: return "Timer service can’t launch"
 
-    case .connecting:
-      return if let state {
-        Countdown.tickedStatusLine(state, now: now) + " (reconnecting)"
-      } else {
-        "Connecting…"
-      }
+    case .notAnswering: return "Timer service isn’t answering"
 
-    case .reconnecting:
-      return if let state {
-        Countdown.tickedStatusLine(state, now: now) + " (reconnecting)"
-      } else {
-        "Reconnecting…"
-      }
+    case .running: return "Throwntom"
 
-    case .connected: return "Throwntom"
+    case .reaching: return reachingText(state: state, connection: connection, now: now)
     }
   }
+
+  // MARK: Private
+
+  /// A dial in progress, worded for whether the client has a phase in hand: with one, that phase
+  /// is still counting and the line goes on naming it. A start launchd has just been asked for is
+  /// the exception — nothing is counting yet, so it names the start instead.
+  private static func reachingText(state: DaemonState?, connection: DaemonClient.Connection, now: Date) -> String {
+    switch connection {
+    case .startingDaemon:
+      "Starting timer…"
+
+    case .reconnecting:
+      state.map { Countdown.tickedStatusLine($0, now: now) + " (reconnecting)" } ?? "Reconnecting…"
+
+    case .connecting:
+      state.map { Countdown.tickedStatusLine($0, now: now) + " (reconnecting)" } ?? "Connecting…"
+
+    // Neither reaches this: `ServiceStatus.of` resolves them to `.running` and `.stopped`, which
+    // the caller answers above. Spelled out rather than left to a `default` so that a new
+    // connection case has to be worded here instead of silently reading as a first dial.
+    case .connected,
+         .stopped:
+      "Connecting…"
+    }
+  }
+
 }

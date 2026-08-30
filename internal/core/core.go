@@ -40,6 +40,9 @@ type Core struct {
 	eventWriter         *eventlog.Writer
 	eventsPath          string
 	longBreakEvery      int
+	// floatWindowWhenWaiting is carried for clients, not acted on here. See
+	// the field of the same name on State.
+	floatWindowWhenWaiting bool
 	// morningPending is the config's answer to whether today's morning
 	// reminder is still owed at start-up.
 	morningPending bool
@@ -75,13 +78,14 @@ func newCore(cfg config.Config, n notifier.Notifier) *Core {
 			cfg.Pomodoro.LongBreakMinutes,
 			cfg.Pomodoro.LongBreakEvery,
 		),
-		notifier:       n,
-		reminder:       newOutstandingReminder(policy, n),
-		scheduler:      scheduler.New(config.ScheduleDayTimes(cfg.Schedule)),
-		now:            time.Now,
-		morningPending: cfg.MorningReminderPending,
-		longBreakEvery: cfg.Pomodoro.LongBreakEvery,
-		subscribers:    make(map[chan State]struct{}),
+		notifier:               n,
+		reminder:               newOutstandingReminder(policy, n),
+		scheduler:              scheduler.New(config.ScheduleDayTimes(cfg.Schedule)),
+		now:                    time.Now,
+		morningPending:         cfg.MorningReminderPending,
+		longBreakEvery:         cfg.Pomodoro.LongBreakEvery,
+		floatWindowWhenWaiting: cfg.FloatWindowWhenWaiting,
+		subscribers:            make(map[chan State]struct{}),
 	}
 	c.handlers = c.buildCommandHandlers()
 	c.timer.SetOnChange(c.publishAsync)
@@ -216,6 +220,14 @@ func (c *Core) statusLocked() (statusLine string, state engine.State, morningPen
 	return c.timer.StatusLine(), c.timer.State(), c.reminder.outstanding() == reminderMorning
 }
 
+// PlaysSound reports whether this core's notifier makes a sound. The notifier
+// is chosen by the composition root and fixed for the core's life, so a caller
+// that has to say what sound this process will produce asks rather than
+// assuming which notifier it was given.
+func (c *Core) PlaysSound() bool {
+	return notifier.Audible(c.notifier)
+}
+
 func (c *Core) NextStage() (engine.State, time.Duration, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -228,6 +240,18 @@ func (c *Core) nextStageLocked() (engine.State, time.Duration, bool) {
 	}
 	next, duration := c.timer.NextStage()
 	return next, duration, true
+}
+
+// owedStageLocked reports the phase a start would enter and how long it would
+// run. Only an idle timer owes anything: a running or paused phase has nothing
+// to resume, and at awaiting-confirm the phase start would enter is the one
+// NextStage already names.
+func (c *Core) owedStageLocked() (engine.State, time.Duration, bool) {
+	if c.timer.State() != engine.Idle {
+		return engine.Idle, 0, false
+	}
+	owed, duration := c.timer.OwedStage()
+	return owed, duration, true
 }
 
 // ErrorKind tells a caller why a command failed: a malformed request or a

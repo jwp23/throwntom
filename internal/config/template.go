@@ -22,10 +22,11 @@ const Template = `# throwntom configuration.
 # it watches this file and picks an edit up within a few seconds, the pomodoro
 # already running included — shortening work_minutes below the time the
 # current pomodoro has already spent ends it. The daemon reloads [pomodoro],
-# [[schedule]], repeat_secs and repeat_limit_secs; the settings it does not
-# reload say so under their own heading. Running throwntom by itself, without
-# the daemon, reloads nothing at all: it reads this file once as it launches,
-# so there every setting waits for the next launch.
+# [[schedule]], repeat_secs, repeat_limit_secs and float_window_when_waiting;
+# the settings it does not reload say so under their own heading. Running
+# throwntom by itself, without the daemon, reloads nothing at all: it reads
+# this file once as it launches, so there every setting waits for the next
+# launch.
 # An empty file is read as a save still in flight and ignored, so emptying
 # this one resets nothing: delete it instead and the daemon writes a fresh
 # copy the next time it starts.
@@ -65,6 +66,16 @@ const Template = `# throwntom configuration.
 # Whether the interface uses emoji. This one belongs to the throwntom
 # terminal interface; the daemon has no use for it.
 # emoji = true
+
+# Whether the window is kept above other applications' windows while a
+# reminder is waiting to be answered, dropping back once it is confirmed or
+# snoozed. Off by default: it makes the reminder harder to lose behind other
+# windows, at the cost of a window that puts itself in front of whatever you
+# are looking at. It never takes keyboard focus, so it cannot interrupt
+# typing; it only changes which window is on top.
+# This one belongs to the macOS window app. The daemon does nothing with it
+# and the terminal interface has no window to raise.
+# float_window_when_waiting = false
 
 # [pomodoro] sets the length of each phase and how often a long break comes.
 # Uncomment the [pomodoro] header too when you uncomment any key under it.

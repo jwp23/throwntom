@@ -30,6 +30,15 @@ struct ReconnectBackoff {
     delays[min(delayIndex, delays.count - 1)]
   }
 
+  /// Failed dials since launchd accepted a request to start the daemon, or nil while it has
+  /// accepted none. This is how "launchd was asked a moment ago" is told from "launchd was asked
+  /// and nothing has happened since" — the second is a start that will not arrive, and the only
+  /// useful response to it is to say so, since asking again would boot out a daemon that may be
+  /// starting. A refusal leaves this nil: that is reported as a refusal, not as a silent daemon.
+  var failuresSinceRegistration: Int? {
+    failuresWhenRegistered.map { failures - $0 }
+  }
+
   mutating func recordFailure() {
     failures += 1
     if failures > 1 {
@@ -56,6 +65,7 @@ struct ReconnectBackoff {
     guard !hasAskedLaunchdToStart, failures > 0, failures % registerEvery == 0 else { return }
     guard register() else { return }
     hasAskedLaunchdToStart = true
+    failuresWhenRegistered = failures
     delayIndex = 0
   }
 
@@ -64,6 +74,7 @@ struct ReconnectBackoff {
     failures = 0
     delayIndex = 0
     hasAskedLaunchdToStart = false
+    failuresWhenRegistered = nil
   }
 
   // MARK: Private
@@ -74,5 +85,8 @@ struct ReconnectBackoff {
 
   /// Whether launchd has already accepted a request to start the daemon during this outage.
   private var hasAskedLaunchdToStart = false
+
+  /// The failure count at the moment launchd accepted, so later dials can be counted against it.
+  private var failuresWhenRegistered: Int?
 
 }
