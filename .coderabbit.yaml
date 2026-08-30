@@ -1,0 +1,15 @@
+# CodeRabbit review configuration.
+#
+# .beads/ holds the beads issue tracker's local state: issues.jsonl is a passive
+# export and interactions.jsonl is an append-only audit log. The pre-commit hook
+# stages them on every commit, so they land in every pull request diff even when
+# the change has nothing to do with them.
+#
+# Reviewing them produces findings that are not defects. An append-only log
+# correctly keeps entries that a later entry supersedes; a close reason
+# correctly records a question that was open when it was written. On PR #127
+# this cost four spurious issues (throwntom-nig, km7, ign, ar4), all closed as
+# artifacts. Tracker state is data, not source.
+reviews:
+  path_filters:
+    - "!.beads/**"
