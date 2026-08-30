@@ -55,7 +55,7 @@ func (c *Core) handleStart(parts []string) commandResult {
 	// The focus prompt asks which tasks this pomodoro is for, so it belongs
 	// only to a start that actually begins work — not to one resuming a break
 	// a stop left owed.
-	if c.tasks != nil && c.timer.OwedPhase() == engine.Work {
+	if owed, _ := c.timer.OwedStage(); c.tasks != nil && owed == engine.Work {
 		return c.enterFocusPrompt("start")
 	}
 	c.timer.Start()

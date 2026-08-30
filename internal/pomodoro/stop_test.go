@@ -29,21 +29,9 @@ func TestStartAfterStopRunsTheOwedBreakForItsOwnDuration(t *testing.T) {
 	}
 }
 
-func TestOwedPhaseReportsWhatStartWouldEnter(t *testing.T) {
-	a := New(25, 5, 15, 4)
-	if got := a.OwedPhase(); got != engine.Work {
-		t.Fatalf("expected work owed on a fresh timer, got %v", got)
-	}
-	a.Start()
-	a.CompletePeriod()
-	a.Stop()
-	if got := a.OwedPhase(); got != engine.ShortBreak {
-		t.Fatalf("expected a short break owed after stopping at awaiting-confirm, got %v", got)
-	}
-}
-
-// An owed break must be measured against its own duration. Answering with the
-// work duration is the bug that made a resumed 5m break run for 25 minutes.
+// OwedStage reports what a start would enter, and an owed break must be
+// measured against its own duration. Answering with the work duration is the
+// bug that made a resumed 5m break run for 25 minutes.
 func TestOwedStageReportsThePhaseAndItsOwnDuration(t *testing.T) {
 	a := New(25, 5, 15, 4)
 	if state, d := a.OwedStage(); state != engine.Work || d != 25*time.Minute {
@@ -53,7 +41,7 @@ func TestOwedStageReportsThePhaseAndItsOwnDuration(t *testing.T) {
 	a.CompletePeriod()
 	a.Stop()
 	if state, d := a.OwedStage(); state != engine.ShortBreak || d != 5*time.Minute {
-		t.Fatalf("expected a 5m short break owed, got %v %v", state, d)
+		t.Fatalf("expected a 5m short break owed after stopping at awaiting-confirm, got %v %v", state, d)
 	}
 }
 

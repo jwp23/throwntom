@@ -108,9 +108,11 @@ removed after the lock is won.
   "next_stage": {"state": "short_break", "duration": 300},  // seconds
   "owed_stage": null,             // what start would enter; null unless idle
   "morning_pending": false,
+  "day_ended": false,            // the user has ended the work day
   "snooze_until": null,
   "status_line": "Work 12:34",
-  "focused_task_ids": [3]
+  "focused_task_ids": [3],
+  "reminder_rings": 0            // chimes the outstanding reminder has asked for
 }
 ```
 

@@ -206,13 +206,6 @@ func (t *Timer) Start() {
 	t.startPhaseTimerLocked(t.phaseDurationLocked(t.engine.State()))
 }
 
-// OwedPhase reports the phase Start would enter now.
-func (t *Timer) OwedPhase() engine.State {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return t.engine.OwedPhase()
-}
-
 // OwedStage reports the phase Start would enter now and how long it would run
 // for, measured against the durations in force now the way NextStage is.
 func (t *Timer) OwedStage() (engine.State, time.Duration) {

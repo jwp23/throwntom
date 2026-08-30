@@ -1,6 +1,7 @@
 package core
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jwp23/throwntom/v3/internal/engine"
@@ -69,6 +70,33 @@ func TestNewCycleAfterASkipCreditsNothing(t *testing.T) {
 
 	if got := countEvents(t, path, "pomodoro_completed"); got != 0 {
 		t.Fatalf("a skipped phase must not be credited, got %d completions", got)
+	}
+}
+
+// A start at awaiting-confirm that lands on a work period asks which tasks it
+// is for, the way confirm does — and because the phase has already begun by
+// then, answering the prompt must not start a second one.
+func TestStartAtAwaitingConfirmIntoWorkPromptsForFocusOnce(t *testing.T) {
+	c := newTestCoreWithTasks(t)
+	c.execute("task add write it up")
+	c.execute("start")
+	c.execute("") // answer the first prompt, work begins
+	c.timer.CompletePeriod()
+	c.execute("confirm") // into the short break
+	c.timer.CompletePeriod()
+
+	result := c.execute("start") // owed work: prompts again
+	if !strings.Contains(result.message, "Select tasks") {
+		t.Fatalf("expected the focus prompt, got %q", result.message)
+	}
+	if got := c.timer.State(); got != engine.Work {
+		t.Fatalf("the work period should already be running, got %v", got)
+	}
+	started := c.timer.Snapshot().PhaseEndAt
+
+	c.execute("")
+	if got := c.timer.Snapshot().PhaseEndAt; !got.Equal(started) {
+		t.Fatal("answering the prompt restarted the phase that was already running")
 	}
 }
 

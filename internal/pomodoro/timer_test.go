@@ -195,6 +195,7 @@ func TestStartNewCycleResetsCycleProgressButPreservesDailyTotal(t *testing.T) {
 func TestRestoreWorkWithTimeRemaining(t *testing.T) {
 	a := New(25, 5, 15, 4)
 	now := time.Now()
+	a.setClock(newFakeClock(now))
 	snap := Snapshot{
 		Engine: engine.Snapshot{
 			State:          engine.Work,
@@ -203,13 +204,17 @@ func TestRestoreWorkWithTimeRemaining(t *testing.T) {
 			CompletedToday: 2,
 			WorkDayStarted: true,
 		},
-		PhaseEndAt: now.Add(10 * time.Minute),
+		PhaseStartedAt: now.Add(-15 * time.Minute),
+		PhaseEndAt:     now.Add(10 * time.Minute),
 	}
 	if err := a.Restore(snap, now); err != nil {
 		t.Fatalf(fmtRestore, err)
 	}
 	if got := a.State(); got != engine.Work {
 		t.Fatalf("expected Work, got %s", got)
+	}
+	if got := a.Snapshot().PhaseEndAt.Sub(now); got != 10*time.Minute {
+		t.Fatalf("expected the unserved 10m of the phase, got %s", got)
 	}
 	line := a.StatusLine()
 	if !strings.Contains(line, "Today: 2") {

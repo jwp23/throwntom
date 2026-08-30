@@ -205,7 +205,12 @@ func seedExpiredWorkSession(t *testing.T, path string) {
 				WorkDayStarted: true,
 				WorkDate:       now,
 			},
-			PhaseEndAt: now.Add(-time.Second),
+			// The start has to match the end it belongs to: a restore measures
+			// elapsed from the recorded start against the configured duration
+			// (ADR-008), so a session without one describes a phase that has
+			// only just begun and would not expire at all.
+			PhaseStartedAt: now.Add(-26 * time.Minute),
+			PhaseEndAt:     now.Add(-time.Second),
 		},
 	}
 	if err := session.Save(path, data); err != nil {
