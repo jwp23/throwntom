@@ -168,6 +168,34 @@
   - commit 2: implementation to make tests pass
 - Any response that skipped RED-first must be treated as non-compliant.
 
+### Fix commits must prove the test discriminates
+
+- A commit that FIXES something must show its new test actually catches the defect:
+  revert the fix, observe the test fail, restore the fix. Report that result.
+- A test that passes both with and without the fix is not evidence. "The suite is
+  green" says nothing about a defect the suite never covered.
+- Never weaken or relax an existing assertion to make a fix's tests pass. If an
+  assertion must change, say in the commit message why the old one encoded the bug.
+  An assertion downgraded inside a fix commit is treated as a defect signal.
+- This applies hardest to small fixes whose cause seems obvious — that is where
+  RED gets skipped and where fixes have introduced their own bugs.
+- An approved test waiver (see Testing Strategy above) exempts a fix commit from
+  this gate too — state the waiver and the risk instead of the revert-fail-restore
+  result. Updating an existing regression test satisfies this gate the same as a
+  new one, provided it still fails on the pre-fix code.
+
+## Working a bug from the tracker
+
+- A bug bead's stated cause is a HYPOTHESIS, not a finding. Reproduce and measure
+  before fixing; bead descriptions are wrong about their own cause often enough
+  that inheriting one means fixing the wrong thing.
+- Use the systematic-debugging skill for every bug bead, including ones that look
+  like a one-line fix.
+- Check the bead is still true before working it — a sibling branch may already
+  have fixed it.
+- If measurement disproves the bead's premise, record that on the bead with
+  `bd update <id> --notes=...` before fixing, so the correction outlives the session.
+
 ## Requirements
 - Minimal 3rd party libraries are used
 - Use 3rd party libraries if they'll be more stable but get confirmation before using them
