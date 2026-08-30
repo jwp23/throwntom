@@ -4,30 +4,30 @@ import XCTest
 
 final class ConnectionStatusTests: XCTestCase {
   func testNilStateConnecting() {
-    XCTAssertEqual(ConnectionStatus.text(state: nil, connection: .connecting, status: .reaching, now: .now), "Connecting…")
+    XCTAssertEqual(ConnectionStatus.text(connection: .connecting, status: .reaching), "Connecting…")
   }
 
   func testNilStateStartingDaemon() {
     XCTAssertEqual(
-      ConnectionStatus.text(state: nil, connection: .startingDaemon, status: .reaching, now: .now),
+      ConnectionStatus.text(connection: .startingDaemon, status: .reaching),
       "Starting timer…",
     )
   }
 
   func testNilStateReconnecting() {
     XCTAssertEqual(
-      ConnectionStatus.text(state: nil, connection: .reconnecting(attempt: 2), status: .reaching, now: .now),
+      ConnectionStatus.text(connection: .reconnecting(attempt: 2), status: .reaching),
       "Reconnecting…",
     )
   }
 
   func testNilStateConnected() {
-    XCTAssertEqual(ConnectionStatus.text(state: nil, connection: .connected, status: .running, now: .now), "Throwntom")
+    XCTAssertEqual(ConnectionStatus.text(connection: .connected, status: .running), "Throwntom")
   }
 
   func testNilStateStopped() {
     XCTAssertEqual(
-      ConnectionStatus.text(state: nil, connection: .stopped, status: .stopped, now: .now),
+      ConnectionStatus.text(connection: .stopped, status: .stopped),
       "Timer service stopped",
     )
   }
@@ -37,7 +37,7 @@ final class ConnectionStatusTests: XCTestCase {
   /// Service control, which the note beside this line points at.
   func testARefusedLaunchIsNamedRatherThanReportedAsStarting() {
     XCTAssertEqual(
-      ConnectionStatus.text(state: nil, connection: .startingDaemon, status: .launchRefused, now: .now),
+      ConnectionStatus.text(connection: .startingDaemon, status: .launchRefused),
       "Timer service can\u{2019}t launch",
     )
   }
@@ -55,7 +55,7 @@ final class ConnectionStatusTests: XCTestCase {
       )
     }
     XCTAssertEqual(
-      ConnectionStatus.text(state: nil, connection: .startingDaemon, status: .launchRefused, now: .now),
+      ConnectionStatus.text(connection: .startingDaemon, status: .launchRefused),
       "Timer service can\u{2019}t launch",
     )
   }
@@ -64,7 +64,7 @@ final class ConnectionStatusTests: XCTestCase {
   /// into the state that follows pressing Stop.
   func testAStoppedServiceIsStillReportedAsStopped() {
     XCTAssertEqual(
-      ConnectionStatus.text(state: nil, connection: .stopped, status: .stopped, now: .now),
+      ConnectionStatus.text(connection: .stopped, status: .stopped),
       "Timer service stopped",
     )
   }
@@ -73,18 +73,28 @@ final class ConnectionStatusTests: XCTestCase {
   /// connection state is all this line has to go on.
   func testAnAcceptedLaunchThatNeverArrivesIsNamedRatherThanReportedAsStarting() {
     XCTAssertEqual(
-      ConnectionStatus.text(state: nil, connection: .startingDaemon, status: .notAnswering, now: .now),
+      ConnectionStatus.text(connection: .startingDaemon, status: .notAnswering),
       "Timer service isn\u{2019}t answering",
     )
+  }
+
+  /// throwntom-ibf. A first dial is not "re"-anything. This used to be unsayable: the wording
+  /// turned on whether a state was passed alongside the connection, and both branches appended
+  /// "(reconnecting)" — so the only thing separating a first dial from a lost one was a parameter
+  /// the app never passed. The parameter is gone; the connection alone decides.
+  func testAFirstDialIsWordedAsAFirstDialAndALostOneAsALostOne() {
+    XCTAssertEqual(ConnectionStatus.text(connection: .connecting, status: .reaching), "Connecting…")
+    XCTAssertEqual(ConnectionStatus.text(connection: .reconnecting(attempt: 1), status: .reaching), "Reconnecting…")
+    XCTAssertFalse(ConnectionStatus.text(connection: .connecting, status: .reaching).lowercased().contains("recon"))
   }
 
   /// The four lines a reader tells the situations apart by.
   func testEverySituationWithoutARunningTimerSaysSomethingDifferent() {
     let lines = [
-      ConnectionStatus.text(state: nil, connection: .stopped, status: .stopped, now: .now),
-      ConnectionStatus.text(state: nil, connection: .startingDaemon, status: .launchRefused, now: .now),
-      ConnectionStatus.text(state: nil, connection: .startingDaemon, status: .notAnswering, now: .now),
-      ConnectionStatus.text(state: nil, connection: .startingDaemon, status: .reaching, now: .now),
+      ConnectionStatus.text(connection: .stopped, status: .stopped),
+      ConnectionStatus.text(connection: .startingDaemon, status: .launchRefused),
+      ConnectionStatus.text(connection: .startingDaemon, status: .notAnswering),
+      ConnectionStatus.text(connection: .startingDaemon, status: .reaching),
     ]
 
     XCTAssertEqual(Set(lines).count, lines.count, "\(lines)")

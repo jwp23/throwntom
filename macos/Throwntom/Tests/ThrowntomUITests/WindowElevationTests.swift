@@ -130,7 +130,7 @@ final class WindowElevationTests: XCTestCase {
 
   // MARK: Private
 
-  private let shortBreak = DaemonState.NextStage(state: .shortBreak, duration: 300)
+  private let shortBreak = DaemonState.Stage(state: .shortBreak, duration: 300)
 
   private func makeWindow() -> NSWindow {
     NSWindow(

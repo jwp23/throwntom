@@ -88,6 +88,13 @@ struct MainWindow: View {
         environment.windowModel.isEnteringSnooze = false
       }
     }
+    // A service going down transforms the whole window at once — the chips go, the panel closes,
+    // the title and the sentence change. A sighted user sees that happen; without this a VoiceOver
+    // user is told nothing and the likeliest reading is that the app has stopped responding
+    // (throwntom-07o). `ServiceStatus.announcement` decides both the wording and the silences.
+    .onChange(of: environment.client.serviceStatus) { previous, current in
+      announce(from: previous, to: current)
+    }
     .onChange(of: environment.client.tasks, initial: true) { syncModel() }
     .onChange(of: environment.client.state?.focusedTaskIds, initial: true) { syncModel() }
     .task { await trackAuthorization() }
@@ -101,6 +108,15 @@ struct MainWindow: View {
     for await _ in activations {
       await environment.responder.refreshAuthorization()
     }
+  }
+
+  /// Speaks a change of service situation to assistive technology. `.announcement` is the
+  /// platform's own mechanism for a change that is not a navigation: it does not move VoiceOver's
+  /// cursor, so a user reading the focus list is told the service went down without losing their
+  /// place. What to say — and when to say nothing — is `ServiceStatus.announcement`.
+  func announce(from previous: ServiceStatus, to current: ServiceStatus) {
+    guard let spoken = ServiceStatus.announcement(from: previous, to: current) else { return }
+    AccessibilityNotification.Announcement(spoken).post()
   }
 
   /// Copies the daemon's task list and focus into the model the list and menus read from.

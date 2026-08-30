@@ -123,8 +123,10 @@ struct MenuModel<Action: MenuAction> {
 }
 
 extension MenuModel where Action == TimerAction {
-  /// The Timer menu for a daemon snapshot. A verb is enabled when the daemon would accept it,
-  /// except that Confirm gives up the Return key while the inline new-task row is open.
+  /// The Timer menu for a daemon snapshot. A verb is enabled when it is one this state offers
+  /// (`TimerActions.available(for:)`), except that Confirm gives up the Return key while the
+  /// inline new-task row is open. Start is worded for the phase it would begin, the way the
+  /// play/pause item is worded for what pressing it does.
   ///
   /// `daemonAvailable` is asked separately from the snapshot because the client goes on holding
   /// that snapshot after the service is gone — the cheat sheet and the focus list read it, and
@@ -133,12 +135,26 @@ extension MenuModel where Action == TimerAction {
   /// look wrong.
   static func timer(state: DaemonState?, isEditing: Bool, daemonAvailable: Bool) -> MenuModel {
     let available = daemonAvailable ? state.map(TimerActions.available(for:)) ?? [] : []
-    func item(_ action: TimerAction, _ shortcut: MenuShortcut?, isEnabled: Bool? = nil) -> MenuItem<TimerAction> {
-      MenuItem(action: action, shortcut: shortcut, isEnabled: isEnabled ?? available.contains(action))
+    func item(
+      _ action: TimerAction,
+      _ shortcut: MenuShortcut?,
+      isEnabled: Bool? = nil,
+      title: String? = nil,
+    ) -> MenuItem<TimerAction> {
+      MenuItem(
+        action: action,
+        shortcut: shortcut,
+        isEnabled: isEnabled ?? available.contains(action),
+        title: title,
+      )
     }
     return MenuModel(groups: [
       [
-        item(.start, MenuShortcut(key: "r", modifiers: .command)),
+        item(
+          .start,
+          MenuShortcut(key: "r", modifiers: .command),
+          title: TimerActions.startTitle(for: daemonAvailable ? state : nil),
+        ),
         item(
           .confirm,
           MenuShortcut(key: .return, modifiers: []),

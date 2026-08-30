@@ -104,7 +104,7 @@ final class MainWindowContentTests: XCTestCase {
     XCTAssertEqual(c.scheme, Palette.scheme(for: nil))
     XCTAssertEqual(
       c.title,
-      ConnectionStatus.text(state: nil, connection: .reconnecting(attempt: 2), status: .reaching, now: now),
+      ConnectionStatus.text(connection: .reconnecting(attempt: 2), status: .reaching),
     )
     XCTAssertNil(c.garden)
     XCTAssertEqual(c.chips, [])

@@ -268,4 +268,25 @@ final class ServiceMenuModelTests: XCTestCase {
   func testTheServiceToggleBindsNoKey() {
     XCTAssertNil(MenuModel.service(status: .running).items.first?.shortcut)
   }
+
+  /// throwntom-46y. The Timer menu and the window's chip row are two renderings of one control, so
+  /// ⌘R must not be labelled Start in the menu bar while the chip beside it names a short break.
+  func testTheTimerMenuNamesThePhaseStartWouldBegin() throws {
+    let owing = makeState(phase: .idle, owedStage: DaemonState.Stage(state: .shortBreak, duration: 300))
+    let menu = MenuModel.timer(state: owing, isEditing: false, daemonAvailable: true)
+
+    XCTAssertEqual(try XCTUnwrap(menu.items.first { $0.action == .start }).title, "Start Short break")
+  }
+
+  /// With the service gone the window drops its retained phase, and the menu must drop it too: a
+  /// menu item naming a phase from a daemon already confirmed gone is the same lie the window
+  /// stopped telling.
+  func testAMenuWithNoServiceDoesNotNameAPhaseFromTheDeadDaemon() throws {
+    let owing = makeState(phase: .idle, owedStage: DaemonState.Stage(state: .shortBreak, duration: 300))
+    let menu = MenuModel.timer(state: owing, isEditing: false, daemonAvailable: false)
+    let start = try XCTUnwrap(menu.items.first { $0.action == .start })
+
+    XCTAssertEqual(start.title, "Start")
+    XCTAssertFalse(start.isEnabled)
+  }
 }

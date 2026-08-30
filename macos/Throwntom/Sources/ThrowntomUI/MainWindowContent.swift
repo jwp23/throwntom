@@ -42,14 +42,24 @@ struct MainWindowContent: Equatable {
     let shown = status.offersDaemonCommands ? state : nil
     scheme = Palette.scheme(for: shown?.state)
     pose = MascotPose.pose(for: shown?.state, pausedFrom: shown?.pausedFrom ?? .idle)
-    title = shown.map(Self.phaseTitle)
-      ?? ConnectionStatus.text(state: nil, connection: connection, status: status, now: now)
+    // A retained phase is still counting (ADR-008), so the window goes on naming it and keeps its
+    // ground and its verbs — but it must not read as a live connection. Before this, a client that
+    // had lost the daemon drew a window byte-for-byte identical to the connected one, and the only
+    // way to find out was to wait for the retry budget to run out (throwntom-7rb). The mark is on
+    // the title alone: the countdown and the ground are as true as they were.
+    //
+    // "reconnecting" rather than "connecting" is exact here, not a guess: `state` is only ever set
+    // from a decoded frame and only ever cleared by `stopService()`, which clears `hasConnected`
+    // with it, so a phase in hand means this client has reached a daemon since the last stop.
+    title = shown.map { Self.phaseTitle(for: $0) + (status == .reaching ? " (reconnecting)" : "") }
+      ?? ConnectionStatus.text(connection: connection, status: status)
     countdown = shown.flatMap { Self.countdown(for: $0, now: now) }
     nextStage = shown?.nextStage.map { "Next: \($0.summary)" }
     garden = shown
       .map { TomatoGarden(completedToday: $0.completedToday, inBlock: $0.workSessionsInBlock, every: $0.longBreakEvery) }
     snoozeNote = shown?.snoozeUntil.map { Self.snoozeNote(until: $0, now: now) }
     chips = shown.map(TimerActions.available(for:)) ?? []
+    startTitle = TimerActions.startTitle(for: shown)
     primaryChip = [TimerAction.confirm, .start, .resume].first(where: chips.contains)
     focused = shown.map { tasks.focused(ids: $0.focusedTaskIds) } ?? []
     self.error = error
@@ -82,7 +92,17 @@ struct MainWindowContent: Equatable {
   let notice: String?
   let panel: WindowPanel?
 
+  /// What a verb's control says on this screen. Everything but Start says what it always says;
+  /// Start names the phase an idle start would enter, which only the daemon knows.
+  func title(for action: TimerAction) -> String {
+    action == .start ? startTitle : action.title
+  }
+
   // MARK: Private
+
+  /// Resolved once at build time, so the chip row, the menu and the cheat sheet cannot word one
+  /// control three ways.
+  private let startTitle: String
 
   /// The phase's own name, except while the user has ended the day: the daemon is idle then, and
   /// "Idle" would read as a timer waiting to be started rather than as a day that is over.

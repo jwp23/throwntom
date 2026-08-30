@@ -262,7 +262,7 @@ final class ReminderPostingTests: XCTestCase {
 
   // MARK: Private
 
-  private let shortBreak = DaemonState.NextStage(state: .shortBreak, duration: 300)
+  private let shortBreak = DaemonState.Stage(state: .shortBreak, duration: 300)
 
   private func makeResponder(_ presenter: StubReminderPresenter) throws -> ReminderResponder {
     AppEnvironment(transport: try StubTransport(states: []), presenter: presenter).responder

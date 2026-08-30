@@ -1,7 +1,9 @@
 import Foundation
 
-/// The status text shown for the daemon connection: the phrase for every service situation, used
-/// wherever the window has no phase of its own to name. View-independent so it can be unit tested.
+/// The status text for a window with no phase of its own to name: the phrase for every service
+/// situation where nothing is counting. A window that still holds a phase names that phase instead
+/// and marks it itself (`MainWindowContent`), so no state is passed here and none is read.
+/// View-independent so it can be unit tested.
 public enum ConnectionStatus {
 
   // MARK: Public
@@ -16,42 +18,38 @@ public enum ConnectionStatus {
   /// brought nothing are three different things to do next. `connection` is still read for the
   /// transient case, where the wording turns on whether this is a first dial or a lost one.
   public static func text(
-    state: DaemonState?,
     connection: DaemonClient.Connection,
     status: ServiceStatus,
-    now: Date,
   ) -> String {
-    if let state, status == .running {
-      return Countdown.tickedStatusLine(state, now: now)
-    }
     switch status {
-    case .stopped: return "Timer service stopped"
+    case .stopped: "Timer service stopped"
 
-    case .launchRefused: return "Timer service can’t launch"
+    case .launchRefused: "Timer service can’t launch"
 
-    case .notAnswering: return "Timer service isn’t answering"
+    case .notAnswering: "Timer service isn’t answering"
 
-    case .running: return "Throwntom"
+    case .running: "Throwntom"
 
-    case .reaching: return reachingText(state: state, connection: connection, now: now)
+    case .reaching: reachingText(connection: connection)
     }
   }
 
   // MARK: Private
 
-  /// A dial in progress, worded for whether the client has a phase in hand: with one, that phase
-  /// is still counting and the line goes on naming it. A start launchd has just been asked for is
-  /// the exception — nothing is counting yet, so it names the start instead.
-  private static func reachingText(state: DaemonState?, connection: DaemonClient.Connection, now: Date) -> String {
+  /// A dial in progress with nothing counting behind it, worded for what is actually happening:
+  /// a launch already asked of launchd, a connection lost and being chased, or a first dial. The
+  /// three are different waits and the reader is owed which one they are in — a first connection
+  /// is not "re"-anything (throwntom-ibf).
+  private static func reachingText(connection: DaemonClient.Connection) -> String {
     switch connection {
     case .startingDaemon:
       "Starting timer…"
 
     case .reconnecting:
-      state.map { Countdown.tickedStatusLine($0, now: now) + " (reconnecting)" } ?? "Reconnecting…"
+      "Reconnecting…"
 
     case .connecting:
-      state.map { Countdown.tickedStatusLine($0, now: now) + " (reconnecting)" } ?? "Connecting…"
+      "Connecting…"
 
     // Neither reaches this: `ServiceStatus.of` resolves them to `.running` and `.stopped`, which
     // the caller answers above. Spelled out rather than left to a `default` so that a new

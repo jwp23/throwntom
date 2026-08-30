@@ -21,7 +21,7 @@ final class ViewBodyTests: XCTestCase {
     let tasks = TaskList(active: [makeTask(id: 1), makeTask(id: 2)], completed: [makeTask(id: 3, done: true)])
     let state = makeState(
       phase: .awaitingConfirm,
-      nextStage: DaemonState.NextStage(state: .shortBreak, duration: 300),
+      nextStage: DaemonState.Stage(state: .shortBreak, duration: 300),
       focusedTaskIds: [1],
     )
     let environment = AppEnvironment(transport: try StubTransport(states: [state], tasks: tasks))

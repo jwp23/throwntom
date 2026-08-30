@@ -23,7 +23,9 @@ public struct DaemonState: Codable, Equatable, Sendable {
     }
   }
 
-  public struct NextStage: Codable, Equatable, Sendable {
+  /// A phase the timer could move into, and how long it would run for. Mirrors `core.Stage`
+  /// (`internal/core/state.go`), which serves both `next_stage` and `owed_stage`.
+  public struct Stage: Codable, Equatable, Sendable {
     public init(state: Phase, duration: Int) {
       self.state = state
       self.duration = duration
@@ -48,7 +50,14 @@ public struct DaemonState: Codable, Equatable, Sendable {
   public var completedToday: Int
   public var workSessionsInBlock: Int
   public var longBreakEvery: Int
-  public var nextStage: NextStage?
+  /// What confirm would move on to, so it is present only while a finished phase waits to be
+  /// confirmed.
+  public var nextStage: Stage?
+  /// What start would enter, so it is present only while the timer is idle. Stop is a suspend, so
+  /// an idle timer can owe the break it earned, and without this a client shows Idle beside a
+  /// Start control and cannot say which phase pressing it begins. Mutually exclusive with
+  /// `nextStage` by construction in the daemon.
+  public var owedStage: Stage?
   public var morningPending: Bool
   public var snoozeUntil: Date?
   public var statusLine: String

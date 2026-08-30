@@ -63,6 +63,26 @@ public enum ServiceStatus: Hashable, Sendable {
     }
   }
 
+  /// What to speak to assistive technology when the service moves from one situation to another,
+  /// or nil where the move is not worth interrupting for.
+  ///
+  /// Only the settled situations speak. Dialling is silent in both directions: a blink of the
+  /// socket takes the window from running to reaching and back within a backoff step, and a
+  /// spoken interruption mid-pomodoro for a blip would be worse than the silence this fixes.
+  /// That silence is also why recovery is announced from a settled absence only — a reader told
+  /// the service went down is owed the other half, but nobody was told about the blip.
+  ///
+  /// The sentence is the window's own title and explanation, not a second wording: a VoiceOver
+  /// user and a sighted user must be told the same thing, and two wordings drift apart.
+  public static func announcement(from previous: ServiceStatus, to current: ServiceStatus) -> String? {
+    guard previous != current else { return nil }
+    if current == .running {
+      return previous == .reaching ? nil : "Timer service running."
+    }
+    guard let line = current.spokenLine else { return nil }
+    return current.explanation.map { "\(line) \($0)" } ?? line
+  }
+
   /// Reads the client's connection and launch bookkeeping as one of the five situations.
   ///
   /// The order is the precedence. A stop is the user's own decision and outranks whatever the
@@ -85,5 +105,20 @@ public enum ServiceStatus: Hashable, Sendable {
       return .launchRefused
     }
     return startStalled ? .notAnswering : .reaching
+  }
+
+  // MARK: Private
+
+  /// The window's own title for this situation, as a sentence. Only the three settled absences
+  /// have one: `.running` is announced by `announcement` in its own words and `.reaching` is never
+  /// announced at all.
+  private var spokenLine: String? {
+    switch self {
+    case .stopped: "Timer service stopped."
+    case .launchRefused: "Timer service can\u{2019}t launch."
+    case .notAnswering: "Timer service isn\u{2019}t answering."
+    case .running,
+         .reaching: nil
+    }
   }
 }
