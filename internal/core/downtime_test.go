@@ -91,7 +91,7 @@ func TestDurationShortenedWhileDownAppliesToTheRestoredPhase(t *testing.T) {
 	}
 }
 
-// The ADR-006 boundary, reached across a restart: work_minutes = 1 on a phase
+// The ADR-008 boundary, reached across a restart: work_minutes = 1 on a phase
 // that has already run ten minutes ends it.
 func TestDurationShorterThanElapsedEndsTheRestoredPhase(t *testing.T) {
 	cfg := config.Default()

@@ -132,9 +132,9 @@ func (t *Timer) Restore(s Snapshot, now time.Time) error {
 }
 
 // restoreRunningLocked brings back a phase that was counting down. The time
-// spent keeps accruing across the outage — ADR-006 (2), downtime is not a
-// pause — but it is measured against the duration in force now, not the one
-// that was in force when the session was saved: ADR-006 (3). A phase whose
+// spent keeps accruing across the outage — downtime is not a pause — but it
+// is measured against the duration in force now, not the one that was in
+// force when the session was saved: ADR-008. A phase whose
 // current duration has already been served comes back complete.
 func (t *Timer) restoreRunningLocked(s Snapshot, now time.Time) {
 	remaining := t.remainingOnRestoreLocked(s, now)
