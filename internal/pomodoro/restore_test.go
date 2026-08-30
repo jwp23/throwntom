@@ -133,9 +133,10 @@ func TestRestorePausedPhaseUsesTheCurrentDuration(t *testing.T) {
 }
 
 // A session with no recorded phase start cannot say how much of the phase was
-// spent — a hand-edited or truncated file. Falling back to the stored end
-// time keeps the phase running rather than ending it on a guess.
-func TestRestoreWithoutAPhaseStartKeepsTheStoredEndTime(t *testing.T) {
+// spent — a hand-edited or truncated file. ADR-008 admits no exception: the
+// phase is measured against the duration in force now, counting from the only
+// moment the file supports, which is the restore itself.
+func TestRestoreWithoutAPhaseStartUsesTheCurrentDuration(t *testing.T) {
 	start := time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC)
 	now := start.Add(10 * time.Minute)
 	a := New(50, 5, 15, 4)
@@ -148,8 +149,28 @@ func TestRestoreWithoutAPhaseStartKeepsTheStoredEndTime(t *testing.T) {
 		t.Fatalf(fmtRestore, err)
 	}
 
-	if got := a.Snapshot().PhaseEndAt.Sub(now); got != 15*time.Minute {
-		t.Fatalf("expected the stored 15m remainder, got %s", got)
+	if got := a.Snapshot().PhaseEndAt.Sub(now); got != 50*time.Minute {
+		t.Fatalf("expected the full current 50m duration, got %s", got)
+	}
+}
+
+// The phase a restore treats as just begun must record that start, or the very
+// next snapshot saves another session with no phase start.
+func TestRestoreWithoutAPhaseStartRecordsTheRestoreAsTheStart(t *testing.T) {
+	start := time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC)
+	now := start.Add(10 * time.Minute)
+	a := New(50, 5, 15, 4)
+	clock := newFakeClock(now)
+	a.setClock(clock)
+	snap := downSnapshot(start)
+	snap.PhaseStartedAt = time.Time{}
+
+	if err := a.Restore(snap, now); err != nil {
+		t.Fatalf(fmtRestore, err)
+	}
+
+	if got := a.Snapshot().PhaseStartedAt; !got.Equal(now) {
+		t.Fatalf("expected the phase start recorded as %s, got %s", now, got)
 	}
 }
 

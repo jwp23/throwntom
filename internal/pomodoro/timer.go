@@ -137,29 +137,26 @@ func (t *Timer) Restore(s Snapshot, now time.Time) error {
 // force when the session was saved: ADR-008. A phase whose
 // current duration has already been served comes back complete.
 func (t *Timer) restoreRunningLocked(s Snapshot, now time.Time) {
-	remaining := t.remainingOnRestoreLocked(s, now)
+	startedAt := phaseStartOnRestore(s, now)
+	remaining := t.phaseDurationLocked(s.Engine.State) - now.Sub(startedAt)
 	if remaining <= 0 {
 		t.completePeriodLocked()
 		return
 	}
-	t.startPhaseFromLocked(s.PhaseStartedAt, remaining)
+	t.startPhaseFromLocked(startedAt, remaining)
 }
 
-// remainingOnRestoreLocked reports how much of the restored phase is left.
-// Without a recorded phase start there is no way to know how much was spent —
-// a truncated or hand-edited session — so the stored end time stands rather
-// than ending the phase on a guess.
-func (t *Timer) remainingOnRestoreLocked(s Snapshot, now time.Time) time.Duration {
-	if s.PhaseStartedAt.IsZero() {
-		return s.PhaseEndAt.Sub(now)
+// phaseStartOnRestore reports when the restored phase began. Two sessions
+// cannot say: one whose start is in the future, which is a clock that moved
+// backwards, and one with no start at all, which is truncated or hand-edited.
+// Neither owes the user time already served, so both count as beginning now —
+// and ADR-008 then measures the phase against the duration in force now, with
+// no carve-out for a session that happens to be missing a field.
+func phaseStartOnRestore(s Snapshot, now time.Time) time.Time {
+	if s.PhaseStartedAt.IsZero() || s.PhaseStartedAt.After(now) {
+		return now
 	}
-	elapsed := now.Sub(s.PhaseStartedAt)
-	if elapsed < 0 {
-		// A phase that starts in the future is a clock that moved backwards,
-		// not time owed back to the user: treat it as just begun.
-		elapsed = 0
-	}
-	return t.phaseDurationLocked(s.Engine.State) - elapsed
+	return s.PhaseStartedAt
 }
 
 // restorePausedLocked brings back a paused phase. Its elapsed time is frozen,
