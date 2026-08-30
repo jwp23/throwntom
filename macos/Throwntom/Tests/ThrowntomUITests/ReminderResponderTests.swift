@@ -78,10 +78,16 @@ final class ReminderResponderTests: XCTestCase {
   }
 
   /// A button that vanishes without doing what it says is a small lie. Pressing Confirm with no
-  /// service behind it brings the window forward instead, where the screen this branch built says
-  /// which of the three situations you are in and offers Start Timer Service — the answer to "why
-  /// did nothing happen", rather than an alert invented for the occasion.
-  func testAReminderButtonWithNoServiceBehindItShowsTheWindowThatExplainsWhy() async throws {
+  /// service behind it raises the window instead, where the screen this branch built says which of
+  /// the three situations you are in and offers Start Timer Service — the answer to "why did
+  /// nothing happen", rather than an alert invented for the occasion.
+  ///
+  /// Raised, not focused. The presenter is asked for `showWindowWithoutFocus`, and the protocol
+  /// offers no way to activate the app or make the window key, so focus theft is not something a
+  /// presenter here can do (throwntom-lbw). What that means in AppKit is checked by reading
+  /// `SystemReminderPresenter`, not here: a test process with no app bundle has no real window,
+  /// which is exactly the vacuity that made the equivalent assertion on lbw worthless.
+  func testAReminderButtonWithNoServiceBehindItRaisesTheWindowThatExplainsWhy() async throws {
     let presenter = StubReminderPresenter()
     let environment = AppEnvironment(
       transport: try StubTransport(states: []),
@@ -97,9 +103,9 @@ final class ReminderResponderTests: XCTestCase {
     XCTAssertEqual(presenter.withdrawals, 1, "and the banner it came from goes")
   }
 
-  /// The reveal is for a dead press only. A button pressed against a live daemon confirms and
-  /// leaves the user where they were.
-  func testAReminderButtonWithADaemonBehindItDoesNotStealFocus() async throws {
+  /// The raise is for a dead press only. A button pressed against a live daemon confirms and
+  /// leaves the window exactly where it was.
+  func testAReminderButtonWithADaemonBehindItDoesNotSurfaceTheWindow() async throws {
     let presenter = StubReminderPresenter()
     let environment = AppEnvironment(transport: try StubTransport(states: []), presenter: presenter)
     let reported = expectation(description: "macOS is told the answer was handled")

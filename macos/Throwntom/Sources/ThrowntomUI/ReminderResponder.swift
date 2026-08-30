@@ -163,9 +163,11 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
         // Not silence. A button that disappears without doing what it says is a small lie, so the
         // press is answered with the window instead: it names which of the three service-down
         // situations this is and carries Start Timer Service. The banner goes with it, since the
-        // question it asked cannot be answered until the service is back.
+        // question it asked cannot be answered until the service is back. The window is raised
+        // without focus — the user pressed a notification button, which is not a request to be
+        // pulled out of whatever they were typing in.
         withdrawIfTheServiceIsGone()
-        presenter.showWindow()
+        presenter.showWindowWithoutFocus()
         completion()
         return
       }

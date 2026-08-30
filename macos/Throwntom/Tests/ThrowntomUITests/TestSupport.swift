@@ -118,7 +118,7 @@ final class StubReminderPresenter: ReminderPresenter {
     attentionRequests += 1
   }
 
-  func showWindow() {
+  func showWindowWithoutFocus() {
     windowReveals += 1
   }
 }

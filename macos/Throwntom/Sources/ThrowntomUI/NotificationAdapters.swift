@@ -90,12 +90,17 @@ final class SystemReminderPresenter: ReminderPresenter {
     attentionRequest = NSApp.requestUserAttention(.criticalRequest)
   }
 
-  /// Activating alone is not enough: the app has one window (ADR-005) and it may be behind
-  /// others, so it is ordered to the front as well. Nothing is created here — a window the user
-  /// closed stays closed, and activating still puts the app in front of them.
-  func showWindow() {
-    NSApp.activate(ignoringOtherApps: true)
-    NSApp.windows.first { $0.canBecomeKey }?.makeKeyAndOrderFront(nil)
+  /// `orderFrontRegardless` is the whole implementation, and the two calls it is not are the
+  /// point: `NSApp.activate` moves the app in front of the one the user is typing in, and
+  /// `makeKeyAndOrderFront` hands it the keyboard. Joe rejected both outright (throwntom-lbw) —
+  /// a nudge that arrives mid-sentence must not cost you your place. Ordering front regardless
+  /// raises the window above other apps' windows while Throwntom stays inactive, so the
+  /// explanation is there to read the moment they look, and their typing goes on where it was.
+  ///
+  /// The app has one window (ADR-005); `canBecomeKey` picks it out from any panel or helper
+  /// without making it key. Nothing is created here, so a window the user closed stays closed.
+  func showWindowWithoutFocus() {
+    NSApp.windows.first { $0.canBecomeKey }?.orderFrontRegardless()
   }
 
   /// One repeat of the reminder, played straight rather than through a second banner: the
