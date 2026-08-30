@@ -24,22 +24,24 @@ struct MainWindowContent: Equatable {
     // presentation — no phase colour, countdown, garden, focus list, and above all no timer
     // chips, which would dispatch to a daemon already confirmed gone.
     //
-    // The state itself is not touched: the client goes on holding it, because the reconnect
-    // diffs against it (`ReminderResponder.heardRings` adopts the rings it missed rather than
-    // replaying them). Only the deriving stops. Nothing is lost by showing none of it either,
-    // since the daemon persists the day's real position in session.json and republishes it on
-    // the next connection (`internal/core/session.go`).
-    let shown = registrationFailed ? nil : state
+    // Stopping here rather than clearing `DaemonClient.state` is deliberate. That state is the
+    // client's, not this window's: `AppMenus` and `ShortcutSheet` build the Timer menu from it
+    // and `MainWindow` syncs focus from it, so blanking it to dress one window would blank those
+    // too — and a view reaching back to edit the model is the wrong layer either way.
+    //
+    // Showing none of it costs nothing durable: the daemon owns the day's real position, saves
+    // it to session.json and republishes it on the next connection (`internal/core/session.go`).
+    //
+    // `connection != .connected` keeps this in step with `DaemonClient.unresolvedError`, which
+    // lets a live connection outrank a refusal so a stale one can never be shown over a running
+    // timer. The combination is unreachable today — `runStream` clears `registrationError`
+    // before it reports `.connected` — but if it ever were, disagreeing would blank the window
+    // and suppress the note explaining why, which is worse than either alone.
+    let shown = registrationFailed && connection != .connected ? nil : state
     scheme = Palette.scheme(for: shown?.state)
     pose = MascotPose.pose(for: shown?.state, pausedFrom: shown?.pausedFrom ?? .idle)
     title = shown.map(Self.phaseTitle)
-      ?? ConnectionStatus.placeholderText(
-        state: shown,
-        connection: connection,
-        registrationFailed: registrationFailed,
-        now: now,
-      )
-      ?? ""
+      ?? ConnectionStatus.text(state: nil, connection: connection, registrationFailed: registrationFailed, now: now)
     countdown = shown.flatMap { Self.countdown(for: $0, now: now) }
     nextStage = shown?.nextStage.map { "Next: \($0.summary)" }
     garden = shown

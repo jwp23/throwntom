@@ -60,7 +60,7 @@ final class MainWindowContentTests: XCTestCase {
   func testDisconnectedShowsPlaceholderAndNoGarden() {
     let c = content(nil, connection: .reconnecting(attempt: 2), error: "socket closed")
     XCTAssertEqual(c.scheme, Palette.scheme(for: nil))
-    XCTAssertEqual(c.title, ConnectionStatus.placeholderText(state: nil, connection: .reconnecting(attempt: 2), now: now))
+    XCTAssertEqual(c.title, ConnectionStatus.text(state: nil, connection: .reconnecting(attempt: 2), now: now))
     XCTAssertNil(c.garden)
     XCTAssertEqual(c.chips, [])
     XCTAssertEqual(c.error, "socket closed")
@@ -185,6 +185,21 @@ extension MainWindowContentTests {
     XCTAssertEqual(refused.title, "Timer service can’t launch")
     XCTAssertEqual(refused.error, note)
     XCTAssertEqual(refused.serviceAction, .start)
+  }
+
+  /// The disconnected window is the same shell as every other — mascot, ground, chip rows — with
+  /// the live state taken out of it. What it must never become is the IDLE screen: idle means the
+  /// service is up and waiting for you to start a pomodoro, and its chips are live affordances.
+  /// Wearing idle's clothes here would put the dead buttons back, in a costume.
+  func testARefusedLaunchIsNotTheIdleScreen() {
+    let refused = content(makeState(phase: .idle), connection: .startingDaemon, registrationFailed: true)
+    let idle = content(makeState(phase: .idle))
+
+    XCTAssertNotEqual(refused.scheme, idle.scheme, "the idle ground says the service is up")
+    XCTAssertNotEqual(refused.pose, idle.pose)
+    XCTAssertNotEqual(refused.title, idle.title)
+    XCTAssertEqual(idle.chips, [.start, .newCycle, .skipToday], "idle's verbs are live affordances")
+    XCTAssertEqual(refused.chips, [], "and none of them are true here")
   }
 
   /// throwntom-faa is the other disconnected window: the user stopped the service on purpose.

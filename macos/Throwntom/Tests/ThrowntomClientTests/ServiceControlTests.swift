@@ -194,10 +194,13 @@ final class RefusedLaunchTests: XCTestCase {
   }
 
   /// throwntom-ejk: the window stops *showing* the retained state once launchd has refused, but
-  /// the client must go on *holding* it. Reconnect diffs against it — `ReminderResponder`'s
-  /// `heardRings` adopts the rings it missed instead of replaying them as a burst of chimes — and
-  /// clearing it here is the tempting shortcut to a disconnected-looking window. Snapping the
-  /// presentation is `MainWindowContent`'s job; this asserts the state survives underneath it.
+  /// the client must go on *holding* it — `AppMenus` and `ShortcutSheet` build the Timer menu
+  /// from it, and clearing it here is the tempting shortcut to a disconnected-looking window.
+  /// Snapping the presentation is `MainWindowContent`'s job; this asserts the state survives
+  /// underneath it.
+  ///
+  /// A regression guard, not a red test: it passes on the pre-fix code too, because the fix is
+  /// confined to the view layer. It exists so that a later "just clear the state" shortcut fails.
   func testARefusedLaunchKeepsTheRetainedStateForTheReconnect() async throws {
     let client = DaemonClient(
       transport: VanishingTransport(),
@@ -210,7 +213,7 @@ final class RefusedLaunchTests: XCTestCase {
 
     try await waitUntil("the refused launch to be reported") { client.registrationError != nil }
 
-    XCTAssertNotNil(client.state, "the reconnect has nothing to diff against without it")
+    XCTAssertNotNil(client.state, "the menus and shortcut sheet still read this")
   }
 }
 
@@ -225,8 +228,10 @@ final class VanishingTransport: DaemonTransport, @unchecked Sendable {
 
   // MARK: Internal
 
+  /// The task fetch belongs to the one dial that succeeds: the client runs it after decoding the
+  /// frame, while that first stream is still the open one. Every later dial finds nothing.
   func request(_: String, _: String, body _: Data?) async throws -> HTTPResponse {
-    guard lock.withLock({ dials <= 1 }) else {
+    guard lock.withLock({ streamsOpened == 1 }) else {
       throw Self.gone
     }
     return HTTPResponse(status: 200, headers: [:], body: Data(#"{"active":[],"done":[]}"#.utf8))
@@ -234,16 +239,18 @@ final class VanishingTransport: DaemonTransport, @unchecked Sendable {
 
   func events(_: String) -> AsyncThrowingStream<Data, Error> {
     let isFirst = lock.withLock {
-      dials += 1
-      return dials == 1
+      streamsOpened += 1
+      return streamsOpened == 1
     }
     return AsyncThrowingStream { continuation in
-      if isFirst {
-        continuation.yield(Data(StateDecodingTests.idleJSON.utf8))
-        continuation.finish()
-      } else {
+      guard isFirst else {
         continuation.finish(throwing: Self.gone)
+        return
       }
+      continuation.yield(Data(StateDecodingTests.idleJSON.utf8))
+      // Ending it, rather than holding it open the way the other fakes do, is what sends the
+      // client back round the reconnect loop to find the daemon gone.
+      continuation.finish()
     }
   }
 
@@ -252,7 +259,9 @@ final class VanishingTransport: DaemonTransport, @unchecked Sendable {
   private static let gone = DaemonError.transport("POSIXErrorCode(rawValue: 2): No such file or directory")
 
   private let lock = NSLock()
-  private var dials = 0
+
+  /// How many event streams the client has asked for. The daemon is alive during the first.
+  private var streamsOpened = 0
 
 }
 

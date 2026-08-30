@@ -26,46 +26,6 @@ final class ConnectionStatusTests: XCTestCase {
     XCTAssertEqual(ConnectionStatus.text(state: nil, connection: .stopped, now: .now), "Timer service stopped")
   }
 
-  func testPlaceholderTextStopped() {
-    XCTAssertEqual(
-      ConnectionStatus.placeholderText(state: nil, connection: .stopped, now: .now),
-      "Timer service stopped",
-    )
-  }
-
-  func testPlaceholderTextNilWhenStatePresent() {
-    let state = makeClientState()
-    XCTAssertNil(ConnectionStatus.placeholderText(state: state, connection: .connected, now: .now))
-  }
-
-  func testPlaceholderTextConnecting() {
-    XCTAssertEqual(
-      ConnectionStatus.placeholderText(state: nil, connection: .connecting, now: .now),
-      "Connecting…",
-    )
-  }
-
-  func testPlaceholderTextStartingDaemon() {
-    XCTAssertEqual(
-      ConnectionStatus.placeholderText(state: nil, connection: .startingDaemon, now: .now),
-      "Starting timer…",
-    )
-  }
-
-  func testPlaceholderTextReconnecting() {
-    XCTAssertEqual(
-      ConnectionStatus.placeholderText(state: nil, connection: .reconnecting(attempt: 2), now: .now),
-      "Reconnecting…",
-    )
-  }
-
-  func testPlaceholderTextConnected() {
-    XCTAssertEqual(
-      ConnectionStatus.placeholderText(state: nil, connection: .connected, now: .now),
-      "Throwntom",
-    )
-  }
-
   /// A launchd refusal is definitive: nothing is starting, so the line must stop claiming a start
   /// is in progress and name what actually failed. The way out is the window's own Start Timer
   /// Service control, which the note beside this line points at.
@@ -80,7 +40,7 @@ final class ConnectionStatusTests: XCTestCase {
     let dialling: [DaemonClient.Connection] = [.connecting, .reconnecting(attempt: 2), .startingDaemon]
     for connection in dialling {
       XCTAssertEqual(
-        ConnectionStatus.placeholderText(state: nil, connection: connection, registrationFailed: true, now: .now),
+        ConnectionStatus.text(state: nil, connection: connection, registrationFailed: true, now: .now),
         "Timer service can\u{2019}t launch",
         "\(connection)",
       )

@@ -1,8 +1,7 @@
 import Foundation
 
-/// The status text shown for the daemon connection: `text` is the phrase for every connection
-/// state, `placeholderText` is the window's disconnected placeholder. View-independent so it
-/// can be unit tested.
+/// The status text shown for the daemon connection: the phrase for every connection state, used
+/// wherever the window has no phase of its own to name. View-independent so it can be unit tested.
 public enum ConnectionStatus {
   /// `registrationFailed` outranks every dialling state. The reconnect loop keeps retrying after
   /// launchd has refused, so the connection alone still reads as "starting" long after the start
@@ -41,17 +40,5 @@ public enum ConnectionStatus {
 
     case .connected: return "Throwntom"
     }
-  }
-
-  /// The text for the window's disconnected placeholder, or nil once daemon state has
-  /// arrived and there is nothing to overlay.
-  public static func placeholderText(
-    state: DaemonState?,
-    connection: DaemonClient.Connection,
-    registrationFailed: Bool = false,
-    now: Date,
-  ) -> String? {
-    guard state == nil else { return nil }
-    return text(state: state, connection: connection, registrationFailed: registrationFailed, now: now)
   }
 }
