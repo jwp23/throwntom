@@ -162,8 +162,11 @@ final class CancelledRefreshTests: XCTestCase {
   }
 
   /// Why the guard above is reachable at all: the fetch the stream runs after each frame is still
-  /// outstanding when Start tears the stream down, so the cancellation lands inside it. Asserted on
-  /// the transport, which knows whether it has answered, rather than on a moment in time.
+  /// outstanding when Start tears the stream down, so the cancellation lands inside it. `isParked`
+  /// alone cannot show that: nothing but `releaseAsCancelled()` ever clears it, so it would read
+  /// true whether or not Start actually reached the fetch's task. `wasCancelled` is the transport
+  /// observing its own task's cancellation the way `SocketConnection` does, which is what Start's
+  /// `stop()` must reach for this to be true.
   func testPressingStartCancelsATaskFetchThatIsStillInFlight() async throws {
     let transport = ParkingTasksTransport()
     let client = DaemonClient(transport: transport, registrar: RecordingRegistrar(), backoff: [.seconds(30)])
@@ -173,7 +176,8 @@ final class CancelledRefreshTests: XCTestCase {
 
     client.startService()
 
-    XCTAssertTrue(transport.isParked, "the fetch had not answered, so Start cancelled it mid-request")
+    try await waitUntil("the in-flight fetch to observe its task's cancellation") { transport.wasCancelled }
+    transport.releaseAsCancelled()
   }
 
   /// The guard must not swallow a real failure: only a cancelled fetch is silent.
@@ -202,6 +206,14 @@ final class ParkingTasksTransport: DaemonTransport, @unchecked Sendable {
     lock.withLock { parked != nil }
   }
 
+  /// Whether the parked fetch's own task has been cancelled — the transport observing that for
+  /// itself, the way `SocketConnection` does, rather than `isParked` standing in for it. Nothing
+  /// but `releaseAsCancelled()` clears `parked`, so `isParked` alone cannot tell a task Start
+  /// cancelled from one it never reached.
+  var wasCancelled: Bool {
+    lock.withLock { cancelled }
+  }
+
   func request(_: String, _: String, body _: Data?) async throws -> HTTPResponse {
     let isFirst = lock.withLock {
       fetches += 1
@@ -210,8 +222,12 @@ final class ParkingTasksTransport: DaemonTransport, @unchecked Sendable {
     guard isFirst else {
       return Self.emptyTaskList
     }
-    return try await withCheckedThrowingContinuation { continuation in
-      lock.withLock { parked = continuation }
+    return try await withTaskCancellationHandler {
+      try await withCheckedThrowingContinuation { continuation in
+        lock.withLock { parked = continuation }
+      }
+    } onCancel: {
+      lock.withLock { cancelled = true }
     }
   }
 
@@ -238,6 +254,7 @@ final class ParkingTasksTransport: DaemonTransport, @unchecked Sendable {
   private let lock = NSLock()
   private var fetches = 0
   private var parked: CheckedContinuation<HTTPResponse, Error>?
+  private var cancelled = false
 
 }
 

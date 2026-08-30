@@ -98,9 +98,12 @@ final class SystemReminderPresenter: ReminderPresenter {
   /// explanation is there to read the moment they look, and their typing goes on where it was.
   ///
   /// The app has one window (ADR-005); `canBecomeKey` picks it out from any panel or helper
-  /// without making it key. Nothing is created here, so a window the user closed stays closed.
+  /// without making it key. `isSheet` excludes the Keyboard Shortcuts sheet, which can also
+  /// become key while it is up: `NSApp.windows` guarantees no ordering, so without that
+  /// exclusion `first` could raise the sheet instead of the content window behind it. Nothing
+  /// is created here, so a window the user closed stays closed.
   func showWindowWithoutFocus() {
-    NSApp.windows.first { $0.canBecomeKey }?.orderFrontRegardless()
+    NSApp.windows.first { $0.canBecomeKey && !$0.isSheet }?.orderFrontRegardless()
   }
 
   /// One repeat of the reminder, played straight rather than through a second banner: the
