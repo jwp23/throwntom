@@ -369,6 +369,44 @@ func TestPauseCapturesRemainingFromInjectedClock(t *testing.T) {
 	a.Stop()
 }
 
+// A phase can already be exhausted at the moment Pause observes it — its
+// phaseEndAt has passed but the expiry callback has not yet run — in which
+// case Pause reports zero remaining. Resume must complete that phase rather
+// than reviving it with a fresh full duration, which would hand back time
+// the phase never had.
+func TestResumeCompletesAPhaseThatExpiredWhilePaused(t *testing.T) {
+	a := New(25, 5, 15, 4)
+	clk := newFakeClock(time.Now())
+	a.setClock(clk)
+	a.Start()
+
+	// Simulate the phase's clock having already run out before Pause
+	// observes it, bypassing the fake clock's own auto-firing callback so
+	// Pause is the first thing to notice.
+	a.mu.Lock()
+	if a.periodTimer != nil {
+		a.periodTimer.Stop()
+		a.periodTimer = nil
+	}
+	a.phaseStartedAt = clk.Now().Add(-30 * time.Minute)
+	a.phaseEndAt = a.phaseStartedAt.Add(25 * time.Minute)
+	a.mu.Unlock()
+
+	if !a.Pause() {
+		t.Fatal("expected Pause to report true during work")
+	}
+	if got := a.Snapshot().PausedRemaining; got != 0 {
+		t.Fatalf("expected 0 remaining at pause, got %s", got)
+	}
+
+	if !a.Resume() {
+		t.Fatal("expected Resume to report true when paused")
+	}
+	if state := a.State(); state != engine.AwaitingConfirm {
+		t.Fatalf("expected the exhausted phase to complete on resume, got %s", state)
+	}
+}
+
 func TestOnChangeFiresOnVerbs(t *testing.T) {
 	a := New(25, 5, 15, 4)
 	count := 0

@@ -156,6 +156,18 @@ func (e *Engine) LongBreakEvery() int {
 	return e.longBreakEvery
 }
 
+// SetLongBreakEvery changes the cycle length, taking effect on the next long
+// break the engine chooses. The count of work sessions in the block is left
+// alone: those pomodoros were worked, whatever the cycle length is now.
+//
+// n must be positive — New has the same requirement, and NextPhase divides by
+// it. Values reaching here come from a validated config; a zero would panic
+// at the next transition rather than here, so callers that do not validate
+// must check first.
+func (e *Engine) SetLongBreakEvery(n int) {
+	e.longBreakEvery = n
+}
+
 func (e *Engine) SkipToday() {
 	e.state = Idle
 	e.lastPhase = Idle

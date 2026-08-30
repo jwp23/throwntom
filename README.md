@@ -60,9 +60,9 @@ macos/install.sh        # build, install to ~/Applications, and open
 That takes about a minute. The first launch registers the bundled launchd agent
 that runs `throwntomd` — the window shows "Starting timer…" for up to half a
 minute while it comes up — and after that the app is in Spotlight and Launchpad,
-and Launch at Login is a toggle in its application menu. Phase changes post a
-notification and bounce the Dock icon as well as recolouring the window; press
-⌘/ in the window for every shortcut.
+and Launch at Login is a toggle in its application menu. Phase changes recolour
+the window, and a reminder left outstanding posts a notification and bounces the
+Dock icon; press ⌘/ in the window for every shortcut.
 
 Quitting the app does not stop the timer: the daemon keeps running (and keeps
 reminding you) under launchd. The window has no stop button yet: **Skip Today**
@@ -99,7 +99,7 @@ through its tasks panel.
 - `skip-today` - stop reminders for the current day
 - `stats` - show productivity dashboard (today, week, month, all-time, streaks, patterns)
 - `status` - print current status
-- `test-sound` - play the reminder sound immediately to verify terminal audio/bell
+- `test-sound` - play a test tone immediately to verify terminal audio/bell
 - `quit` - exit throwntom
 - `exit` - alias for `quit`
 
@@ -137,6 +137,20 @@ throwntom automatically saves session state to `~/.config/throwntom/session.json
 
 If the saved session is from a different day, it is discarded and throwntom starts fresh. If the timer expired while closed, it transitions to awaiting confirmation. Paused timers remain paused with their remaining duration preserved.
 
+### A phase counts through downtime
+
+A pomodoro is wall-clock time, so a running phase keeps counting while nothing
+is running: the session stores when the phase began, not how much of it was
+left. Restarting the daemon ten minutes into a 25-minute pomodoro leaves 15
+minutes, not 25, and a phase that ran out while the daemon was down comes back
+already complete and awaiting confirmation. Time spent is what carries across
+the outage; the duration it is measured against always comes from your current
+config, so an edit made during the outage still applies. This is deliberate —
+see
+[ADR-006](docs/adr/006-daemon-lifecycle-and-config-reload.md). Stopping the
+timer service is therefore not a way to pause: use `pause`, which stores the
+remaining duration instead.
+
 ## Productivity Analytics
 
 throwntom records every meaningful event (pomodoro start/complete, breaks, pauses, snoozes) to `~/.config/throwntom/events.jsonl`. This append-only log powers the `stats` command, which displays:
@@ -172,6 +186,11 @@ client can keep showing that phase while paused.
 ## Config
 
 Config file location: `~/.config/throwntom/config.toml`
+
+The first time `throwntomd` starts without one, it writes a fully documented
+`config.toml` there: every setting, with its default, commented out. Edit the
+file in place — uncomment a line and change it. An existing config is never
+overwritten. The macOS app opens this file with **Open Config File…** (⌘,).
 
 Example `config.toml`:
 
@@ -241,8 +260,36 @@ sound_command = ["true"]
 `/usr/bin/true` exits 0 immediately and prints nothing, so throwntom reports
 success with no audio.
 
-Both `throwntom` and `throwntomd` read config once at startup, so a config
-change — including `sound_command` — needs a restart to take effect.
+### Reloading
+
+`throwntomd` watches `config.toml` and applies edits within a few seconds,
+with no restart. It polls every two seconds and waits for an edit to stop
+changing before applying it, so a save lands on the second poll that sees it. The pomodoro already running is re-derived from the
+new durations: it keeps the time it has spent and runs for whatever the new
+duration leaves. Shortening a duration below the time the current phase has
+already spent ends that phase immediately — the edit says the phase should
+already be over. A file that does not parse is reported on the daemon's
+stderr and ignored; the config in force stays in force.
+
+Reloading covers `[pomodoro]`, `[[schedule]]`, `repeat_secs` and
+`repeat_limit_secs`. The rest needs a restart of whichever process reads it:
+
+- `sound_command` — `throwntomd` plays no sound at all (see above), and the
+  terminal UI that does use it builds its notifier once, at startup; neither
+  rereads it.
+- `morning_reminder_pending` — it answers whether today's morning reminder is
+  owed when the daemon starts, a question already settled by the time an edit
+  arrives.
+- `emoji` and the `[stats]` tiers — client settings, read by `throwntom` when
+  it launches.
+
+An edit made while the daemon is *stopped* lands the same way. The phase that
+was in flight keeps the time it had already spent — that keeps accruing
+through the outage, see [A phase counts through
+downtime](#a-phase-counts-through-downtime) — but it is measured against the
+duration in your config now. Changing `work_minutes` from 25 to 50 with the
+daemon stopped and restarting ten minutes in leaves forty minutes, exactly as
+it would have with the daemon running.
 
 If you only need to silence *one* running reminder rather than sound in
 general (for example, ducking out of a meeting), don't edit the config —
