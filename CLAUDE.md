@@ -214,6 +214,25 @@
 - If measurement disproves the bead's premise, record that on the bead with
   `bd update <id> --notes=...` before fixing, so the correction outlives the session.
 
+## Absolutes are not yours to interpret
+
+- When a governing decision states an absolute — NEVER, MUST NOT, ALWAYS — and the
+  work does the named thing, you may NOT decide that this instance is different.
+  Escalate to the adjudicator and let it rule. Your reasoning is inadmissible as
+  the check, because the agent deciding cannot see what it is missing.
+- This is a mechanical trigger, not a judgment call: the ruling names a thing, the
+  diff or report contains that thing, so it escalates. No assessment of severity,
+  intent or whether the spirit is really violated.
+- The tell, in your own words: "the rule says X, but this case is different." A
+  distinction constructed to excuse a violation is the moment to stop, not the
+  moment to proceed. It is what a rationalisation sounds like from the inside.
+- Escalating is cheap — one shot, clean context. Shipping a violation of a stated
+  ruling is not. When the two are weighed, the asymmetry favours escalating, and
+  reluctance to admit uncertainty is not a reason to skip it.
+- Agents disagreeing with each other is NOT this trigger. Those resolve best by
+  someone running an experiment. Escalate a disagreement only when the same one
+  survives two exchanges with no new evidence.
+
 ## Requirements
 - Minimal 3rd party libraries are used
 - Use 3rd party libraries if they'll be more stable but get confirmation before using them
