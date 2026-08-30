@@ -25,8 +25,11 @@
 // brightest artwork pixel the fill can reach along the edge, so the fill runs
 // out of background instead of leaking inside. Sweeping it should show a wide
 // plateau where the filled count barely moves; pick from the middle of that
-// plateau. A leak is obvious in the reported percentage: it jumps to most of
-// the image.
+// plateau. A leak shows up as the share of the image the fill claims, which
+// jumps to about half or more, and --max-surround makes that a hard limit
+// rather than a number someone has to notice. That limit is the only thing
+// that can catch a leak: re-running the fill checks a mask against itself, and
+// a leaked mask is still perfectly self-consistent.
 //
 // Scope: flat-backdrop artwork with at least one background corner. The tool
 // refuses to run when no corner qualifies rather than writing a file that is
@@ -38,21 +41,30 @@
 // through.
 //
 // Usage:
-//   tools/unmatte-white-background.swift <input.png> <output.png> [--threshold N]
-//   tools/unmatte-white-background.swift --verify <input.png> <output.png> [--threshold N]
+//   tools/unmatte-white-background.swift <in.png> <out.png> [--threshold N] [--max-surround PERCENT]
+//   tools/unmatte-white-background.swift --verify <in.png> <out.png> [--threshold N] [--max-surround PERCENT]
 //
 // --verify re-checks a generated file against its source. It re-runs the same
 // flood fill on the source and asserts that every pixel the fill reaches is
-// non-opaque in the output, that every pixel it does not reach kept the
-// source's alpha, that the four corners are fully transparent, and that
-// compositing the output back over the sampled backdrop reproduces the
-// source. Run it after regenerating to confirm the asset is still correct.
+// non-opaque in the output, that every pixel it does not reach is byte-identical
+// to the source, that the four corners are fully transparent, and that
+// compositing the output back over the sampled backdrop reproduces the source.
+// Artwork is held to exact equality; the composite tolerance covers only the
+// partial-alpha edge. Verify with the same --threshold used to generate, since
+// a different one recomputes a different region. Run it after regenerating to
+// confirm the asset is still correct.
 
 import AppKit
 
 let defaultThreshold = 45
+// The share of the image the background may claim before the fill is treated
+// as having leaked. Flat-backdrop art surrounds a subject; a fill that has
+// burst into the interior takes about half the image or more, so the gap
+// between a sane fill and a leaked one is wide enough to sit a limit in.
+let defaultMaxSurround = 0.25
 // Round-trip slack: loadBitmap un-premultiplies with integer division, which
 // costs up to a count or two on partial-alpha pixels once alpha is reapplied.
+// It applies to partial-alpha pixels only; artwork is checked for exact equality.
 let compositeTolerance = 2
 
 struct Bitmap {
@@ -189,7 +201,7 @@ func findSurround(_ bitmap: Bitmap, threshold: Int) -> Surround? {
     )
 }
 
-func requireSurround(_ bitmap: Bitmap, threshold: Int, path: String) -> Surround {
+func requireSurround(_ bitmap: Bitmap, threshold: Int, maxFraction: Double, path: String) -> Surround {
     guard let surround = findSurround(bitmap, threshold: threshold) else {
         let seen = bitmap.corners
             .map { "\($0.name)=\(bitmap.minChannel($0.x, $0.y))" }
@@ -197,6 +209,20 @@ func requireSurround(_ bitmap: Bitmap, threshold: Int, path: String) -> Surround
         fail("no corner of \(path) reaches the --threshold of \(threshold), so there is no "
             + "background to remove (corner min-channel values: \(seen)). This tool expects "
             + "artwork on a flat light backdrop; lower the threshold if the backdrop is darker.")
+    }
+    // A fill that escaped through the edge of the art swallows the interior and
+    // is still perfectly self-consistent, so its own mask cannot catch it. Only
+    // the share of the image it claims gives it away.
+    let fraction = Double(surround.filled) / Double(bitmap.width * bitmap.height)
+    if fraction > maxFraction {
+        fail(String(
+            format: "the fill claimed %.1f%% of %@, over the --max-surround limit of %.1f%%. "
+                + "A --threshold of %d has almost certainly leaked through the artwork's edge "
+                + "into its interior. Sweep the threshold and pick from the plateau where the "
+                + "claimed share barely moves, or raise --max-surround if this art really is "
+                + "mostly background.",
+            fraction * 100, path, maxFraction * 100, threshold
+        ))
     }
     return surround
 }
@@ -232,9 +258,11 @@ func describe(_ background: [Double]) -> String {
     "rgb(" + background.map { String(Int($0)) }.joined(separator: ",") + ")"
 }
 
-func generate(input: String, output: String, threshold: Int) {
+func generate(input: String, output: String, settings: Options) {
     let source = loadBitmap(input)
-    let surround = requireSurround(source, threshold: threshold, path: input)
+    let surround = requireSurround(
+        source, threshold: settings.threshold, maxFraction: settings.maxSurround, path: input
+    )
     writePNG(unmatte(source, surround: surround), to: output)
     let percent = Double(surround.filled) / Double(source.width * source.height) * 100
     print("wrote \(output) — \(source.width)x\(source.height), backdrop "
@@ -242,14 +270,16 @@ func generate(input: String, output: String, threshold: Int) {
         + String(format: "surround %d px (%.1f%% of image)", surround.filled, percent))
 }
 
-func verify(input: String, output: String, threshold: Int) {
+func verify(input: String, output: String, settings: Options) {
     let source = loadBitmap(input)
     let result = loadBitmap(output)
     guard source.width == result.width, source.height == result.height else {
         fail("size mismatch: source \(source.width)x\(source.height), "
             + "output \(result.width)x\(result.height)")
     }
-    let surround = requireSurround(source, threshold: threshold, path: input)
+    let surround = requireSurround(
+        source, threshold: settings.threshold, maxFraction: settings.maxSurround, path: input
+    )
     var failures: [String] = []
 
     func note(_ line: String) {
@@ -267,9 +297,12 @@ func verify(input: String, output: String, threshold: Int) {
     }
 
     // The real assertion: the whole background region must have been cleared,
-    // and nothing outside it may have moved.
+    // and nothing outside it may have moved. Artwork is held to exact equality,
+    // not the composite tolerance — the tolerance exists only to absorb the
+    // un-premultiply round-trip on partial-alpha pixels, which artwork pixels
+    // left untouched do not have.
     var surroundStillOpaque = 0
-    var artworkAlphaChanged = 0
+    var artworkChanged = 0
     var worst = 0
     var worstAt = (0, 0)
     for y in 0..<result.height {
@@ -278,8 +311,8 @@ func verify(input: String, output: String, threshold: Int) {
             let alpha = Int(result.pixels[i + 3])
             if surround.mask[y * result.width + x] {
                 if alpha == 255 { surroundStillOpaque += 1 }
-            } else if alpha != Int(source.pixels[i + 3]) {
-                artworkAlphaChanged += 1
+            } else if (0..<4).contains(where: { result.pixels[i + $0] != source.pixels[i + $0] }) {
+                artworkChanged += 1
             }
             let a = Double(alpha) / 255
             var pixelWorst = 0
@@ -294,15 +327,15 @@ func verify(input: String, output: String, threshold: Int) {
         }
     }
     note("background pixels left opaque: \(surroundStillOpaque)")
-    note("artwork pixels whose alpha changed: \(artworkAlphaChanged)")
+    note("artwork pixels changed: \(artworkChanged)")
     note("worst channel difference over the source backdrop: \(worst) at \(worstAt.0),\(worstAt.1)")
 
     if surroundStillOpaque != 0 {
         failures.append("\(surroundStillOpaque) background pixels are still opaque; "
             + "the surround was not removed")
     }
-    if artworkAlphaChanged != 0 {
-        failures.append("\(artworkAlphaChanged) pixels outside the background changed alpha; "
+    if artworkChanged != 0 {
+        failures.append("\(artworkChanged) pixels outside the background differ from the source; "
             + "the artwork was altered")
     }
     if worst > compositeTolerance {
@@ -319,23 +352,47 @@ func verify(input: String, output: String, threshold: Int) {
     print("OK: \(output) is transparent across the background and unchanged over the backdrop")
 }
 
+let options = "[--threshold N] [--max-surround PERCENT]"
 let usage = """
-usage: unmatte-white-background.swift <input.png> <output.png> [--threshold N]
-       unmatte-white-background.swift --verify <input.png> <output.png> [--threshold N]
+usage: unmatte-white-background.swift <input.png> <output.png> \(options)
+       unmatte-white-background.swift --verify <input.png> <output.png> \(options)
+
+Verify with the same --threshold the file was generated with; a different one
+recomputes a different background region and reports a spurious mismatch.
 """
 
-/// Splits a trailing `--threshold N` off the argument list.
-func takeThreshold(_ args: [String]) -> ([String], Int) {
-    guard args.count >= 2, args[args.count - 2] == "--threshold" else {
-        return (args, defaultThreshold)
-    }
-    guard let value = Int(args[args.count - 1]), (0...255).contains(value) else {
-        fail("--threshold takes a number from 0 to 255\n\(usage)")
-    }
-    return (Array(args.dropLast(2)), value)
+struct Options {
+    var threshold = defaultThreshold
+    var maxSurround = defaultMaxSurround
 }
 
-let (positional, threshold) = takeThreshold(Array(CommandLine.arguments.dropFirst()))
+/// Splits trailing `--key value` options off the argument list.
+func takeOptions(_ args: [String]) -> ([String], Options) {
+    var rest = args
+    var options = Options()
+    while rest.count >= 2 {
+        let key = rest[rest.count - 2]
+        let raw = rest[rest.count - 1]
+        switch key {
+        case "--threshold":
+            guard let value = Int(raw), (0...255).contains(value) else {
+                fail("--threshold takes a number from 0 to 255\n\(usage)")
+            }
+            options.threshold = value
+        case "--max-surround":
+            guard let value = Double(raw), value > 0, value <= 100 else {
+                fail("--max-surround takes a percentage above 0 and up to 100\n\(usage)")
+            }
+            options.maxSurround = value / 100
+        default:
+            return (rest, options)
+        }
+        rest = Array(rest.dropLast(2))
+    }
+    return (rest, options)
+}
+
+let (positional, settings) = takeOptions(Array(CommandLine.arguments.dropFirst()))
 let verifying = positional.first == "--verify"
 let paths = verifying ? Array(positional.dropFirst()) : positional
 
@@ -343,7 +400,7 @@ guard paths.count == 2, !paths.contains(where: { $0.hasPrefix("--") }) else {
     fail(usage)
 }
 if verifying {
-    verify(input: paths[0], output: paths[1], threshold: threshold)
+    verify(input: paths[0], output: paths[1], settings: settings)
 } else {
-    generate(input: paths[0], output: paths[1], threshold: threshold)
+    generate(input: paths[0], output: paths[1], settings: settings)
 }

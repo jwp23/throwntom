@@ -93,12 +93,19 @@ banner composited back over that backdrop reproduces the source to within 1/255 
 are fully transparent.
 
 `--verify` re-runs the same fill on the source and asserts that every pixel it reaches is
-non-opaque in the output, that every pixel outside it kept the source's alpha, that the four
-corners are alpha 0, and that the composite round-trips. It exits non-zero otherwise, so run it
-after any regeneration — checking only the corners would pass a file that still has the bug. The
-reported surround percentage (about 4.6%) is the leak check: a fill that escaped into the artwork
-would claim most of the image. Generation refuses to run at all when no corner reaches the
-threshold, rather than writing a file that is merely opaque with an alpha channel.
+non-opaque in the output, that every pixel outside it is byte-identical to the source, that the
+four corners are alpha 0, and that the composite round-trips. It exits non-zero otherwise, so run
+it after any regeneration — checking only the corners would pass a file that still has the bug.
+Verify with the same `--threshold` you generated with, since a different one recomputes a
+different region and reports a spurious mismatch.
+
+Two guards sit outside that check, because re-running the fill only ever validates a mask against
+itself and a leaked mask is still self-consistent. Generation refuses to run when no corner reaches
+the threshold, rather than writing a file that is merely opaque with an alpha channel; and
+`--max-surround` (default 25%) rejects a fill that claims an implausible share of the image. The
+banner's fill claims 4.6%; a `--threshold` of 30 leaks through the badge ring and claims 49.7%,
+which is now a hard error instead of a percentage someone has to notice. The default threshold of
+45 sits well inside the plateau between those.
 
 Do not apply `macos/mask-icon.swift` here. That masks the *app icon* to Apple's continuous-corner
 squircle, and the banner is different art with a soft, full-bleed edge of its own — a geometric
