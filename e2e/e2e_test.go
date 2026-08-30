@@ -24,6 +24,11 @@ const smokeConfig = `morning_reminder_pending = false
 work_minutes = 33
 `
 
+// clampedHeaderLine is the config header rendered into a terminal narrowed to
+// resizeNarrowCols: clampANSILine trims it to one column short of the width and
+// marks the cut with an ellipsis.
+const clampedHeaderLine = "33m work / 5m short ..."
+
 func buildBinary(t *testing.T) string {
 	t.Helper()
 
@@ -209,6 +214,12 @@ TERM=dumb exec "$1"`
 	}
 	if !strings.Contains(output, "33m work") {
 		t.Fatalf("expected header from the test-owned config, got %q", output)
+	}
+	// The absence assertions above only mean anything if a resize actually
+	// reached the program. A narrowed terminal clamps the header, so the
+	// clamped line is the proof that the run was resized at all.
+	if !strings.Contains(output, clampedHeaderLine) {
+		t.Fatalf("expected a re-render clamped by the narrow resize, got %q", output)
 	}
 }
 
