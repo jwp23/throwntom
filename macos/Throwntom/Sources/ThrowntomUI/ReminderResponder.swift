@@ -188,16 +188,22 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
   /// app starts counts from zero, so it is heard rather than adopted in silence.
   private var heardRings = 0
 
-  /// Sounds the rings the daemon has made. Only a climb is a ring: the count resets when a wait
-  /// is retired, and a reset is not something to be heard. Every ring sounds the same way,
-  /// the first included - the banner carries no sound of its own (ADR-009).
+  /// Sounds the rings the daemon has made. Every ring sounds the same way, the first included -
+  /// the banner carries no sound of its own (ADR-009).
   ///
-  /// A climb of any size is one chime. Rings the app was not there to hear - across a
-  /// reconnect, or a wait already running at launch - are what makes a climb bigger than one,
-  /// and they are past: the reminder still owed is a single reminder, not a backlog of alerts.
+  /// A ring is a count that has *changed* while a reminder is outstanding, not one that has
+  /// climbed. A restarted daemon counts its rings from zero again, so a new wait can arrive with
+  /// a lower count than the last one heard; waiting for it to climb past that figure would leave
+  /// a visibly waiting reminder silent for several rings. Requiring a wait is what keeps the
+  /// reset to zero at the end of one quiet, which is the case the climb test used to cover.
+  ///
+  /// A change of any size is one chime. Rings the app was not there to hear - across a reconnect,
+  /// or a wait already running at launch - are what make the gap bigger than one, and they are
+  /// past: the reminder still owed is a single reminder, not a backlog of alerts.
   private func chimeForNewRings(in state: DaemonState) {
     defer { heardRings = state.reminderRings }
-    guard state.reminderRings > heardRings else { return }
+    guard ReminderBanner.isWaiting(state), state.reminderRings > 0 else { return }
+    guard state.reminderRings != heardRings else { return }
     presenter.chime()
   }
 

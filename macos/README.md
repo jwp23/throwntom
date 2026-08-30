@@ -45,7 +45,11 @@ confirmation, or the morning nudge — the app also posts a notification (it
 asks for permission the first time) and bounces the Dock icon. The daemon
 plays no sound of its own, and neither does the banner: the app chimes once on
 every ring the daemon publishes, the first included, until the reminder is
-answered (`docs/adr/003-clients-own-user-facing-notification.md`,
+answered. Setting `float_window_when_waiting = true` in `config.toml` also keeps
+the window above other applications' windows for as long as the reminder is
+unanswered, dropping it back on confirm or snooze; it is off by default and
+never takes keyboard focus (see the root README for the setting)
+(`docs/adr/003-clients-own-user-facing-notification.md`,
 `docs/adr/007-the-daemon-plays-no-sound.md`,
 `docs/adr/009-the-chime-is-the-only-audio-path.md`).
 

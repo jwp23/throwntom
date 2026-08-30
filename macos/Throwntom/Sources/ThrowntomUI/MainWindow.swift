@@ -52,7 +52,10 @@ struct MainWindow: View {
     .padding(16)
     .frame(minWidth: 320, maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     .background(content.scheme.ground.color)
-    .background(WindowElevator(floating: WindowElevation.floats(during: environment.client.state)))
+    .background(WindowElevator(floating: WindowElevation.floats(
+      during: environment.client.state,
+      connection: environment.client.connection,
+    )))
     .foregroundStyle(content.scheme.text.color)
     .animation(.easeOut(duration: 0.25), value: content.scheme)
     .animation(.easeOut(duration: 0.25), value: content.panel)

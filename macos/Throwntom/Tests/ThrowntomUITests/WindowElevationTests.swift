@@ -11,17 +11,17 @@ final class WindowElevationTests: XCTestCase {
   // MARK: Internal
 
   func testTheWindowDoesNotFloatWhileTheSettingIsOff() {
-    XCTAssertFalse(WindowElevation.floats(during: waiting(floatWhenWaiting: false)))
+    XCTAssertFalse(WindowElevation.floats(during: waiting(floatWhenWaiting: false), connection: .connected))
   }
 
   func testTheWindowFloatsWhileAReminderIsWaiting() {
-    XCTAssertTrue(WindowElevation.floats(during: waiting(floatWhenWaiting: true)))
+    XCTAssertTrue(WindowElevation.floats(during: waiting(floatWhenWaiting: true), connection: .connected))
   }
 
   /// Confirming ends the wait by leaving `awaitingConfirm`, and the window drops back with it.
   func testConfirmingTheReminderStopsTheFloat() {
     let confirmed = makeState(phase: .shortBreak, floatWhenWaiting: true)
-    XCTAssertFalse(WindowElevation.floats(during: confirmed))
+    XCTAssertFalse(WindowElevation.floats(during: confirmed, connection: .connected))
   }
 
   /// A snooze the daemon has accepted is an answer: nothing is outstanding until it runs out, so
@@ -33,18 +33,38 @@ final class WindowElevationTests: XCTestCase {
       snoozeUntil: Date(timeIntervalSince1970: 1),
       floatWhenWaiting: true,
     )
-    XCTAssertFalse(WindowElevation.floats(during: snoozed))
+    XCTAssertFalse(WindowElevation.floats(during: snoozed, connection: .connected))
   }
 
   /// The morning nudge is a reminder waiting to be answered too, and `float_window_when_waiting`
   /// says "when waiting" rather than naming one of them.
   func testTheMorningNudgeFloatsTheWindowToo() {
     let morning = makeState(phase: .idle, morningPending: true, floatWhenWaiting: true)
-    XCTAssertTrue(WindowElevation.floats(during: morning))
+    XCTAssertTrue(WindowElevation.floats(during: morning, connection: .connected))
   }
 
   func testAStateTheAppCannotReadDoesNotFloatTheWindow() {
-    XCTAssertFalse(WindowElevation.floats(during: nil))
+    XCTAssertFalse(WindowElevation.floats(during: nil, connection: .connected))
+  }
+
+  /// A daemon that goes down leaves its last state behind, and that state can still say a reminder
+  /// is waiting. Floating on the strength of it would put the window over everything for as long as
+  /// the daemon stayed down, with nothing left able to answer the reminder and lower it again.
+  func testALostDaemonLetsTheWindowBackDown() {
+    let waitingState = waiting(floatWhenWaiting: true)
+
+    let lost: [DaemonClient.Connection] = [
+      .reconnecting(attempt: 1),
+      .connecting,
+      .startingDaemon,
+      .stopped,
+    ]
+    for connection in lost {
+      XCTAssertFalse(
+        WindowElevation.floats(during: waitingState, connection: connection),
+        "a \(connection) daemon must not hold the window in front",
+      )
+    }
   }
 
   /// Joe's requirement, 2026-08-29: the window may come to the front, but it must never steal the
@@ -75,6 +95,37 @@ final class WindowElevationTests: XCTestCase {
 
     XCTAssertEqual(window.level, .normal)
     XCTAssertFalse(window.isKeyWindow)
+  }
+
+  /// The half that reaches the real window: the level lands when the view joins the hierarchy,
+  /// which is the moment there is a window to raise at all.
+  func testTheLevelIsAppliedWhenTheViewJoinsAWindow() {
+    let window = makeWindow()
+    let view = ElevatedHostView()
+    view.floating = true
+
+    window.contentView?.addSubview(view)
+
+    XCTAssertEqual(window.level, .floating)
+    XCTAssertFalse(window.isVisible, "joining a window must not put it on screen")
+  }
+
+  func testTheLevelFollowsLaterChangesWhileInAWindow() {
+    let window = makeWindow()
+    let view = ElevatedHostView()
+    window.contentView?.addSubview(view)
+
+    view.floating = true
+    XCTAssertEqual(window.level, .floating)
+
+    view.floating = false
+    XCTAssertEqual(window.level, .normal)
+  }
+
+  /// The view is a handle on the window, not something to click: it is hung behind the whole
+  /// window, so a view that answered hit tests would swallow them.
+  func testTheHostViewTakesNoClicks() {
+    XCTAssertNil(ElevatedHostView().hitTest(NSPoint(x: 1, y: 1)))
   }
 
   // MARK: Private

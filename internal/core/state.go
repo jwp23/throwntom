@@ -49,18 +49,17 @@ func (c *Core) stateLocked() State {
 	statusLine, state, morningPending := c.statusLocked()
 	snap := c.timer.Snapshot()
 	s := State{
-		State:               state,
-		PausedRemaining:     int(snap.PausedRemaining / time.Second),
-		PausedFrom:          snap.Engine.PausedFrom,
-		CompletedToday:      snap.Engine.CompletedToday,
-		WorkSessionsInBlock: snap.Engine.WorkSessions,
-		LongBreakEvery:      c.longBreakEvery,
-		MorningPending:      morningPending,
-		DayEnded:            snap.Engine.DayEnded,
-		StatusLine:          statusLine,
-		FocusedTaskIDs:      c.focusedIDs(),
-		ReminderRings:       c.reminder.ringCount(),
-
+		State:                  state,
+		PausedRemaining:        int(snap.PausedRemaining / time.Second),
+		PausedFrom:             snap.Engine.PausedFrom,
+		CompletedToday:         snap.Engine.CompletedToday,
+		WorkSessionsInBlock:    snap.Engine.WorkSessions,
+		LongBreakEvery:         c.longBreakEvery,
+		MorningPending:         morningPending,
+		DayEnded:               snap.Engine.DayEnded,
+		StatusLine:             statusLine,
+		FocusedTaskIDs:         c.focusedIDs(),
+		ReminderRings:          c.reminder.ringCount(),
 		FloatWindowWhenWaiting: c.floatWindowWhenWaiting,
 	}
 	if !snap.PhaseEndAt.IsZero() {

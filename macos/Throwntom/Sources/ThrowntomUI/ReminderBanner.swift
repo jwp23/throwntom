@@ -15,8 +15,8 @@ protocol ReminderPresenter {
   func withdrawReminder()
   /// Draws the eye to the app without taking focus: on macOS, the Dock icon bounces.
   func requestAttention()
-  /// Sounds one repeat of the reminder. The banner chimes as it posts; this is every ring
-  /// after that, which is the part of the nag the daemon no longer plays.
+  /// Sounds one ring of the reminder. The banner carries no sound of its own (ADR-009), so this
+  /// is the whole audio path — ring one included, and every repeat the daemon no longer plays.
   func chime()
 }
 

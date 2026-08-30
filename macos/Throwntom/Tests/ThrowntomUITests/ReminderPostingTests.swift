@@ -200,9 +200,23 @@ final class ReminderPostingTests: XCTestCase {
     XCTAssertEqual(presenter.chimes, 1)
   }
 
+  /// A restarted daemon counts its rings from zero again, so the new wait's count can start below
+  /// the one the app last heard. Waiting for it to climb past the old figure would leave a visibly
+  /// waiting reminder silent for several rings.
+  func testAWaitWhoseRingCountRestartedLowerStillChimes() async throws {
+    let presenter = StubReminderPresenter()
+    let responder = try makeResponder(presenter)
+
+    await responder.present(makeState(phase: .awaitingConfirm, nextStage: shortBreak, reminderRings: 3))
+    let afterTheFirstWait = presenter.chimes
+    await responder.present(makeState(phase: .awaitingConfirm, nextStage: shortBreak, reminderRings: 1))
+
+    XCTAssertEqual(presenter.chimes, afterTheFirstWait + 1)
+  }
+
   /// Rings the app was not there to hear are adopted, not replayed: a gap of four rings is one
   /// reminder gone unanswered, not four alerts owed all at once.
-  func testRingsMissedWhileAwayChimeOnceNotAsABurst() async throws {
+  func testAGapOfManyRingsIsOneChimeNotOnePerRing() async throws {
     let presenter = StubReminderPresenter()
     let responder = try makeResponder(presenter)
 

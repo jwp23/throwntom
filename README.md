@@ -303,7 +303,8 @@ already be over. A file that does not parse is reported on the daemon's
 stderr and ignored; the config in force stays in force.
 
 Reloading covers `[pomodoro]`, `[[schedule]]`, `repeat_secs`,
-`repeat_limit_secs` and `float_window_when_waiting`. The rest needs a restart of whichever process reads it:
+`repeat_limit_secs` and `float_window_when_waiting`. The rest needs a restart
+of whichever process reads it:
 
 - `sound_command` — `throwntomd` plays no sound at all (see above), and the
   terminal UI that does use it builds its notifier once, at startup; neither
