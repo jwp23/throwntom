@@ -212,14 +212,21 @@ func (t *Timer) Start() engine.Snapshot {
 	defer t.mu.Unlock()
 	defer t.transitionLocked()
 	if before.State == engine.AwaitingConfirm {
-		t.engine.ConfirmNext()
-	} else {
-		t.engine.StartWork()
+		t.confirmNextLocked()
+		return before
 	}
+	t.engine.StartWork()
+	t.startPhaseTimerLocked(t.phaseDurationLocked(t.engine.State()))
+	return before
+}
+
+// confirmNextLocked credits the phase waiting on the user and runs the one
+// that follows. A stage with no duration of its own runs no timer.
+func (t *Timer) confirmNextLocked() {
+	t.engine.ConfirmNext()
 	if d := t.phaseDurationLocked(t.engine.State()); d > 0 {
 		t.startPhaseTimerLocked(d)
 	}
-	return before
 }
 
 // OwedStage reports the phase Start would enter now and how long it would run
