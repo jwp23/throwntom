@@ -87,11 +87,18 @@ tools/unmatte-white-background.swift --verify docs/images/throwntom-source.png d
 
 The tool flood-fills the backdrop inward from the four corners, so white *inside* the art — the
 badge ring, the wordmark outline — is enclosed by opaque pixels and is never reached, and it
-un-composites each background pixel from the backdrop colour it samples at the corner. The soft
-edge keeps its exact coverage, so the banner over white is the original pixel for pixel while the
-corners are fully transparent. `--verify` asserts exactly that and exits non-zero otherwise; run it
-after any regeneration. The reported surround percentage (about 4.6%) is the leak check: a fill
-that escaped into the artwork would claim most of the image.
+un-composites each background pixel from the backdrop colour it samples at a corner the fill
+seeded from (254,254,254 here, not pure white). The soft edge keeps its exact coverage, so the
+banner composited back over that backdrop reproduces the source to within 1/255 while the corners
+are fully transparent.
+
+`--verify` re-runs the same fill on the source and asserts that every pixel it reaches is
+non-opaque in the output, that every pixel outside it kept the source's alpha, that the four
+corners are alpha 0, and that the composite round-trips. It exits non-zero otherwise, so run it
+after any regeneration — checking only the corners would pass a file that still has the bug. The
+reported surround percentage (about 4.6%) is the leak check: a fill that escaped into the artwork
+would claim most of the image. Generation refuses to run at all when no corner reaches the
+threshold, rather than writing a file that is merely opaque with an alpha channel.
 
 Do not apply `macos/mask-icon.swift` here. That masks the *app icon* to Apple's continuous-corner
 squircle, and the banner is different art with a soft, full-bleed edge of its own — a geometric
