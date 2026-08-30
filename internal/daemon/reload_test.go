@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jwp23/throwntom/v3/internal/config"
+	"github.com/jwp23/throwntom/v3/internal/core"
 )
 
 // TestRunAppliesConfigChangesWithoutRestart is the boundary this feature
@@ -44,7 +45,7 @@ func TestRunAppliesConfigChangesWithoutRestart(t *testing.T) {
 
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		if got := stateLongBreakEvery(t, client); got == 3 {
+		if stateLongBreakEvery(t, client) == 3 {
 			return
 		}
 		if time.Now().After(deadline) {
@@ -117,12 +118,46 @@ func TestRunUsesTheGivenBaselineNotAFreshRead(t *testing.T) {
 
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		if got := stateLongBreakEvery(t, client); got == 3 {
+		if stateLongBreakEvery(t, client) == 3 {
 			return
 		}
 		if time.Now().After(deadline) {
 			t.Fatalf("daemon never picked up the edit already on disk at startup; long_break_every is still %d", stateLongBreakEvery(t, client))
 		}
 		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// TestWatchConfigStopCancelsTheWatcher pins the shutdown contract of the
+// func watchConfig returns: it must cancel the watcher context before waiting
+// on the watcher goroutine, so it terminates rather than blocking forever.
+// This breaks if Watcher.Run stops honouring ctx.Done, or if the stop func is
+// ever reduced to a bare receive on done.
+func TestWatchConfigStopCancelsTheWatcher(t *testing.T) {
+	restore := configPollInterval
+	configPollInterval = 5 * time.Millisecond
+	t.Cleanup(func() { configPollInterval = restore })
+
+	paths := tempPaths(t)
+	paths.Config = filepath.Join(filepath.Dir(paths.Session), "config.toml")
+	configBytes := []byte("[pomodoro]\nlong_break_every = 4\n")
+	if err := os.WriteFile(paths.Config, configBytes, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c, err := core.New(config.Default(), noopNotifier{}, paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	stop := watchConfig(context.Background(), paths.Config, configBytes, c)
+	stopped := make(chan struct{})
+	go func() {
+		defer close(stopped)
+		stop()
+	}()
+	select {
+	case <-stopped:
+	case <-time.After(5 * time.Second):
+		t.Fatal("stop never returned; the watcher context was not cancelled")
 	}
 }
