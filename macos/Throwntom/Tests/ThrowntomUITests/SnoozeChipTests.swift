@@ -1,0 +1,63 @@
+import ThrowntomClient
+import XCTest
+@testable import ThrowntomUI
+
+@MainActor
+final class SnoozeChipTests: XCTestCase {
+
+  // MARK: Internal
+
+  func testWithNoSnoozeTheChipOffersToStartOne() throws {
+    let chip = try makeChip(snoozeUntil: nil)
+    XCTAssertFalse(chip.isSnoozed)
+    XCTAssertEqual(chip.title, "Snooze")
+    XCTAssertEqual(chip.primaryAction, .snooze(minutes: SnoozeActions.defaultMinutes))
+  }
+
+  /// The undo has to be where the snooze was. A user looking for the way out of a snooze reaches
+  /// for the control that caused it, so the same chip cancels while one is running.
+  func testWhileSnoozedTheSameChipIsTheUndo() throws {
+    let chip = try makeChip(snoozeUntil: Date().addingTimeInterval(600))
+    XCTAssertTrue(chip.isSnoozed)
+    XCTAssertEqual(chip.title, "Cancel Snooze")
+    XCTAssertEqual(chip.primaryAction, .cancel)
+  }
+
+  func testCustomOpensTheDurationFieldInsteadOfAskingTheDaemon() throws {
+    let chip = try makeChip(snoozeUntil: nil)
+    XCTAssertFalse(chip.model.isEnteringSnooze)
+    chip.run(.custom)
+    XCTAssertTrue(chip.model.isEnteringSnooze)
+  }
+
+  func testTheChipIsOfferedForEveryStateThatCanSnooze() {
+    for phase in [DaemonState.Phase.idle, .awaitingConfirm] {
+      let state = makeState(phase: phase, morningPending: true)
+      XCTAssertTrue(TimerActions.available(for: state).contains(.snooze), "\(phase)")
+    }
+  }
+
+  /// A snooze survives on screen because `morning_pending` and `awaiting_confirm` both outlast it
+  /// on the daemon (`internal/core/core.go` derives pending from the outstanding reminder), so the
+  /// chip carrying the undo is still there to be pressed.
+  func testTheChipIsStillOfferedWhileTheSnoozeIsRunning() {
+    let snoozed = makeState(phase: .awaitingConfirm, snoozeUntil: Date().addingTimeInterval(600))
+    XCTAssertTrue(TimerActions.available(for: snoozed).contains(.snooze))
+  }
+
+  // MARK: Private
+
+  private func makeChip(snoozeUntil: Date?) throws -> SnoozeChip {
+    let environment = try AppEnvironment(transport: StubTransport(states: []))
+    let content = MainWindowContent(
+      state: makeState(phase: .awaitingConfirm, snoozeUntil: snoozeUntil),
+      connection: .connected,
+      tasks: TaskList(),
+      error: nil,
+      panel: nil,
+      now: .now,
+    )
+    return SnoozeChip(content: content, client: environment.client, model: environment.windowModel)
+  }
+
+}
