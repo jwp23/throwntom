@@ -192,6 +192,68 @@ final class RefusedLaunchTests: XCTestCase {
     XCTAssertTrue(note.contains(ServiceAction.start.title), note)
     XCTAssertEqual(client.unresolvedError, note)
   }
+
+  /// throwntom-ejk: the window stops *showing* the retained state once launchd has refused, but
+  /// the client must go on *holding* it. Reconnect diffs against it — `ReminderResponder`'s
+  /// `heardRings` adopts the rings it missed instead of replaying them as a burst of chimes — and
+  /// clearing it here is the tempting shortcut to a disconnected-looking window. Snapping the
+  /// presentation is `MainWindowContent`'s job; this asserts the state survives underneath it.
+  func testARefusedLaunchKeepsTheRetainedStateForTheReconnect() async throws {
+    let client = DaemonClient(
+      transport: VanishingTransport(),
+      registrar: RecordingRegistrar(registerError: RecordingRegistrar.Denied()),
+      backoff: [.milliseconds(5)],
+    )
+    client.start()
+    defer { client.stop() }
+    try await waitUntil("the initial state to arrive") { client.state != nil }
+
+    try await waitUntil("the refused launch to be reported") { client.registrationError != nil }
+
+    XCTAssertNotNil(client.state, "the reconnect has nothing to diff against without it")
+  }
+}
+
+// MARK: - VanishingTransport
+
+/// A daemon that answers one dial and is gone by the next: the first event stream serves a state
+/// frame and ends, every later one fails. The shape of a daemon that dies while the app watches,
+/// which is what puts a retained state and a failing reconnect in the client at the same time.
+// Every mutable member is read and written under `lock`.
+// swiftlint:disable:next no_unchecked_sendable
+final class VanishingTransport: DaemonTransport, @unchecked Sendable {
+
+  // MARK: Internal
+
+  func request(_: String, _: String, body _: Data?) async throws -> HTTPResponse {
+    guard lock.withLock({ dials <= 1 }) else {
+      throw Self.gone
+    }
+    return HTTPResponse(status: 200, headers: [:], body: Data(#"{"active":[],"done":[]}"#.utf8))
+  }
+
+  func events(_: String) -> AsyncThrowingStream<Data, Error> {
+    let isFirst = lock.withLock {
+      dials += 1
+      return dials == 1
+    }
+    return AsyncThrowingStream { continuation in
+      if isFirst {
+        continuation.yield(Data(StateDecodingTests.idleJSON.utf8))
+        continuation.finish()
+      } else {
+        continuation.finish(throwing: Self.gone)
+      }
+    }
+  }
+
+  // MARK: Private
+
+  private static let gone = DaemonError.transport("POSIXErrorCode(rawValue: 2): No such file or directory")
+
+  private let lock = NSLock()
+  private var dials = 0
+
 }
 
 // MARK: - RestartAfterStopTests

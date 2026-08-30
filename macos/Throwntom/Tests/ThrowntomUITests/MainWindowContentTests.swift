@@ -141,4 +141,60 @@ extension MainWindowContentTests {
     let stale = content(makeState(phase: .work), connection: .startingDaemon, registrationFailed: true)
     XCTAssertEqual(stale.title, "Timer service can’t launch")
   }
+
+  /// throwntom-ejk: the title alone was not enough. Every other field was still derived from the
+  /// retained state, so the window kept a live phase colour, a running countdown and timer chips
+  /// that dispatch to a daemon confirmed gone. The whole presentation has to snap to disconnected.
+  func testARefusedLaunchSnapsTheWholeWindowToDisconnected() {
+    let tasks = TaskList(active: [makeTask(id: 4), makeTask(id: 5)])
+    let refused = content(
+      makeState(
+        phase: .work,
+        nextStage: .init(state: .shortBreak, duration: 300),
+        phaseEndAt: now.addingTimeInterval(754),
+        completedToday: 5,
+        workSessionsInBlock: 1,
+        focusedTaskIds: [4],
+      ),
+      connection: .startingDaemon,
+      tasks: tasks,
+      registrationFailed: true,
+    )
+
+    XCTAssertEqual(refused.scheme, Palette.scheme(for: nil), "a phase ground says a phase is running")
+    XCTAssertEqual(refused.pose, .disconnected)
+    XCTAssertNil(refused.countdown, "nothing is counting down")
+    XCTAssertNil(refused.nextStage, "nothing is coming next")
+    XCTAssertNil(refused.garden)
+    XCTAssertEqual(refused.chips, [], "timer verbs here are dead buttons")
+    XCTAssertNil(refused.primaryChip)
+    XCTAssertEqual(refused.focused, [], "the daemon that focused these is gone")
+  }
+
+  /// The way out, and the two halves of the sentence that explains why it is needed. The refusal
+  /// note is the client's `registrationError`, carried in as `error`.
+  func testARefusedLaunchShowsTheRefusalTheReasonAndStart() {
+    let note = "launchd refused to start the timer service. Press Start Timer Service to try again."
+    let refused = content(
+      makeState(phase: .work),
+      connection: .startingDaemon,
+      error: note,
+      registrationFailed: true,
+    )
+
+    XCTAssertEqual(refused.title, "Timer service can’t launch")
+    XCTAssertEqual(refused.error, note)
+    XCTAssertEqual(refused.serviceAction, .start)
+  }
+
+  /// throwntom-faa is the other disconnected window: the user stopped the service on purpose.
+  /// Both offer Start on the same ground, so the title is what has to keep them apart.
+  func testAFailedLaunchReadsDifferentlyFromAServiceTheUserStopped() {
+    let refused = content(makeState(phase: .work), connection: .startingDaemon, registrationFailed: true)
+    let stopped = content(nil, connection: .stopped)
+
+    XCTAssertEqual(refused.serviceAction, stopped.serviceAction, "both offer the same way back")
+    XCTAssertEqual(refused.scheme, stopped.scheme, "both are the disconnected ground")
+    XCTAssertNotEqual(refused.title, stopped.title, "a failure must not read as a choice")
+  }
 }
