@@ -26,12 +26,17 @@ public final class TaskWindowModel {
 
   /// Whether the selected task is one of the focused ones; false when nothing is selected.
   public var isSelectedFocused: Bool {
-    selectedID.map(focusedIDs.contains) ?? false
+    isFocused(selectedID)
   }
 
   /// Label of the collapsed completed section, e.g. "Completed (3)".
   public var completedSectionTitle: String {
     "Completed (\(tasks.completed.count))"
+  }
+
+  /// Whether a named task is one of the focused ones. No task named is no focus.
+  public func isFocused(_ id: Int?) -> Bool {
+    id.map(focusedIDs.contains) ?? false
   }
 
   /// Applies fresh daemon state, keeping the selection on the same task when it still exists.
@@ -71,20 +76,24 @@ public final class TaskWindowModel {
     }
   }
 
-  public func canPerform(_ action: TaskAction) -> Bool {
+  /// Whether an action can run on a task. `id` names the row the question is about, which a
+  /// context menu answers for the row it was opened on and a menu bar for `selectedID`; there is
+  /// no default, so "which row" is always a decision the caller made rather than one it inherited.
+  /// `nil` is a row that does not exist — no selection — and nothing but New Task runs on it.
+  public func canPerform(_ action: TaskAction, on id: Int?) -> Bool {
     if isEditing {
       return false
     }
     if action == .newTask {
       return true
     }
-    return selectedID.flatMap { TaskCommands.position(of: $0, in: tasks) } != nil
+    return id.flatMap { TaskCommands.position(of: $0, in: tasks) } != nil
   }
 
   /// Command string for an action on the selected task; nil when the action cannot run right now.
   public func command(for action: TaskAction) -> String? {
     guard
-      action != .newTask, canPerform(action),
+      action != .newTask, canPerform(action, on: selectedID),
       let id = selectedID, let position = TaskCommands.position(of: id, in: tasks)
     else { return nil }
     return TaskCommands.line(for: action, position: position, focused: focusedIDs.contains(id))

@@ -34,13 +34,13 @@ final class UnixSocketTransportTests: XCTestCase {
     let log = FrameLog()
     let consumer = log.consume(transport.events("/v1/events"))
     defer { consumer.cancel() }
-    try await waitUntil { log.frames.count >= 1 }
+    try await waitUntil("the first frame") { log.frames.count >= 1 }
     XCTAssertEqual(log.frames[0].state, .idle)
 
     let body = Data(#"{"line":"task add hello"}"#.utf8)
     let response = try await transport.request("POST", "/v1/command", body: body)
     XCTAssertEqual(response.status, 200)
-    try await waitUntil { log.frames.count >= 2 }
+    try await waitUntil("the second frame") { log.frames.count >= 2 }
     XCTAssertNil(log.error)
   }
 
@@ -48,9 +48,9 @@ final class UnixSocketTransportTests: XCTestCase {
     let log = FrameLog()
     let consumer = log.consume(transport.events("/v1/events"))
     defer { consumer.cancel() }
-    try await waitUntil { log.frames.count >= 1 }
+    try await waitUntil("the first frame") { log.frames.count >= 1 }
     daemon.stop()
-    try await waitUntil { log.error != nil }
+    try await waitUntil("the stream to fail") { log.error != nil }
   }
 
   func testMissingSocketFailsQuickly() async throws {

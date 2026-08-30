@@ -11,15 +11,17 @@ import (
 )
 
 var (
-	errNotRunning     = errors.New("nothing to pause: timer is not running")
-	errNotPaused      = errors.New("nothing to resume: timer is not paused")
-	errNotWorkSession = errors.New("only available during a work session")
-	errAlreadyFocused = errors.New("is already focused")
+	errNotRunning       = errors.New("nothing to pause: timer is not running")
+	errNothingToSkip    = errors.New("nothing to skip: timer is not running")
+	errNothingToConfirm = errors.New("nothing to confirm: no phase is waiting")
+	errNotPaused        = errors.New("nothing to resume: timer is not paused")
+	errNotWorkSession   = errors.New("only available during a work session")
+	errAlreadyFocused   = errors.New("is already focused")
 )
 
 // refusals are the sentinels for commands the current state does not allow;
 // classifyError maps them to ErrorRefused.
-var refusals = []error{errNotRunning, errNotPaused, errNotWorkSession, errAlreadyFocused, errNoReminder}
+var refusals = []error{errNotRunning, errNothingToSkip, errNothingToConfirm, errNotPaused, errNotWorkSession, errAlreadyFocused, errNoReminder}
 
 func (c *Core) buildCommandHandlers() map[string]commandHandler {
 	return map[string]commandHandler{
@@ -28,6 +30,7 @@ func (c *Core) buildCommandHandlers() map[string]commandHandler {
 		"pause":      c.handlePause,
 		"resume":     c.handleResume,
 		"stop":       c.handleStop,
+		"skip":       c.handleSkip,
 		"confirm":    c.handleConfirm,
 		"snooze":     c.handleSnooze,
 		"skip-today": c.handleSkipToday,
@@ -42,12 +45,25 @@ func (c *Core) buildCommandHandlers() map[string]commandHandler {
 
 func (c *Core) handleStart(_ []string) commandResult {
 	c.reminder.cancel()
-	if c.tasks != nil {
+	// The focus prompt asks which tasks this pomodoro is for, so it belongs
+	// only to a start that actually begins work — not to one resuming a break
+	// a stop left owed.
+	if c.tasks != nil && c.timer.OwedPhase() == engine.Work {
 		return c.enterFocusPrompt("start")
 	}
 	c.timer.Start()
-	c.logEvent("pomodoro_started", nil)
-	return commandResult{message: "Pomodoro started -- let's go!"}
+	state := c.timer.State()
+	c.logPhaseStart(state)
+	return commandResult{message: startedMessage(state)}
+}
+
+// startedMessage announces the phase a start entered, which after a stop may
+// be the break that stop left owed rather than a pomodoro.
+func startedMessage(state engine.State) string {
+	if state == engine.Work {
+		return "Pomodoro started -- let's go!"
+	}
+	return fmt.Sprintf("Back to your %s.", FriendlyStateName(state))
 }
 
 func (c *Core) handleNewCycle(_ []string) commandResult {
@@ -72,18 +88,58 @@ func (c *Core) handleResume(_ []string) commandResult {
 	return commandResult{message: "Resumed -- back at it!"}
 }
 
+// handleStop suspends the cycle. Stop is not an abandon: the phase the cycle
+// owes and the tasks in focus both survive it, so a later start picks up where
+// this left off. The event it logs is what terminates the pomodoro already
+// open in the log.
 func (c *Core) handleStop(_ []string) commandResult {
-	c.timer.Stop()
-	c.focused = nil
-	return commandResult{message: "Stopped. Back to idle."}
+	// Stop reports the state as of when it actually stopped rather than a
+	// state fetched separately beforehand: the phase deadline runs on its
+	// own goroutine and could otherwise complete the phase in the gap
+	// between a Snapshot call here and Stop itself, leaving this stale.
+	before := c.timer.Stop()
+	// The phase the cycle is holding at was finished, and stop keeps it owed
+	// rather than confirming it. Nothing else logs that completion — confirm
+	// does, and a resuming start goes straight into the next phase — so
+	// without this the pomodoro counts in the engine and is missing from the
+	// stats, which is precisely the dangling-event defect stop was fixed for.
+	if before.State == engine.AwaitingConfirm && !before.Skipped {
+		c.logConfirmCompletion(before.LastPhase)
+	}
+	if before.State != engine.Idle {
+		c.logEvent("stopped", nil)
+	}
+	return commandResult{message: "Stopped. Start again when you're ready."}
 }
 
+// handleSkip moves the cycle on early. The skipped phase is not credited, so
+// the event is a skip rather than a completion.
+func (c *Core) handleSkip(_ []string) commandResult {
+	skipped, ok := c.timer.Skip()
+	if !ok {
+		return commandResult{err: errNothingToSkip}
+	}
+	c.logEvent("skipped", map[string]any{"phase": skipped.String()})
+	next, _, _ := c.nextStageLocked()
+	return commandResult{message: fmt.Sprintf("Skipped -- %s next", FriendlyStateName(next))}
+}
+
+// handleConfirm advances the phase waiting on the user. It refuses when none
+// is: confirm records the completion of the phase in lastPhase, and lastPhase
+// outlives the state that earned it — a stop keeps it owed, and the engine
+// keeps it while the next phase runs — so an unguarded confirm would log that
+// same completion again every time it was called.
 func (c *Core) handleConfirm(_ []string) commandResult {
 	snap := c.timer.Snapshot()
-	c.logConfirmCompletion(snap.Engine.LastPhase)
+	if snap.Engine.State != engine.AwaitingConfirm {
+		return commandResult{err: errNothingToConfirm}
+	}
+	if !snap.Engine.Skipped {
+		c.logConfirmCompletion(snap.Engine.LastPhase)
+	}
 	c.timer.Confirm()
 	state := c.timer.State()
-	c.logConfirmStart(state)
+	c.logPhaseStart(state)
 	if state == engine.Work && c.tasks != nil && len(c.focused) == 0 {
 		return c.enterFocusPrompt("confirm")
 	}
@@ -101,7 +157,9 @@ func (c *Core) logConfirmCompletion(lastPhase engine.State) {
 	}
 }
 
-func (c *Core) logConfirmStart(newState engine.State) {
+// logPhaseStart records the phase the timer has just entered, whether it was
+// reached by confirming the previous one or by starting after a stop.
+func (c *Core) logPhaseStart(newState engine.State) {
 	switch newState {
 	case engine.Work:
 		c.logEvent("pomodoro_started", nil)
@@ -173,7 +231,8 @@ func Help() string {
 		"  new-cycle          start a fresh cycle",
 		"  pause              pause the timer",
 		"  resume             resume the timer",
-		"  stop               stop and return to idle (forgets the owed phase and focused tasks)",
+		"  stop               suspend the cycle; start again to resume the owed phase",
+		"  skip               end this phase now and move to the next stage",
 		"  confirm            continue to next phase now",
 		"  snooze <duration>  keep the owed phase and focused tasks, ask again later (e.g., snooze 10m)",
 		"  skip-today         skip reminders for today",

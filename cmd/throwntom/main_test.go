@@ -14,7 +14,7 @@ import (
 
 func TestCommandHelpIncludesAllCommands(t *testing.T) {
 	help := core.Help()
-	for _, cmd := range []string{"new-cycle", "pause", "resume", "stop", "status", "test-sound", "quit"} {
+	for _, cmd := range []string{"new-cycle", "pause", "resume", "skip", "stop", "status", "test-sound", "quit"} {
 		if !strings.Contains(help, cmd) {
 			t.Fatalf("expected %q in command help: %s", cmd, help)
 		}

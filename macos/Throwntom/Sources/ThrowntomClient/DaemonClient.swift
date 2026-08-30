@@ -174,7 +174,28 @@ public final class DaemonClient {
     return try DaemonJSON.decoder.decode(StatsSummary.self, from: response.body)
   }
 
+  // MARK: Internal
+
+  /// The reader's version of a failed request. The daemon's own `{"error":…}` is already a
+  /// sentence and says the useful thing, so it is passed through; anything else — a proxy's HTML
+  /// page, an empty body, an `error` field with nothing in it — is not, and
+  /// `DaemonError.http.userMessage` goes straight to the window.
+  /// Internal rather than private so this wording can be asserted on directly.
+  nonisolated static func errorMessage(_ body: Data) -> String {
+    let explanation = (try? DaemonJSON.decoder.decode(ErrorReply.self, from: body))?.error
+    guard let explanation, !explanation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+      return unexplainedFailure
+    }
+    return explanation
+  }
+
   // MARK: Private
+
+  /// What the window says when a request failed and nothing readable came back to say why. It
+  /// does not say "refused": the same path carries a gateway's own failure, which is not the timer
+  /// turning the request down. The body that did come back is not shown — an HTML page or a
+  /// transport's words are not something a reader can act on.
+  nonisolated private static let unexplainedFailure = "The timer sent an error it did not explain."
 
   private let transport: DaemonTransport
   private let registrar: LaunchAgentRegistrar
@@ -185,11 +206,6 @@ public final class DaemonClient {
     guard (200..<300).contains(response.status) else {
       throw DaemonError.http(status: response.status, message: errorMessage(response.body))
     }
-  }
-
-  private static func errorMessage(_ body: Data) -> String {
-    (try? DaemonJSON.decoder.decode(ErrorReply.self, from: body))?.error
-      ?? String(decoding: body, as: UTF8.self)
   }
 
   /// The window's wording for anything that goes wrong, so no view has to render a raw error.
@@ -229,11 +245,7 @@ public final class DaemonClient {
         lastError = Self.userMessage(error)
         // A real outage matters more than a stale command refusal from before it started.
         commandError = nil
-        // Only a registration launchd accepted justifies retrying sooner: when the ask itself
-        // failed, nothing has been done about the outage and it keeps escalating.
-        if retries.shouldRegisterAgent, registerAgent() {
-          retries.agentRegistered()
-        }
+        retries.registerAgentIfDue { registerAgent() }
         connection = retries.failures >= Self.failuresBeforeRegistering
           ? .startingDaemon
           : .reconnecting(attempt: retries.failures)

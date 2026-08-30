@@ -32,7 +32,7 @@ final class TimerMenuModelTests: XCTestCase {
     let working = MenuModel.timer(state: makeState(phase: .work), isEditing: false)
     let paused = MenuModel.timer(state: makeState(phase: .paused), isEditing: false)
 
-    XCTAssertEqual(enabledActions(working), [.pause, .skipToday])
+    XCTAssertEqual(enabledActions(working), [.pause, .skip, .skipToday])
     XCTAssertEqual(enabledActions(paused), [.resume, .skipToday])
     XCTAssertTrue(working.items.contains { $0.action == .pause })
     XCTAssertTrue(paused.items.contains { $0.action == .resume })
@@ -65,6 +65,7 @@ final class TimerMenuModelTests: XCTestCase {
 
     XCTAssertEqual(try XCTUnwrap(menu.item(for: .start)?.shortcut), MenuShortcut(key: "r", modifiers: .command))
     XCTAssertEqual(try XCTUnwrap(menu.item(for: .snooze)?.shortcut), MenuShortcut(key: "s", modifiers: [.command, .shift]))
+    XCTAssertEqual(try XCTUnwrap(menu.item(for: .skip)?.shortcut), MenuShortcut(key: "k", modifiers: .command))
     XCTAssertNil(try XCTUnwrap(menu.item(for: .skipToday)).shortcut)
     XCTAssertNil(try XCTUnwrap(menu.item(for: .newCycle)).shortcut)
   }
@@ -141,9 +142,20 @@ final class TaskMenuModelTests: XCTestCase {
     model.sync(tasks: TaskList(active: [makeTask(id: 1), makeTask(id: 2)], completed: []), focusedTaskIDs: [2])
     model.selectedID = 1
 
-    let menu = MenuModel.tasks(model: model, focusedRow: true)
+    let menu = MenuModel.tasks(model: model, on: 2)
 
     XCTAssertEqual(try XCTUnwrap(menu.item(for: .focus)).title, "Unfocus")
+  }
+
+  /// The context menu names the row it was opened on, so its verbs read for that row even when
+  /// the selection is elsewhere or absent.
+  func testANamedRowEnablesItsOwnVerbsWhateverTheSelection() {
+    let model = TaskWindowModel()
+    model.sync(tasks: TaskList(active: [makeTask(id: 1), makeTask(id: 2)], completed: []), focusedTaskIDs: [])
+    model.selectedID = nil
+
+    XCTAssertEqual(enabledActions(MenuModel.tasks(model: model, on: 2)), TaskAction.allCases)
+    XCTAssertEqual(enabledActions(MenuModel.tasks(model: model)), [.newTask], "no row named, no selection")
   }
 
   func testOtherVerbsKeepTheirTitleWhateverTheFocusState() {

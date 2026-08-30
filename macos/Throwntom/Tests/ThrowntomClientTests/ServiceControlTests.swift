@@ -13,7 +13,7 @@ final class ServiceControlTests: XCTestCase {
     let registrar = RecordingRegistrar()
     let client = DaemonClient(transport: StubStateTransport(), registrar: registrar)
     client.start()
-    try await waitUntil { client.state != nil }
+    try await waitUntil("the initial state to arrive") { client.state != nil }
 
     client.stopService()
 
@@ -27,7 +27,7 @@ final class ServiceControlTests: XCTestCase {
     let registrar = RecordingRegistrar(stopError: RecordingRegistrar.Denied())
     let client = DaemonClient(transport: StubStateTransport(), registrar: registrar)
     client.start()
-    try await waitUntil { client.state != nil }
+    try await waitUntil("the initial state to arrive") { client.state != nil }
 
     client.stopService()
 
@@ -40,14 +40,14 @@ final class ServiceControlTests: XCTestCase {
     let registrar = RecordingRegistrar()
     let client = DaemonClient(transport: StubStateTransport(), registrar: registrar)
     client.start()
-    try await waitUntil { client.state != nil }
+    try await waitUntil("the initial state to arrive") { client.state != nil }
     client.stopService()
 
     client.startService()
 
     XCTAssertEqual(registrar.calls, [.stop, .register])
     XCTAssertNotEqual(client.connection, .stopped)
-    try await waitUntil { client.state != nil }
+    try await waitUntil("the initial state to arrive") { client.state != nil }
   }
 
   /// The guarantee the whole control rests on: once launchd has been told to unload the agent,
@@ -57,7 +57,7 @@ final class ServiceControlTests: XCTestCase {
     let registrar = RecordingRegistrar()
     let client = DaemonClient(transport: StubStateTransport(), registrar: registrar, backoff: [.milliseconds(10)])
     client.start()
-    try await waitUntil { client.state != nil }
+    try await waitUntil("the initial state to arrive") { client.state != nil }
 
     client.stopService()
     try await Task.sleep(for: .milliseconds(300))
@@ -73,7 +73,7 @@ final class ServiceControlTests: XCTestCase {
     let registrar = RecordingRegistrar()
     let client = DaemonClient(transport: StubStateTransport(), registrar: registrar)
     client.start()
-    try await waitUntil { client.state != nil }
+    try await waitUntil("the initial state to arrive") { client.state != nil }
 
     client.stop()
 
@@ -185,7 +185,7 @@ final class RefusedLaunchTests: XCTestCase {
     client.start()
     defer { client.stop() }
 
-    try await waitUntil { client.registrationError != nil }
+    try await waitUntil("the refused launch to be reported") { client.registrationError != nil }
 
     let note = try XCTUnwrap(client.registrationError)
     XCTAssertTrue(note.contains("launchd"), note)
@@ -211,14 +211,14 @@ final class RestartAfterStopTests: XCTestCase {
     let client = DaemonClient(transport: transport, registrar: RecordingRegistrar(), backoff: [.seconds(30)])
     client.start()
     defer { client.stop() }
-    try await waitUntil { client.state != nil }
+    try await waitUntil("the initial state to arrive") { client.state != nil }
 
     // Stopping the service really does take the socket away, so the dials that follow fail.
     transport.takeDown()
     client.stopService()
     client.startService()
 
-    try await waitUntil { client.connection == .reconnecting(attempt: 1) }
+    try await waitUntil("the reconnect loop to park in its first attempt") { client.connection == .reconnecting(attempt: 1) }
     XCTAssertNil(client.unresolvedError, "a start the user just asked for must not report the outage it is fixing")
     XCTAssertFalse(client.hasConnected, "the daemon the client knew is gone")
   }
@@ -235,13 +235,13 @@ final class RestartAfterStopTests: XCTestCase {
     )
     client.start()
     defer { client.stop() }
-    try await waitUntil { client.connection == .startingDaemon }
+    try await waitUntil("the refused launch to park in startingDaemon") { client.connection == .startingDaemon }
 
     // launchd will take it now; the parked loop must not be what decides when we find out.
     transport.recover()
     client.startService()
 
-    try await waitUntil(timeout: 3) { client.connection == .connected }
+    try await waitUntil("the retried start to connect", timeout: 3) { client.connection == .connected }
   }
 
   // MARK: Private

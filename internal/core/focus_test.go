@@ -70,18 +70,6 @@ func TestTaskUpDown(t *testing.T) {
 	}
 }
 
-func TestFocusClearedOnStop(t *testing.T) {
-	c := newTestCoreWithTasks(t)
-	c.execute("task add work item")
-	c.execute("start") // enters focus prompt
-	c.execute("")      // skip prompt, start pomodoro
-	c.execute(cmdTaskFocus1)
-	c.execute("stop")
-	if len(c.Focused()) != 0 {
-		t.Fatal("expected focus cleared on stop")
-	}
-}
-
 func TestStartEntersFocusPromptWhenTasksExist(t *testing.T) {
 	c := newTestCoreWithTasks(t)
 	c.execute("task add something to do")

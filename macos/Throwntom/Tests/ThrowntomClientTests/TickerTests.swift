@@ -8,7 +8,7 @@ final class TickerTests: XCTestCase {
     defer { ticker.stop() }
     let before = ticker.now
     ticker.start()
-    try await waitUntil { ticker.now > before }
+    try await waitUntil("the ticker to advance") { ticker.now > before }
   }
 
   /// A second start() must adopt the running loop: if it started a rival one, the single
@@ -19,7 +19,7 @@ final class TickerTests: XCTestCase {
     ticker.start()
     ticker.start()
     let before = ticker.now
-    try await waitUntil { ticker.now > before }
+    try await waitUntil("the ticker to advance") { ticker.now > before }
 
     ticker.stop()
     let last = ticker.now

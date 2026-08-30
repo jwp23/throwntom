@@ -99,7 +99,8 @@ through its tasks panel.
 - `new-cycle` - start a fresh cycle now (reset cycle progress, keep today's total)
 - `pause` - pause the active pomodoro or break timer
 - `resume` - resume a paused pomodoro or break timer
-- `stop` - stop active timer and return to idle (forgets the owed phase and clears focused tasks)
+- `skip` - end the running phase now and move to the next stage (the skipped phase is not counted)
+- `stop` - suspend the cycle and return to idle, keeping the owed phase and focused tasks
 - `confirm` - acknowledge transition and start next phase now
 - `snooze <duration>` - keep the owed phase and focused tasks, ask again later (example: `snooze 10m`)
 - `skip-today` - stop reminders for the current day
@@ -110,10 +111,15 @@ through its tasks panel.
 - `exit` - alias for `quit`
 
 `snooze` works whenever a reminder is ringing, not just in the morning — including
-while waiting for `confirm` at the end of a pomodoro or break. It is the only one
-of `confirm`, `snooze`, `stop` and `skip-today` that doesn't lose anything: it just
-asks again later. `stop` and `skip-today` both drop the phase you were owed;
-`stop` also clears focused tasks.
+while waiting for `confirm` at the end of a pomodoro or break. It doesn't lose
+anything: it just asks again later.
+
+`stop` is a suspend, not an abandon — for stepping into a meeting, not for ending
+the day. It returns the timer to idle but keeps the phase you were owed, your
+progress toward the long break, and your focused tasks, so `start` picks the cycle
+back up: stop after finishing a pomodoro and the next `start` gives you the break
+you earned. To drop the owed phase instead, use `new-cycle` for a fresh cycle or
+`skip-today` to end the day.
 
 ### Task Commands
 
@@ -322,6 +328,7 @@ Schedule supports day aliases: `"weekday"` expands to Mon-Fri, `"weekend"` to Sa
 - `internal/task/` — task store
 - `tools/tomctl/` — command-line client for the daemon API
 - `tools/icon-colors.sh` — dominant colours of the app icon as hex (ImageMagick); keeps `DESIGN.md`'s `icon-*` tokens traceable
+- `tools/unmatte-white-background.swift` — recovers the alpha channel of art exported over white; regenerates `docs/images/throwntom.png` from `docs/images/throwntom-source.png` (see `docs/development.md`)
 - `tools/sonar-audit.sh` — reports SonarCloud issues/hotspots on a branch; CI runs it on main to flag drift
 - `tools/dev-quiet.sh` — runs throwntom against an isolated, silent config for manual testing (see [Dev tools](#dev-tools))
 - `tools/mascot-snap.sh` — renders every mascot pose offscreen to PNGs (see `docs/development.md`)

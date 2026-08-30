@@ -10,9 +10,16 @@ final class TimerActionsTests: XCTestCase {
     XCTAssertEqual(TimerActions.available(for: state(.idle, morningPending: true)), [.start, .newCycle, .snooze, .skipToday])
   }
 
-  func testRunningPhasesOfferPauseAndEndingTheDay() {
+  func testRunningPhasesOfferPauseSkipAndEndingTheDay() {
     for phase in [DaemonState.Phase.work, .shortBreak, .longBreak] {
-      XCTAssertEqual(TimerActions.available(for: state(phase)), [.pause, .skipToday], "\(phase)")
+      XCTAssertEqual(TimerActions.available(for: state(phase)), [.pause, .skip, .skipToday], "\(phase)")
+    }
+  }
+
+  /// Skip ends the running phase, so there is nothing to end unless one is running.
+  func testSkipIsOfferedOnlyWhileAPhaseIsRunning() {
+    for phase in [DaemonState.Phase.idle, .paused, .awaitingConfirm] {
+      XCTAssertFalse(TimerActions.available(for: state(phase)).contains(.skip), "\(phase)")
     }
   }
 
@@ -30,6 +37,7 @@ final class TimerActionsTests: XCTestCase {
   func testVerbsAndHints() {
     XCTAssertEqual(TimerAction.start.verb, .start)
     XCTAssertEqual(TimerAction.skipToday.verb, .skipToday)
+    XCTAssertEqual(TimerAction.skip.verb, .skip)
     XCTAssertNil(TimerAction.snooze.verb)
     XCTAssertEqual(TimerAction.start.shortcutHint, "⌘R")
     XCTAssertEqual(TimerAction.confirm.shortcutHint, "⏎")
@@ -37,6 +45,8 @@ final class TimerActionsTests: XCTestCase {
     XCTAssertEqual(TimerAction.resume.shortcutHint, "⌘P")
     XCTAssertEqual(TimerAction.snooze.shortcutHint, "⌘⇧S")
     XCTAssertEqual(TimerAction.skipToday.shortcutHint, "")
+    XCTAssertEqual(TimerAction.skip.shortcutHint, "⌘K")
+    XCTAssertEqual(TimerAction.skip.title, "Skip")
     XCTAssertEqual(TimerAction.snooze.title, "Snooze \(TimerActions.defaultSnoozeMinutes) min")
   }
 

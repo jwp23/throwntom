@@ -206,7 +206,14 @@ func (t *Timer) Start() {
 	defer t.mu.Unlock()
 	defer t.transitionLocked()
 	t.engine.StartWork()
-	t.startPhaseTimerLocked(t.workDuration)
+	t.startPhaseTimerLocked(t.phaseDurationLocked(t.engine.State()))
+}
+
+// OwedPhase reports the phase Start would enter now.
+func (t *Timer) OwedPhase() engine.State {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.engine.OwedPhase()
 }
 
 func (t *Timer) StartNewCycle() {
@@ -308,14 +315,40 @@ func (t *Timer) Resume() bool {
 	return true
 }
 
-func (t *Timer) Stop() {
+// Stop suspends the cycle and reports the engine state as of the moment it
+// stopped. Reporting from inside the lock, the way Skip does, saves the
+// caller a second, racy read: the phase deadline fires from its own
+// goroutine and can otherwise complete the phase between a caller's own
+// Snapshot and this call, leaving the caller working from a stale state.
+func (t *Timer) Stop() engine.Snapshot {
 	t.mu.Lock()
+	before := t.engine.Snapshot()
 	defer t.notifyChange()
 	defer t.mu.Unlock()
 	defer t.transitionLocked()
 	t.stopTimerLocked()
 	t.clearPhaseLocked()
 	t.engine.Stop()
+	return before
+}
+
+// Skip ends the running phase now and moves to the next stage's confirmation.
+// It reports the phase it ended and whether there was one; a refused skip
+// changes nothing, so it does not notify. Reporting the phase from inside the
+// lock saves the caller a second, racy read to find out what it skipped.
+func (t *Timer) Skip() (engine.State, bool) {
+	t.mu.Lock()
+	skipped := t.engine.State()
+	if !t.engine.SkipPhase() {
+		t.mu.Unlock()
+		return skipped, false
+	}
+	defer t.notifyChange()
+	defer t.mu.Unlock()
+	defer t.transitionLocked()
+	t.stopTimerLocked()
+	t.clearPhaseLocked()
+	return skipped, true
 }
 
 func (t *Timer) State() engine.State {

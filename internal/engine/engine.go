@@ -77,6 +77,20 @@ type Engine struct {
 	// ready to go" from "idle, done until tomorrow".
 	dayEnded bool
 	workDate time.Time
+	// skipped records that the phase behind lastPhase was cut short by the
+	// user rather than served. A skipped work period earns no long break, and
+	// no phase skipped this way counts as completed. Any completed period
+	// clears it, as do the verbs that reset the cycle.
+	//
+	// The invariant is narrow: whenever lastPhase is Work, skipped describes
+	// that work period. Only MarkPeriodComplete and SkipPhase can make
+	// lastPhase Work while a break decision is pending, and both write the
+	// flag as they do it; Stop and AdvanceDay carry lastPhase and the flag
+	// forward together. It is deliberately left standing through ConfirmNext,
+	// Resume and StartWork, which set lastPhase without touching it — safe
+	// only because breakAfterWork is the sole reader and only runs when
+	// lastPhase is Work. Read it anywhere else and it may be stale.
+	skipped bool
 }
 
 func New(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery int) *Engine {
@@ -94,19 +108,65 @@ func (e *Engine) State() State {
 	return e.state
 }
 
+// StartWork picks the cycle back up. A stop that suspended an owed phase left
+// that phase recorded in lastPhase, and it is what resumes; with nothing owed,
+// work begins. A day that has not started yet owes nothing by definition.
 func (e *Engine) StartWork() {
+	next := e.OwedPhase()
 	if !e.workDayStarted {
 		e.completedToday = 0
 		e.workDayStarted = true
 		e.workSessionsBlock = 0
 	}
 	e.dayEnded = false
-	e.state = Work
-	e.lastPhase = Work
+	e.state = next
+	e.lastPhase = next
+}
+
+// OwedPhase reports the phase a start would enter now, letting a caller
+// prepare for that phase before committing to it. Only an idle engine can owe
+// anything: lastPhase names the phase most recently entered, so while one is
+// running, paused or awaiting confirmation it describes the present rather
+// than a debt. A day that has not started owes nothing either.
+func (e *Engine) OwedPhase() State {
+	if !e.workDayStarted || e.state != Idle {
+		return Work
+	}
+	return e.owedPhase()
+}
+
+// owedPhase reports the phase a suspended cycle should resume into, given the
+// phase that last ran to completion. It is NextPhase's rule without
+// NextPhase's requirement that the engine be sitting in AwaitingConfirm.
+func (e *Engine) owedPhase() State {
+	switch e.lastPhase {
+	case Work:
+		return e.breakAfterWork()
+	case ShortBreak, LongBreak:
+		return Work
+	default:
+		return Work
+	}
+}
+
+// breakAfterWork reports which break a work period earns. Only a completed one
+// can earn the long break: a skipped period left the block count untouched, so
+// the count either stands at zero or still describes the block whose long
+// break has already been taken. Either way the remainder lies, and the honest
+// answer is the short break.
+func (e *Engine) breakAfterWork() State {
+	if e.skipped {
+		return ShortBreak
+	}
+	if e.workSessionsBlock > 0 && e.workSessionsBlock%e.longBreakEvery == 0 {
+		return LongBreak
+	}
+	return ShortBreak
 }
 
 func (e *Engine) StartNewCycle() {
 	e.dayEnded = false
+	e.skipped = false
 	e.workDayStarted = true
 	e.workSessionsBlock = 0
 	e.state = Work
@@ -115,6 +175,7 @@ func (e *Engine) StartNewCycle() {
 }
 
 func (e *Engine) MarkPeriodComplete() {
+	e.skipped = false
 	if e.state == Work {
 		e.completedToday++
 		e.workSessionsBlock++
@@ -142,10 +203,7 @@ func (e *Engine) NextPhase() State {
 		return Idle
 	}
 	if e.lastPhase == Work {
-		if e.workSessionsBlock%e.longBreakEvery == 0 {
-			return LongBreak
-		}
-		return ShortBreak
+		return e.breakAfterWork()
 	}
 	return Work
 }
@@ -177,11 +235,29 @@ func (e *Engine) SetLongBreakEvery(n int) {
 // SkipToday ends the work day: the timer goes idle and stays there, and the
 // day is marked over so nothing reminds the user again until tomorrow.
 func (e *Engine) SkipToday() {
+	e.skipped = false
 	e.state = Idle
 	e.lastPhase = Idle
 	e.pausedFrom = Idle
 	e.workDayStarted = false
 	e.dayEnded = true
+}
+
+// SkipPhase ends the running phase early at the user's request, reaching the
+// same boundary a phase that ran its course reaches: the next stage, awaiting
+// confirmation. Nothing is credited — a skipped pomodoro was not worked, so
+// counting it would inflate the day's total and the long-break cycle alike.
+// It reports whether a phase was running to skip.
+func (e *Engine) SkipPhase() bool {
+	switch e.state {
+	case Work, ShortBreak, LongBreak:
+		e.lastPhase = e.state
+		e.state = AwaitingConfirm
+		e.skipped = true
+		return true
+	default:
+		return false
+	}
 }
 
 func (e *Engine) Pause() bool {
@@ -214,6 +290,9 @@ type Snapshot struct {
 	WorkDayStarted bool      `json:"work_day_started"`
 	DayEnded       bool      `json:"day_ended"`
 	WorkDate       time.Time `json:"work_date"`
+	// Skipped reports that the phase in LastPhase was skipped rather than
+	// served, so nothing about it should be recorded as completed.
+	Skipped bool `json:"skipped"`
 }
 
 func (e *Engine) Snapshot() Snapshot {
@@ -226,6 +305,7 @@ func (e *Engine) Snapshot() Snapshot {
 		WorkDayStarted: e.workDayStarted,
 		DayEnded:       e.dayEnded,
 		WorkDate:       e.workDate,
+		Skipped:        e.skipped,
 	}
 }
 
@@ -235,6 +315,8 @@ func (e *Engine) Snapshot() Snapshot {
 // ever produces; restoring one verbatim can resurrect a reminder loop with
 // nothing behind it.
 func (s Snapshot) Invalid() string {
+	// Nothing here relates completed_today to last_phase: skipping the first
+	// pomodoro of the day legitimately reaches a break with none completed.
 	if !s.WorkDayStarted && (s.State != Idle || s.LastPhase != Idle) {
 		return "work_day_started is false but state/last_phase is not idle"
 	}
@@ -243,11 +325,12 @@ func (s Snapshot) Invalid() string {
 	if s.DayEnded && (s.State != Idle || s.WorkDayStarted) {
 		return "day_ended is true but the work day is not closed and idle"
 	}
-	if (s.LastPhase == ShortBreak || s.LastPhase == LongBreak) && s.CompletedToday == 0 {
-		return "last_phase is a break but completed_today is 0"
-	}
-	if s.State == AwaitingConfirm && !isTimedPhase(s.LastPhase) {
-		return "awaiting_confirm with an unreachable last_phase"
+	if s.State == AwaitingConfirm {
+		switch s.LastPhase {
+		case Work, ShortBreak, LongBreak:
+		default:
+			return "awaiting_confirm with an unreachable last_phase"
+		}
 	}
 	if s.State == Paused && !isTimedPhase(s.PausedFrom) {
 		return "paused with an unreachable paused_from"
@@ -275,6 +358,7 @@ func (e *Engine) Restore(s Snapshot) {
 	e.workDayStarted = s.WorkDayStarted
 	e.dayEnded = s.DayEnded
 	e.workDate = s.WorkDate
+	e.skipped = s.Skipped
 }
 
 func IsSameDay(a, b time.Time) bool {
@@ -295,11 +379,21 @@ func (e *Engine) AdvanceDay(now time.Time) {
 	e.workSessionsBlock = 0
 	e.workDayStarted = false
 	e.dayEnded = false
+	// A new day owes nothing: yesterday's suspended cycle does not carry over.
+	e.lastPhase = Idle
+	e.skipped = false
 	e.workDate = now
 }
 
+// Stop suspends the cycle rather than abandoning it: the timer goes idle, but
+// a phase that ran to completion and is awaiting its successor stays owed, so
+// a later start gives back the break that was earned. Progress toward the long
+// break is kept either way. A phase cut short mid-flight was never finished
+// and owes nothing.
 func (e *Engine) Stop() {
+	if e.state != AwaitingConfirm {
+		e.lastPhase = Idle
+	}
 	e.state = Idle
-	e.lastPhase = Idle
 	e.pausedFrom = Idle
 }

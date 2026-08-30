@@ -24,8 +24,8 @@ func TestHelpExplainsSnoozeIsNonDestructive(t *testing.T) {
 	if !strings.Contains(snoozeLine, "keep") {
 		t.Fatalf("expected snooze help to say what it keeps, got %q", snoozeLine)
 	}
-	if !strings.Contains(stopLine, "forget") {
-		t.Fatalf("expected stop help to warn it forgets the owed phase, got %q", stopLine)
+	if !strings.Contains(stopLine, "resume") {
+		t.Fatalf("expected stop help to say a later start resumes the owed phase, got %q", stopLine)
 	}
 }
 

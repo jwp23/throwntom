@@ -13,7 +13,7 @@ about the daemon and the macOS app.
 go build -o tomctl ./tools/tomctl           # or prefix each call with: go run ./tools/tomctl
 ./tomctl state                              # the State document (see docs/designs/native-macos-client.md)
 ./tomctl events                             # one State per line as it changes, until Ctrl-C
-./tomctl cmd pause                          # also: resume, stop, confirm, snooze 10m, skip-today, new-cycle
+./tomctl cmd pause                          # also: resume, skip, stop, confirm, snooze 10m, skip-today, new-cycle
 ./tomctl cmd task add "write tests"
 ```
 
@@ -73,6 +73,43 @@ automation, and no use case for one so far.
   toggled from a script (`defaults write com.apple.universalaccess` is refused); flip it in System
   Settings → Accessibility → Display and repeat the check — nothing should move.
 - `tools/dev-quiet.sh` runs the TUI against a throwaway `HOME` with sound disabled.
+
+## The README banner
+
+`docs/images/throwntom.png` is generated, not hand-edited. The art was exported opaque over an
+off-white backdrop, which reads as white blocks on a dark-themed page, so the committed source
+keeps that original and the banner is regenerated with a real alpha channel:
+
+```bash
+tools/unmatte-white-background.swift docs/images/throwntom-source.png docs/images/throwntom.png
+tools/unmatte-white-background.swift --verify docs/images/throwntom-source.png docs/images/throwntom.png
+```
+
+The tool flood-fills the backdrop inward from the four corners, so white *inside* the art — the
+badge ring, the wordmark outline — is enclosed by opaque pixels and is never reached, and it
+un-composites each background pixel from the backdrop colour it samples at a corner the fill
+seeded from (254,254,254 here, not pure white). The soft edge keeps its exact coverage, so the
+banner composited back over that backdrop reproduces the source to within 1/255 while the corners
+are fully transparent.
+
+`--verify` re-runs the same fill on the source and asserts that every pixel it reaches is
+non-opaque in the output, that every pixel outside it is byte-identical to the source, that the
+four corners are alpha 0, and that the composite round-trips. It exits non-zero otherwise, so run
+it after any regeneration — checking only the corners would pass a file that still has the bug.
+Verify with the same `--threshold` you generated with, since a different one recomputes a
+different region and reports a spurious mismatch.
+
+Two guards sit outside that check, because re-running the fill only ever validates a mask against
+itself and a leaked mask is still self-consistent. Generation refuses to run when no corner reaches
+the threshold, rather than writing a file that is merely opaque with an alpha channel; and
+`--max-surround` (default 25%) rejects a fill that claims an implausible share of the image. The
+banner's fill claims 4.6%; a `--threshold` of 30 leaks through the badge ring and claims 49.7%,
+which is now a hard error instead of a percentage someone has to notice. The default threshold of
+45 sits well inside the plateau between those.
+
+Do not apply `macos/mask-icon.swift` here. That masks the *app icon* to Apple's continuous-corner
+squircle, and the banner is different art with a soft, full-bleed edge of its own — a geometric
+mask fits it no better than 5px and would clip the artwork.
 
 ## The macOS dev loop
 
