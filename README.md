@@ -228,6 +228,7 @@ repeat_limit_secs = 300
 sound_command = ["paplay", "/usr/share/sounds/freedesktop/stereo/bell.oga"]
 morning_reminder_pending = true
 emoji = true
+float_window_when_waiting = false
 
 [stats]
 tier_low = 2
@@ -239,6 +240,21 @@ reminder nobody is around to acknowledge stops on its own rather than ringing
 until you quit. Like `sound_command` it describes the terminal UI: `throwntomd`
 plays nothing to repeat, and on macOS the app chimes on each published ring,
 the first included, until the reminder is answered.
+
+### `float_window_when_waiting`
+
+Off by default. When on, the macOS window is kept above other applications'
+windows while a reminder is waiting to be answered, and drops back to the
+ordinary level as soon as the reminder is confirmed or snoozed. It is for a
+cluttered screen, where a reminder is easy to lose behind whatever else is
+open.
+
+It never takes keyboard focus. Raising a window's level changes the stacking
+order only; taking the keyboard is a separate act the app does not perform, so
+the window cannot interrupt what you are typing — it can only appear in front
+of it. The daemon does nothing with this setting and the terminal UI has no
+window to raise; it is passed through in the daemon's published state for the
+macOS app to read.
 
 ### `sound_command`
 
@@ -286,8 +302,8 @@ already spent ends that phase immediately — the edit says the phase should
 already be over. A file that does not parse is reported on the daemon's
 stderr and ignored; the config in force stays in force.
 
-Reloading covers `[pomodoro]`, `[[schedule]]`, `repeat_secs` and
-`repeat_limit_secs`. The rest needs a restart of whichever process reads it:
+Reloading covers `[pomodoro]`, `[[schedule]]`, `repeat_secs`,
+`repeat_limit_secs` and `float_window_when_waiting`. The rest needs a restart of whichever process reads it:
 
 - `sound_command` — `throwntomd` plays no sound at all (see above), and the
   terminal UI that does use it builds its notifier once, at startup; neither

@@ -113,7 +113,7 @@ func TestStateJSONTags(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, key := range []string{`"state":"idle"`, `"phase_end_at":null`, `"paused_remaining":0`, `"paused_from":"idle"`, `"completed_today":0`, `"work_sessions_in_block":0`, `"long_break_every":`, `"next_stage":null`, `"morning_pending":false`, `"snooze_until":null`, `"status_line":"`, `"focused_task_ids":`, `"reminder_rings":`, `"day_ended":false`} {
+	for _, key := range []string{`"state":"idle"`, `"phase_end_at":null`, `"paused_remaining":0`, `"paused_from":"idle"`, `"completed_today":0`, `"work_sessions_in_block":0`, `"long_break_every":`, `"next_stage":null`, `"morning_pending":false`, `"snooze_until":null`, `"status_line":"`, `"focused_task_ids":`, `"reminder_rings":`, `"day_ended":false`, `"float_window_when_waiting":false`} {
 		if !strings.Contains(string(raw), key) {
 			t.Fatalf("missing %s in %s", key, raw)
 		}

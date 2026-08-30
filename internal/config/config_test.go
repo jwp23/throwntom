@@ -74,6 +74,22 @@ days = ["Mon", "Tue", "Wed"]
 	}
 }
 
+// Off by default: raising the window over whatever the user is doing is a
+// convenience some want and others would call an interruption, so it is opted
+// into rather than out of.
+func TestFloatWindowWhenWaitingDefaultsOffAndCanBeEnabled(t *testing.T) {
+	if Default().FloatWindowWhenWaiting {
+		t.Fatal("expected float_window_when_waiting to default to false")
+	}
+	cfg, err := LoadBytes([]byte(`float_window_when_waiting = true`))
+	if err != nil {
+		t.Fatalf(fmtUnexpectedErr, err)
+	}
+	if !cfg.FloatWindowWhenWaiting {
+		t.Fatal("expected float_window_when_waiting to be true when explicitly set")
+	}
+}
+
 func TestEmojiDefaultsTrueAndCanBeDisabled(t *testing.T) {
 	cfg, err := LoadBytes([]byte(`emoji = false`))
 	if err != nil {

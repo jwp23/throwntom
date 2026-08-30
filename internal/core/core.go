@@ -40,6 +40,10 @@ type Core struct {
 	eventWriter         *eventlog.Writer
 	eventsPath          string
 	longBreakEvery      int
+	// floatWindowWhenWaiting is carried for clients, not acted on here: it is
+	// presentation, and the daemon publishes it only because the config file
+	// it is set in is the daemon's.
+	floatWindowWhenWaiting bool
 	// morningPending is the config's answer to whether today's morning
 	// reminder is still owed at start-up.
 	morningPending bool
@@ -81,7 +85,9 @@ func newCore(cfg config.Config, n notifier.Notifier) *Core {
 		now:            time.Now,
 		morningPending: cfg.MorningReminderPending,
 		longBreakEvery: cfg.Pomodoro.LongBreakEvery,
-		subscribers:    make(map[chan State]struct{}),
+
+		floatWindowWhenWaiting: cfg.FloatWindowWhenWaiting,
+		subscribers:            make(map[chan State]struct{}),
 	}
 	c.handlers = c.buildCommandHandlers()
 	c.timer.SetOnChange(c.publishAsync)

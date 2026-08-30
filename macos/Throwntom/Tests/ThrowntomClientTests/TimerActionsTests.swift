@@ -82,6 +82,7 @@ final class TimerActionsTests: XCTestCase {
       focusedTaskIds: [],
       reminderRings: 0,
       dayEnded: false,
+      floatWindowWhenWaiting: false,
     )
   }
 

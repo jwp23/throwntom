@@ -66,6 +66,16 @@ const Template = `# throwntom configuration.
 # terminal interface; the daemon has no use for it.
 # emoji = true
 
+# Whether the window is kept above other applications' windows while a
+# reminder is waiting to be answered, dropping back once it is confirmed or
+# snoozed. Off by default: it makes the reminder harder to lose behind other
+# windows, at the cost of a window that puts itself in front of whatever you
+# are looking at. It never takes keyboard focus, so it cannot interrupt
+# typing; it only changes which window is on top.
+# This one belongs to the macOS window app. The daemon does nothing with it
+# and the terminal interface has no window to raise.
+# float_window_when_waiting = false
+
 # [pomodoro] sets the length of each phase and how often a long break comes.
 # Uncomment the [pomodoro] header too when you uncomment any key under it.
 # [pomodoro]

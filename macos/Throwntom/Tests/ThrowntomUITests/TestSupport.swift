@@ -48,6 +48,7 @@ func makeState(
   focusedTaskIds: [Int] = [],
   reminderRings: Int = 0,
   dayEnded: Bool = false,
+  floatWhenWaiting: Bool = false,
 ) -> DaemonState {
   DaemonState(
     state: phase,
@@ -64,6 +65,7 @@ func makeState(
     focusedTaskIds: focusedTaskIds,
     reminderRings: reminderRings,
     dayEnded: dayEnded,
+    floatWindowWhenWaiting: floatWhenWaiting,
   )
 }
 

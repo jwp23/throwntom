@@ -63,6 +63,13 @@ enum ReminderBanner: Equatable {
     }
   }
 
+  /// Whether the user owes an answer to either reminder. The same question the banner decides
+  /// from, for callers that need only the yes or no — so what counts as an outstanding reminder
+  /// is settled in one place.
+  static func isWaiting(_ state: DaemonState?) -> Bool {
+    waitingKind(state) != nil
+  }
+
   /// Whether the Dock should bounce for this change, independent of whether a notification can
   /// be posted: a denied notification is not a reason to withhold the bounce.
   static func wantsAttention(from previous: DaemonState?, to current: DaemonState) -> Bool {
