@@ -257,7 +257,9 @@ func TestDaemonRefusesToCreateANamedConfigPath(t *testing.T) {
 	bin := buildDaemonBinary(t)
 	missingPath := filepath.Join(t.TempDir(), "typo.toml")
 
-	cmd := exec.Command(bin, "--config", missingPath)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bin, "--config", missingPath)
 	cmd.Env = isolatedHomeEnv(t, "")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
