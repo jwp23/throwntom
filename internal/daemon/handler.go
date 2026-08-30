@@ -3,6 +3,7 @@ package daemon
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -66,20 +67,24 @@ func (s *server) runCommand(w http.ResponseWriter, line string) {
 // run it. Both refusals are commands the core offers its terminal caller that
 // mean nothing here:
 //
-// quit — the API has no notion of exiting; running it would stop the morning
-// reminder and leave the daemon serving a half-stopped core.
+// quit and exit — the API has no notion of exiting; running either would
+// cancel whatever reminder is outstanding and leave the daemon serving a core
+// that believes it has exited.
 //
 // test-sound — the daemon's notifier is notifier.Silent() (ADR-007), so the
 // core's "Sound test played." would report success for audio nobody played.
 // Sound belongs to the client, and so does testing it.
+//
+// Fields matches how the core splits a line, so an argument or surrounding
+// space cannot smuggle a refused command past this.
 func unavailableOverAPI(line string) error {
 	fields := strings.Fields(line)
 	if len(fields) == 0 {
 		return nil
 	}
-	switch fields[0] {
+	switch verb := fields[0]; verb {
 	case "quit", "exit":
-		return errors.New("quit is not available over the API")
+		return fmt.Errorf("%s is not available over the API", verb)
 	case "test-sound":
 		return errors.New("test-sound is not available over the API: the daemon plays no sound")
 	}

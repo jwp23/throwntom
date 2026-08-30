@@ -102,10 +102,12 @@ func TestTemplateWarnsAboutSectionOrdering(t *testing.T) {
 	if !strings.Contains(unwrapComments(Template), "must stay above the first [pomodoro] header") {
 		t.Fatal("template does not warn that top-level keys must precede any section header")
 	}
-	warning := strings.Index(Template, "Settings outside a section")
 	firstSection := strings.Index(Template, "\n# [pomodoro]\n")
-	if warning < 0 || warning > firstSection {
-		t.Fatalf("warning at %d does not come before the first section header at %d", warning, firstSection)
+	if firstSection < 0 {
+		t.Fatal("template has no [pomodoro] header to order the warning against")
+	}
+	if warning := strings.Index(Template, "Settings outside a section"); warning > firstSection {
+		t.Fatalf("warning at %d comes after the first section header at %d", warning, firstSection)
 	}
 }
 
