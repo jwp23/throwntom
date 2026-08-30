@@ -188,6 +188,44 @@ func TestWatcherAppliesAgainAfterAnEmptyFile(t *testing.T) {
 	}
 }
 
+// A discontinuity — an empty read between two non-empty ones — must not let
+// unrelated partial bytes that happen to match count as settled. Without
+// resetting seen across the empty read, two different truncate-then-write
+// saves that pass through the same intermediate bytes would look identical
+// to a single write seen twice in a row.
+func TestWatcherResetsSeenAcrossAnEmptyRead(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	partial := "[pomodoro]\nwork_minutes = 4"
+	writeConfig(t, path, "[pomodoro]\nwork_minutes = 40\n")
+
+	w := Watcher{Path: path, Interval: testInterval}
+	var applied []Config
+	w.OnChange = func(cfg Config) { applied = append(applied, cfg) }
+
+	state := watchState{applied: []byte("[pomodoro]\nwork_minutes = 40\n")}
+	state.seen = state.applied
+
+	// First save's torn read: half-written, then empty mid-truncate.
+	if err := os.WriteFile(path, []byte(partial), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	state = w.poll(state)
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	state = w.poll(state)
+
+	// Second, unrelated save happens to pass through the same partial bytes.
+	if err := os.WriteFile(path, []byte(partial), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	state = w.poll(state)
+
+	if len(applied) != 0 {
+		t.Fatalf("expected the coincidental repeat not to settle, got %+v", applied)
+	}
+}
+
 func TestWatcherReportsAnUnreadableFileOnlyOnce(t *testing.T) {
 	dir := t.TempDir()
 	// A directory where the config should be is readable as a path but not

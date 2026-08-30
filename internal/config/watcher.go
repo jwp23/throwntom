@@ -86,6 +86,10 @@ type watchState struct {
 func (w Watcher) poll(state watchState) watchState {
 	current, err := os.ReadFile(w.Path)
 	if err != nil {
+		// The read broke continuity: whatever was seen before proves nothing
+		// about what comes next, so it must not be compared against bytes
+		// from an unrelated write that happen to match.
+		state.seen = nil
 		if !os.IsNotExist(err) {
 			state.lastError = w.reportError(err, state.lastError)
 		}
@@ -95,9 +99,12 @@ func (w Watcher) poll(state watchState) watchState {
 	// here rather than on the apply path means a transient error that recurs
 	// is reported again instead of being swallowed as a repeat.
 	state.lastError = ""
-	// A zero-length config never settles. The state carries forward untouched,
-	// so the write these empty bytes belong to still applies once it lands.
+	// A zero-length config never settles, and breaks continuity the same way
+	// a read error does: the write these empty bytes belong to still applies
+	// once it lands, but not by coincidentally matching whatever was seen
+	// before the truncate.
 	if len(current) == 0 {
+		state.seen = nil
 		return state
 	}
 	if !bytes.Equal(current, state.seen) {
