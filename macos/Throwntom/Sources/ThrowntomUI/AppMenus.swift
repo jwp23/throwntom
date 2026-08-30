@@ -7,6 +7,8 @@ import ThrowntomClient
 /// somewhere; this is where the shortcuts are bound and discoverable.
 struct AppMenus: Commands {
 
+  @Environment(\.openWindow) var openWindow
+
   let environment: AppEnvironment
 
   var body: some Commands {
@@ -69,11 +71,14 @@ struct AppMenus: Commands {
   }
 
   /// `Custom…` opens the window's duration field rather than sending anything, so choosing it
-  /// from the menu bar brings the window forward to show what it is now asking for.
+  /// from the menu bar has to put that field in front of the user. Activating alone would not:
+  /// the menu bar works with the window closed, and a flag set behind a closed window is a
+  /// command that appears to do nothing and then ambushes the next person to open it.
   func snooze(_ action: SnoozeAction) {
     if action == .custom {
       environment.windowModel.isEnteringSnooze = true
-      NSApp.activate(ignoringOtherApps: true)
+      openWindow(id: mainWindowID)
+      NSApp.activate()
     } else {
       DaemonDispatch.perform(action, on: environment.client)
     }

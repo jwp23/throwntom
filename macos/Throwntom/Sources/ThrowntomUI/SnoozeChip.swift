@@ -1,24 +1,5 @@
-import AppKit
 import SwiftUI
 import ThrowntomClient
-
-// MARK: - SnoozeEntry
-
-/// What a typed custom duration means. Kept apart from the field so the rule — a whole number of
-/// minutes or nothing — is one testable decision rather than a condition buried in a view.
-enum SnoozeEntry {
-  enum Outcome: Equatable {
-    case snooze(minutes: Int)
-    case refuse
-  }
-
-  static func commit(_ text: String) -> Outcome {
-    guard let minutes = SnoozeDraft.minutes(from: text) else { return .refuse }
-    return .snooze(minutes: minutes)
-  }
-}
-
-// MARK: - SnoozeChip
 
 /// The snooze control: a chip that defers the reminder on a plain click and opens the durations
 /// on a press-and-hold, the way a macOS pull-down with a default action behaves.
@@ -54,9 +35,15 @@ struct SnoozeChip: View {
     isSnoozed ? "" : TimerAction.snooze.shortcutHint
   }
 
+  /// Built from what the window already decided rather than from the daemon state again, so the
+  /// chip's face and its menu can never disagree about whether a snooze is running.
+  var menu: MenuModel<SnoozeAction> {
+    MenuModel.snooze(canDefer: content.chips.contains(.snooze), isSnoozed: isSnoozed)
+  }
+
   var body: some View {
     Menu {
-      MenuGroups(menu: MenuModel.snooze(state: client.state)) { item in
+      MenuGroups(menu: menu) { item in
         Button(item.title) { run(item.action) }
           .disabled(!item.isEnabled)
       }
@@ -67,7 +54,8 @@ struct SnoozeChip: View {
     }
     .menuStyle(.borderlessButton)
     .fixedSize()
-    .accessibilityLabel(title)
+    .accessibilityLabel(hint.isEmpty ? title : "\(title), \(hint)")
+    .accessibilityHint("Press and hold to choose how long")
   }
 
   /// Runs a snooze verb, except `Custom…`, which is a question for the user rather than a command
@@ -85,55 +73,5 @@ struct SnoozeChip: View {
   private var style: ChipStyle {
     ChipStyle.style(primary: false, scheme: content.scheme)
   }
-
-}
-
-// MARK: - SnoozeEntryRow
-
-/// The field behind `Custom…`: how many minutes, in a row that opens under the chips and closes
-/// as soon as it is answered. Return commits, Escape abandons — the same contract as the inline
-/// new-task row, which is the only other place this app asks for typing.
-struct SnoozeEntryRow: View {
-
-  // MARK: Internal
-
-  let client: DaemonClient
-  let model: WindowModel
-  /// Injected so a refusal is observable in a test instead of only audible.
-  var alert: () -> Void = { NSSound.beep() }
-
-  var body: some View {
-    HStack(spacing: 6) {
-      Text("Snooze for")
-      TextField("minutes", text: $text)
-        .textFieldStyle(.roundedBorder)
-        .frame(width: 70)
-        .focused($isFocused)
-        .onAppear { isFocused = true }
-        .onSubmit { submit() }
-        .onExitCommand { model.isEnteringSnooze = false }
-      Text("minutes")
-    }
-    .font(.caption)
-  }
-
-  /// Commits the typed duration, or refuses it and leaves the field open with the text intact so
-  /// a typo can be corrected rather than retyped.
-  func submit() {
-    switch SnoozeEntry.commit(text) {
-    case .snooze(let minutes):
-      DaemonDispatch.perform(.snooze(minutes: minutes), on: client)
-      text = ""
-      model.isEnteringSnooze = false
-
-    case .refuse:
-      alert()
-    }
-  }
-
-  // MARK: Private
-
-  @State private var text = ""
-  @FocusState private var isFocused: Bool
 
 }

@@ -159,8 +159,16 @@ extension MenuModel where Action == SnoozeAction {
   /// deadline rather than refusing (`outstandingReminder.suppress`), so changing your mind about
   /// how long is one click, not a cancel that rings the reminder you were deferring.
   static func snooze(state: DaemonState?) -> MenuModel {
-    let canDefer = state.map { TimerActions.available(for: $0).contains(.snooze) } ?? false
-    let isSnoozed = state?.snoozeUntil != nil
+    snooze(
+      canDefer: state.map { TimerActions.available(for: $0).contains(.snooze) } ?? false,
+      isSnoozed: state?.snoozeUntil != nil,
+    )
+  }
+
+  /// The same menu from what a caller has already decided. The window works this way because its
+  /// chip row is blanked when the daemon is gone: reading the raw state again there would offer
+  /// an enabled Cancel Snooze for a daemon the rest of the window has already given up on.
+  static func snooze(canDefer: Bool, isSnoozed: Bool) -> MenuModel {
     func item(_ action: SnoozeAction, isEnabled: Bool) -> MenuItem<SnoozeAction> {
       MenuItem(action: action, shortcut: nil, isEnabled: isEnabled)
     }

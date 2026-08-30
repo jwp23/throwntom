@@ -37,7 +37,10 @@ struct MainWindow: View {
         TomatoGardenView(garden: garden)
       }
       ActionChips(content: content, client: environment.client, model: environment.windowModel)
-      if environment.windowModel.isEnteringSnooze {
+      // Only while there is still something to snooze: the reminder can be answered from the
+      // notification or the keyboard while this is open, and a field left behind after that
+      // submits to a daemon that would refuse it.
+      if environment.windowModel.isEnteringSnooze, content.chips.contains(.snooze) {
         SnoozeEntryRow(client: environment.client, model: environment.windowModel)
       }
       // Snoozing withdraws the reminder banner, so without this line an active snooze has no
