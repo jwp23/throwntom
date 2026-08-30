@@ -134,14 +134,20 @@ final class DaemonClientTests: XCTestCase {
     XCTAssertNotNil(client.lastError, "the error is only hidden, not forgotten")
   }
 
-  func testRegistersAgentPeriodicallyDuringPersistentOutage() async throws {
+  /// Over a real socket that never appears: launchd is asked once and then left to its own
+  /// KeepAlive. Asking again would unregister the job first, killing a daemon that had just
+  /// started, so the client keeps reporting the outage instead of repeating the ask.
+  func testRegistersTheAgentOnceAndKeepsReportingThePersistentOutage() async throws {
     let missing = UnixSocketTransport(socketPath: daemon.home.appendingPathComponent("nope.sock").path)
     let client = DaemonClient(transport: missing, registrar: registrar, backoff: [.milliseconds(30)])
     client.start()
     defer { client.stop() }
-    try await waitUntil("the first registration") { self.registrar.calls >= 1 }
+    try await waitUntil("the registration that ends the outage") { self.registrar.calls >= 1 }
     XCTAssertEqual(client.connection, .startingDaemon)
-    try await waitUntil("a second registration", timeout: 3) { self.registrar.calls >= 3 }
+
+    try await Task.sleep(for: .milliseconds(500))
+
+    XCTAssertEqual(registrar.calls, 1, "further failures must not ask launchd again")
     XCTAssertEqual(client.connection, .startingDaemon)
   }
 
