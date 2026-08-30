@@ -43,10 +43,16 @@ The window is phase-coloured throughout, so its ground follows the current
 phase as it changes. When a reminder is outstanding — a phase awaiting
 confirmation, or the morning nudge — the app also posts a notification (it
 asks for permission the first time) and bounces the Dock icon. The daemon
-plays no sound of its own; the banner chimes when it posts and again on each
-repeat the daemon publishes, until the reminder is answered
+plays no sound of its own, and neither does the banner: the app chimes once for
+each changed nonzero ring count it observes, the first included, until the
+reminder is answered — a missed gap between reads coalesces into a single
+chime rather than replaying. Setting `float_window_when_waiting = true` in `config.toml` also keeps
+the window above other applications' windows for as long as the reminder is
+unanswered, dropping it back on confirm or snooze; it is off by default and
+never takes keyboard focus (see the root README for the setting)
 (`docs/adr/003-clients-own-user-facing-notification.md`,
-`docs/adr/007-the-daemon-plays-no-sound.md`).
+`docs/adr/007-the-daemon-plays-no-sound.md`,
+`docs/adr/009-the-chime-is-the-only-audio-path.md`).
 
 The app never spawns the daemon itself. If the socket is unreachable it
 reconnects with backoff and, after three failures, re-registers the agent.

@@ -40,6 +40,11 @@ type State struct {
 	// resetting when it is retired. The daemon plays no sound of its own
 	// (ADR-007), so a client sounds the repeat by watching this climb.
 	ReminderRings int `json:"reminder_rings"`
+	// FloatWindowWhenWaiting is the user's `float_window_when_waiting`
+	// setting, passed through for whichever client has a window to raise. The
+	// daemon neither reads nor enforces it; presentation is the client's
+	// (ADR-003).
+	FloatWindowWhenWaiting bool `json:"float_window_when_waiting"`
 }
 
 func (c *Core) State() State {
@@ -52,17 +57,18 @@ func (c *Core) stateLocked() State {
 	statusLine, state, morningPending := c.statusLocked()
 	snap := c.timer.Snapshot()
 	s := State{
-		State:               state,
-		PausedRemaining:     int(snap.PausedRemaining / time.Second),
-		PausedFrom:          snap.Engine.PausedFrom,
-		CompletedToday:      snap.Engine.CompletedToday,
-		WorkSessionsInBlock: snap.Engine.WorkSessions,
-		LongBreakEvery:      c.longBreakEvery,
-		MorningPending:      morningPending,
-		DayEnded:            snap.Engine.DayEnded,
-		StatusLine:          statusLine,
-		FocusedTaskIDs:      c.focusedIDs(),
-		ReminderRings:       c.reminder.ringCount(),
+		State:                  state,
+		PausedRemaining:        int(snap.PausedRemaining / time.Second),
+		PausedFrom:             snap.Engine.PausedFrom,
+		CompletedToday:         snap.Engine.CompletedToday,
+		WorkSessionsInBlock:    snap.Engine.WorkSessions,
+		LongBreakEvery:         c.longBreakEvery,
+		MorningPending:         morningPending,
+		DayEnded:               snap.Engine.DayEnded,
+		StatusLine:             statusLine,
+		FocusedTaskIDs:         c.focusedIDs(),
+		ReminderRings:          c.reminder.ringCount(),
+		FloatWindowWhenWaiting: c.floatWindowWhenWaiting,
 	}
 	if !snap.PhaseEndAt.IsZero() {
 		end := snap.PhaseEndAt

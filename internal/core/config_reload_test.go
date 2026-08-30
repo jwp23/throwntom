@@ -101,6 +101,23 @@ func TestApplyConfigUpdatesLongBreakEvery(t *testing.T) {
 	}
 }
 
+// The setting only ever reaches the user through a client reading state, so a
+// reload that did not republish it would leave the edit invisible until the
+// next daemon restart.
+func TestApplyConfigUpdatesFloatWindowWhenWaiting(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+	defer c.Stop()
+
+	cfg.FloatWindowWhenWaiting = true
+	c.ApplyConfig(cfg)
+
+	if !c.State().FloatWindowWhenWaiting {
+		t.Fatal("expected float_window_when_waiting true in published state")
+	}
+}
+
 func TestApplyConfigUpdatesReminderPolicy(t *testing.T) {
 	cfg := config.Default()
 	cfg.MorningReminderPending = false

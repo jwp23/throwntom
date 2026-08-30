@@ -18,11 +18,11 @@ struct SystemNotificationAuthorizer: NotificationAuthorizer {
     await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
   }
 
-  /// `.sound` is asked for because it is used: both reminder banners carry `content.sound`
-  /// (`ReminderAlert.request`), which is silent without this permission. The repeat chime is
-  /// `NSSound` and needs none of this.
+  /// `.alert` only. Every sound a reminder makes is `NSSound` played by this app
+  /// (`SystemReminderPresenter.chime()`), which needs no notification permission; the banners
+  /// carry no `content.sound` for a `.sound` grant to apply to (ADR-009).
   func requestAuthorization() async throws -> Bool {
-    try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
+    try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert])
   }
 }
 

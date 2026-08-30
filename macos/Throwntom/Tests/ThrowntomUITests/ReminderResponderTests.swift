@@ -58,10 +58,9 @@ final class ReminderResponderTests: XCTestCase {
     XCTAssertTrue(ReminderResponder.presentationOptions.contains(.banner))
   }
 
-  /// A reminder that arrives while the window is frontmost is no less due than any other. The
-  /// daemon plays nothing (ADR-007), and the banner's own sound is suppressed in the foreground
-  /// unless the app asks for it here.
-  func testTheReminderIsHeardEvenWhileThrowntomIsFrontmost() {
-    XCTAssertTrue(ReminderResponder.presentationOptions.contains(.sound))
+  /// `.sound` asks macOS to play the banner's own sound in the foreground. The banner has none
+  /// (ADR-009): the chime sounds every ring, foreground or not, so the option has nothing to play.
+  func testThePresentationOptionsAskForNoBannerSound() {
+    XCTAssertFalse(ReminderResponder.presentationOptions.contains(.sound))
   }
 }

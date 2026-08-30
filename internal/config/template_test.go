@@ -24,6 +24,7 @@ var documentedKeys = []string{
 	"sound_command",
 	"morning_reminder_pending",
 	"emoji",
+	"float_window_when_waiting",
 	"tier_low",
 	"tier_mid",
 }

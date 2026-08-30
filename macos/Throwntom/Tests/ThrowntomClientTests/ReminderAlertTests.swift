@@ -40,10 +40,11 @@ final class ReminderAlertContentTests: XCTestCase {
     XCTAssertNil(request.trigger)
   }
 
-  /// The daemon plays nothing (ADR-007), so a reminder is heard only if its own banner sounds.
-  /// This is the use the app's `.sound` authorization request is for.
-  func testBothRemindersAreAudible() {
-    XCTAssertEqual(ReminderAlert.request(title: "Throwntom", body: "Ready").content.sound, .default)
-    XCTAssertEqual(ReminderAlert.morningRequest(title: "Throwntom", body: "Ready").content.sound, .default)
+  /// The chime is the only audio path (ADR-009). A banner sound would fire once, as the banner
+  /// posts, which is the same moment the chime sounds ring one — so a banner that carried its own
+  /// sound would double every reminder's first alert and add nothing to any later one.
+  func testNeitherReminderCarriesABannerSound() {
+    XCTAssertNil(ReminderAlert.request(title: "Throwntom", body: "Ready").content.sound)
+    XCTAssertNil(ReminderAlert.morningRequest(title: "Throwntom", body: "Ready").content.sound)
   }
 }

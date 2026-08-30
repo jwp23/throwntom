@@ -32,6 +32,13 @@ type Config struct {
 	SoundCommand           []string        `toml:"sound_command"`
 	MorningReminderPending bool            `toml:"morning_reminder_pending"`
 	Emoji                  bool            `toml:"emoji"`
+	// FloatWindowWhenWaiting asks a client to keep its window above other
+	// applications' windows while a reminder is outstanding. Nothing here acts
+	// on it: it is presentation, which belongs to the client (ADR-003), and
+	// only the macOS window app implements it. It lives in this file because
+	// this file is where the user's settings are, and because LoadBytes
+	// rejects keys the struct does not name.
+	FloatWindowWhenWaiting bool `toml:"float_window_when_waiting"`
 	Stats                  struct {
 		TierLow int `toml:"tier_low"`
 		TierMid int `toml:"tier_mid"`
