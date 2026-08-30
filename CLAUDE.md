@@ -40,6 +40,18 @@
 - When updating dependencies, always pin to explicit versions (e.g. `go get pkg@v1.2.3`), never use `@latest`. When bumping one dep in a family (e.g. charmbracelet), bump all related deps together to avoid transitive incompatibilities.
 - `throwntomd` and everything under `internal/` are portable Go and must stay OS-agnostic. The daemon owns timing and state; user-facing presentation — notifications, sound, windows — belongs to the client for that platform. See `docs/adr/003-clients-own-user-facing-notification.md`.
 
+## ADRs are moment-in-time records
+
+- An ADR records why a decision was made, as it stood then. It is history, and
+  history does not get edited.
+- When a decision changes, write a NEW ADR that supersedes the old one, and mark
+  the old one superseded with a pointer to it. Do not rewrite the old decision.
+- Amend an existing ADR only in rare circumstances. Wanting the text to match
+  today's behaviour is not one of them — that is what a superseding ADR is for.
+- A detail that has merely gone stale (a renamed flag, a rebound shortcut) does
+  not need touching at all: the ADR was accurate when written, and the current
+  value belongs in the design docs or the code, not in the decision record.
+
 ## Mindset & Principles
 - Flag missing info and unsupported assumptions.
 - Default to skepticism; state uncertainty explicitly.
