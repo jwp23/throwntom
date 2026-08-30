@@ -26,6 +26,7 @@ func TestREADMEIncludesInstallAndCommands(t *testing.T) {
 		"`stop`",
 		"`confirm`",
 		"`snooze <duration>`",
+		"`unsnooze`",
 		"`skip-today`",
 		"`status`",
 		"`test-sound`",

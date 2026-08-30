@@ -366,3 +366,73 @@ func TestMorningReminderPolicyComesFromConfig(t *testing.T) {
 		t.Fatalf("expected %+v, got %+v", want, c.reminder.policy)
 	}
 }
+
+func TestUnsnoozeEndsTheSnoozeAndBringsTheReminderBack(t *testing.T) {
+	clk := mondayAt(10, 0)
+	c := startedCore(t, config.Default(), clk)
+	if result := c.execute("snooze 30m"); result.err != nil {
+		t.Fatalf(fmtSnoozeFailed, result.err)
+	}
+	result := c.execute("unsnooze")
+	if result.err != nil {
+		t.Fatalf("unsnooze failed: %v", result.err)
+	}
+	if !strings.Contains(result.message, "morning reminder") {
+		t.Fatalf("expected the message to name the kind it woke, got %q", result.message)
+	}
+	if _, ok := c.reminder.snoozeDeadline(); ok {
+		t.Fatal("expected the deadline cleared by unsnooze")
+	}
+	// The reminder was never answered, only suppressed (ADR-004), so ending the
+	// suppression leaves it outstanding rather than retiring it the way start does.
+	if c.reminder.outstanding() != reminderMorning {
+		t.Fatalf("expected the morning reminder still outstanding, got %v", c.reminder.outstanding())
+	}
+	_, _, pending := c.Status()
+	if !pending {
+		t.Fatal("expected morning_pending to stay true after unsnooze")
+	}
+}
+
+func TestUnsnoozeWithNoSnoozeIsRefused(t *testing.T) {
+	c := startedCore(t, config.Default(), mondayAt(10, 0))
+	result := c.execute("unsnooze")
+	if !errors.Is(result.err, errNoSnooze) {
+		t.Fatalf("expected errNoSnooze, got %v", result.err)
+	}
+	if classifyError(result.err) != ErrorRefused {
+		t.Fatal("expected a refusal, not a usage error")
+	}
+}
+
+// Unsnoozing and snoozing again leaves one snooze running for its full length.
+// This is a walk through the sequence, not a trap for the retired deadline:
+// resume() only ends a snooze whose deadline it matches exactly, and that guard
+// absorbs the old callback on its own, so the test still passes with the
+// cancelled timer left armed. Stopping the timer is hygiene, not correctness.
+func TestASnoozeTakenRightAfterAnUnsnoozeRunsItsFullLength(t *testing.T) {
+	clk := mondayAt(10, 0)
+	c := startedCore(t, config.Default(), clk)
+	if result := c.execute("snooze 10m"); result.err != nil {
+		t.Fatalf(fmtSnoozeFailed, result.err)
+	}
+	if result := c.execute("unsnooze"); result.err != nil {
+		t.Fatalf("unsnooze failed: %v", result.err)
+	}
+	clk.Advance(2 * time.Minute)
+	if result := c.execute("snooze 30m"); result.err != nil {
+		t.Fatalf(fmtSnoozeFailed, result.err)
+	}
+	// Past the first snooze's deadline, which the unsnooze retired.
+	clk.Advance(20 * time.Minute)
+	if _, ok := c.reminder.snoozeDeadline(); !ok {
+		t.Fatal("a deadline the unsnooze retired ended the new snooze early")
+	}
+	clk.Advance(10 * time.Minute)
+	if _, ok := c.reminder.snoozeDeadline(); ok {
+		t.Fatal("expected the second snooze to end at its own deadline")
+	}
+	if c.reminder.outstanding() != reminderMorning {
+		t.Fatal("expected the morning reminder outstanding after it expired")
+	}
+}

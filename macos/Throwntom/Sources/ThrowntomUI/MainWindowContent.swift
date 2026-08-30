@@ -48,6 +48,7 @@ struct MainWindowContent: Equatable {
     nextStage = shown?.nextStage.map { "Next: \($0.summary)" }
     garden = shown
       .map { TomatoGarden(completedToday: $0.completedToday, inBlock: $0.workSessionsInBlock, every: $0.longBreakEvery) }
+    snoozeNote = shown?.snoozeUntil.map { Self.snoozeNote(until: $0, now: now) }
     chips = shown.map(TimerActions.available(for:)) ?? []
     primaryChip = [TimerAction.confirm, .start, .resume].first(where: chips.contains)
     focused = shown.map { tasks.focused(ids: $0.focusedTaskIds) } ?? []
@@ -66,6 +67,9 @@ struct MainWindowContent: Equatable {
   let countdown: String?
   let nextStage: String?
   let garden: TomatoGarden?
+  /// How much of an active snooze is left, or nil when none is running. Snoozing withdraws the
+  /// reminder banner, so this is the only thing on screen that says a reminder is still owed.
+  let snoozeNote: String?
   let chips: [TimerAction]
   let primaryChip: TimerAction?
   /// Start or Stop for the timer service itself, which is offered whatever the timer is doing.
@@ -88,6 +92,12 @@ struct MainWindowContent: Equatable {
     } else {
       state.state.displayName
     }
+  }
+
+  /// Time left rather than the hour it ends, for the same reason the phase shows a countdown:
+  /// "nine minutes" is the question being asked, and it needs no locale to read.
+  private static func snoozeNote(until: Date, now: Date) -> String {
+    "Snoozed · \(Countdown.formatRemaining(until.timeIntervalSince(now))) left"
   }
 
   private static func countdown(for state: DaemonState, now: Date) -> String? {

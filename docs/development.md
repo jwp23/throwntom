@@ -13,7 +13,7 @@ about the daemon and the macOS app.
 go build -o tomctl ./tools/tomctl           # or prefix each call with: go run ./tools/tomctl
 ./tomctl state                              # the State document (see docs/designs/native-macos-client.md)
 ./tomctl events                             # one State per line as it changes, until Ctrl-C
-./tomctl cmd pause                          # also: resume, skip, stop, confirm, snooze 10m, skip-today, new-cycle
+./tomctl cmd pause                          # also: resume, skip, stop, confirm, snooze 10m, unsnooze, skip-today, new-cycle
 ./tomctl cmd task add "write tests"
 ```
 

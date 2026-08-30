@@ -254,7 +254,7 @@ newline in it; the prompt. Every line is clamped to terminal width minus one by
 `clampANSILine`, with a `...` ellipsis when at least four columns are available and a hard
 cut otherwise; nothing wraps, nothing is centred, there are no margins. The status line is `<icon> <coloured text>`, with a single space between.
 
-The macOS window is one vertical stack with 16pt padding: timer header (200pt mascot, then phase name, countdown and next stage, all centred), tomato garden, count line, timer chips, the service chip, command chips, reminder banner and errors, focus list, then an optional tasks or stats panel — every section centred under the mascot. Panels expand the window downward; the minimum width is 320pt and the mascot shrinks with the width. Both chip rows flow to the window width rather than truncating.
+The macOS window is one vertical stack with 16pt padding: timer header (200pt mascot, then phase name, countdown and next stage, all centred), tomato garden, count line, timer chips, the snooze duration field and snooze note when either is showing, the service chip, command chips, reminder banner and errors, focus list, then an optional tasks or stats panel — every section centred under the mascot. Panels expand the window downward; the minimum width is 320pt and the mascot shrinks with the width. Both chip rows flow to the window width rather than truncating.
 
 ## Elevation & Depth
 
@@ -320,6 +320,10 @@ The README tomato drawn in code on a 100×100 canvas scaled to 200pt: a radial-g
 `<title>  <shortcut>`: the primary verb on `macos-outline` in `macos-cream`; every other verb on the phase's `*-chip` colour in white. The shortcut is monospaced body text in the same colour as the title.
 
 Three rows of chips sit under the timer: the timer verbs valid right now; the single service chip, which starts or stops the timer service itself; then the command chips (Tasks, Stats, Keyboard Shortcuts, Open Config File…), which are always secondary so the timer's primary verb keeps the only strong chip on screen. The command row exists so nothing is reachable only from the menu bar; the menu bar remains the complete command list, and the row carries only the commands that show something, never every menu item.
+
+Snooze is the one chip that is a pull-down rather than a button, because it is the one verb with a duration to choose. A plain click takes the default; pressing and holding opens 10, 15, 30 and 60 minutes, a `Custom…` field, and `Cancel Snooze`. While a snooze is running that same chip reads `Cancel Snooze` and a plain click ends it: the undo belongs on the control that caused the snooze, not somewhere else. `Custom…` opens a one-line `Snooze for [ ] minutes` field under the chips, which takes a whole number of minutes, commits on Return and closes on Escape. It carries its own `1 to 1440 minutes` caption in secondary text, so a rejected entry says what the rule is instead of only beeping.
+
+A running snooze also prints `Snoozed · MM:SS left` under the chips. Snoozing withdraws the reminder banner, so without that line an active snooze would have nothing on screen to show for it.
 
 The service chip is secondary while the service runs, so stopping the timer never outweighs the verb that runs it. It also sits twice the ordinary section gap below the timer verbs, the same separation the Timer menu draws with a divider: it is not one of them, and a chip in their rhythm reads as one more verb a row under Pause. The separation is positional rather than a colour of its own — stopping the service discards no progress, so a destructive tint would overstate it. On any screen without a timer service there are no timer verbs above, and the chip turns primary and reads Start Timer Service: it is the only thing on that screen worth pressing.
 

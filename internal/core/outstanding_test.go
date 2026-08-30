@@ -349,3 +349,38 @@ func TestRingCountIsPublishedInState(t *testing.T) {
 		t.Fatalf("expected a ring to notify observers, got %d", got)
 	}
 }
+
+// The daemon plays no sound (ADR-007): it publishes a ring count and the macOS
+// client chimes once per climb. So "a snooze silences the chime" is really "a
+// snooze stops the ring count climbing", which is what this pins down.
+func TestSnoozeStopsTheRingsAndUnsnoozeStartsThemAgain(t *testing.T) {
+	rec := &soundRecorder{}
+	clk := newFakeClock(time.Date(2026, 3, 2, 10, 0, 0, 0, time.Local))
+	r := newOutstandingReminder(reminder.Policy{Interval: time.Millisecond, MaxAlerts: 100}, rec)
+	r.now = clk.Now
+	r.after = clk.After
+	t.Cleanup(r.cancel)
+
+	r.raise(reminderMorning)
+	waitForSounds(t, rec, 3)
+
+	if _, err := r.suppress(clk.Now().Add(10 * time.Minute)); err != nil {
+		t.Fatalf("suppress: %v", err)
+	}
+	settle()
+	quiet := r.ringCount()
+	settle()
+	if got := r.ringCount(); got != quiet {
+		t.Fatalf("a snooze must stop the rings: count went %d -> %d", quiet, got)
+	}
+
+	// The count is not reset by the snooze, so a client that has heard n rings
+	// does not hear them replayed when the snooze ends.
+	if _, err := r.unsuppress(); err != nil {
+		t.Fatalf("unsuppress: %v", err)
+	}
+	waitForSounds(t, rec, quiet+1)
+	if got := r.ringCount(); got <= quiet {
+		t.Fatalf("ending the snooze must ring again: count stuck at %d", got)
+	}
+}

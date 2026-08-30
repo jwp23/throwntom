@@ -93,8 +93,9 @@ enum ReminderBanner: Equatable {
     case morning
   }
 
-  /// Which reminder, if any, the daemon is waiting for the user to answer. A snooze it has
-  /// accepted is an answer: nothing is outstanding again until the snooze runs out.
+  /// Which reminder, if any, the daemon is asking the user about right now. A snooze does not
+  /// answer the reminder — it stays outstanding, only suppressed until its deadline (ADR-004) —
+  /// but there is nothing to put a banner in front of the user about while it is quiet.
   private static func waitingKind(_ state: DaemonState?) -> Waiting? {
     guard let state, state.snoozeUntil == nil else { return nil }
     if state.state == .awaitingConfirm {

@@ -24,6 +24,10 @@ extension ViewAction: MenuAction { }
 
 extension ServiceAction: MenuAction { }
 
+// MARK: - SnoozeAction + MenuAction
+
+extension SnoozeAction: MenuAction { }
+
 // MARK: - MenuShortcut
 
 /// The key binding of a menu item. Separate from the item so items without one are expressible.
@@ -148,6 +152,41 @@ extension MenuModel where Action == TimerAction {
         item(.skipToday, nil),
         item(.newCycle, nil),
       ],
+    ])
+  }
+}
+
+extension MenuModel where Action == SnoozeAction {
+  /// The snooze lifecycle as one menu: how long to defer the reminder, a way to say a duration
+  /// the presets do not cover, and the undo. It is the whole feature in one place because the
+  /// user's question — "not now, but when?" — is one question.
+  ///
+  /// The durations stay enabled while a snooze is already running: the daemon replaces the
+  /// deadline rather than refusing (`outstandingReminder.suppress`), so changing your mind about
+  /// how long is one click, not a cancel that rings the reminder you were deferring.
+  ///
+  /// `daemonAvailable` is asked separately from `state` for the same reason `timer(...)` asks it:
+  /// the client goes on holding its last state after the service is gone, so reading `state`
+  /// alone would offer durations, and a stale `snoozeUntil` would offer Cancel Snooze, into a
+  /// daemon no longer there to answer either.
+  static func snooze(state: DaemonState?, daemonAvailable: Bool) -> MenuModel {
+    snooze(
+      canDefer: daemonAvailable && (state.map { TimerActions.available(for: $0).contains(.snooze) } ?? false),
+      isSnoozed: daemonAvailable && state?.snoozeUntil != nil,
+    )
+  }
+
+  /// The same menu from what a caller has already decided. The window works this way because its
+  /// chip row is blanked when the daemon is gone: reading the raw state again there would offer
+  /// an enabled Cancel Snooze for a daemon the rest of the window has already given up on.
+  static func snooze(canDefer: Bool, isSnoozed: Bool) -> MenuModel {
+    func item(_ action: SnoozeAction, isEnabled: Bool) -> MenuItem<SnoozeAction> {
+      MenuItem(action: action, shortcut: nil, isEnabled: isEnabled)
+    }
+    return MenuModel(groups: [
+      SnoozeActions.presets.map { item(.snooze(minutes: $0), isEnabled: canDefer) }
+        + [item(.custom, isEnabled: canDefer)],
+      [item(.cancel, isEnabled: isSnoozed)],
     ])
   }
 }

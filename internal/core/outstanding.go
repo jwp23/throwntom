@@ -46,7 +46,10 @@ type stopper interface {
 	Stop() bool
 }
 
-var errNoReminder = errors.New("nothing to snooze: no reminder is outstanding")
+var (
+	errNoReminder = errors.New("nothing to snooze: no reminder is outstanding")
+	errNoSnooze   = errors.New("nothing to unsnooze: no snooze is active")
+)
 
 // outstandingReminder is the one reminder the daemon can be waiting on. kind
 // says whether one is outstanding; snoozeUntil says whether it is quiet. now
@@ -127,11 +130,37 @@ func (r *outstandingReminder) resume(until time.Time) {
 		r.mu.Unlock()
 		return
 	}
-	r.snoozeUntil = time.Time{}
-	r.snoozeTimer = nil
-	r.startLoopLocked()
+	r.endSuppressionLocked()
 	r.mu.Unlock()
 	r.notifyChange()
+}
+
+// unsuppress ends the snooze now instead of at its deadline, and reports which
+// kind it woke. A snooze only silences the reminder — the reminder itself was
+// never answered (ADR-004) — so ending the suppression early leaves it
+// outstanding and ringing, exactly as its deadline would have. That is the
+// whole difference from cancel, which retires the reminder as well.
+func (r *outstandingReminder) unsuppress() (reminderKind, error) {
+	r.mu.Lock()
+	if r.kind == reminderNone || r.snoozeUntil.IsZero() {
+		r.mu.Unlock()
+		return reminderNone, errNoSnooze
+	}
+	kind := r.kind
+	r.endSuppressionLocked()
+	r.mu.Unlock()
+	r.notifyChange()
+	return kind, nil
+}
+
+// endSuppressionLocked ends a snooze and starts the reminder ringing again. It
+// is what both ways out of a snooze share, so ending one early and letting it
+// expire cannot drift apart. Going quiet first is how the deadline is dropped;
+// on the expiry path that timer has already fired and stopping it does nothing.
+// Callers must hold r.mu.
+func (r *outstandingReminder) endSuppressionLocked() {
+	r.quietLocked()
+	r.startLoopLocked()
 }
 
 // cancel retires the outstanding reminder, ringing or snoozed.
@@ -208,6 +237,12 @@ func (r *outstandingReminder) quietLocked() {
 // startLoopLocked rings for the outstanding kind until cancelled or the
 // policy's bound is reached. Callers must hold r.mu.
 func (r *outstandingReminder) startLoopLocked() {
+	// Retire any loop still running first. Every caller today reaches this with
+	// none, but nothing in the type says so, and the failure if that ever stops
+	// holding is a leaked goroutine ringing alongside its replacement.
+	if r.loopCancel != nil {
+		r.loopCancel()
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	r.loopCancel = cancel
 	go reminder.New(r.policy, r.ring).Run(ctx)

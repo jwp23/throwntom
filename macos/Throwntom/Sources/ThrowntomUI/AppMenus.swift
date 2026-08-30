@@ -7,6 +7,8 @@ import ThrowntomClient
 /// somewhere; this is where the shortcuts are bound and discoverable.
 struct AppMenus: Commands {
 
+  @Environment(\.openWindow) var openWindow
+
   let environment: AppEnvironment
 
   var body: some Commands {
@@ -26,6 +28,17 @@ struct AppMenus: Commands {
           .keyboardShortcut(item.shortcut?.keyboardShortcut)
           .disabled(!item.isEnabled)
       }
+      // The durations live in a submenu under the Timer menu's own Snooze, which keeps ⌘⇧S on
+      // the default and puts every other duration one level down rather than in the top list.
+      Menu("Snooze For") {
+        MenuGroups(menu: snoozeMenu) { item in
+          Button(item.title) { snooze(item.action) }
+            .disabled(!item.isEnabled)
+        }
+      }
+      // A submenu whose every item is greyed says the same thing one level up and one click
+      // sooner, so the parent goes with them.
+      .disabled(!snoozeMenu.items.contains(where: \.isEnabled))
       Divider()
       MenuGroups(menu: serviceMenu) { item in
         Button(item.title) { control(item.action) }
@@ -63,6 +76,16 @@ struct AppMenus: Commands {
     )
   }
 
+  /// The durations behind the Timer menu's Snooze, read twice per build: once for the items and
+  /// once to decide whether the submenu itself is worth opening. Gated on `daemonAvailable` the
+  /// same way `timerMenu` is: a snooze is a command line for the daemon like any other, and the
+  /// client keeps its last retained state after the service is gone, so without this gate the
+  /// submenu would go on offering durations — and Cancel Snooze, off a stale `snoozeUntil` — into
+  /// a daemon no longer there to answer them.
+  var snoozeMenu: MenuModel<SnoozeAction> {
+    MenuModel.snooze(state: environment.client.state, daemonAvailable: daemonAvailable)
+  }
+
   /// The service group of the Timer menu, below a divider: starting and stopping the daemon is
   /// not a timer verb, but it belongs to the same menu the timer is driven from.
   var serviceMenu: MenuModel<ServiceAction> {
@@ -71,6 +94,20 @@ struct AppMenus: Commands {
 
   func perform(_ action: TimerAction) {
     DaemonDispatch.perform(action, on: environment.client)
+  }
+
+  /// `Custom…` opens the window's duration field rather than sending anything, so choosing it
+  /// from the menu bar has to put that field in front of the user. Activating alone would not:
+  /// the menu bar works with the window closed, and a flag set behind a closed window is a
+  /// command that appears to do nothing and then ambushes the next person to open it.
+  func snooze(_ action: SnoozeAction) {
+    guard let request = action.request else {
+      environment.windowModel.isEnteringSnooze = true
+      openWindow(id: mainWindowID)
+      NSApp.activate()
+      return
+    }
+    DaemonDispatch.perform(request, on: environment.client)
   }
 
   func control(_ action: ServiceAction) {

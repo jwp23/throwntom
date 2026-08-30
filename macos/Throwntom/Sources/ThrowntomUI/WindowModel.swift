@@ -57,18 +57,25 @@ enum ViewAction: CaseIterable, Sendable {
 final class WindowModel {
   var panel: WindowPanel?
   var showsShortcuts = false
+  /// Whether the snooze chip's "Custom…" duration field is open. Closed on every launch, and
+  /// closed again the moment a duration is accepted or abandoned.
+  var isEnteringSnooze = false
 
   func toggle(_ panel: WindowPanel) {
     self.panel = self.panel == panel ? nil : panel
   }
 
-  /// Escape: the sheet goes first, then the panel. False when nothing was open, which is what
-  /// lets the caller fall through to cancelling a task edit.
+  /// Escape: the duration field first, then the sheet, then the panel. False when nothing was
+  /// open. Innermost first, so Escape always answers whatever the user is looking at.
   ///
   /// `panelIsShown` is asked rather than assumed because the window declines to draw a panel while
   /// the timer service is down, without the model forgetting it. Closing something invisible would
   /// eat the keystroke and never reach the edit cancel behind it.
   func dismiss(panelIsShown: Bool) -> Bool {
+    if isEnteringSnooze {
+      isEnteringSnooze = false
+      return true
+    }
     if showsShortcuts {
       showsShortcuts = false
       return true

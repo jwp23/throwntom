@@ -11,6 +11,7 @@ public enum TimerVerb: String, Sendable {
   case skip
   case skipToday = "skip-today"
   case newCycle = "new-cycle"
+  case unsnooze
 }
 
 // MARK: - TimerAction

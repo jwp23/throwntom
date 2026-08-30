@@ -43,6 +43,8 @@ final class ChipTests: XCTestCase {
     let scheme = Palette.scheme(for: .work)
     _ = Chip(title: "Pause", hint: "⌘P", isPrimary: false, scheme: scheme) { }.body
     _ = Chip(title: "Skip Today", hint: "", isPrimary: false, scheme: scheme) { }.body
+    _ = ChipLabel(title: "Pause", hint: "⌘P", style: ChipStyle.style(primary: false, scheme: scheme)).body
+    _ = ChipLabel(title: "Skip Today", hint: "", style: ChipStyle.style(primary: false, scheme: scheme)).body
     let environment = AppEnvironment(transport: try StubTransport(states: []))
     let content = MainWindowContent(
       state: makeState(phase: .awaitingConfirm),
@@ -53,7 +55,26 @@ final class ChipTests: XCTestCase {
       panel: nil,
       now: .now,
     )
-    _ = ActionChips(content: content, client: environment.client).body
+    _ = ActionChips(content: content, client: environment.client, model: environment.windowModel).body
+  }
+
+  /// `ActionChips.row(for:)` is what `ForEach`'s trailing closure delegates to, and the closure
+  /// itself only runs through the (untestable) rendering pass — so both branches are built here
+  /// directly instead, the same smoke-build shape as `WindowSectionBodyTests`.
+  func testRowBuildsForBothTheSnoozeAndOrdinaryBranches() throws {
+    let environment = AppEnvironment(transport: try StubTransport(states: []))
+    let content = MainWindowContent(
+      state: makeState(phase: .awaitingConfirm),
+      connection: .connected,
+      status: .running,
+      tasks: TaskList(),
+      error: nil,
+      panel: nil,
+      now: .now,
+    )
+    let chips = ActionChips(content: content, client: environment.client, model: environment.windowModel)
+    _ = chips.row(for: .snooze)
+    _ = chips.row(for: .pause)
   }
 
   /// A plain `HStack` ran the timer verbs past the edge of a 320pt window. The row is built from
@@ -72,7 +93,11 @@ final class ChipTests: XCTestCase {
       now: .now,
     )
 
-    let timerRow = String(describing: type(of: ActionChips(content: content, client: environment.client).body))
+    let timerRow = String(describing: type(of: ActionChips(
+      content: content,
+      client: environment.client,
+      model: environment.windowModel,
+    ).body))
     let commandRow = String(
       describing: type(of: CommandChips(environment: environment, scheme: content.scheme).body)
     )
@@ -96,7 +121,7 @@ final class ChipTests: XCTestCase {
       panel: nil,
       now: .now,
     )
-    let chips = ActionChips(content: content, client: environment.client)
+    let chips = ActionChips(content: content, client: environment.client, model: environment.windowModel)
     let primary = chips.chip(for: .confirm)
     XCTAssertEqual(primary.title, TimerAction.confirm.title)
     XCTAssertEqual(primary.style, ChipStyle.style(primary: true, scheme: content.scheme))

@@ -80,6 +80,32 @@ final class TimerActionDispatchTests: XCTestCase {
     )
   }
 
+  func testASnoozeActionPostsTheMinutesItNames() async throws {
+    let (client, transport) = makeClient()
+    try await client.perform(SnoozeRequest.snooze(minutes: 45))
+    XCTAssertEqual(transport.requests.map(\.path), ["/v1/timer/snooze"])
+    let body = try XCTUnwrap(transport.requests.first?.body)
+    XCTAssertEqual(try JSONSerialization.jsonObject(with: body) as? [String: Int], ["minutes": 45])
+  }
+
+  func testCancellingASnoozeIsItsOwnVerbWithNoBody() async throws {
+    let (client, transport) = makeClient()
+    try await client.perform(SnoozeRequest.cancel)
+    XCTAssertEqual(transport.requests.map(\.path), ["/v1/timer/unsnooze"])
+    XCTAssertEqual(transport.requests.map(\.method), ["POST"])
+    XCTAssertEqual(transport.requests.compactMap(\.body), [])
+  }
+
+  /// `Custom…` names a question for the user, not a command for the daemon, so it has no request
+  /// to make. The type is what enforces it: `perform` takes `SnoozeRequest`, which cannot express
+  /// custom at all, so a caller that forgets to answer it fails to compile rather than silently
+  /// sending nothing.
+  func testCustomHasNoRequestWhileTheOtherVerbsDo() {
+    XCTAssertNil(SnoozeAction.custom.request)
+    XCTAssertEqual(SnoozeAction.snooze(minutes: 45).request, .snooze(minutes: 45))
+    XCTAssertEqual(SnoozeAction.cancel.request, .cancel)
+  }
+
   func testRefusalPropagatesSoCallersCanBeep() async throws {
     let (client, _) = makeClient(status: 409)
     do {

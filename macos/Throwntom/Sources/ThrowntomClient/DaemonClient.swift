@@ -188,6 +188,13 @@ public final class DaemonClient {
     }
   }
 
+  public func perform(_ request: SnoozeRequest) async throws {
+    switch request {
+    case .snooze(let minutes): try await snooze(minutes: minutes)
+    case .cancel: try await timer(.unsnooze)
+    }
+  }
+
   public func snooze(minutes: Int) async throws {
     try await runCommand {
       let body = try JSONSerialization.data(withJSONObject: ["minutes": minutes])

@@ -190,3 +190,35 @@ func TestSkipVerbIsRouted(t *testing.T) {
 		t.Fatalf("expected skip to be an accepted timer verb, got status %d", resp.StatusCode)
 	}
 }
+
+func TestTimerUnsnoozeClearsTheDeadline(t *testing.T) {
+	c := newTestCoreWithMorning(t)
+	srv := httptest.NewServer(NewHandler(c))
+	t.Cleanup(srv.Close)
+
+	if resp := postJSON(t, srv.URL+"/v1/timer/snooze", map[string]int{"minutes": 30}); resp.StatusCode != 200 {
+		t.Fatalf("snooze status %d", resp.StatusCode)
+	}
+	if c.State().SnoozeUntil == nil {
+		t.Fatal("expected snooze_until set before cancelling it")
+	}
+	if resp := postJSON(t, srv.URL+"/v1/timer/unsnooze", nil); resp.StatusCode != 200 {
+		t.Fatalf("unsnooze status %d", resp.StatusCode)
+	}
+	if c.State().SnoozeUntil != nil {
+		t.Fatal("expected snooze_until cleared by unsnooze")
+	}
+	if !c.State().MorningPending {
+		t.Fatal("expected the morning reminder to still be outstanding")
+	}
+}
+
+func TestTimerUnsnoozeWithNoSnoozeIs409(t *testing.T) {
+	c := newTestCoreWithMorning(t)
+	srv := httptest.NewServer(NewHandler(c))
+	t.Cleanup(srv.Close)
+
+	if resp := postJSON(t, srv.URL+"/v1/timer/unsnooze", nil); resp.StatusCode != 409 {
+		t.Fatalf("status %d", resp.StatusCode)
+	}
+}

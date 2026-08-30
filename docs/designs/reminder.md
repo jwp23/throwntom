@@ -54,7 +54,7 @@ one-method interface over the handle `after` returns, the same shape
 
 ### Operations
 
-All four take `mu` and call `onChange` when something observable changed.
+All five take `mu` and call `onChange` when something observable changed.
 
 - `raise(kind)` — no-op if that kind is already outstanding, so a repeated
   schedule tick or a restore cannot double-ring. Otherwise cancel any running
@@ -66,6 +66,12 @@ All four take `mu` and call `onChange` when something observable changed.
 - `resume()` — the deadline callback. If the reminder is still suppressed,
   clears `snoozeUntil` and restarts the loop, ringing immediately. If it was
   cancelled or replaced in the meantime, does nothing.
+- `unsuppress()` — ends the snooze early instead of at its deadline, and is
+  refused when no snooze is running. It runs the same `endSuppressionLocked`
+  step `resume` does, so a cancelled snooze and an expired one leave the
+  reminder in exactly the same place: outstanding and ringing. That it shares a
+  path with expiry rather than with `cancel` is the whole point — a snooze
+  suppresses the reminder, it does not answer it.
 - `cancel()` — clears `kind` and `snoozeUntil`, stops the loop and the snooze
   timer.
 
@@ -101,6 +107,9 @@ cannot slip between them.
   refused (`ErrorRefused`, "nothing to snooze: no reminder is outstanding").
   A non-positive `d` is a usage error. Snoozing during a snooze replaces the
   deadline. The reply names the kind: "morning reminder snoozed for 10m".
+- `unsnooze` calls `unsuppress()`. With no snooze running it is refused
+  (`ErrorRefused`, "nothing to unsnooze: no snooze is active"). The reply names
+  the kind it woke: "morning reminder is back".
 - `skip-today` cancels and stamps `lastTriggerDay`, so the morning reminder
   does not fire again today.
 - `new-cycle`, `confirm`, `stop` cancel through the transition hook; `start`
