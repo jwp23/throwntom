@@ -49,7 +49,7 @@ final class DaemonClientTests: XCTestCase {
 
     let message = try await client.command("task add hello")
     XCTAssertFalse(message.isEmpty)
-    try await waitUntil { client.tasks.active.map(\.description) == ["hello"] }
+    try await waitUntil("the added task to reach the window") { client.tasks.active.map(\.description) == ["hello"] }
   }
 
   func testTimerVerbRefusedSurfacesAs409() async throws {
@@ -78,9 +78,9 @@ final class DaemonClientTests: XCTestCase {
     let client = try await connectedClient()
     defer { client.stop() }
     daemon.stop()
-    try await waitUntil { client.connection != .connected }
+    try await waitUntil("the connection to drop") { client.connection != .connected }
     try await daemon.start()
-    try await waitUntil(timeout: 10) { client.connection == .connected }
+    try await waitUntil("the client to reconnect", timeout: 10) { client.connection == .connected }
     XCTAssertEqual(client.state?.state, .idle)
   }
 
@@ -112,8 +112,8 @@ final class DaemonClientTests: XCTestCase {
     XCTAssertNotNil(client.unresolvedError, "the refusal should be visible on its own")
 
     daemon.stop()
-    try await waitUntil { client.connection != .connected }
-    try await waitUntil { client.unresolvedError == client.lastError }
+    try await waitUntil("the connection to drop") { client.connection != .connected }
+    try await waitUntil("the outage to replace the stale refusal") { client.unresolvedError == client.lastError }
   }
 
   func testConnectedClientHasNoErrorToShow() async throws {
@@ -126,11 +126,11 @@ final class DaemonClientTests: XCTestCase {
     let client = try await connectedClient()
     defer { client.stop() }
     daemon.stop()
-    try await waitUntil { client.unresolvedError != nil }
+    try await waitUntil("an error the window can show") { client.unresolvedError != nil }
     XCTAssertEqual(client.unresolvedError, client.lastError)
 
     try await daemon.start()
-    try await waitUntil(timeout: 10) { client.unresolvedError == nil }
+    try await waitUntil("the reconnect to clear the error", timeout: 10) { client.unresolvedError == nil }
     XCTAssertNotNil(client.lastError, "the error is only hidden, not forgotten")
   }
 
@@ -139,9 +139,9 @@ final class DaemonClientTests: XCTestCase {
     let client = DaemonClient(transport: missing, registrar: registrar, backoff: [.milliseconds(30)])
     client.start()
     defer { client.stop() }
-    try await waitUntil { self.registrar.calls >= 1 }
+    try await waitUntil("the first registration") { self.registrar.calls >= 1 }
     XCTAssertEqual(client.connection, .startingDaemon)
-    try await waitUntil(timeout: 3) { self.registrar.calls >= 3 }
+    try await waitUntil("a second registration", timeout: 3) { self.registrar.calls >= 3 }
     XCTAssertEqual(client.connection, .startingDaemon)
   }
 
@@ -166,7 +166,7 @@ final class DaemonClientTests: XCTestCase {
   private func connectedClient() async throws -> DaemonClient {
     let client = DaemonClient(transport: UnixSocketTransport(socketPath: daemon.socketPath), registrar: registrar)
     client.start()
-    try await waitUntil { client.connection == .connected }
+    try await waitUntil("the client to connect") { client.connection == .connected }
     return client
   }
 
