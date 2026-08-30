@@ -31,11 +31,14 @@ struct AppMenus: Commands {
       // The durations live in a submenu under the Timer menu's own Snooze, which keeps ⌘⇧S on
       // the default and puts every other duration one level down rather than in the top list.
       Menu("Snooze For") {
-        MenuGroups(menu: MenuModel.snooze(state: environment.client.state)) { item in
+        MenuGroups(menu: snoozeMenu) { item in
           Button(item.title) { snooze(item.action) }
             .disabled(!item.isEnabled)
         }
       }
+      // A submenu whose every item is greyed says the same thing one level up and one click
+      // sooner, so the parent goes with them.
+      .disabled(!snoozeMenu.items.contains(where: \.isEnabled))
       Divider()
       MenuGroups(menu: serviceMenu) { item in
         Button(item.title) { control(item.action) }
@@ -59,6 +62,10 @@ struct AppMenus: Commands {
 
   /// The service group of the Timer menu, below a divider: starting and stopping the daemon is
   /// not a timer verb, but it belongs to the same menu the timer is driven from.
+  var snoozeMenu: MenuModel<SnoozeAction> {
+    MenuModel.snooze(state: environment.client.state)
+  }
+
   var serviceMenu: MenuModel<ServiceAction> {
     MenuModel.service(
       connection: environment.client.connection,
@@ -75,13 +82,13 @@ struct AppMenus: Commands {
   /// the menu bar works with the window closed, and a flag set behind a closed window is a
   /// command that appears to do nothing and then ambushes the next person to open it.
   func snooze(_ action: SnoozeAction) {
-    if action == .custom {
+    guard let request = action.request else {
       environment.windowModel.isEnteringSnooze = true
       openWindow(id: mainWindowID)
       NSApp.activate()
-    } else {
-      DaemonDispatch.perform(action, on: environment.client)
+      return
     }
+    DaemonDispatch.perform(request, on: environment.client)
   }
 
   func control(_ action: ServiceAction) {

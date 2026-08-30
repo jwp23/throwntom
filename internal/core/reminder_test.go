@@ -405,7 +405,9 @@ func TestUnsnoozeWithNoSnoozeIsRefused(t *testing.T) {
 	}
 }
 
-func TestUnsnoozeDoesNotOutliveTheDeadlineItCancelled(t *testing.T) {
+// Unsnoozing and snoozing again must leave one snooze running for its full
+// length, not a reminder still wired to the deadline it was just woken from.
+func TestASnoozeTakenRightAfterAnUnsnoozeRunsItsFullLength(t *testing.T) {
 	clk := mondayAt(10, 0)
 	c := startedCore(t, config.Default(), clk)
 	if result := c.execute("snooze 10m"); result.err != nil {
@@ -414,11 +416,20 @@ func TestUnsnoozeDoesNotOutliveTheDeadlineItCancelled(t *testing.T) {
 	if result := c.execute("unsnooze"); result.err != nil {
 		t.Fatalf("unsnooze failed: %v", result.err)
 	}
-	// Answering the reminder retires it; the cancelled deadline must not fire
-	// later and raise it from the dead.
-	c.execute(cmdStart)
+	clk.Advance(2 * time.Minute)
+	if result := c.execute("snooze 30m"); result.err != nil {
+		t.Fatalf(fmtSnoozeFailed, result.err)
+	}
+	// Past the first snooze's deadline, which the unsnooze retired.
+	clk.Advance(20 * time.Minute)
+	if _, ok := c.reminder.snoozeDeadline(); !ok {
+		t.Fatal("a deadline the unsnooze retired ended the new snooze early")
+	}
 	clk.Advance(10 * time.Minute)
-	if c.reminder.outstanding() != reminderNone {
-		t.Fatalf("expected the cancelled deadline to be inert, got %v", c.reminder.outstanding())
+	if _, ok := c.reminder.snoozeDeadline(); ok {
+		t.Fatal("expected the second snooze to end at its own deadline")
+	}
+	if c.reminder.outstanding() != reminderMorning {
+		t.Fatal("expected the morning reminder outstanding after it expired")
 	}
 }

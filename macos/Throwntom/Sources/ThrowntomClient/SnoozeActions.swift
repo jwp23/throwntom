@@ -24,6 +24,16 @@ public enum SnoozeAction: Hashable, Sendable {
     }
   }
 
+  /// What the daemon should be asked, or nil for the one verb that asks the user instead.
+  /// Callers have to answer `.custom` themselves; there is nothing to send until they do.
+  public var request: SnoozeRequest? {
+    switch self {
+    case .snooze(let minutes): .snooze(minutes: minutes)
+    case .cancel: .cancel
+    case .custom: nil
+    }
+  }
+
   // MARK: Private
 
   /// Whole hours read as hours; everything else reads as minutes. "60 minutes" is a duration
@@ -35,6 +45,16 @@ public enum SnoozeAction: Hashable, Sendable {
     }
     return minutes == 1 ? "1 minute" : "\(minutes) minutes"
   }
+}
+
+// MARK: - SnoozeRequest
+
+/// The snooze verbs the daemon can actually be asked for. Separate from `SnoozeAction` so
+/// `Custom…` — which is a question for the user, not a command — is not expressible here and
+/// cannot be dispatched into silence.
+public enum SnoozeRequest: Hashable, Sendable {
+  case snooze(minutes: Int)
+  case cancel
 }
 
 // MARK: - SnoozeActions

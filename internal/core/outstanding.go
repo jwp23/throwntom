@@ -48,7 +48,7 @@ type stopper interface {
 
 var (
 	errNoReminder = errors.New("nothing to snooze: no reminder is outstanding")
-	errNoSnooze   = errors.New("nothing to cancel: no snooze is active")
+	errNoSnooze   = errors.New("nothing to unsnooze: no snooze is active")
 )
 
 // outstandingReminder is the one reminder the daemon can be waiting on. kind
@@ -153,16 +153,13 @@ func (r *outstandingReminder) unsuppress() (reminderKind, error) {
 	return kind, nil
 }
 
-// endSuppressionLocked clears the deadline and starts the reminder ringing
-// again. Stopping the timer matters only for the early exit: on the deadline's
-// own path it has already fired, and stopping a fired timer does nothing.
+// endSuppressionLocked ends a snooze and starts the reminder ringing again. It
+// is what both ways out of a snooze share, so ending one early and letting it
+// expire cannot drift apart. Going quiet first is how the deadline is dropped;
+// on the expiry path that timer has already fired and stopping it does nothing.
 // Callers must hold r.mu.
 func (r *outstandingReminder) endSuppressionLocked() {
-	if r.snoozeTimer != nil {
-		r.snoozeTimer.Stop()
-		r.snoozeTimer = nil
-	}
-	r.snoozeUntil = time.Time{}
+	r.quietLocked()
 	r.startLoopLocked()
 }
 
@@ -240,6 +237,12 @@ func (r *outstandingReminder) quietLocked() {
 // startLoopLocked rings for the outstanding kind until cancelled or the
 // policy's bound is reached. Callers must hold r.mu.
 func (r *outstandingReminder) startLoopLocked() {
+	// Retire any loop still running first. Every caller today reaches this with
+	// none, but nothing in the type says so, and the failure if that ever stops
+	// holding is a leaked goroutine ringing alongside its replacement.
+	if r.loopCancel != nil {
+		r.loopCancel()
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	r.loopCancel = cancel
 	go reminder.New(r.policy, r.ring).Run(ctx)

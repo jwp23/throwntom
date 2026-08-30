@@ -151,13 +151,10 @@ public final class DaemonClient {
     }
   }
 
-  /// Runs a snooze verb. `.custom` is the one action with nothing to send: it asks the user for a
-  /// duration, and the answer arrives later as an ordinary `.snooze`.
-  public func perform(_ action: SnoozeAction) async throws {
-    switch action {
+  public func perform(_ request: SnoozeRequest) async throws {
+    switch request {
     case .snooze(let minutes): try await snooze(minutes: minutes)
     case .cancel: try await timer(.unsnooze)
-    case .custom: break
     }
   }
 

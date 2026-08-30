@@ -50,8 +50,8 @@ The composition of `app.App`, scheduler, morning-reminder loop, snooze,
 session persistence, event log and task store — everything currently in
 `cmd/throwntom/timer_core.go` and `buildTimerCore` — moved here as
 `core.Core` with constructor `core.New(cfg)`. Public methods are the
-timer verbs (start, confirm, pause, resume, snooze, skip-today,
-new-cycle), task operations, focus operations, and `Execute(line string)`
+timer verbs (start, confirm, pause, resume, skip, snooze, unsnooze,
+skip-today, new-cycle), task operations, focus operations, and `Execute(line string)`
 (the existing command-string dispatcher). The TUI keeps using it
 in-process.
 
@@ -87,7 +87,7 @@ removed after the lock is won.
 | `GET` | `/v1/state` | `State` document |
 | `GET` | `/v1/events` | SSE stream; each event is a full `State` |
 | `POST` | `/v1/command` | `{"line": "done 2"}` → `{"message": "..."}`; the TUI's grammar, less the commands the daemon has no answer for: `quit`, `exit` and `test-sound` are refused with 400, since the daemon neither exits on request nor plays sound (ADR-007) |
-| `POST` | `/v1/timer/{start,confirm,pause,resume,snooze,skip-today,new-cycle}` | Timer verbs; `snooze` takes `{"minutes": N}`. `start`/`confirm` never wait on the TUI's task-focus prompt: the daemon answers it with an empty line, so focus is set via `/v1/command` or task routes instead |
+| `POST` | `/v1/timer/{start,confirm,pause,resume,skip,snooze,unsnooze,skip-today,new-cycle}` | Timer verbs; `snooze` takes `{"minutes": N}` and every other verb takes no body — `unsnooze` ends a snooze early. `start`/`confirm` never wait on the TUI's task-focus prompt: the daemon answers it with an empty line, so focus is set via `/v1/command` or task routes instead |
 | `GET`, `POST` | `/v1/tasks` | List active+completed; add |
 | `POST` | `/v1/tasks/{id}/complete` | Complete |
 | `DELETE` | `/v1/tasks/{id}` | Remove |

@@ -193,7 +193,7 @@ func (c *Core) handleUnsnooze(_ []string) commandResult {
 		return commandResult{err: err}
 	}
 	c.logEvent("unsnoozed", nil)
-	return commandResult{message: fmt.Sprintf("%s reminder is back.", kind.label())}
+	return commandResult{message: fmt.Sprintf("%s reminder is back", kind.label())}
 }
 
 func (c *Core) handleSkipToday(_ []string) commandResult {

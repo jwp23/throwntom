@@ -9,6 +9,15 @@ final class MainWindowContentTests: XCTestCase {
 
   // MARK: Internal
 
+  /// The reminder can be answered from the notification or the keyboard while the custom-duration
+  /// field is open. `MainWindow` clears the flag off this condition, so what has to hold is that
+  /// the condition actually goes false when the verb leaves.
+  func testSnoozeLeavesTheOfferedVerbsOnceTheReminderIsAnswered() {
+    XCTAssertTrue(content(makeState(phase: .awaitingConfirm)).chips.contains(.snooze))
+    XCTAssertFalse(content(makeState(phase: .work)).chips.contains(.snooze))
+    XCTAssertFalse(content(makeState(phase: .idle, morningPending: false)).chips.contains(.snooze))
+  }
+
   /// A snooze takes the reminder banner away (`ReminderBanner.waitingKind`), so without this the
   /// only evidence a snooze happened is a nudge that never arrives. That is how a stray click
   /// became ten silent minutes nobody could explain.

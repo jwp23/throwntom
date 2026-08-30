@@ -37,10 +37,7 @@ struct MainWindow: View {
         TomatoGardenView(garden: garden)
       }
       ActionChips(content: content, client: environment.client, model: environment.windowModel)
-      // Only while there is still something to snooze: the reminder can be answered from the
-      // notification or the keyboard while this is open, and a field left behind after that
-      // submits to a daemon that would refuse it.
-      if environment.windowModel.isEnteringSnooze, content.chips.contains(.snooze) {
+      if environment.windowModel.isEnteringSnooze {
         SnoozeEntryRow(client: environment.client, model: environment.windowModel)
       }
       // Snoozing withdraws the reminder banner, so without this line an active snooze has no
@@ -69,6 +66,15 @@ struct MainWindow: View {
     .onExitCommand { escape() }
     .sheet(isPresented: Bindable(environment.windowModel).showsShortcuts) {
       ShortcutSheet(environment: environment)
+    }
+    // The reminder can be answered from the notification or the keyboard while the duration
+    // field is open. Clearing the flag rather than just hiding the row matters: a flag left set
+    // behind a hidden row makes Escape answer something invisible, and puts the field back
+    // unbidden — stealing the keyboard — the next time a reminder arrives.
+    .onChange(of: content.chips.contains(.snooze)) { _, canSnooze in
+      if !canSnooze {
+        environment.windowModel.isEnteringSnooze = false
+      }
     }
     .onChange(of: environment.client.tasks, initial: true) { syncModel() }
     .onChange(of: environment.client.state?.focusedTaskIds, initial: true) { syncModel() }

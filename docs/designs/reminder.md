@@ -54,7 +54,7 @@ one-method interface over the handle `after` returns, the same shape
 
 ### Operations
 
-All four take `mu` and call `onChange` when something observable changed.
+All five take `mu` and call `onChange` when something observable changed.
 
 - `raise(kind)` — no-op if that kind is already outstanding, so a repeated
   schedule tick or a restore cannot double-ring. Otherwise cancel any running
@@ -108,8 +108,8 @@ cannot slip between them.
   A non-positive `d` is a usage error. Snoozing during a snooze replaces the
   deadline. The reply names the kind: "morning reminder snoozed for 10m".
 - `unsnooze` calls `unsuppress()`. With no snooze running it is refused
-  (`ErrorRefused`, "nothing to cancel: no snooze is active"). The reply names
-  the kind it woke: "morning reminder is back."
+  (`ErrorRefused`, "nothing to unsnooze: no snooze is active"). The reply names
+  the kind it woke: "morning reminder is back".
 - `skip-today` cancels and stamps `lastTriggerDay`, so the morning reminder
   does not fire again today.
 - `new-cycle`, `confirm`, `stop` cancel through the transition hook; `start`

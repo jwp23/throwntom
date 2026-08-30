@@ -36,9 +36,11 @@ struct SnoozeChip: View {
   }
 
   /// Built from what the window already decided rather than from the daemon state again, so the
-  /// chip's face and its menu can never disagree about whether a snooze is running.
+  /// chip's face and its menu can never disagree about whether a snooze is running. `canDefer` is
+  /// unconditionally true because this chip is only rendered for a state that offers Snooze — the
+  /// menu bar's copy of this menu is the one that has to work that out.
   var menu: MenuModel<SnoozeAction> {
-    MenuModel.snooze(canDefer: content.chips.contains(.snooze), isSnoozed: isSnoozed)
+    MenuModel.snooze(canDefer: true, isSnoozed: isSnoozed)
   }
 
   var body: some View {
@@ -61,11 +63,11 @@ struct SnoozeChip: View {
   /// Runs a snooze verb, except `Custom…`, which is a question for the user rather than a command
   /// for the daemon: it opens the field, and the answer arrives as an ordinary snooze.
   func run(_ action: SnoozeAction) {
-    if action == .custom {
+    guard let request = action.request else {
       model.isEnteringSnooze = true
-    } else {
-      DaemonDispatch.perform(action, on: client)
+      return
     }
+    DaemonDispatch.perform(request, on: client)
   }
 
   // MARK: Private

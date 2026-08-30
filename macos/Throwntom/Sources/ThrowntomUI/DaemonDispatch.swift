@@ -13,9 +13,9 @@ enum DaemonDispatch {
   }
 
   @MainActor
-  static func perform(_ action: SnoozeAction, on client: DaemonClient) {
+  static func perform(_ request: SnoozeRequest, on client: DaemonClient) {
     Task {
-      do { try await client.perform(action) } catch { NSSound.beep() }
+      do { try await client.perform(request) } catch { NSSound.beep() }
     }
   }
 

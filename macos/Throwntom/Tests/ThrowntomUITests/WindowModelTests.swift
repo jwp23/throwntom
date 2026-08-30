@@ -29,4 +29,22 @@ final class WindowModelTests: XCTestCase {
     XCTAssertNil(model.panel)
     XCTAssertFalse(model.dismiss(), "nothing left to close")
   }
+
+  /// Escape answers the duration field before the sheet or the panel, so it always closes
+  /// whatever the user is actually looking at.
+  func testDismissClosesTheSnoozeFieldBeforeEverythingElse() {
+    let model = WindowModel()
+    model.panel = .tasks
+    model.showsShortcuts = true
+    model.isEnteringSnooze = true
+
+    XCTAssertTrue(model.dismiss())
+    XCTAssertFalse(model.isEnteringSnooze)
+    XCTAssertTrue(model.showsShortcuts, "the sheet should still be open")
+    XCTAssertEqual(model.panel, .tasks, "the panel should still be open")
+  }
+
+  func testTheSnoozeFieldStartsClosed() {
+    XCTAssertFalse(WindowModel().isEnteringSnooze)
+  }
 }

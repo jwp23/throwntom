@@ -3,27 +3,9 @@ import XCTest
 @testable import ThrowntomUI
 
 @MainActor
-final class SnoozeEntryTests: XCTestCase {
+final class SnoozeEntryRowTests: XCTestCase {
 
   // MARK: Internal
-
-  /// Escape closes the duration field before anything else, so the field the user is typing in is
-  /// always what Escape answers — otherwise it would shut the panel behind it and leave the field.
-  func testEscapeClosesTheDurationFieldFirst() {
-    let model = WindowModel()
-    model.panel = .tasks
-    model.showsShortcuts = true
-    model.isEnteringSnooze = true
-
-    XCTAssertTrue(model.dismiss())
-    XCTAssertFalse(model.isEnteringSnooze)
-    XCTAssertTrue(model.showsShortcuts, "the sheet should still be open")
-    XCTAssertEqual(model.panel, .tasks, "the panel should still be open")
-  }
-
-  func testTheDurationFieldStartsClosed() {
-    XCTAssertFalse(WindowModel().isEnteringSnooze)
-  }
 
   func testAWholeNumberOfMinutesIsSnoozedAndClosesTheField() throws {
     let (row, transport, model, refusals) = try makeRow()
