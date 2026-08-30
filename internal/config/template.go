@@ -29,6 +29,11 @@ const Template = `# throwntom configuration.
 # An empty file is read as a save still in flight and ignored, so emptying
 # this one resets nothing: delete it instead and the daemon writes a fresh
 # copy the next time it starts.
+#
+# Settings outside a section must stay above the first [pomodoro] header:
+# TOML puts a bare key written after a section header inside that section, so
+# repeat_secs moved down there becomes pomodoro.repeat_secs and is rejected
+# as an unknown key.
 
 # Seconds between the repeats of an unanswered reminder.
 # repeat_secs = 20
@@ -44,8 +49,10 @@ const Template = `# throwntom configuration.
 # or on Linux paplay, canberra-gtk-play, aplay and finally the terminal bell.
 # On Linux that same chain also backs up a command that fails, so a broken
 # command there still makes a noise; on macOS it replaces the sound outright.
-# A change here waits for the daemon to restart: the notifier is built once,
-# at startup.
+# This one belongs to the throwntom terminal interface: throwntomd plays no
+# sound at all, so setting this changes nothing there, restart or not. The
+# terminal interface builds its notifier from this as it launches, so a
+# change waits for the next launch.
 # macOS example: sound_command = ["afplay", "/System/Library/Sounds/Glass.aiff"]
 # Linux example: sound_command = ["paplay", "/usr/share/sounds/freedesktop/stereo/complete.oga"]
 # sound_command = []
