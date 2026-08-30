@@ -95,8 +95,8 @@ focus and so fail non-interactively — use the daemon's `/v1/timer/start` and
 window exposes the timer verbs as buttons and menu items and the task commands
 through its tasks panel.
 
-- `start` - start work period
-- `new-cycle` - start a fresh cycle now (reset cycle progress, keep today's total)
+- `start` - start work period, or take the phase you are owed (at the end of a phase it does what `confirm` does)
+- `new-cycle` - start a fresh cycle now (reset cycle progress, keep today's total; a finished phase is still counted)
 - `pause` - pause the active pomodoro or break timer
 - `resume` - resume a paused pomodoro or break timer
 - `skip` - end the running phase now and move to the next stage (the skipped phase is not counted)
@@ -208,6 +208,15 @@ overwritten. The macOS app opens this file with **Open Config File…** (⌘,).
 Example `config.toml`:
 
 ```toml
+# Settings outside a section must stay above [pomodoro]: TOML puts a bare key
+# written after a section header inside that section.
+repeat_secs = 20
+repeat_limit_secs = 300
+sound_command = ["paplay", "/usr/share/sounds/freedesktop/stereo/bell.oga"]
+morning_reminder_pending = true
+emoji = true
+float_window_when_waiting = false
+
 [pomodoro]
 work_minutes = 25
 short_break_minutes = 5
@@ -223,12 +232,6 @@ time = "09:15"
 days = ["Fri"]
 time = "10:00"
 
-repeat_secs = 20
-repeat_limit_secs = 300
-sound_command = ["paplay", "/usr/share/sounds/freedesktop/stereo/bell.oga"]
-morning_reminder_pending = true
-emoji = true
-
 [stats]
 tier_low = 2
 tier_mid = 5
@@ -237,15 +240,32 @@ tier_mid = 5
 `repeat_limit_secs` bounds how long an unanswered reminder keeps alerting, so a
 reminder nobody is around to acknowledge stops on its own rather than ringing
 until you quit. Like `sound_command` it describes the terminal UI: `throwntomd`
-plays nothing to repeat, and on macOS the app chimes on each published repeat
-tick until the reminder is answered.
+plays nothing to repeat, and on macOS the app chimes on each published ring,
+the first included, until the reminder is answered.
+
+### `float_window_when_waiting`
+
+Off by default. When on, the macOS window is kept above other applications'
+windows while a reminder is waiting to be answered, and drops back to the
+ordinary level as soon as the reminder is confirmed or snoozed. It is for a
+cluttered screen, where a reminder is easy to lose behind whatever else is
+open.
+
+It never takes keyboard focus. Raising a window's level changes the stacking
+order only; taking the keyboard is a separate act the app does not perform, so
+the window cannot interrupt what you are typing — it can only appear in front
+of it. The daemon does nothing with this setting and the terminal UI has no
+window to raise; it is passed through in the daemon's published state for the
+macOS app to read.
 
 ### `sound_command`
 
 `sound_command` applies to the terminal UI only. `throwntomd` plays no sound
 at all: it publishes state and each client presents it on its own platform,
-so on macOS the reminder is the app's banner and the chime that comes with it
-(see `docs/adr/007-the-daemon-plays-no-sound.md`).
+so on macOS the reminder is the app's banner plus a chime the app plays itself
+on every ring — the banner carries no sound (see
+`docs/adr/007-the-daemon-plays-no-sound.md`,
+`docs/adr/009-the-chime-is-the-only-audio-path.md`).
 
 `sound_command` is an optional TOML string array: the first item is the
 executable, the rest are its arguments. Setting it changes how the terminal UI
@@ -284,8 +304,9 @@ already spent ends that phase immediately — the edit says the phase should
 already be over. A file that does not parse is reported on the daemon's
 stderr and ignored; the config in force stays in force.
 
-Reloading covers `[pomodoro]`, `[[schedule]]`, `repeat_secs` and
-`repeat_limit_secs`. The rest needs a restart of whichever process reads it:
+Reloading covers `[pomodoro]`, `[[schedule]]`, `repeat_secs`,
+`repeat_limit_secs` and `float_window_when_waiting`. The rest needs a restart
+of whichever process reads it:
 
 - `sound_command` — `throwntomd` plays no sound at all (see above), and the
   terminal UI that does use it builds its notifier once, at startup; neither

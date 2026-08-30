@@ -55,7 +55,7 @@ func (s *server) postCommand(w http.ResponseWriter, r *http.Request) {
 // runCommand executes one command line and writes the outcome; shared by
 // the command endpoint and the verb/task routes.
 func (s *server) runCommand(w http.ResponseWriter, line string) {
-	if err := unavailableOverAPI(line); err != nil {
+	if err := s.unavailableOverAPI(line); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
@@ -64,20 +64,23 @@ func (s *server) runCommand(w http.ResponseWriter, line string) {
 }
 
 // unavailableOverAPI reports why the daemon refuses line, or nil if it will
-// run it. Both refusals are commands the core offers its terminal caller that
-// mean nothing here:
+// run it. Two of the commands the core offers its terminal caller can mean
+// nothing here:
 //
 // quit and exit — the API has no notion of exiting; running either would
 // cancel whatever reminder is outstanding and leave the daemon serving a core
 // that believes it has exited.
 //
-// test-sound — the daemon's notifier is notifier.Silent() (ADR-007), so the
-// core's "Sound test played." would report success for audio nobody played.
-// Sound belongs to the client, and so does testing it.
+// test-sound — only when this daemon's notifier is a silent one, which is
+// what cmd/throwntomd injects (ADR-007): the core's "Sound test played."
+// would then report success for audio nobody played. Sound belongs to the
+// client, and so does testing it. The answer is read from the notifier the
+// core holds rather than assumed, because Run takes any notifier and a
+// sounding one has a sound worth testing.
 //
 // Fields matches how the core splits a line, so an argument or surrounding
 // space cannot smuggle a refused command past this.
-func unavailableOverAPI(line string) error {
+func (s *server) unavailableOverAPI(line string) error {
 	fields := strings.Fields(line)
 	if len(fields) == 0 {
 		return nil
@@ -86,7 +89,9 @@ func unavailableOverAPI(line string) error {
 	case "quit", "exit":
 		return fmt.Errorf("%s is not available over the API", verb)
 	case "test-sound":
-		return errors.New("test-sound is not available over the API: the daemon plays no sound")
+		if !s.core.PlaysSound() {
+			return errors.New("test-sound is not available over the API: the daemon plays no sound")
+		}
 	}
 	return nil
 }

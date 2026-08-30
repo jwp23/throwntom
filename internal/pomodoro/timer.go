@@ -137,29 +137,26 @@ func (t *Timer) Restore(s Snapshot, now time.Time) error {
 // force when the session was saved: ADR-008. A phase whose
 // current duration has already been served comes back complete.
 func (t *Timer) restoreRunningLocked(s Snapshot, now time.Time) {
-	remaining := t.remainingOnRestoreLocked(s, now)
+	startedAt := phaseStartOnRestore(s, now)
+	remaining := t.phaseDurationLocked(s.Engine.State) - now.Sub(startedAt)
 	if remaining <= 0 {
 		t.completePeriodLocked()
 		return
 	}
-	t.startPhaseFromLocked(s.PhaseStartedAt, remaining)
+	t.startPhaseFromLocked(startedAt, remaining)
 }
 
-// remainingOnRestoreLocked reports how much of the restored phase is left.
-// Without a recorded phase start there is no way to know how much was spent —
-// a truncated or hand-edited session — so the stored end time stands rather
-// than ending the phase on a guess.
-func (t *Timer) remainingOnRestoreLocked(s Snapshot, now time.Time) time.Duration {
-	if s.PhaseStartedAt.IsZero() {
-		return s.PhaseEndAt.Sub(now)
+// phaseStartOnRestore reports when the restored phase began. Two sessions
+// cannot say: one whose start is in the future, which is a clock that moved
+// backwards, and one with no start at all, which is truncated or hand-edited.
+// Neither owes the user time already served, so both count as beginning now —
+// and ADR-008 then measures the phase against the duration in force now, with
+// no carve-out for a session that happens to be missing a field.
+func phaseStartOnRestore(s Snapshot, now time.Time) time.Time {
+	if s.PhaseStartedAt.IsZero() || s.PhaseStartedAt.After(now) {
+		return now
 	}
-	elapsed := now.Sub(s.PhaseStartedAt)
-	if elapsed < 0 {
-		// A phase that starts in the future is a clock that moved backwards,
-		// not time owed back to the user: treat it as just begun.
-		elapsed = 0
-	}
-	return t.phaseDurationLocked(s.Engine.State) - elapsed
+	return s.PhaseStartedAt
 }
 
 // restorePausedLocked brings back a paused phase. Its elapsed time is frozen,
@@ -200,24 +197,55 @@ func dayRolledOver(before, after engine.Snapshot) bool {
 	return !before.WorkDate.IsZero() && !engine.IsSameDay(before.WorkDate, after.WorkDate)
 }
 
-func (t *Timer) Start() {
+// Start enters the phase the cycle owes and reports the engine state it acted
+// from. A phase waiting to be confirmed is owed the phase confirm would begin,
+// so start does what confirm does at that boundary. Deciding it inside the
+// lock is what makes it safe: the phase deadline fires from its own goroutine
+// and can reach that boundary between a caller's own check and this call, and
+// a start that then began fresh work would discard the completion the caller
+// still has to log. The returned snapshot names the phase that completion
+// belongs to.
+func (t *Timer) Start() engine.Snapshot {
 	t.mu.Lock()
+	before := t.engine.Snapshot()
 	defer t.notifyChange()
 	defer t.mu.Unlock()
 	defer t.transitionLocked()
+	if before.State == engine.AwaitingConfirm {
+		t.confirmNextLocked()
+		return before
+	}
 	t.engine.StartWork()
 	t.startPhaseTimerLocked(t.phaseDurationLocked(t.engine.State()))
+	return before
 }
 
-// OwedPhase reports the phase Start would enter now.
-func (t *Timer) OwedPhase() engine.State {
+// confirmNextLocked credits the phase waiting on the user and runs the one
+// that follows. A stage with no duration of its own runs no timer.
+func (t *Timer) confirmNextLocked() {
+	t.engine.ConfirmNext()
+	if d := t.phaseDurationLocked(t.engine.State()); d > 0 {
+		t.startPhaseTimerLocked(d)
+	}
+}
+
+// OwedStage reports the phase Start would enter now and how long it would run
+// for, measured against the durations in force now the way NextStage is.
+func (t *Timer) OwedStage() (engine.State, time.Duration) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	return t.engine.OwedPhase()
+	owed := t.engine.OwedPhase()
+	return owed, t.phaseDurationLocked(owed)
 }
 
-func (t *Timer) StartNewCycle() {
+// StartNewCycle abandons the current cycle and begins a fresh work period,
+// reporting the engine state as of the moment it did. Reporting from inside
+// the lock, the way Stop and Skip do, saves the caller a second, racy read:
+// the phase deadline fires from its own goroutine and can otherwise complete
+// the phase between a caller's own Snapshot and this call.
+func (t *Timer) StartNewCycle() engine.Snapshot {
 	t.mu.Lock()
+	before := t.engine.Snapshot()
 	defer t.notifyChange()
 	defer t.mu.Unlock()
 	defer t.transitionLocked()
@@ -225,6 +253,7 @@ func (t *Timer) StartNewCycle() {
 	t.clearPhaseLocked()
 	t.engine.StartNewCycle()
 	t.startPhaseTimerLocked(t.workDuration)
+	return before
 }
 
 func (t *Timer) CompletePeriod() {

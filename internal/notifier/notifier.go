@@ -69,6 +69,17 @@ func Silent() Notifier {
 	return silentNotifier{}
 }
 
+// Audible reports whether n is a notifier that plays sound at all, which is
+// to say anything other than Silent(). It does not promise the sound reaches
+// anyone: a command notifier pointed at a silent command is audible by this
+// answer. Only the composition root knows which notifier a process was given,
+// so a process that has to say whether it has a sound to play asks here
+// instead of assuming which one it holds.
+func Audible(n Notifier) bool {
+	_, silent := n.(silentNotifier)
+	return !silent
+}
+
 func NewTestNotifier(run runner) Notifier {
 	return &macOSNotifier{run: run}
 }

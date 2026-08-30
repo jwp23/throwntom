@@ -22,8 +22,8 @@ protocol ReminderPresenter {
   /// typing in (throwntom-lbw). The name carries the constraint because nothing else can: an
   /// implementation that reached for `activate` or `makeKeyAndOrderFront` would contradict it.
   func showWindowWithoutFocus()
-  /// Sounds one repeat of the reminder. The banner chimes as it posts; this is every ring
-  /// after that, which is the part of the nag the daemon no longer plays.
+  /// Sounds one ring of the reminder. The banner carries no sound of its own (ADR-009), so this
+  /// is the whole audio path — ring one included, and every repeat the daemon no longer plays.
   func chime()
 }
 
@@ -68,6 +68,13 @@ enum ReminderBanner: Equatable {
     case .morning:
       return .postMorning(title: title, body: morningBody)
     }
+  }
+
+  /// Whether the user owes an answer to either reminder. The same question the banner decides
+  /// from, for callers that need only the yes or no — so what counts as an outstanding reminder
+  /// is settled in one place.
+  static func isWaiting(_ state: DaemonState?) -> Bool {
+    waitingKind(state) != nil
   }
 
   /// Whether the Dock should bounce for this change, independent of whether a notification can
