@@ -119,6 +119,13 @@ make it stop, and they mean different things.
   Timer Service**. Use it when you want the machine quiet, not just the day
   over.
 
+  The stop holds for as long as the app stays open. It is **not** yet persisted:
+  the next launch of the app dials, fails three times, and re-registers the
+  agent, so a stopped service comes back when you next open Throwntom (or at
+  login, if Launch at Login is on). Whether it should survive a restart is an
+  open question — bead `throwntom-faa`. Until that is settled, quit the app to
+  keep the service down.
+
 A single phase can still be stopped without ending the day with
 `tools/tomctl cmd stop`. `launchctl bootout gui/$(id -u)/com.jwp23.throwntom.daemon`
 does what Stop Timer Service does; note that an app which has not been told to
