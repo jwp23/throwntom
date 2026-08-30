@@ -150,7 +150,12 @@ final class CancelledRefreshTests: XCTestCase {
     client.startService()
     transport.releaseAsCancelled()
 
-    try await Task.sleep(for: .milliseconds(100))
+    // Ordered rather than timed. `releaseAsCancelled()` resumes the parked fetch from this test,
+    // which is on the main actor, and `refreshTasks` is main-actor too — so the resumption is
+    // enqueued there before this `yield` is, and the executor is serial. The `catch` under test
+    // has therefore run by the time the assertions below do, on any machine and under any load.
+    await Task.yield()
+
     XCTAssertNil(client.lastError, "a fetch the client itself cancelled is not a reply it could not read")
     XCTAssertNil(client.unresolvedError)
   }

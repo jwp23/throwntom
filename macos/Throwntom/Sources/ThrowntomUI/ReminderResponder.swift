@@ -74,7 +74,10 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
   /// not an answer to an outstanding reminder, so it leaves both the banner and the state that
   /// banner was decided from alone: reconnecting into the same wait posts and bounces nothing.
   func present(_ state: DaemonState?) async {
-    guard let state else { return }
+    guard let state else {
+      withdrawIfTheServiceIsGone()
+      return
+    }
     chimeForNewRings(in: state)
     if ReminderBanner.wantsAttention(from: shownState, to: state) {
       presenter.requestAttention()
@@ -151,6 +154,16 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
       return
     }
     Task { @MainActor in
+      // The banner is the one dispatch path the user can reach without the window, so it needs
+      // the same service gate every chip and menu item has. Without it a button pressed over a
+      // stopped service sends a command that is refused, and the refusal lands in `commandError`,
+      // which `unresolvedError` reports ahead of the stopped state — a fault note on the one
+      // screen whose whole claim is that nothing failed.
+      guard client.serviceStatus.offersDaemonCommands else {
+        withdrawIfTheServiceIsGone()
+        completion()
+        return
+      }
       do {
         try await ReminderNotification.answer(action, using: client)
       } catch {
@@ -190,6 +203,21 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
   /// Nil is what keeps a reconnect quiet: rings the app was not there to hear are adopted,
   /// not replayed as a burst of chimes.
   private var heardRings: Int?
+
+  /// Takes the banner down once there is no service to answer it. A reminder outlives the daemon
+  /// that raised it: macOS keeps it in Notification Center until something withdraws it, and
+  /// stopping the service clears the state this responder follows, so no later frame arrives to
+  /// retire it. Leaving it up offers buttons that cannot work.
+  ///
+  /// Forgetting `shownState` and `heardRings` with it is what makes the return quiet: the next
+  /// daemon state is read as the first one rather than as a change from a wait that is long over,
+  /// and rings counted by the old daemon are adopted rather than replayed.
+  private func withdrawIfTheServiceIsGone() {
+    guard !client.serviceStatus.offersDaemonCommands else { return }
+    presenter.withdrawReminder()
+    shownState = nil
+    heardRings = nil
+  }
 
   /// Sounds the repeats the daemon rang while the app was watching. Only a climb is a ring:
   /// the count resets when a wait is retired, and a reset is not something to be heard. The

@@ -42,15 +42,22 @@ final class ConnectionStatusTests: XCTestCase {
     )
   }
 
+  /// The precedence itself now lives in `ServiceStatus.of`, so that is where it has to be checked:
+  /// asserting the same line for three connection values through `text` would restate one equality
+  /// three times, because on the refused path `text` never reads the connection at all.
   func testARefusedLaunchOutranksEveryDiallingState() {
     let dialling: [DaemonClient.Connection] = [.connecting, .reconnecting(attempt: 2), .startingDaemon]
     for connection in dialling {
       XCTAssertEqual(
-        ConnectionStatus.text(state: nil, connection: connection, status: .launchRefused, now: .now),
-        "Timer service can\u{2019}t launch",
+        ServiceStatus.of(connection: connection, registrationFailed: true, startStalled: false),
+        .launchRefused,
         "\(connection)",
       )
     }
+    XCTAssertEqual(
+      ConnectionStatus.text(state: nil, connection: .startingDaemon, status: .launchRefused, now: .now),
+      "Timer service can\u{2019}t launch",
+    )
   }
 
   /// A stopped service is not a failure, and the user asked for it: the refusal must not survive

@@ -9,6 +9,9 @@ struct MainWindowContent: Equatable {
 
   // MARK: Lifecycle
 
+  /// `status` is derived from `connection` by the client, so in the app the two always agree and
+  /// `connection` is read for one thing only: which of the three dialling phrasings to use when
+  /// there is no phase to name. A test can pair them freely; nothing downstream trusts the pair.
   init(
     state: DaemonState?,
     connection: DaemonClient.Connection,

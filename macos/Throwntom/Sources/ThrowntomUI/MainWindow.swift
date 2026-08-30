@@ -21,8 +21,10 @@ struct MainWindow: View {
 
   let environment: AppEnvironment
 
-  var body: some View {
-    let content = MainWindowContent(
+  /// Everything the window draws for this moment. A property rather than a `let` in `body` so
+  /// `escape()` can ask what is actually on screen instead of re-deriving the rule.
+  var content: MainWindowContent {
+    MainWindowContent(
       state: environment.client.state,
       connection: environment.client.connection,
       status: environment.client.serviceStatus,
@@ -31,6 +33,10 @@ struct MainWindow: View {
       panel: environment.windowModel.panel,
       now: environment.ticker.now,
     )
+  }
+
+  var body: some View {
+    let content = content
     VStack(spacing: Self.sectionSpacing) {
       TimerHeader(content: content)
       if let garden = content.garden {
@@ -79,9 +85,10 @@ struct MainWindow: View {
     environment.model.sync(tasks: environment.client.tasks, focusedTaskIDs: environment.client.state?.focusedTaskIds)
   }
 
-  /// Escape closes whatever is open on top first; with nothing open it cancels a task edit.
+  /// Escape closes whatever is open on top first; with nothing open it cancels a task edit. A
+  /// panel the window is declining to draw counts as nothing open.
   func escape() {
-    if !environment.windowModel.dismiss() {
+    if !environment.windowModel.dismiss(panelIsShown: content.panel != nil) {
       environment.model.cancelEdit()
     }
   }

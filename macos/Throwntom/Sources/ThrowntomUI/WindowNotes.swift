@@ -4,10 +4,12 @@ import SwiftUI
 /// deliver reminders. These wrap rather than truncate because the sentence says what to do about it.
 struct WindowNotes: View {
   let error: String?
-  /// Why the timer service is not running. Drawn first, and in the same weight as the faults
-  /// below it rather than dimmed: it is the reading of the window and the reader needs it, and
-  /// this ground's text carries its full colour so every line on it clears 4.5:1. What keeps it
-  /// from looking like a crash is its wording, not a lighter grey.
+  /// Why the timer service is not running. Drawn first, and in the same size and weight as the
+  /// faults below it rather than dimmed or enlarged: this ground's text carries its full colour so
+  /// every line on it clears 4.5:1, and the notes section is one register. What keeps a choice
+  /// from reading as a crash is its wording, not a lighter grey — and what carries the weight on
+  /// these screens is the title above, which already names the situation in full size. Growing
+  /// this sentence would give the window two headlines.
   let notice: String?
   let responder: ReminderResponder
 

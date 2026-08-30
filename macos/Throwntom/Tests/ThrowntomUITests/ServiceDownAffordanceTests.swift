@@ -119,7 +119,19 @@ final class ServiceDownWindowTests: XCTestCase {
     XCTAssertEqual(stopped.serviceAction, .start)
     let notice = try XCTUnwrap(stopped.notice)
     XCTAssertTrue(notice.contains("You stopped"), notice)
-    XCTAssertNil(stopped.error, "a choice is not a fault")
+  }
+
+  /// The other half of "a choice is not a fault", asserted where it is actually decided: the
+  /// window renders whatever error it is handed, so only the client can promise there is none.
+  @MainActor
+  func testAStoppedClientHasNoFaultToReport() {
+    let client = DaemonClient(
+      transport: UnreachableDaemonTransport(),
+      registrar: RecordingRegistrar(),
+      intents: MemoryServiceIntentStore(.stopped),
+    )
+
+    XCTAssertNil(client.unresolvedError)
   }
 
   /// throwntom-azp. The screen that used to read "Starting timer…" for ever.
@@ -222,6 +234,82 @@ final class ServiceDownNoteTests: XCTestCase {
     )
 
     XCTAssertEqual(environment.client.serviceStatus, .stopped)
+  }
+
+}
+
+// MARK: - ServiceDownWiringTests
+
+/// The gate reaching the surfaces, rather than the gate itself. Every other test in this file
+/// hands `daemonAvailable:` to a menu model as a literal, which proves the model obeys it and
+/// nothing about whether any view ever asks. Each of these drives a real `AppEnvironment` whose
+/// only unusual property is a recorded stop, so a view that stopped consulting `serviceStatus`
+/// fails here — which is the exact regression this branch exists to prevent, one surface at a time.
+@MainActor
+final class ServiceDownWiringTests: XCTestCase {
+
+  // MARK: Internal
+
+  func testTheMenuBarAsksTheClientWhetherThereIsADaemon() throws {
+    let menus = AppMenus(environment: try stoppedEnvironment())
+
+    XCTAssertFalse(menus.daemonAvailable)
+    XCTAssertTrue(menus.timerMenu.items.allSatisfy { !$0.isEnabled }, "⌘P and ⌘K would fire into nothing")
+    XCTAssertEqual(menus.serviceMenu.items.map(\.title), ["Start Timer Service"])
+  }
+
+  func testTheCommandChipRowAsksTheClientWhetherThereIsADaemon() throws {
+    let chips = CommandChips(environment: try stoppedEnvironment(), scheme: Palette.scheme(for: nil))
+
+    XCTAssertFalse(try XCTUnwrap(chips.menu.item(for: .tasks)).isEnabled)
+    XCTAssertFalse(try XCTUnwrap(chips.menu.item(for: .stats)).isEnabled)
+    XCTAssertTrue(try XCTUnwrap(chips.menu.item(for: .shortcuts)).isEnabled, "the cheat sheet is local")
+  }
+
+  func testARowContextMenuAsksTheClientWhetherThereIsADaemon() throws {
+    let menu = TaskContextMenu(task: makeTask(id: 1), environment: try stoppedEnvironment()).menu
+
+    XCTAssertFalse(menu.items.isEmpty)
+    XCTAssertTrue(menu.items.allSatisfy { !$0.isEnabled })
+  }
+
+  func testTheWindowAsksTheClientWhetherThereIsADaemon() throws {
+    let environment = try stoppedEnvironment()
+    environment.windowModel.panel = .tasks
+
+    let content = MainWindow(environment: environment).content
+
+    XCTAssertEqual(content.title, "Timer service stopped")
+    XCTAssertEqual(content.chips, [])
+    XCTAssertEqual(content.serviceAction, .start)
+    XCTAssertNil(content.panel, "a panel left open when the service went down draws nothing")
+    XCTAssertNotNil(content.notice)
+  }
+
+  /// The same window with a daemon, so the assertions above are about the stop and not about
+  /// `AppEnvironment` simply producing an empty window whatever it is told.
+  func testTheSameWindowWithADaemonKeepsEverything() async throws {
+    let environment = AppEnvironment(transport: try StubTransport(states: [makeState(phase: .work)]))
+    defer { environment.client.stop() }
+    environment.start()
+    try await waitUntil { environment.client.state != nil }
+    environment.windowModel.panel = .tasks
+
+    let content = MainWindow(environment: environment).content
+
+    XCTAssertEqual(content.title, "Pomodoro")
+    XCTAssertFalse(content.chips.isEmpty)
+    XCTAssertEqual(content.serviceAction, .stop)
+    XCTAssertEqual(content.panel, .tasks)
+    XCTAssertNil(content.notice)
+  }
+
+  // MARK: Private
+
+  /// An app whose recorded intent is a stop, which is the one launch that reaches the stopped
+  /// screen without any dialling having to fail first.
+  private func stoppedEnvironment() throws -> AppEnvironment {
+    AppEnvironment(transport: try StubTransport(states: []), intents: MemoryServiceIntentStore(.stopped))
   }
 
 }

@@ -38,7 +38,8 @@ timer…" indefinitely.
    mode.
 3. **The three absent situations are three distinct screens.** Stopped, refused
    and unanswered each get their own title and their own sentence. Dialling is
-   not one of them: it keeps the phase it holds and reads as transient.
+   not one of them: where it holds a phase it keeps that phase and goes on
+   naming it, and where it holds none it names the dial itself.
 4. **Absence of a recorded intent means running.** A first launch and a client
    whose daemon died both want the daemon back. Only an explicit stop does not,
    so only an explicit stop keeps the client from dialling.

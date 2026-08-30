@@ -31,8 +31,16 @@ public enum ServiceStatus: Hashable, Sendable {
   /// Dialling counts as available: the daemon is expected back within a backoff step, the retained
   /// phase is still true, and withdrawing every verb for a blink of the socket would be worse than
   /// the refusal a command would meet.
+  /// Switched rather than compared, because this one property gates every affordance in the app
+  /// that reaches the daemon: a case added later has to be decided here, not fall through.
   public var offersDaemonCommands: Bool {
-    self == .running || self == .reaching
+    switch self {
+    case .running,
+         .reaching: true
+    case .stopped,
+         .launchRefused,
+         .notAnswering: false
+    }
   }
 
   /// The sentence under the status line, on the screens where the line alone leaves the reader

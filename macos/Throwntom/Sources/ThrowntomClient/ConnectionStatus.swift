@@ -50,8 +50,15 @@ public enum ConnectionStatus {
     case .reconnecting:
       state.map { Countdown.tickedStatusLine($0, now: now) + " (reconnecting)" } ?? "Reconnecting…"
 
-    default:
+    case .connecting:
       state.map { Countdown.tickedStatusLine($0, now: now) + " (reconnecting)" } ?? "Connecting…"
+
+    // Neither reaches this: `ServiceStatus.of` resolves them to `.running` and `.stopped`, which
+    // the caller answers above. Spelled out rather than left to a `default` so that a new
+    // connection case has to be worded here instead of silently reading as a first dial.
+    case .connected,
+         .stopped:
+      "Connecting…"
     }
   }
 
