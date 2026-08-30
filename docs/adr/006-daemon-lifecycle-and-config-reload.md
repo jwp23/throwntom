@@ -33,24 +33,10 @@ decisions, and all three were hit for real on 2026-08-27:
    from the new durations, so a user who edits `work_minutes` sees the effect
    at once, with no restart.
 
-## Amendment: what (2) preserves
-
-Decisions (2) and (3) were read as contradicting each other during
-implementation, so the boundary between them is stated here explicitly.
-
-(2) is about **elapsed time**, not about durations. What survives a restart is
-the time the phase has already spent: it keeps accruing while the daemon is
-down. It does **not** freeze the duration that time is measured against.
-Durations are always read from the current config, whether the edit was made
-with the daemon running or stopped — (3) applies on restore exactly as it
-applies to a reload.
-
-So editing `work_minutes` from 25 to 50 with the daemon stopped, then
-restarting ten minutes into the phase, leaves forty minutes — the same result
-as making that edit with the daemon running. Reading (2) as "the old duration
-is preserved across a restart" would reinstate the bug (3) was written to
-kill: setting `work_minutes = 1` and restarting left the in-flight phase
-untouched, and the user who had done everything right saw nothing change.
+> Superseded in part 2026-08-30 by
+> [ADR-008](008-elapsed-time-survives-a-restart-durations-do-not.md): decisions
+> (2) and (3) left one case undecided — a duration edited while the daemon was
+> stopped — and ADR-008 settles it. Decisions (1) and (3) stand as written.
 
 ## Trade-offs
 

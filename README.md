@@ -159,7 +159,8 @@ already complete and awaiting confirmation. Time spent is what carries across
 the outage; the duration it is measured against always comes from your current
 config, so an edit made during the outage still applies. This is deliberate —
 see
-[ADR-006](docs/adr/006-daemon-lifecycle-and-config-reload.md). Stopping the
+[ADR-008](docs/adr/008-elapsed-time-survives-a-restart-durations-do-not.md).
+Stopping the
 timer service is therefore not a way to pause: use `pause`, which stores the
 remaining duration instead.
 
