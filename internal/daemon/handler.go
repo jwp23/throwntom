@@ -64,8 +64,8 @@ func (s *server) runCommand(w http.ResponseWriter, line string) {
 }
 
 // unavailableOverAPI reports why the daemon refuses line, or nil if it will
-// run it. Both refusals are commands the core offers its terminal caller that
-// mean nothing here:
+// run it. Two of the commands the core offers its terminal caller can mean
+// nothing here:
 //
 // quit and exit — the API has no notion of exiting; running either would
 // cancel whatever reminder is outstanding and leave the daemon serving a core
