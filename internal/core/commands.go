@@ -11,16 +11,17 @@ import (
 )
 
 var (
-	errNotRunning     = errors.New("nothing to pause: timer is not running")
-	errNothingToSkip  = errors.New("nothing to skip: timer is not running")
-	errNotPaused      = errors.New("nothing to resume: timer is not paused")
-	errNotWorkSession = errors.New("only available during a work session")
-	errAlreadyFocused = errors.New("is already focused")
+	errNotRunning       = errors.New("nothing to pause: timer is not running")
+	errNothingToSkip    = errors.New("nothing to skip: timer is not running")
+	errNothingToConfirm = errors.New("nothing to confirm: no phase is waiting")
+	errNotPaused        = errors.New("nothing to resume: timer is not paused")
+	errNotWorkSession   = errors.New("only available during a work session")
+	errAlreadyFocused   = errors.New("is already focused")
 )
 
 // refusals are the sentinels for commands the current state does not allow;
 // classifyError maps them to ErrorRefused.
-var refusals = []error{errNotRunning, errNothingToSkip, errNotPaused, errNotWorkSession, errAlreadyFocused, errNoReminder}
+var refusals = []error{errNotRunning, errNothingToSkip, errNothingToConfirm, errNotPaused, errNotWorkSession, errAlreadyFocused, errNoReminder}
 
 func (c *Core) buildCommandHandlers() map[string]commandHandler {
 	return map[string]commandHandler{
@@ -120,8 +121,16 @@ func (c *Core) handleSkip(_ []string) commandResult {
 	return commandResult{message: fmt.Sprintf("Skipped -- %s next", FriendlyStateName(next))}
 }
 
+// handleConfirm advances the phase waiting on the user. It refuses when none
+// is: confirm records the completion of the phase in lastPhase, and lastPhase
+// outlives the state that earned it — a stop keeps it owed, and the engine
+// keeps it while the next phase runs — so an unguarded confirm would log that
+// same completion again every time it was called.
 func (c *Core) handleConfirm(_ []string) commandResult {
 	snap := c.timer.Snapshot()
+	if snap.Engine.State != engine.AwaitingConfirm {
+		return commandResult{err: errNothingToConfirm}
+	}
 	if !snap.Engine.Skipped {
 		c.logConfirmCompletion(snap.Engine.LastPhase)
 	}

@@ -115,6 +115,20 @@ func TestStopClosesTheOpenPomodoro(t *testing.T) {
 	}
 }
 
+// A skipped pomodoro is not focus time either.
+func TestSkipClosesTheOpenPomodoro(t *testing.T) {
+	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		makeEvent("pomodoro_started", time.Date(2026, 3, 19, 10, 0, 0, 0, time.Local)),
+		makeEventWithData("skipped", time.Date(2026, 3, 19, 10, 10, 0, 0, time.Local), map[string]any{"phase": "work"}),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 11, 0, 0, 0, time.Local)),
+	}
+	dash := Compute(events, now)
+	if dash.Today.FocusMinutes != 0 {
+		t.Fatalf("expected a skip to end the open pomodoro, got %d focus minutes", dash.Today.FocusMinutes)
+	}
+}
+
 func TestComputePausesSnoozes(t *testing.T) {
 	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
 	events := []eventlog.Event{

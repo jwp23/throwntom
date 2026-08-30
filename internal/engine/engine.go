@@ -76,7 +76,13 @@ type Engine struct {
 	// skipped records that the phase behind lastPhase was cut short by the
 	// user rather than served. A skipped work period earns no long break, and
 	// no phase skipped this way counts as completed. Any completed period
-	// clears it.
+	// clears it, as do the verbs that reset the cycle.
+	//
+	// It is deliberately left standing through ConfirmNext and StartWork —
+	// clearing it in ConfirmNext would race NextPhase's read of it. That is
+	// safe only because the flag is read where lastPhase is Work, and every
+	// route to that state rewrites the flag first. Read it anywhere else and
+	// it may be stale.
 	skipped bool
 }
 
@@ -289,16 +295,14 @@ func (e *Engine) Snapshot() Snapshot {
 	}
 }
 
-// A break with completed_today of zero used to be unreachable and was rejected
-// here. Skipping the first pomodoro of the day reaches exactly that, so the
-// rule was discarding real sessions; see TestSkippedFirstBreakIsRestorable.
-//
 // Invalid reports why s is not reachable from the engine's own transitions,
 // or "" if it is. A hand-edited or concurrently-written session file can hold
 // combinations no sequence of StartWork/MarkPeriodComplete/ConfirmNext/Pause
 // ever produces; restoring one verbatim can resurrect a reminder loop with
 // nothing behind it.
 func (s Snapshot) Invalid() string {
+	// Nothing here relates completed_today to last_phase: skipping the first
+	// pomodoro of the day legitimately reaches a break with none completed.
 	if !s.WorkDayStarted && (s.State != Idle || s.LastPhase != Idle) {
 		return "work_day_started is false but state/last_phase is not idle"
 	}
