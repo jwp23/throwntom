@@ -29,6 +29,28 @@ func TestStartAfterStopRunsTheOwedBreakForItsOwnDuration(t *testing.T) {
 	}
 }
 
+// Start must decide what it does from inside the lock. The phase deadline
+// fires from its own goroutine and can complete the phase between a caller's
+// check and this call; a Start that then began fresh work would discard both
+// the owed break and the completion the caller still has to log.
+func TestStartAtAwaitingConfirmEntersTheOwedPhaseAndReportsIt(t *testing.T) {
+	a := New(25, 5, 15, 4)
+	a.Start()
+	a.CompletePeriod()
+
+	before := a.Start()
+
+	if before.State != engine.AwaitingConfirm {
+		t.Fatalf("expected the state it acted from, got %v", before.State)
+	}
+	if before.LastPhase != engine.Work {
+		t.Fatalf("expected the finished work period named, got %v", before.LastPhase)
+	}
+	if got := a.State(); got != engine.ShortBreak {
+		t.Fatalf("expected the owed short break, got %v", got)
+	}
+}
+
 // OwedStage reports what a start would enter, and an owed break must be
 // measured against its own duration. Answering with the work duration is the
 // bug that made a resumed 5m break run for 25 minutes.

@@ -58,7 +58,8 @@ func (c *Core) handleStart(parts []string) commandResult {
 	if owed, _ := c.timer.OwedStage(); c.tasks != nil && owed == engine.Work {
 		return c.enterFocusPrompt("start")
 	}
-	c.timer.Start()
+	before := c.timer.Start()
+	c.logDisplacedCompletion(before)
 	state := c.timer.State()
 	c.logPhaseStart(state)
 	return commandResult{message: startedMessage(state)}

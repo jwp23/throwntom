@@ -197,13 +197,29 @@ func dayRolledOver(before, after engine.Snapshot) bool {
 	return !before.WorkDate.IsZero() && !engine.IsSameDay(before.WorkDate, after.WorkDate)
 }
 
-func (t *Timer) Start() {
+// Start enters the phase the cycle owes and reports the engine state it acted
+// from. A phase waiting to be confirmed is owed the phase confirm would begin,
+// so start does what confirm does at that boundary. Deciding it inside the
+// lock is what makes it safe: the phase deadline fires from its own goroutine
+// and can reach that boundary between a caller's own check and this call, and
+// a start that then began fresh work would discard the completion the caller
+// still has to log. The returned snapshot names the phase that completion
+// belongs to.
+func (t *Timer) Start() engine.Snapshot {
 	t.mu.Lock()
+	before := t.engine.Snapshot()
 	defer t.notifyChange()
 	defer t.mu.Unlock()
 	defer t.transitionLocked()
-	t.engine.StartWork()
-	t.startPhaseTimerLocked(t.phaseDurationLocked(t.engine.State()))
+	if before.State == engine.AwaitingConfirm {
+		t.engine.ConfirmNext()
+	} else {
+		t.engine.StartWork()
+	}
+	if d := t.phaseDurationLocked(t.engine.State()); d > 0 {
+		t.startPhaseTimerLocked(d)
+	}
+	return before
 }
 
 // OwedStage reports the phase Start would enter now and how long it would run
