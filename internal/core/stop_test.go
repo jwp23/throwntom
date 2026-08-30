@@ -116,3 +116,22 @@ func TestStopWhileIdleLogsNothing(t *testing.T) {
 		t.Fatal("stopping an idle timer is a no-op and must not log an event")
 	}
 }
+
+// Preserving focus across a stop is worthless if the prompt that the next
+// start opens throws it away: the prompt must come up with the surviving
+// focus already ticked.
+func TestFocusSurvivesTheStartPromptAfterAStop(t *testing.T) {
+	c := newTestCoreWithTasks(t)
+	c.execute("task add work item")
+	c.execute("start")
+	c.execute("")
+	c.execute(cmdTaskFocus1)
+	c.execute("stop")
+
+	c.execute("start") // mid-phase stop owed nothing, so work starts and prompts
+	c.execute("")      // accept the prompt as it stands
+
+	if len(c.Focused()) != 1 {
+		t.Fatalf("the start prompt dropped the focus stop preserved; got %d", len(c.Focused()))
+	}
+}

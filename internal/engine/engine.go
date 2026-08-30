@@ -78,11 +78,14 @@ type Engine struct {
 	// no phase skipped this way counts as completed. Any completed period
 	// clears it, as do the verbs that reset the cycle.
 	//
-	// It is deliberately left standing through ConfirmNext and StartWork —
-	// clearing it in ConfirmNext would race NextPhase's read of it. That is
-	// safe only because the flag is read where lastPhase is Work, and every
-	// route to that state rewrites the flag first. Read it anywhere else and
-	// it may be stale.
+	// The invariant is narrow: whenever lastPhase is Work, skipped describes
+	// that work period. Only MarkPeriodComplete and SkipPhase can make
+	// lastPhase Work while a break decision is pending, and both write the
+	// flag as they do it; Stop and AdvanceDay carry lastPhase and the flag
+	// forward together. It is deliberately left standing through ConfirmNext,
+	// Resume and StartWork, which set lastPhase without touching it — safe
+	// only because breakAfterWork is the sole reader and only runs when
+	// lastPhase is Work. Read it anywhere else and it may be stale.
 	skipped bool
 }
 

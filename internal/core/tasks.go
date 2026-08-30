@@ -230,7 +230,14 @@ func (c *Core) handleTaskDown(parts []string) commandResult {
 
 func (c *Core) enterFocusPrompt(action string) commandResult {
 	c.pendingFocusPrompt = true
-	c.pendingFocusToggled = make(map[int]bool)
+	// Seed from the focus already in force: stop preserves it, so the prompt
+	// has to offer it back rather than silently starting from nothing. A task
+	// completed or removed meanwhile drops out on its own, because
+	// finalizeFocusPrompt only keeps ids that are still active.
+	c.pendingFocusToggled = make(map[int]bool, len(c.focused))
+	for _, tk := range c.focused {
+		c.pendingFocusToggled[tk.ID] = true
+	}
 	c.pendingFocusAction = action
 	return commandResult{message: c.focusPromptLocked()}
 }
@@ -283,7 +290,7 @@ func (c *Core) finalizeFocusPrompt() commandResult {
 		c.logPhaseStart(c.timer.State())
 		return commandResult{message: startedMessage(c.timer.State())}
 	}
-	return commandResult{message: startedMessage(engine.Work)}
+	return commandResult{message: startedMessage(c.timer.State())}
 }
 
 func (c *Core) FocusPrompt() string {

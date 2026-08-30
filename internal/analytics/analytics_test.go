@@ -120,7 +120,7 @@ func TestSkipClosesTheOpenPomodoro(t *testing.T) {
 	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
 	events := []eventlog.Event{
 		makeEvent("pomodoro_started", time.Date(2026, 3, 19, 10, 0, 0, 0, time.Local)),
-		makeEventWithData("skipped", time.Date(2026, 3, 19, 10, 10, 0, 0, time.Local), map[string]any{"phase": "work"}),
+		makeEvent("skipped", time.Date(2026, 3, 19, 10, 10, 0, 0, time.Local)),
 		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 11, 0, 0, 0, time.Local)),
 	}
 	dash := Compute(events, now)
