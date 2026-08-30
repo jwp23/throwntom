@@ -34,21 +34,7 @@ final class ConnectionStatusTests: XCTestCase {
   }
 
   func testPlaceholderTextNilWhenStatePresent() {
-    let state = DaemonState(
-      state: .idle,
-      phaseEndAt: nil,
-      pausedRemaining: 0,
-      pausedFrom: .idle,
-      completedToday: 0,
-      workSessionsInBlock: 0,
-      longBreakEvery: 4,
-      nextStage: nil,
-      morningPending: false,
-      snoozeUntil: nil,
-      statusLine: "Idle",
-      focusedTaskIds: [],
-      reminderRings: 0,
-    )
+    let state = makeClientState()
     XCTAssertNil(ConnectionStatus.placeholderText(state: state, connection: .connected, now: .now))
   }
 

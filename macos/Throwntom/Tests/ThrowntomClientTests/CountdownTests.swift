@@ -66,6 +66,7 @@ final class CountdownTests: XCTestCase {
       statusLine: line,
       focusedTaskIds: [],
       reminderRings: 0,
+      dayEnded: false,
     )
   }
 

@@ -10,18 +10,21 @@ final class TimerActionsTests: XCTestCase {
     XCTAssertEqual(TimerActions.available(for: state(.idle, morningPending: true)), [.start, .newCycle, .snooze, .skipToday])
   }
 
-  func testRunningPhasesOfferPauseOnly() {
+  func testRunningPhasesOfferPauseAndEndingTheDay() {
     for phase in [DaemonState.Phase.work, .shortBreak, .longBreak] {
-      XCTAssertEqual(TimerActions.available(for: state(phase)), [.pause], "\(phase)")
+      XCTAssertEqual(TimerActions.available(for: state(phase)), [.pause, .skipToday], "\(phase)")
     }
   }
 
-  func testPausedOffersResume() {
-    XCTAssertEqual(TimerActions.available(for: state(.paused)), [.resume])
+  func testPausedOffersResumeAndEndingTheDay() {
+    XCTAssertEqual(TimerActions.available(for: state(.paused)), [.resume, .skipToday])
   }
 
-  func testAwaitingConfirmOffersConfirmSnoozeNewCycle() {
-    XCTAssertEqual(TimerActions.available(for: state(.awaitingConfirm)), [.confirm, .snooze, .newCycle])
+  func testAwaitingConfirmOffersConfirmSnoozeNewCycleAndEndingTheDay() {
+    XCTAssertEqual(
+      TimerActions.available(for: state(.awaitingConfirm)),
+      [.confirm, .snooze, .newCycle, .skipToday],
+    )
   }
 
   func testVerbsAndHints() {
@@ -40,7 +43,7 @@ final class TimerActionsTests: XCTestCase {
   func testHelpTextAppendsTheShortcutOnlyWhenThereIsOne() {
     XCTAssertEqual(TimerAction.start.helpText, "Start (⌘R)")
     XCTAssertEqual(TimerAction.snooze.helpText, "Snooze 10 min (⌘⇧S)")
-    XCTAssertEqual(TimerAction.skipToday.helpText, "Skip Today")
+    XCTAssertEqual(TimerAction.skipToday.helpText, "Done for Today")
     XCTAssertEqual(TimerAction.newCycle.helpText, "New Cycle")
   }
 
@@ -68,6 +71,7 @@ final class TimerActionsTests: XCTestCase {
       statusLine: "",
       focusedTaskIds: [],
       reminderRings: 0,
+      dayEnded: false,
     )
   }
 

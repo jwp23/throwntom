@@ -3,6 +3,8 @@ import ThrowntomClient
 import XCTest
 @testable import ThrowntomUI
 
+// MARK: - MainWindowContentTests
+
 final class MainWindowContentTests: XCTestCase {
 
   // MARK: Internal
@@ -21,7 +23,7 @@ final class MainWindowContentTests: XCTestCase {
     XCTAssertEqual(c.countdown, "12:34")
     XCTAssertEqual(c.nextStage, "Next: Short break 5 min")
     XCTAssertEqual(c.garden, TomatoGarden(completedToday: 5, inBlock: 1, every: 4))
-    XCTAssertEqual(c.chips, [.pause])
+    XCTAssertEqual(c.chips, [.pause, .skipToday])
     XCTAssertNil(c.primaryChip)
   }
 
@@ -96,4 +98,27 @@ final class MainWindowContentTests: XCTestCase {
     MainWindowContent(state: state, connection: connection, tasks: tasks, error: error, panel: panel, now: now)
   }
 
+}
+
+// MARK: - EndOfDayContentTests
+
+/// throwntom-azb: after the user ends the day the window has to say so. The daemon goes idle,
+/// which on its own is indistinguishable from an idle timer waiting to be started.
+extension MainWindowContentTests {
+  func testAnEndedDayIsNamedRatherThanShownAsPlainIdle() {
+    let ended = content(makeState(phase: .idle, dayEnded: true))
+    XCTAssertEqual(ended.title, "Done for today")
+    XCTAssertEqual(content(makeState(phase: .idle)).title, "Idle")
+  }
+
+  func testAnEndedDayStillOffersTheWayBackIn() {
+    let ended = content(makeState(phase: .idle, dayEnded: true))
+    XCTAssertEqual(ended.primaryChip, .start)
+    XCTAssertEqual(ended.scheme, Palette.scheme(for: .idle))
+  }
+
+  /// A day the user ended is over only while the timer is idle; a running phase is its own answer.
+  func testARunningPhaseIsNamedForThePhase() {
+    XCTAssertEqual(content(makeState(phase: .work, dayEnded: true)).title, "Pomodoro")
+  }
 }

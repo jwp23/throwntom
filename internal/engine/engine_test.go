@@ -433,3 +433,62 @@ func TestSnapshotInvalidAcceptsReachableSnapshots(t *testing.T) {
 		t.Fatalf("expected zero-value idle snapshot to be valid, got %q", reason)
 	}
 }
+
+// The user who says "I am done for today" is telling the engine something no
+// other idle state means, so the engine records it rather than leaving the
+// window unable to tell the two apart.
+func TestSkipTodayMarksTheDayEnded(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	if e.Snapshot().DayEnded {
+		t.Fatal("a fresh engine has not ended the day")
+	}
+	e.StartWork()
+	e.SkipToday()
+	if !e.Snapshot().DayEnded {
+		t.Fatal("expected day_ended after SkipToday")
+	}
+}
+
+func TestStartingWorkAgainReopensTheDay(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.SkipToday()
+	e.StartWork()
+	if e.Snapshot().DayEnded {
+		t.Fatal("starting work reopens the day")
+	}
+}
+
+func TestNewCycleReopensTheDay(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.SkipToday()
+	e.StartNewCycle()
+	if e.Snapshot().DayEnded {
+		t.Fatal("a new cycle reopens the day")
+	}
+}
+
+// "No more reminders today" is owed only to the day it was said on.
+func TestRollingOverToANewDayReopensTheDay(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	today := time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC)
+	e.AdvanceDay(today)
+	e.SkipToday()
+
+	e.AdvanceDay(today.AddDate(0, 0, 1))
+
+	if e.Snapshot().DayEnded {
+		t.Fatal("a new day is not over before it starts")
+	}
+}
+
+func TestRestoringASnapshotKeepsTheEndedDay(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.SkipToday()
+	restored := New(25, 5, 15, 4)
+
+	restored.Restore(e.Snapshot())
+
+	if !restored.Snapshot().DayEnded {
+		t.Fatal("expected day_ended to survive a restore")
+	}
+}

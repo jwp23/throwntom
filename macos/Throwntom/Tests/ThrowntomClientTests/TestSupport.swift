@@ -235,3 +235,24 @@ final class RecordingRegistrar: LaunchAgentRegistrar, @unchecked Sendable {
   private var recorded = [Call]()
 
 }
+
+/// A daemon state document with everything but the phase left at its resting value, so a test
+/// names only the field it is about.
+func makeClientState(phase: DaemonState.Phase = .idle, dayEnded: Bool = false) -> DaemonState {
+  DaemonState(
+    state: phase,
+    phaseEndAt: nil,
+    pausedRemaining: 0,
+    pausedFrom: .idle,
+    completedToday: 0,
+    workSessionsInBlock: 0,
+    longBreakEvery: 4,
+    nextStage: nil,
+    morningPending: false,
+    snoozeUntil: nil,
+    statusLine: phase.displayName,
+    focusedTaskIds: [],
+    reminderRings: 0,
+    dayEnded: dayEnded,
+  )
+}

@@ -47,6 +47,7 @@ func makeState(
   workSessionsInBlock: Int = 0,
   focusedTaskIds: [Int] = [],
   reminderRings: Int = 0,
+  dayEnded: Bool = false,
 ) -> DaemonState {
   DaemonState(
     state: phase,
@@ -62,6 +63,7 @@ func makeState(
     statusLine: phase.displayName,
     focusedTaskIds: focusedTaskIds,
     reminderRings: reminderRings,
+    dayEnded: dayEnded,
   )
 }
 

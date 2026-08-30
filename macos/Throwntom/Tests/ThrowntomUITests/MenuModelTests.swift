@@ -32,8 +32,8 @@ final class TimerMenuModelTests: XCTestCase {
     let working = MenuModel.timer(state: makeState(phase: .work), isEditing: false)
     let paused = MenuModel.timer(state: makeState(phase: .paused), isEditing: false)
 
-    XCTAssertEqual(enabledActions(working), [.pause])
-    XCTAssertEqual(enabledActions(paused), [.resume])
+    XCTAssertEqual(enabledActions(working), [.pause, .skipToday])
+    XCTAssertEqual(enabledActions(paused), [.resume, .skipToday])
     XCTAssertTrue(working.items.contains { $0.action == .pause })
     XCTAssertTrue(paused.items.contains { $0.action == .resume })
   }
@@ -50,7 +50,7 @@ final class TimerMenuModelTests: XCTestCase {
   func testEditingDoesNotDisableTheOtherVerbs() {
     let menu = MenuModel.timer(state: makeState(phase: .awaitingConfirm), isEditing: true)
 
-    XCTAssertEqual(enabledActions(menu), [.snooze, .newCycle])
+    XCTAssertEqual(enabledActions(menu), [.snooze, .skipToday, .newCycle])
   }
 
   func testCycleVerbsSitBelowTheirOwnSeparator() {
