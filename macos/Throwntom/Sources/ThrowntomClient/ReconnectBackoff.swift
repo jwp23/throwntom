@@ -49,6 +49,9 @@ struct ReconnectBackoff {
   /// The decision and the bookkeeping are one call because they were separate: a caller that
   /// read the decision and forgot the bookkeeping silently lost the rewind, with no test failing
   /// except under wall-clock conditions.
+  ///
+  /// `register` must not touch this backoff: the call holds exclusive access for its duration,
+  /// so reading `delay` or `failures` from inside it traps on overlapping access.
   mutating func registerAgentIfDue(_ register: () -> Bool) {
     guard !hasAskedLaunchdToStart, failures > 0, failures % registerEvery == 0 else { return }
     guard register() else { return }

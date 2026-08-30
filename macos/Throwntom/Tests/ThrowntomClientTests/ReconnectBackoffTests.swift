@@ -56,6 +56,20 @@ final class ReconnectBackoffTests: XCTestCase {
     XCTAssertEqual(seen, [.seconds(1), .seconds(2), .seconds(4), .seconds(8), .seconds(8), .seconds(8)])
   }
 
+  /// Nothing has gone wrong yet, and zero is a multiple of every threshold, so the guard against
+  /// registering before the first failure has to be explicit.
+  func testTheAgentIsNotRegisteredBeforeAnyFailure() {
+    var backoff = Self.backoff(registerEvery: 3)
+    var registrations = 0
+
+    backoff.registerAgentIfDue {
+      registrations += 1
+      return true
+    }
+
+    XCTAssertEqual(registrations, 0)
+  }
+
   func testTheAgentIsNotRegisteredBeforeTheThresholdFailure() {
     var backoff = Self.backoff(registerEvery: 3)
     var registrations = 0

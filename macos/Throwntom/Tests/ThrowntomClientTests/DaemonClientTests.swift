@@ -24,6 +24,44 @@ final class RecordingRegistrar: LaunchAgentRegistrar, @unchecked Sendable {
 
 }
 
+// MARK: - DialCountingTransport
+
+/// Counts event-stream dials on the way through to a real transport, so a test can wait for the
+/// reconnect loop to have actually run rather than for a stretch of wall clock that a loaded
+/// machine may spend doing nothing.
+// `_dials` is only touched under `lock`; DaemonTransport requires Sendable.
+// swiftlint:disable:next no_unchecked_sendable
+final class DialCountingTransport: DaemonTransport, @unchecked Sendable {
+
+  // MARK: Lifecycle
+
+  init(_ wrapped: DaemonTransport) {
+    self.wrapped = wrapped
+  }
+
+  // MARK: Internal
+
+  var dials: Int {
+    lock.withLock { _dials }
+  }
+
+  func request(_ method: String, _ path: String, body: Data?) async throws -> HTTPResponse {
+    try await wrapped.request(method, path, body: body)
+  }
+
+  func events(_ path: String) -> AsyncThrowingStream<Data, Error> {
+    lock.withLock { _dials += 1 }
+    return wrapped.events(path)
+  }
+
+  // MARK: Private
+
+  private let wrapped: DaemonTransport
+  private let lock = NSLock()
+  private var _dials = 0
+
+}
+
 // MARK: - DaemonClientTests
 
 @MainActor
@@ -139,13 +177,18 @@ final class DaemonClientTests: XCTestCase {
   /// started, so the client keeps reporting the outage instead of repeating the ask.
   func testRegistersTheAgentOnceAndKeepsReportingThePersistentOutage() async throws {
     let missing = UnixSocketTransport(socketPath: daemon.home.appendingPathComponent("nope.sock").path)
-    let client = DaemonClient(transport: missing, registrar: registrar, backoff: [.milliseconds(30)])
+    let transport = DialCountingTransport(missing)
+    let client = DaemonClient(transport: transport, registrar: registrar, backoff: [.milliseconds(30)])
     client.start()
     defer { client.stop() }
     try await waitUntil("the registration that ends the outage") { self.registrar.calls >= 1 }
     XCTAssertEqual(client.connection, .startingDaemon)
 
-    try await Task.sleep(for: .milliseconds(500))
+    // Waiting on dials rather than on wall clock: a loaded machine that managed only a couple of
+    // reconnects in a fixed sleep would pass this test with the repeat registration still in.
+    try await waitUntil("dials well past where repeat registrations would fall") {
+      transport.dials >= DaemonClient.failuresBeforeRegistering * 3 + 1
+    }
 
     XCTAssertEqual(registrar.calls, 1, "further failures must not ask launchd again")
     XCTAssertEqual(client.connection, .startingDaemon)

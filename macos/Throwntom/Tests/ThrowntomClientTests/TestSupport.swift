@@ -42,6 +42,9 @@ func waitUntil(
   guard let failure = await pollUntil(what, timeout: timeout, file: file, line: line, condition) else {
     return
   }
+  // Both, deliberately: the XCTFail is what puts the failure on the waiting line rather than on
+  // whichever line was sleeping, and the throw is what stops a test whose precondition never
+  // came true from running on. Removing either one loses something.
   XCTFail(failure.description, file: file, line: line)
   throw failure
 }
