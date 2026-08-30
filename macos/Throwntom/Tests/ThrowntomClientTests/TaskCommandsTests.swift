@@ -39,7 +39,15 @@ final class TaskCommandsTests: XCTestCase {
     XCTAssertEqual(TaskAction.moveUp.shortcutHint, "⌥↑")
     XCTAssertEqual(TaskAction.moveDown.shortcutHint, "⌥↓")
     XCTAssertEqual(TaskAction.newTask.title, "New Task")
-    XCTAssertEqual(TaskAction.focus.title, "Toggle Focus")
+    XCTAssertEqual(TaskAction.focus.title, "Focus")
+  }
+
+  func testFocusIsTheOnlyVerbWhoseTitleTracksTheTaskState() {
+    XCTAssertEqual(TaskAction.focus.title(focused: false), "Focus")
+    XCTAssertEqual(TaskAction.focus.title(focused: true), "Unfocus")
+    for action in TaskAction.allCases where action != .focus {
+      XCTAssertEqual(action.title(focused: true), action.title, "\(action)")
+    }
   }
 
   // MARK: Private

@@ -37,7 +37,9 @@ final class ViewBodyTests: XCTestCase {
     let environment = AppEnvironment(transport: UnreachableDaemonTransport())
     defer { shutDown(environment) }
     environment.start()
-    try await waitUntil { environment.client.unresolvedError != nil }
+    // lastError, not unresolvedError: a client that has never connected shows the status line
+    // alone, so the outage is recorded without a note under it.
+    try await waitUntil { environment.client.lastError != nil }
 
     buildEveryBody(of: environment)
   }

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"runtime"
 	"syscall"
 
 	"github.com/jwp23/throwntom/v3/internal/config"
@@ -45,15 +44,18 @@ func main() {
 		os.Exit(1)
 	}
 	paths.Config = resolvedConfig
-	n, err := notifier.NewSystemNotifier(runtime.GOOS, os.Stdout, cfg.SoundCommand)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "notifier error: %v\n", err)
-		os.Exit(1)
-	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	if err := daemon.Run(ctx, cfg, n, paths); err != nil {
+	if err := daemon.Run(ctx, cfg, daemonNotifier(), paths); err != nil {
 		fmt.Fprintf(os.Stderr, "throwntomd: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// daemonNotifier is the daemon's whole side of reminder sound: none of it.
+// ADR-003 gives presentation to the clients, and the daemon runs where no
+// user is present to answer what it would play. Sound is the client's, as the
+// banner already is; the daemon publishes the state both are raised from.
+func daemonNotifier() notifier.Notifier {
+	return notifier.Silent()
 }

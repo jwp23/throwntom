@@ -26,6 +26,7 @@ struct MainWindow: View {
         TomatoGardenView(garden: garden)
       }
       ActionChips(content: content, client: environment.client)
+      CommandChips(environment: environment, scheme: content.scheme)
       WindowNotes(error: content.error, responder: environment.responder)
       FocusSection(tasks: content.focused)
       if content.panel == .tasks {
@@ -47,10 +48,16 @@ struct MainWindow: View {
     }
     .onChange(of: environment.client.tasks, initial: true) { syncModel() }
     .onChange(of: environment.client.state?.focusedTaskIds, initial: true) { syncModel() }
-    // Re-read the permission whenever the user comes back, so granting it in System Settings clears the note without a relaunch.
-    .task { await environment.responder.refreshAuthorization() }
-    .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-      Task { await environment.responder.refreshAuthorization() }
+    .task { await trackAuthorization() }
+  }
+
+  /// Reads the notification permission now and again whenever the user comes back, so granting it
+  /// in System Settings clears the note without a relaunch.
+  func trackAuthorization() async {
+    await environment.responder.refreshAuthorization()
+    let activations = NotificationCenter.default.notifications(named: NSApplication.didBecomeActiveNotification)
+    for await _ in activations {
+      await environment.responder.refreshAuthorization()
     }
   }
 

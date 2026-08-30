@@ -10,6 +10,27 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/session"
 )
 
+// recvUntil reads published states until one satisfies want. A ring publishes
+// a state of its own (ADR-007: a client hears the repeat by watching the count
+// climb), so a given change is no longer always the very next message.
+func recvUntil(t *testing.T, ch <-chan State, what string, want func(State) bool) State {
+	t.Helper()
+	deadline := time.After(2 * time.Second)
+	for {
+		select {
+		case s, ok := <-ch:
+			if !ok {
+				t.Fatal("channel closed")
+			}
+			if want(s) {
+				return s
+			}
+		case <-deadline:
+			t.Fatalf("timed out waiting for %s", what)
+		}
+	}
+}
+
 func recv(t *testing.T, ch <-chan State) State {
 	t.Helper()
 	select {
@@ -119,13 +140,9 @@ func TestSubscribeDeliversMorningPending(t *testing.T) {
 	recv(t, ch)
 
 	c.reminder.raise(reminderMorning)
-	if s := recv(t, ch); !s.MorningPending {
-		t.Fatal("expected morning_pending after loop start")
-	}
+	recvUntil(t, ch, "morning_pending after loop start", func(s State) bool { return s.MorningPending })
 	c.reminder.cancel()
-	if s := recv(t, ch); s.MorningPending {
-		t.Fatal("expected morning_pending cleared after loop stop")
-	}
+	recvUntil(t, ch, "morning_pending cleared after loop stop", func(s State) bool { return !s.MorningPending })
 }
 
 func TestSubscribeDoesNotSelfTrigger(t *testing.T) {

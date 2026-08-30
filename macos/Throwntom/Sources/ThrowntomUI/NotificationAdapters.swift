@@ -87,7 +87,19 @@ final class SystemReminderPresenter: ReminderPresenter {
     attentionRequest = NSApp.requestUserAttention(.criticalRequest)
   }
 
+  /// One repeat of the reminder, played straight rather than through a second banner: the
+  /// reminder already on screen is the one being repeated, and a banner per ring would leave
+  /// the user a pile of them to dismiss. A missing sound is not worth failing over - the
+  /// banner and the Dock still carry the reminder - so an unavailable name is simply quiet.
+  func chime() {
+    NSSound(named: chimeName)?.play()
+  }
+
   // MARK: Private
+
+  /// Glass is the sound the daemon used to play for a cycle reminder, so the repeat sounds
+  /// the way it always has.
+  private let chimeName = NSSound.Name("Glass")
 
   private var attentionRequest: Int?
   private var activationObserver: NSObjectProtocol?
