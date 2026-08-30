@@ -67,4 +67,17 @@ final class SnoozeMenuTests: XCTestCase {
     XCTAssertTrue(menu.items.allSatisfy { $0.shortcut == nil })
   }
 
+  /// `AppMenus` greys the whole "Snooze For" submenu off this condition. A submenu of dead items
+  /// says the same thing one level down and one click later than a dead parent does.
+  func testTheMenuHasNothingLiveWhenThereIsNeitherAReminderNorASnooze() {
+    XCTAssertFalse(MenuModel.snooze(state: makeState(phase: .work)).items.contains(where: \.isEnabled))
+    XCTAssertFalse(MenuModel.snooze(state: nil).items.contains(where: \.isEnabled))
+
+    // Either half on its own is enough to keep it open.
+    XCTAssertTrue(MenuModel.snooze(state: makeState(phase: .awaitingConfirm))
+      .items.contains(where: \.isEnabled))
+    XCTAssertTrue(MenuModel.snooze(state: makeState(phase: .work, snoozeUntil: Date()))
+      .items.contains(where: \.isEnabled))
+  }
+
 }

@@ -405,8 +405,11 @@ func TestUnsnoozeWithNoSnoozeIsRefused(t *testing.T) {
 	}
 }
 
-// Unsnoozing and snoozing again must leave one snooze running for its full
-// length, not a reminder still wired to the deadline it was just woken from.
+// Unsnoozing and snoozing again leaves one snooze running for its full length.
+// This is a walk through the sequence, not a trap for the retired deadline:
+// resume() only ends a snooze whose deadline it matches exactly, and that guard
+// absorbs the old callback on its own, so the test still passes with the
+// cancelled timer left armed. Stopping the timer is hygiene, not correctness.
 func TestASnoozeTakenRightAfterAnUnsnoozeRunsItsFullLength(t *testing.T) {
 	clk := mondayAt(10, 0)
 	c := startedCore(t, config.Default(), clk)

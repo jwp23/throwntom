@@ -60,12 +60,14 @@ struct AppMenus: Commands {
     }
   }
 
-  /// The service group of the Timer menu, below a divider: starting and stopping the daemon is
-  /// not a timer verb, but it belongs to the same menu the timer is driven from.
+  /// The durations behind the Timer menu's Snooze, read twice per build: once for the items and
+  /// once to decide whether the submenu itself is worth opening.
   var snoozeMenu: MenuModel<SnoozeAction> {
     MenuModel.snooze(state: environment.client.state)
   }
 
+  /// The service group of the Timer menu, below a divider: starting and stopping the daemon is
+  /// not a timer verb, but it belongs to the same menu the timer is driven from.
   var serviceMenu: MenuModel<ServiceAction> {
     MenuModel.service(
       connection: environment.client.connection,
