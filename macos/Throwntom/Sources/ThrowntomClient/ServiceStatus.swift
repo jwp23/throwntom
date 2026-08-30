@@ -68,11 +68,14 @@ public enum ServiceStatus: Hashable, Sendable {
   /// What to speak to assistive technology when the service moves from one situation to another,
   /// or nil where the move is not worth interrupting for.
   ///
-  /// Only the settled situations speak. Dialling is silent in both directions: a blink of the
-  /// socket takes the window from running to reaching and back within a backoff step, and a
-  /// spoken interruption mid-pomodoro for a blip would be worse than the silence this fixes.
-  /// That silence is also why recovery is announced from a settled absence only — a reader told
-  /// the service went down is owed the other half, but nobody was told about the blip.
+  /// The wording only. Which pairs actually reach here is `ServiceAnnouncer`'s business, and it
+  /// never passes the same situation twice or a blip's return, so this does not have to know what
+  /// a blip is.
+  ///
+  /// Arriving at dialling says nothing: it is transient, and the window has said so itself by
+  /// marking the title. Arriving from it says nothing either, which is the cold-start case —
+  /// `ServiceAnnouncer` only ever passes `.reaching` as `previous` for a window that came up
+  /// dialling, and a service that was never reported missing is not a recovery to report.
   ///
   /// The sentence is the window's own title and explanation, not a second wording: a VoiceOver
   /// user and a sighted user must be told the same thing, and two wordings drift apart.
