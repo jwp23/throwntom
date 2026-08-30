@@ -57,4 +57,7 @@ public struct DaemonState: Codable, Equatable, Sendable {
   /// The daemon plays no sound of its own (ADR-007), so the client sounds the repeat by
   /// watching this climb.
   public var reminderRings: Int
+  /// Whether the user has ended the work day. The timer is idle either way, so this is the only
+  /// thing that tells an idle timer waiting to be started from one that is done until tomorrow.
+  public var dayEnded: Bool
 }

@@ -278,8 +278,9 @@ first are also chips in the window. Only some actions have a direct
 shortcut:
 
 - *Timer menu*: Start `⌘R`, Confirm `⏎`, Pause/Resume `⌘P`, Snooze
-  `⌘⇧S`, Skip Today, New Cycle (the last two deliberately have no
-  shortcut).
+  `⌘⇧S`, Done for Today, New Cycle (the last two deliberately have no
+  shortcut), then Start/Stop Timer Service below a divider — also
+  unbound, so a stray keystroke cannot take the daemon down.
 - *View menu*: Tasks `⌘T`, Stats `⌘⇧I`, Keyboard Shortcuts `⌘/` (a
   sheet listing everything). `Esc` closes an open panel or sheet.
 - *Tasks menu*: New Task `⌘N` (inserts an editable row at the top; `⏎`

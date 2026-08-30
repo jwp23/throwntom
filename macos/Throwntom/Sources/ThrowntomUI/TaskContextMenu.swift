@@ -27,16 +27,16 @@ struct TaskContextMenu: View {
   let task: TaskItem
   let environment: AppEnvironment
 
+  /// The verbs read for the row the menu was opened on, which need not be the selected one.
+  var menu: MenuModel<TaskAction> {
+    MenuModel.tasks(model: environment.model, on: task.id)
+  }
+
   var body: some View {
-    MenuGroups(menu: MenuModel.tasks(model: environment.model, focusedRow: isRowFocused)) { item in
+    MenuGroups(menu: menu) { item in
       Button("\(item.title)  \(item.action.shortcutHint)") { run(item.action) }
         .disabled(!item.isEnabled)
     }
-  }
-
-  /// The verbs read for the row the menu was opened on, which need not be the selected one.
-  var isRowFocused: Bool {
-    environment.model.focusedIDs.contains(task.id)
   }
 
   /// Selects the row the menu was opened on, then behaves exactly like the Tasks menu.

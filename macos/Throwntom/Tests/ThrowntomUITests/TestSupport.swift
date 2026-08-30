@@ -47,6 +47,7 @@ func makeState(
   workSessionsInBlock: Int = 0,
   focusedTaskIds: [Int] = [],
   reminderRings: Int = 0,
+  dayEnded: Bool = false,
 ) -> DaemonState {
   DaemonState(
     state: phase,
@@ -62,6 +63,7 @@ func makeState(
     statusLine: phase.displayName,
     focusedTaskIds: focusedTaskIds,
     reminderRings: reminderRings,
+    dayEnded: dayEnded,
   )
 }
 
@@ -223,5 +225,39 @@ final class UnreachableDaemonTransport: DaemonTransport, Sendable {
   // MARK: Private
 
   private let message: String
+
+}
+
+// MARK: - RecordingRegistrar
+
+/// A launchd stand-in that records what it was asked to do, so the window's service controls can
+/// be exercised without registering or booting out an agent on the machine running the tests.
+// Every mutable member is read and written under `lock`.
+// swiftlint:disable:next no_unchecked_sendable
+final class RecordingRegistrar: LaunchAgentRegistrar, @unchecked Sendable {
+
+  // MARK: Internal
+
+  enum Call: Equatable {
+    case register
+    case stop
+  }
+
+  var calls: [Call] {
+    lock.withLock { recorded }
+  }
+
+  func ensureAgentRegistered() throws {
+    lock.withLock { recorded.append(.register) }
+  }
+
+  func stopAgent() throws {
+    lock.withLock { recorded.append(.stop) }
+  }
+
+  // MARK: Private
+
+  private let lock = NSLock()
+  private var recorded = [Call]()
 
 }

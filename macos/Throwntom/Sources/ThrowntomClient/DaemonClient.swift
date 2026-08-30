@@ -24,6 +24,8 @@ public final class DaemonClient {
     case reconnecting(attempt: Int)
     /// Consecutive failures reached the threshold; the launchd agent has been asked to start the daemon.
     case startingDaemon
+    /// The user stopped the timer service. Nothing is dialling and nothing is wrong.
+    case stopped
   }
 
   nonisolated public static let failuresBeforeRegistering = 3
@@ -69,6 +71,8 @@ public final class DaemonClient {
       commandError
     } else if connection == .connected {
       nil
+    } else if connection == .stopped {
+      nil
     } else if let registrationError {
       registrationError
     } else if connection == .startingDaemon || !hasConnected {
@@ -83,9 +87,45 @@ public final class DaemonClient {
     streamTask = Task { await runStream() }
   }
 
+  /// Drops the event stream. This is what a quitting app runs, so it deliberately says nothing
+  /// to launchd: the daemon outlives its clients (ADR-006).
   public func stop() {
     streamTask?.cancel()
     streamTask = nil
+  }
+
+  /// Asks launchd for the daemon and dials it again. Also the way back from a refused launch,
+  /// where the stream is still alive and parked in its backoff: registering again retries launchd
+  /// but not the dial, so the loop is dropped and replaced rather than waited out. Otherwise the
+  /// user presses the control the failure note points at and nothing happens for eight seconds.
+  public func startService() {
+    commandError = nil
+    connection = .connecting
+    _ = registerAgent()
+    stop()
+    start()
+  }
+
+  /// Takes the timer service down. Nothing changes unless launchd accepts: a refused stop leaves
+  /// a daemon that is still running, and claiming otherwise would leave the window lying about it.
+  public func stopService() {
+    do {
+      try registrar.stopAgent()
+    } catch {
+      commandError = "The timer service could not be stopped."
+      return
+    }
+    stop()
+    state = nil
+    registrationError = nil
+    commandError = nil
+    // Back to the footing the app launches on. The daemon this client knew is gone, so the dials
+    // that follow a later Start are first dials, not a lost connection: `hasConnected` is what
+    // keeps the window quiet through them, and a `lastError` kept from the old daemon would
+    // otherwise surface the moment Start is pressed.
+    lastError = nil
+    hasConnected = false
+    connection = .stopped
   }
 
   public func command(_ line: String) async throws -> String {
@@ -134,7 +174,28 @@ public final class DaemonClient {
     return try DaemonJSON.decoder.decode(StatsSummary.self, from: response.body)
   }
 
+  // MARK: Internal
+
+  /// The reader's version of a failed request. The daemon's own `{"error":…}` is already a
+  /// sentence and says the useful thing, so it is passed through; anything else — a proxy's HTML
+  /// page, an empty body, an `error` field with nothing in it — is not, and
+  /// `DaemonError.http.userMessage` goes straight to the window.
+  /// Internal rather than private so this wording can be asserted on directly.
+  nonisolated static func errorMessage(_ body: Data) -> String {
+    let explanation = (try? DaemonJSON.decoder.decode(ErrorReply.self, from: body))?.error
+    guard let explanation, !explanation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+      return unexplainedFailure
+    }
+    return explanation
+  }
+
   // MARK: Private
+
+  /// What the window says when a request failed and nothing readable came back to say why. It
+  /// does not say "refused": the same path carries a gateway's own failure, which is not the timer
+  /// turning the request down. The body that did come back is not shown — an HTML page or a
+  /// transport's words are not something a reader can act on.
+  nonisolated private static let unexplainedFailure = "The timer sent an error it did not explain."
 
   private let transport: DaemonTransport
   private let registrar: LaunchAgentRegistrar
@@ -145,11 +206,6 @@ public final class DaemonClient {
     guard (200..<300).contains(response.status) else {
       throw DaemonError.http(status: response.status, message: errorMessage(response.body))
     }
-  }
-
-  private static func errorMessage(_ body: Data) -> String {
-    (try? DaemonJSON.decoder.decode(ErrorReply.self, from: body))?.error
-      ?? String(decoding: body, as: UTF8.self)
   }
 
   /// The window's wording for anything that goes wrong, so no view has to render a raw error.
@@ -164,6 +220,9 @@ public final class DaemonClient {
     while !Task.isCancelled {
       do {
         for try await frame in transport.events(DaemonAPI.events) {
+          // A cancelled loop must publish nothing: the service the user just stopped would
+          // otherwise come back on screen from a frame that was already in flight.
+          guard !Task.isCancelled else { return }
           // Before the decode: the daemon has answered even if we cannot read what it said, and
           // a daemon that is up but talking nonsense has still been reached.
           hasConnected = true
@@ -202,7 +261,11 @@ public final class DaemonClient {
       registrationError = nil
       return true
     } catch {
-      registrationError = "The timer could not be started."
+      // Names what refused and what to press, because the status line above it can only say the
+      // service will not launch. The framework's own error stays out of it for the same reason
+      // every other error is reworded here: it names ServiceManagement internals, not a next step.
+      registrationError = "launchd refused to start the timer service. "
+        + "Press \(ServiceAction.start.title) to try again."
       return false
     }
   }

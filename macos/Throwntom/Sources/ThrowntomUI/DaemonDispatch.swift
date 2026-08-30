@@ -12,6 +12,16 @@ enum DaemonDispatch {
     }
   }
 
+  /// Service lifecycle goes straight to launchd rather than over the socket, so unlike a timer
+  /// verb it is synchronous and reports through the client's own error properties.
+  @MainActor
+  static func control(_ action: ServiceAction, on client: DaemonClient) {
+    switch action {
+    case .start: client.startService()
+    case .stop: client.stopService()
+    }
+  }
+
   @MainActor
   static func send(_ line: String, to client: DaemonClient) {
     Task {

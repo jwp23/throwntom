@@ -70,6 +70,11 @@ final class RecoveringRegistrar: LaunchAgentRegistrar, @unchecked Sendable {
     transport.recover()
   }
 
+  /// Reconnect tests never stop the service; `ServiceControlTests` owns that path.
+  func stopAgent() throws {
+    XCTFail("the reconnect loop must never stop the timer service")
+  }
+
   // MARK: Private
 
   private let transport: OutageTransport
@@ -83,6 +88,10 @@ struct RefusingRegistrar: LaunchAgentRegistrar {
   struct Denied: Error { }
 
   func ensureAgentRegistered() throws {
+    throw Denied()
+  }
+
+  func stopAgent() throws {
     throw Denied()
   }
 }
@@ -200,12 +209,12 @@ final class ReconnectTests: XCTestCase {
     client.start()
     defer { client.stop() }
 
-    try await waitUntil("the registration that ends the outage") { registrar.calls >= 1 }
+    try await waitUntil("the registration that ends the outage") { registrar.registrations >= 1 }
     try await waitUntil("dials well past where a second registration would fall") {
       transport.dials >= DaemonClient.failuresBeforeRegistering * 3 + 1
     }
 
-    XCTAssertEqual(registrar.calls, 1, "a repeat registration boots out the daemon the first one started")
+    XCTAssertEqual(registrar.registrations, 1, "a repeat registration boots out the daemon the first one started")
   }
 
   /// The window shows this text under the chips, so it has to read as a sentence rather than
@@ -269,7 +278,7 @@ final class ReconnectTests: XCTestCase {
     try await waitUntil("the status line to say the daemon is starting") { client.connection == .startingDaemon }
     try await waitUntil("an error the window can show") { client.unresolvedError != nil }
 
-    XCTAssertEqual(client.unresolvedError, "The timer could not be started.")
+    XCTAssertEqual(client.unresolvedError, "launchd refused to start the timer service. Press Start Timer Service to try again.")
   }
 
   /// The daemon answered, so telling the reader it could not be reached would send them after
@@ -336,7 +345,7 @@ final class ReconnectTests: XCTestCase {
 
     try await waitUntil("dials past a second registration") { transport.dials >= DaemonClient.failuresBeforeRegistering * 2 + 1 }
 
-    XCTAssertEqual(client.unresolvedError, "The timer could not be started.")
+    XCTAssertEqual(client.unresolvedError, "launchd refused to start the timer service. Press Start Timer Service to try again.")
   }
 
   /// "Answered" means bytes arrived, not that they parsed. A daemon that is up but talking

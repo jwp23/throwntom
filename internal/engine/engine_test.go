@@ -389,15 +389,18 @@ func TestSnapshotInvalidRejectsIncidentSnapshot(t *testing.T) {
 	}
 }
 
-func TestSnapshotInvalidRejectsBreakWithNoCompletions(t *testing.T) {
+// Skipping the first pomodoro of the day puts the engine in a break with
+// nothing completed, so this combination is reachable and must survive a
+// restart rather than being discarded as inconsistent.
+func TestSnapshotInvalidAcceptsBreakWithNoCompletions(t *testing.T) {
 	snap := Snapshot{
 		State:          ShortBreak,
 		LastPhase:      ShortBreak,
 		CompletedToday: 0,
 		WorkDayStarted: true,
 	}
-	if snap.Invalid() == "" {
-		t.Fatal("expected a break with completed_today=0 to be reported invalid")
+	if reason := snap.Invalid(); reason != "" {
+		t.Fatalf("expected a skipped-first-pomodoro break to be valid, got %q", reason)
 	}
 }
 
@@ -431,5 +434,94 @@ func TestSnapshotInvalidAcceptsReachableSnapshots(t *testing.T) {
 	idle := Snapshot{State: Idle, LastPhase: Idle}
 	if reason := idle.Invalid(); reason != "" {
 		t.Fatalf("expected zero-value idle snapshot to be valid, got %q", reason)
+	}
+}
+
+// The user who says "I am done for today" is telling the engine something no
+// other idle state means, so the engine records it rather than leaving the
+// window unable to tell the two apart.
+func TestSkipTodayMarksTheDayEnded(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	if e.Snapshot().DayEnded {
+		t.Fatal("a fresh engine has not ended the day")
+	}
+	e.StartWork()
+	e.SkipToday()
+	if !e.Snapshot().DayEnded {
+		t.Fatal("expected day_ended after SkipToday")
+	}
+}
+
+func TestStartingWorkAgainReopensTheDay(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.SkipToday()
+	e.StartWork()
+	if e.Snapshot().DayEnded {
+		t.Fatal("starting work reopens the day")
+	}
+}
+
+func TestNewCycleReopensTheDay(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.SkipToday()
+	e.StartNewCycle()
+	if e.Snapshot().DayEnded {
+		t.Fatal("a new cycle reopens the day")
+	}
+}
+
+// "No more reminders today" is owed only to the day it was said on.
+func TestRollingOverToANewDayReopensTheDay(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	today := time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC)
+	e.AdvanceDay(today)
+	e.SkipToday()
+
+	e.AdvanceDay(today.AddDate(0, 0, 1))
+
+	if e.Snapshot().DayEnded {
+		t.Fatal("a new day is not over before it starts")
+	}
+}
+
+func TestRestoringASnapshotKeepsTheEndedDay(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.SkipToday()
+	restored := New(25, 5, 15, 4)
+
+	restored.Restore(e.Snapshot())
+
+	if !restored.Snapshot().DayEnded {
+		t.Fatal("expected day_ended to survive a restore")
+	}
+}
+
+// Invalid is the complete statement of what the engine's own transitions can
+// produce, so it has to cover day_ended too: only SkipToday sets it, and that
+// leaves the engine idle with the work day closed.
+func TestSnapshotWithAnEndedDayMidPhaseIsInvalid(t *testing.T) {
+	cases := map[string]Snapshot{
+		"running":       {State: Work, LastPhase: Work, WorkDayStarted: true, DayEnded: true},
+		"work day open": {State: Idle, LastPhase: Idle, WorkDayStarted: true, DayEnded: true},
+		"awaiting a phase": {
+			State:          AwaitingConfirm,
+			LastPhase:      Work,
+			WorkDayStarted: true,
+			DayEnded:       true,
+		},
+	}
+	for name, snap := range cases {
+		if snap.Invalid() == "" {
+			t.Fatalf("%s: expected an ended day mid-phase to be rejected", name)
+		}
+	}
+}
+
+func TestSnapshotFromSkipTodayIsValid(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartWork()
+	e.SkipToday()
+	if reason := e.Snapshot().Invalid(); reason != "" {
+		t.Fatalf("the engine's own skip-today snapshot must be valid, got %q", reason)
 	}
 }

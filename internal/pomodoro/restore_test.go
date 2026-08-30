@@ -22,9 +22,9 @@ func downSnapshot(start time.Time) Snapshot {
 	}
 }
 
-// ADR-006: a phase keeps accruing wall-clock time through downtime (2), but
-// the duration it is measured against always comes from the current config
-// (3). Lengthening work_minutes while the daemon is stopped must therefore
+// ADR-008: a phase keeps accruing wall-clock time through downtime, but the
+// duration it is measured against always comes from the current config.
+// Lengthening work_minutes while the daemon is stopped must therefore
 // give the same result as lengthening it while the daemon runs.
 func TestRestoreMeasuresElapsedAgainstALengthenedDuration(t *testing.T) {
 	start := time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC)

@@ -1,29 +1,6 @@
 import XCTest
 @testable import ThrowntomClient
 
-// MARK: - RecordingRegistrar
-
-// `_calls` is only touched under `lock`; LaunchAgentRegistrar requires Sendable.
-// swiftlint:disable:next no_unchecked_sendable
-final class RecordingRegistrar: LaunchAgentRegistrar, @unchecked Sendable {
-
-  // MARK: Internal
-
-  var calls: Int {
-    lock.withLock { _calls }
-  }
-
-  func ensureAgentRegistered() throws {
-    lock.withLock { _calls += 1 }
-  }
-
-  // MARK: Private
-
-  private let lock = NSLock()
-  private var _calls = 0
-
-}
-
 // MARK: - DialCountingTransport
 
 /// Counts event-stream dials on the way through to a real transport, so a test can wait for the
@@ -181,7 +158,7 @@ final class DaemonClientTests: XCTestCase {
     let client = DaemonClient(transport: transport, registrar: registrar, backoff: [.milliseconds(30)])
     client.start()
     defer { client.stop() }
-    try await waitUntil("the registration that ends the outage") { self.registrar.calls >= 1 }
+    try await waitUntil("the registration that ends the outage") { self.registrar.registrations >= 1 }
     XCTAssertEqual(client.connection, .startingDaemon)
 
     // Waiting on dials rather than on wall clock: a loaded machine that managed only a couple of
@@ -190,7 +167,7 @@ final class DaemonClientTests: XCTestCase {
       transport.dials >= DaemonClient.failuresBeforeRegistering * 3 + 1
     }
 
-    XCTAssertEqual(registrar.calls, 1, "further failures must not ask launchd again")
+    XCTAssertEqual(registrar.registrations, 1, "further failures must not ask launchd again")
     XCTAssertEqual(client.connection, .startingDaemon)
   }
 

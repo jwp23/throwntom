@@ -26,6 +26,10 @@ struct AppMenus: Commands {
           .keyboardShortcut(item.shortcut?.keyboardShortcut)
           .disabled(!item.isEnabled)
       }
+      Divider()
+      MenuGroups(menu: serviceMenu) { item in
+        Button(item.title) { control(item.action) }
+      }
     }
     CommandMenu("View") {
       MenuGroups(menu: MenuModel.view(model: environment.windowModel)) { item in
@@ -43,8 +47,21 @@ struct AppMenus: Commands {
     }
   }
 
+  /// The service group of the Timer menu, below a divider: starting and stopping the daemon is
+  /// not a timer verb, but it belongs to the same menu the timer is driven from.
+  var serviceMenu: MenuModel<ServiceAction> {
+    MenuModel.service(
+      connection: environment.client.connection,
+      registrationFailed: environment.client.registrationError != nil,
+    )
+  }
+
   func perform(_ action: TimerAction) {
     DaemonDispatch.perform(action, on: environment.client)
+  }
+
+  func control(_ action: ServiceAction) {
+    DaemonDispatch.control(action, on: environment.client)
   }
 
   func run(_ action: TaskAction) {

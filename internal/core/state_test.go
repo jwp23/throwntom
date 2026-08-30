@@ -113,7 +113,7 @@ func TestStateJSONTags(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, key := range []string{`"state":"idle"`, `"phase_end_at":null`, `"paused_remaining":0`, `"paused_from":"idle"`, `"completed_today":0`, `"work_sessions_in_block":0`, `"long_break_every":`, `"next_stage":null`, `"morning_pending":false`, `"snooze_until":null`, `"status_line":"`, `"focused_task_ids":`, `"reminder_rings":`} {
+	for _, key := range []string{`"state":"idle"`, `"phase_end_at":null`, `"paused_remaining":0`, `"paused_from":"idle"`, `"completed_today":0`, `"work_sessions_in_block":0`, `"long_break_every":`, `"next_stage":null`, `"morning_pending":false`, `"snooze_until":null`, `"status_line":"`, `"focused_task_ids":`, `"reminder_rings":`, `"day_ended":false`} {
 		if !strings.Contains(string(raw), key) {
 			t.Fatalf("missing %s in %s", key, raw)
 		}
@@ -132,5 +132,43 @@ func TestStatePublishesTheReminderRingCount(t *testing.T) {
 	_ = c.reminder.ring()
 	if got := c.State().ReminderRings; got != 2 {
 		t.Fatalf("expected the published count to follow the rings, got %d", got)
+	}
+}
+
+// The window needs to tell "idle, ready to go" from "idle, the user is done
+// for the day"; morning_pending cannot, because it is false in both.
+func TestStateReportsTheDayEndedAfterSkipToday(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+	if c.State().DayEnded {
+		t.Fatal("expected day_ended false before skip-today")
+	}
+
+	c.execute("skip-today")
+
+	s := c.State()
+	if !s.DayEnded {
+		t.Fatalf("expected day_ended after skip-today, got %+v", s)
+	}
+	raw, err := json.Marshal(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"day_ended":true`) {
+		t.Fatalf("day_ended missing from %s", raw)
+	}
+}
+
+func TestStartingAgainClearsTheEndedDay(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+	c.execute("skip-today")
+
+	c.execute(cmdStart)
+
+	if c.State().DayEnded {
+		t.Fatal("expected day_ended cleared once work starts again")
 	}
 }
