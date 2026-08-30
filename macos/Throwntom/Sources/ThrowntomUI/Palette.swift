@@ -95,7 +95,10 @@ enum Palette {
     case .paused: jewel(ground: "#8A8A8E", secondaryChip: "#3E3E40", panel: "#636366")
     case .awaitingConfirm: jewel(ground: "#E8583A", secondaryChip: "#68281A", panel: "#A73F2A")
     case nil:
-      // Disconnected state renders no chips; both primary and secondary share the cream/outline pairing.
+      // No timer verbs show without a phase, so the service chip carries whatever weight this
+      // ground has — primary while it reads Start (stopped or refused), secondary while it reads
+      // Stop (on its way up: `ServiceActions.startOrStop`). Both share the cream/outline pairing
+      // so it reads right either way.
       PhaseScheme(
         ground: HexColor("#3A2A22"),
         text: cream,

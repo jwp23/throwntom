@@ -24,8 +24,8 @@ func TestHelpExplainsSnoozeIsNonDestructive(t *testing.T) {
 	if !strings.Contains(snoozeLine, "keep") {
 		t.Fatalf("expected snooze help to say what it keeps, got %q", snoozeLine)
 	}
-	if !strings.Contains(stopLine, "forget") {
-		t.Fatalf("expected stop help to warn it forgets the owed phase, got %q", stopLine)
+	if !strings.Contains(stopLine, "resume") {
+		t.Fatalf("expected stop help to say a later start resumes the owed phase, got %q", stopLine)
 	}
 }
 
@@ -189,5 +189,26 @@ func TestExecuteClassifiesAlreadyFocusedAsRefused(t *testing.T) {
 	resp := c.Execute(cmdTaskFocus1)
 	if resp.ErrorKind != ErrorRefused {
 		t.Fatalf("kind = %v (error %q), want ErrorRefused", resp.ErrorKind, resp.Error)
+	}
+}
+
+// The verb ends the work day rather than only muting reminders: it stops a
+// running phase too, and the macOS client titles it "Done for Today".
+func TestSkipTodayReportsTheDayAsDone(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+	c.execute(cmdStart)
+
+	result := c.execute("skip-today")
+
+	if result.err != nil {
+		t.Fatalf("skip-today from a running phase: %v", result.err)
+	}
+	if !strings.Contains(strings.ToLower(result.message), "done for today") {
+		t.Fatalf("expected the reply to say the day is done, got %q", result.message)
+	}
+	if c.State().State != engine.Idle {
+		t.Fatalf("expected the running phase to stop, got %v", c.State().State)
 	}
 }

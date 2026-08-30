@@ -61,6 +61,7 @@ final class TimerActionDispatchTests: XCTestCase {
       "/v1/timer/confirm",
       "/v1/timer/pause",
       "/v1/timer/resume",
+      "/v1/timer/skip",
       "/v1/timer/skip-today",
       "/v1/timer/new-cycle",
     ])

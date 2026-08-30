@@ -65,11 +65,17 @@ the window, and a reminder left outstanding posts a notification and bounces the
 Dock icon; press ⌘/ in the window for every shortcut.
 
 Quitting the app does not stop the timer: the daemon keeps running (and keeps
-reminding you) under launchd. The window has no stop button yet: **Skip Today**
-(shown while idle) ends the day, and a running or owed phase is stopped from a
-terminal with `tools/tomctl cmd stop`. To stop the daemon itself, quit the app
-first — an open app re-registers the agent after a few failed connections —
-then:
+reminding you) under launchd. That is deliberate — see
+`docs/adr/006-daemon-lifecycle-and-config-reload.md`. Two controls in the window
+(and in the Timer menu) end it, and they mean different things: **Done for
+Today** ends the work day, so nothing reminds you again until tomorrow, and
+**Stop Timer Service** boots the launchd agent out, so the daemon exits and
+nothing is timing at all. A single phase is stopped without ending the day from
+a terminal with `tools/tomctl cmd stop`.
+
+The equivalent of Stop Timer Service by hand — note that an app which has not
+been told to stop re-registers the agent after a few failed connections, so quit
+it first:
 
 ```bash
 launchctl bootout gui/$(id -u)/com.jwp23.throwntom.daemon
@@ -93,7 +99,8 @@ through its tasks panel.
 - `new-cycle` - start a fresh cycle now (reset cycle progress, keep today's total)
 - `pause` - pause the active pomodoro or break timer
 - `resume` - resume a paused pomodoro or break timer
-- `stop` - stop active timer and return to idle (forgets the owed phase and clears focused tasks)
+- `skip` - end the running phase now and move to the next stage (the skipped phase is not counted)
+- `stop` - suspend the cycle and return to idle, keeping the owed phase and focused tasks
 - `confirm` - acknowledge transition and start next phase now
 - `snooze <duration>` - keep the owed phase and focused tasks, ask again later (example: `snooze 10m`)
 - `skip-today` - stop reminders for the current day
@@ -104,10 +111,15 @@ through its tasks panel.
 - `exit` - alias for `quit`
 
 `snooze` works whenever a reminder is ringing, not just in the morning — including
-while waiting for `confirm` at the end of a pomodoro or break. It is the only one
-of `confirm`, `snooze`, `stop` and `skip-today` that doesn't lose anything: it just
-asks again later. `stop` and `skip-today` both drop the phase you were owed;
-`stop` also clears focused tasks.
+while waiting for `confirm` at the end of a pomodoro or break. It doesn't lose
+anything: it just asks again later.
+
+`stop` is a suspend, not an abandon — for stepping into a meeting, not for ending
+the day. It returns the timer to idle but keeps the phase you were owed, your
+progress toward the long break, and your focused tasks, so `start` picks the cycle
+back up: stop after finishing a pomodoro and the next `start` gives you the break
+you earned. To drop the owed phase instead, use `new-cycle` for a fresh cycle or
+`skip-today` to end the day.
 
 ### Task Commands
 
@@ -147,7 +159,8 @@ already complete and awaiting confirmation. Time spent is what carries across
 the outage; the duration it is measured against always comes from your current
 config, so an edit made during the outage still applies. This is deliberate —
 see
-[ADR-006](docs/adr/006-daemon-lifecycle-and-config-reload.md). Stopping the
+[ADR-008](docs/adr/008-elapsed-time-survives-a-restart-durations-do-not.md).
+Stopping the
 timer service is therefore not a way to pause: use `pause`, which stores the
 remaining duration instead.
 

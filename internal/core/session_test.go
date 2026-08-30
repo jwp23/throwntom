@@ -482,3 +482,38 @@ func TestSessionSavedAfterMidnightResetsOnReload(t *testing.T) {
 		t.Fatalf("expected today's pomodoros=0 after midnight reload, got %s", status)
 	}
 }
+
+// "No more reminders today" has to outlive the daemon, or stopping and
+// starting the service resurrects the reminders the user just dismissed for
+// the day. The engine is idle after skip-today, so only day_ended says so.
+func TestLoadSessionIntoAnEndedDayOwesNoMorningReminder(t *testing.T) {
+	dir := t.TempDir()
+	sessPath := filepath.Join(dir, testSessionFile)
+
+	data := session.Data{
+		SavedAt: mondayAt(17, 0).Now(),
+		Timer: pomodoro.Snapshot{
+			Engine: engine.Snapshot{State: engine.Idle, LastPhase: engine.Idle, DayEnded: true},
+		},
+	}
+	if err := session.Save(sessPath, data); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+	c.setClock(mondayAt(17, 0))
+	c.sessionPath = sessPath
+	defer c.Stop()
+	if err := c.loadSession(); err != nil {
+		t.Fatalf(fmtLoadSession, err)
+	}
+
+	if !c.State().DayEnded {
+		t.Fatal("expected the ended day to survive the restore")
+	}
+	if c.reminder.shouldRaiseMorning(mondayAt(9, 15).Now(), c.scheduler) {
+		t.Fatal("expected no morning reminder owed on a day the user ended")
+	}
+}

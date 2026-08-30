@@ -13,7 +13,7 @@ struct CommandChips: View {
   }
 
   var body: some View {
-    BlockFlowLayout(blockGap: 6, rowSpacing: 6) {
+    BlockFlowLayout.chipRow {
       ForEach(menu.items) { item in
         // Disabled out here rather than inside `chip(for:)`, which stays a concrete `Chip` so the
         // tests can assert on its title, hint and style.

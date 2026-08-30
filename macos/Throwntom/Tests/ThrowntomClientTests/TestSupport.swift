@@ -4,7 +4,24 @@ import XCTest
 
 // MARK: - TimeoutError
 
-struct TimeoutError: Error { }
+/// A wait that never came true, described in full. A hung test used to surface a bare
+/// `CancellationError` attributed to whichever line happened to be sleeping, naming neither the
+/// wait nor what it wanted; this carries both, so the message alone identifies the failure.
+struct TimeoutError: Error, CustomStringConvertible {
+
+  // MARK: Lifecycle
+
+  init(waitingFor what: String, timeout: Double, cancelled: Bool, file: StaticString, line: UInt) {
+    let ending = cancelled ? "cancelled after" : "timed out after"
+    let source = "\(file)".split(separator: "/").last.map(String.init) ?? "\(file)"
+    description = "\(ending) \(timeout)s waiting for \(what) (\(source):\(line))"
+  }
+
+  // MARK: Internal
+
+  let description: String
+
+}
 
 // MARK: - GoBuildError
 
@@ -12,18 +29,51 @@ struct GoBuildError: Error, CustomStringConvertible {
   let description: String
 }
 
-/// Polls `condition` every 20 ms until it holds or `timeout` seconds pass.
+/// Waits for `condition` and fails the test at the call site, naming `what`, if it never holds.
 /// MainActor-isolated so tests can read DaemonClient's MainActor properties inside `condition`.
 @MainActor
-func waitUntil(timeout: Double = 5, _ condition: () -> Bool) async throws {
-  let deadline = Date().addingTimeInterval(timeout)
-  while Date() < deadline {
-    if condition() {
-      return
-    }
-    try await Task.sleep(for: .milliseconds(20))
+func waitUntil(
+  _ what: String,
+  timeout: Double = 5,
+  file: StaticString = #filePath,
+  line: UInt = #line,
+  _ condition: () -> Bool,
+) async throws {
+  guard let failure = await pollUntil(what, timeout: timeout, file: file, line: line, condition) else {
+    return
   }
-  throw TimeoutError()
+  // Both, deliberately: the XCTFail is what puts the failure on the waiting line rather than on
+  // whichever line was sleeping, and the throw is what stops a test whose precondition never
+  // came true from running on. Removing either one loses something.
+  XCTFail(failure.description, file: file, line: line)
+  throw failure
+}
+
+/// The wait without the reporting: polls `condition` every 20 ms and returns nil once it holds,
+/// or the failure to report if it never does. Separate from `waitUntil` so the suite can assert
+/// on what a failed wait says without XCTest recording the very failure under test.
+@MainActor
+func pollUntil(
+  _ what: String,
+  timeout: Double = 5,
+  file: StaticString = #filePath,
+  line: UInt = #line,
+  _ condition: () -> Bool,
+) async -> TimeoutError? {
+  let deadline = Date.now.addingTimeInterval(timeout)
+  while Date.now < deadline {
+    if condition() {
+      return nil
+    }
+    do {
+      try await Task.sleep(for: .milliseconds(20))
+    } catch {
+      // The enclosing test was cancelled, which for a MainActor test means it overran. Reporting
+      // that as this wait is the point: the cancellation alone names neither wait nor condition.
+      return TimeoutError(waitingFor: what, timeout: timeout, cancelled: true, file: file, line: line)
+    }
+  }
+  return TimeoutError(waitingFor: what, timeout: timeout, cancelled: false, file: file, line: line)
 }
 
 // MARK: - FrameLog
@@ -119,7 +169,7 @@ final class DaemonHarness {
     p.standardError = FileHandle.nullDevice
     try p.run()
     process = p
-    try await waitUntil { FileManager.default.fileExists(atPath: socketPath) }
+    try await waitUntil("the daemon to open its socket") { FileManager.default.fileExists(atPath: socketPath) }
   }
 
   /// Asks the daemon to exit and escalates to SIGKILL rather than waiting on it forever,
@@ -179,4 +229,80 @@ final class DaemonHarness {
     return false
   }
 
+}
+
+// MARK: - RecordingRegistrar
+
+/// A launchd stand-in that records what it was asked to do and refuses on demand.
+// Every mutable member is read and written under `lock`.
+// swiftlint:disable:next no_unchecked_sendable
+final class RecordingRegistrar: LaunchAgentRegistrar, @unchecked Sendable {
+
+  // MARK: Lifecycle
+
+  init(registerError: Error? = nil, stopError: Error? = nil) {
+    self.registerError = registerError
+    self.stopError = stopError
+  }
+
+  // MARK: Internal
+
+  enum Call: Equatable {
+    case register
+    case stop
+  }
+
+  struct Denied: Error { }
+
+  var calls: [Call] {
+    lock.withLock { recorded }
+  }
+
+  /// How many times the reconnect loop has asked launchd for the daemon.
+  var registrations: Int {
+    calls.count(where: { $0 == .register })
+  }
+
+  func ensureAgentRegistered() throws {
+    lock.withLock { recorded.append(.register) }
+    if let registerError {
+      throw registerError
+    }
+  }
+
+  func stopAgent() throws {
+    lock.withLock { recorded.append(.stop) }
+    if let stopError {
+      throw stopError
+    }
+  }
+
+  // MARK: Private
+
+  private let registerError: Error?
+  private let stopError: Error?
+  private let lock = NSLock()
+  private var recorded = [Call]()
+
+}
+
+/// A daemon state document with everything but the phase left at its resting value, so a test
+/// names only the field it is about.
+func makeClientState(phase: DaemonState.Phase = .idle, dayEnded: Bool = false) -> DaemonState {
+  DaemonState(
+    state: phase,
+    phaseEndAt: nil,
+    pausedRemaining: 0,
+    pausedFrom: .idle,
+    completedToday: 0,
+    workSessionsInBlock: 0,
+    longBreakEvery: 4,
+    nextStage: nil,
+    morningPending: false,
+    snoozeUntil: nil,
+    statusLine: phase.displayName,
+    focusedTaskIds: [],
+    reminderRings: 0,
+    dayEnded: dayEnded,
+  )
 }

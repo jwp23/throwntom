@@ -132,9 +132,9 @@ func (t *Timer) Restore(s Snapshot, now time.Time) error {
 }
 
 // restoreRunningLocked brings back a phase that was counting down. The time
-// spent keeps accruing across the outage — ADR-006 (2), downtime is not a
-// pause — but it is measured against the duration in force now, not the one
-// that was in force when the session was saved: ADR-006 (3). A phase whose
+// spent keeps accruing across the outage — downtime is not a pause — but it
+// is measured against the duration in force now, not the one that was in
+// force when the session was saved: ADR-008. A phase whose
 // current duration has already been served comes back complete.
 func (t *Timer) restoreRunningLocked(s Snapshot, now time.Time) {
 	remaining := t.remainingOnRestoreLocked(s, now)
@@ -206,7 +206,14 @@ func (t *Timer) Start() {
 	defer t.mu.Unlock()
 	defer t.transitionLocked()
 	t.engine.StartWork()
-	t.startPhaseTimerLocked(t.workDuration)
+	t.startPhaseTimerLocked(t.phaseDurationLocked(t.engine.State()))
+}
+
+// OwedPhase reports the phase Start would enter now.
+func (t *Timer) OwedPhase() engine.State {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.engine.OwedPhase()
 }
 
 func (t *Timer) StartNewCycle() {
@@ -308,14 +315,40 @@ func (t *Timer) Resume() bool {
 	return true
 }
 
-func (t *Timer) Stop() {
+// Stop suspends the cycle and reports the engine state as of the moment it
+// stopped. Reporting from inside the lock, the way Skip does, saves the
+// caller a second, racy read: the phase deadline fires from its own
+// goroutine and can otherwise complete the phase between a caller's own
+// Snapshot and this call, leaving the caller working from a stale state.
+func (t *Timer) Stop() engine.Snapshot {
 	t.mu.Lock()
+	before := t.engine.Snapshot()
 	defer t.notifyChange()
 	defer t.mu.Unlock()
 	defer t.transitionLocked()
 	t.stopTimerLocked()
 	t.clearPhaseLocked()
 	t.engine.Stop()
+	return before
+}
+
+// Skip ends the running phase now and moves to the next stage's confirmation.
+// It reports the phase it ended and whether there was one; a refused skip
+// changes nothing, so it does not notify. Reporting the phase from inside the
+// lock saves the caller a second, racy read to find out what it skipped.
+func (t *Timer) Skip() (engine.State, bool) {
+	t.mu.Lock()
+	skipped := t.engine.State()
+	if !t.engine.SkipPhase() {
+		t.mu.Unlock()
+		return skipped, false
+	}
+	defer t.notifyChange()
+	defer t.mu.Unlock()
+	defer t.transitionLocked()
+	t.stopTimerLocked()
+	t.clearPhaseLocked()
+	return skipped, true
 }
 
 func (t *Timer) State() engine.State {

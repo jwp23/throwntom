@@ -8,6 +8,7 @@ public enum TimerVerb: String, Sendable {
   case confirm
   case pause
   case resume
+  case skip
   case skipToday = "skip-today"
   case newCycle = "new-cycle"
 }
@@ -20,6 +21,7 @@ public enum TimerAction: CaseIterable, Sendable {
   case confirm
   case pause
   case resume
+  case skip
   case snooze
   case skipToday
   case newCycle
@@ -32,8 +34,9 @@ public enum TimerAction: CaseIterable, Sendable {
     case .confirm: "Confirm"
     case .pause: "Pause"
     case .resume: "Resume"
+    case .skip: "Skip"
     case .snooze: "Snooze \(TimerActions.defaultSnoozeMinutes) min"
-    case .skipToday: "Skip Today"
+    case .skipToday: "Done for Today"
     case .newCycle: "New Cycle"
     }
   }
@@ -45,6 +48,7 @@ public enum TimerAction: CaseIterable, Sendable {
     case .confirm: "⏎"
     case .pause,
          .resume: "⌘P"
+    case .skip: "⌘K"
     case .snooze: "⌘⇧S"
     case .skipToday,
          .newCycle: ""
@@ -67,6 +71,7 @@ public enum TimerAction: CaseIterable, Sendable {
     case .confirm: .confirm
     case .pause: .pause
     case .resume: .resume
+    case .skip: .skip
     case .skipToday: .skipToday
     case .newCycle: .newCycle
     case .snooze: nil
@@ -80,25 +85,34 @@ public enum TimerActions {
   public static let defaultSnoozeMinutes = 10
 
   /// Verbs the daemon would accept in this state, in display order. Mirrors internal/core/commands.go.
+  ///
+  /// Ending the day comes last in every state rather than only while idle: `handleSkipToday` has
+  /// no state guard, and a user who is finished mid-pomodoro needs to be able to say so without
+  /// first pausing or waiting out the phase.
   public static func available(for state: DaemonState) -> [TimerAction] {
     switch state.state {
     case .idle:
-      if state.morningPending {
+      // Not once the day is already ended: that screen is what the verb produces, and a chip
+      // that re-ends an ended day does nothing.
+      if state.dayEnded {
+        [.start, .newCycle]
+      } else if state.morningPending {
         [.start, .newCycle, .snooze, .skipToday]
       } else {
         [.start, .newCycle, .skipToday]
       }
 
+    // Skip ends the running phase, so it is on offer only while one is running.
     case .work,
          .shortBreak,
          .longBreak:
-      [.pause]
+      [.pause, .skip, .skipToday]
 
     case .paused:
-      [.resume]
+      [.resume, .skipToday]
 
     case .awaitingConfirm:
-      [.confirm, .snooze, .newCycle]
+      [.confirm, .snooze, .newCycle, .skipToday]
     }
   }
 
