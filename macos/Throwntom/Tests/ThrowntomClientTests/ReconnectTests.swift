@@ -184,8 +184,28 @@ final class ReconnectTests: XCTestCase {
     client.start()
     defer { client.stop() }
 
-    try await waitUntil(timeout: 2) { client.connection == .connected }
+    try await waitUntil("the client to connect", timeout: 2) { client.connection == .connected }
     XCTAssertEqual(transport.dials, DaemonClient.failuresBeforeRegistering + 1)
+  }
+
+  /// Registering the agent unregisters it first, so a second registration inside one outage
+  /// boots out the daemon the first one started. launchd's default 10 s minimum runtime then
+  /// throttles the respawn, which is how the client's own recovery came to cause the outage it
+  /// was recovering from. Once launchd has been asked and accepted, KeepAlive is what keeps
+  /// retrying; asking again can only interrupt it.
+  func testTheAgentIsRegisteredOnlyOncePerOutage() async throws {
+    let transport = OutageTransport()
+    let registrar = RecordingRegistrar()
+    let client = DaemonClient(transport: transport, registrar: registrar, backoff: [.milliseconds(10)])
+    client.start()
+    defer { client.stop() }
+
+    try await waitUntil("the registration that ends the outage") { registrar.calls >= 1 }
+    try await waitUntil("dials well past where a second registration would fall") {
+      transport.dials >= DaemonClient.failuresBeforeRegistering * 3 + 1
+    }
+
+    XCTAssertEqual(registrar.calls, 1, "a repeat registration boots out the daemon the first one started")
   }
 
   /// The window shows this text under the chips, so it has to read as a sentence rather than
@@ -196,7 +216,7 @@ final class ReconnectTests: XCTestCase {
     client.start()
     defer { client.stop() }
 
-    try await waitUntil { client.lastError != nil }
+    try await waitUntil("an outage to be recorded") { client.lastError != nil }
     XCTAssertEqual(client.lastError, "Timer is restarting…")
   }
 
@@ -212,7 +232,7 @@ final class ReconnectTests: XCTestCase {
     client.start()
     defer { client.stop() }
 
-    try await waitUntil { client.connection == .startingDaemon }
+    try await waitUntil("the status line to say the daemon is starting") { client.connection == .startingDaemon }
 
     XCTAssertNotNil(client.lastError, "the outage is still recorded")
     XCTAssertNil(client.unresolvedError, "but the window shows the status line alone")
@@ -226,12 +246,12 @@ final class ReconnectTests: XCTestCase {
     let client = DaemonClient(transport: transport, registrar: RecordingRegistrar(), backoff: [.seconds(30)])
     client.start()
     defer { client.stop() }
-    try await waitUntil { client.connection == .connected }
+    try await waitUntil("the client to connect") { client.connection == .connected }
     XCTAssertNil(client.unresolvedError, "nothing to report while connected")
 
     transport.drop()
 
-    try await waitUntil { client.connection != .connected }
+    try await waitUntil("the connection to drop") { client.connection != .connected }
     XCTAssertEqual(client.unresolvedError, "Timer is restarting…")
   }
 
@@ -246,8 +266,8 @@ final class ReconnectTests: XCTestCase {
     client.start()
     defer { client.stop() }
 
-    try await waitUntil { client.connection == .startingDaemon }
-    try await waitUntil { client.unresolvedError != nil }
+    try await waitUntil("the status line to say the daemon is starting") { client.connection == .startingDaemon }
+    try await waitUntil("an error the window can show") { client.unresolvedError != nil }
 
     XCTAssertEqual(client.unresolvedError, "The timer could not be started.")
   }
@@ -274,7 +294,7 @@ final class ReconnectTests: XCTestCase {
     client.start()
     defer { client.stop() }
 
-    try await waitUntil { transport.dials >= DaemonClient.failuresBeforeRegistering }
+    try await waitUntil("the failure that registers the agent") { transport.dials >= DaemonClient.failuresBeforeRegistering }
     try await Task.sleep(for: .milliseconds(200))
 
     XCTAssertEqual(client.connection, .startingDaemon, "the reconnect loop is still running, just waiting")
@@ -297,10 +317,10 @@ final class ReconnectTests: XCTestCase {
     )
     client.start()
     defer { client.stop() }
-    try await waitUntil { client.connection == .connected }
+    try await waitUntil("the client to connect") { client.connection == .connected }
     transport.drop()
 
-    try await waitUntil { client.connection == .startingDaemon }
+    try await waitUntil("the status line to say the daemon is starting") { client.connection == .startingDaemon }
 
     XCTAssertTrue(client.hasConnected, "this outage follows a real connection")
     XCTAssertNil(client.unresolvedError, "the status line is already saying it")
@@ -314,7 +334,7 @@ final class ReconnectTests: XCTestCase {
     client.start()
     defer { client.stop() }
 
-    try await waitUntil { transport.dials >= DaemonClient.failuresBeforeRegistering * 2 + 1 }
+    try await waitUntil("dials past a second registration") { transport.dials >= DaemonClient.failuresBeforeRegistering * 2 + 1 }
 
     XCTAssertEqual(client.unresolvedError, "The timer could not be started.")
   }
@@ -330,7 +350,7 @@ final class ReconnectTests: XCTestCase {
     client.start()
     defer { client.stop() }
 
-    try await waitUntil { client.connection == .reconnecting(attempt: 1) }
+    try await waitUntil("the undecodable frame to end the stream") { client.connection == .reconnecting(attempt: 1) }
 
     XCTAssertTrue(client.hasConnected, "the daemon answered, we just could not read it")
     XCTAssertEqual(client.unresolvedError, "The timer sent a reply we could not read.")
