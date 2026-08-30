@@ -106,7 +106,7 @@ func TestRunServesUntilCancelledAndSavesSession(t *testing.T) {
 	cfg.MorningReminderPending = false
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() { done <- Run(ctx, cfg, noopNotifier{}, paths) }()
+	go func() { done <- Run(ctx, cfg, noopNotifier{}, paths, nil) }()
 
 	client := unixClient(paths.Socket)
 	var resp *http.Response
@@ -144,7 +144,7 @@ func TestRunReturnsPromptlyWithOpenSSEClient(t *testing.T) {
 	cfg.MorningReminderPending = false
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() { done <- Run(ctx, cfg, noopNotifier{}, paths) }()
+	go func() { done <- Run(ctx, cfg, noopNotifier{}, paths, nil) }()
 
 	client := unixClient(paths.Socket)
 	var resp *http.Response
@@ -228,7 +228,7 @@ func TestRunLeavesSessionUntouchedWhenAlreadyRunning(t *testing.T) {
 	}
 
 	n := &recordingNotifier{}
-	if err := Run(context.Background(), config.Default(), n, paths); !errors.Is(err, ErrAlreadyRunning) {
+	if err := Run(context.Background(), config.Default(), n, paths, nil); !errors.Is(err, ErrAlreadyRunning) {
 		t.Fatalf("expected ErrAlreadyRunning, got %v", err)
 	}
 	// A core built before the lock check saves and notifies from background

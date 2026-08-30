@@ -26,11 +26,12 @@ var configPollInterval = config.DefaultWatchInterval
 // func that stops watching and waits for the watcher to be done — no config
 // can reach the core after it returns, so shutdown cannot race a reload.
 //
-// The baseline is read here, before the watcher's goroutine starts, so an
-// edit made moments after the daemon comes up cannot be mistaken for the
-// config already in force.
-func watchConfig(ctx context.Context, path string, c *core.Core) func() {
-	baseline, _ := os.ReadFile(path)
+// baseline must be the exact bytes c's config was built from, not a fresh
+// read of path: reading path again here, after core.New and c.Start have
+// already run, would let an edit that landed in that window go uncounted —
+// the watcher would treat the edited file as the baseline already in force
+// and never report it.
+func watchConfig(ctx context.Context, path string, baseline []byte, c *core.Core) func() {
 	w := config.Watcher{
 		Path:     path,
 		Interval: configPollInterval,
@@ -53,7 +54,11 @@ func watchConfig(ctx context.Context, path string, c *core.Core) func() {
 
 // Run serves the daemon API on paths.Socket until ctx is cancelled, then
 // shuts the server down and stops the core, which saves the session.
-func Run(ctx context.Context, cfg config.Config, n notifier.Notifier, paths core.Paths) error {
+//
+// configBytes are the bytes cfg was decoded from — the watcher's baseline,
+// so it agrees with the core on what is already in force. It is ignored
+// when paths.Config is empty.
+func Run(ctx context.Context, cfg config.Config, n notifier.Notifier, paths core.Paths, configBytes []byte) error {
 	// The lock comes first: building the core loads and rewrites the session
 	// and can fire notifications, which a losing second instance must not do.
 	ln, err := Listen(paths)
@@ -68,7 +73,7 @@ func Run(ctx context.Context, cfg config.Config, n notifier.Notifier, paths core
 	c.Start(ctx)
 	stopWatching := func() {}
 	if paths.Config != "" {
-		stopWatching = watchConfig(ctx, paths.Config, c)
+		stopWatching = watchConfig(ctx, paths.Config, configBytes, c)
 	}
 	srv := &http.Server{
 		Handler:           NewHandler(c),

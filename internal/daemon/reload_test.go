@@ -21,14 +21,15 @@ func TestRunAppliesConfigChangesWithoutRestart(t *testing.T) {
 
 	paths := tempPaths(t)
 	paths.Config = filepath.Join(filepath.Dir(paths.Session), "config.toml")
-	if err := os.WriteFile(paths.Config, []byte("[pomodoro]\nlong_break_every = 4\n"), 0o600); err != nil {
+	configBytes := []byte("[pomodoro]\nlong_break_every = 4\n")
+	if err := os.WriteFile(paths.Config, configBytes, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() { done <- Run(ctx, cfg, noopNotifier{}, paths) }()
+	go func() { done <- Run(ctx, cfg, noopNotifier{}, paths, configBytes) }()
 	defer func() {
 		cancel()
 		<-done
@@ -80,4 +81,48 @@ func stateLongBreakEvery(t *testing.T, client *http.Client) int {
 		t.Fatalf("decode state: %v", err)
 	}
 	return state.LongBreakEvery
+}
+
+// TestRunUsesTheGivenBaselineNotAFreshRead proves the fix for the race this
+// guards against: an edit landing between the read that produced cfg and
+// Run's watcher starting must still be picked up, not silently adopted as
+// though it were already in force. Simulated here by handing Run a baseline
+// that is stale relative to what is already on disk when Run starts.
+func TestRunUsesTheGivenBaselineNotAFreshRead(t *testing.T) {
+	restore := configPollInterval
+	configPollInterval = 5 * time.Millisecond
+	t.Cleanup(func() { configPollInterval = restore })
+
+	paths := tempPaths(t)
+	paths.Config = filepath.Join(filepath.Dir(paths.Session), "config.toml")
+	staleBaseline := []byte("[pomodoro]\nlong_break_every = 4\n")
+	// The file already holds the edit by the time Run starts; only the
+	// baseline Run is given is stale, exactly as if the edit landed in the
+	// gap between the read that produced cfg and this call.
+	if err := os.WriteFile(paths.Config, []byte("[pomodoro]\nlong_break_every = 3\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- Run(ctx, cfg, noopNotifier{}, paths, staleBaseline) }()
+	defer func() {
+		cancel()
+		<-done
+	}()
+
+	client := unixClient(paths.Socket)
+	waitForDaemon(t, client)
+
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		if got := stateLongBreakEvery(t, client); got == 3 {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("daemon never picked up the edit already on disk at startup; long_break_every is still %d", stateLongBreakEvery(t, client))
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }

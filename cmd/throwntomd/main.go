@@ -33,7 +33,15 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	cfg, err := config.LoadFile(resolvedConfig)
+	// Read once, byte for byte: cfg and the watcher's baseline must agree on
+	// exactly what was in force at startup, or an edit landing in the gap
+	// between two separate reads could be lost until the next one.
+	configBytes, err := os.ReadFile(resolvedConfig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "config error: %v\n", err)
+		os.Exit(1)
+	}
+	cfg, err := config.LoadBytes(configBytes)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "config error: %v\n", err)
 		os.Exit(1)
@@ -46,7 +54,7 @@ func main() {
 	paths.Config = resolvedConfig
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	if err := daemon.Run(ctx, cfg, daemonNotifier(), paths); err != nil {
+	if err := daemon.Run(ctx, cfg, daemonNotifier(), paths, configBytes); err != nil {
 		fmt.Fprintf(os.Stderr, "throwntomd: %v\n", err)
 		os.Exit(1)
 	}
