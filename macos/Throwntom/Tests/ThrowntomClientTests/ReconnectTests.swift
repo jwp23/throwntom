@@ -188,6 +188,26 @@ final class ReconnectTests: XCTestCase {
     XCTAssertEqual(transport.dials, DaemonClient.failuresBeforeRegistering + 1)
   }
 
+  /// Registering the agent unregisters it first, so a second registration inside one outage
+  /// boots out the daemon the first one started. launchd's default 10 s minimum runtime then
+  /// throttles the respawn, which is how the client's own recovery came to cause the outage it
+  /// was recovering from. Once launchd has been asked and accepted, KeepAlive is what keeps
+  /// retrying; asking again can only interrupt it.
+  func testTheAgentIsRegisteredOnlyOncePerOutage() async throws {
+    let transport = OutageTransport()
+    let registrar = RecordingRegistrar()
+    let client = DaemonClient(transport: transport, registrar: registrar, backoff: [.milliseconds(10)])
+    client.start()
+    defer { client.stop() }
+
+    try await waitUntil("the registration that ends the outage") { registrar.calls >= 1 }
+    try await waitUntil("dials well past where a second registration would fall") {
+      transport.dials >= DaemonClient.failuresBeforeRegistering * 3 + 1
+    }
+
+    XCTAssertEqual(registrar.calls, 1, "a repeat registration boots out the daemon the first one started")
+  }
+
   /// The window shows this text under the chips, so it has to read as a sentence rather than
   /// as the transport's own description of a missing socket.
   func testAnOutageReadsAsASentenceNotATransportError() async throws {
