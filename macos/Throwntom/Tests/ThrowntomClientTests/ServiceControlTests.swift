@@ -50,6 +50,23 @@ final class ServiceControlTests: XCTestCase {
     try await waitUntil { client.state != nil }
   }
 
+  /// The guarantee the whole control rests on: once launchd has been told to unload the agent,
+  /// the reconnect loop must not quietly ask for it back. Asserting straight after `stopService()`
+  /// would pass on a live loop too, so this waits out several backoff steps first.
+  func testAStoppedServiceIsNotRevivedByTheReconnectLoop() async throws {
+    let registrar = RecordingRegistrar()
+    let client = DaemonClient(transport: StubStateTransport(), registrar: registrar, backoff: [.milliseconds(10)])
+    client.start()
+    try await waitUntil { client.state != nil }
+
+    client.stopService()
+    try await Task.sleep(for: .milliseconds(300))
+
+    XCTAssertEqual(registrar.calls, [.stop], "the loop asked launchd for the daemon again")
+    XCTAssertEqual(client.connection, .stopped)
+    XCTAssertNil(client.state)
+  }
+
   /// ADR-006's central promise: the daemon is deliberately independent of any client, so the
   /// teardown a quitting app runs must never reach launchd.
   func testTearingTheClientDownDoesNotStopTheService() async throws {
@@ -139,6 +156,14 @@ final class EndOfDayActionTests: XCTestCase {
     }
   }
 
+  /// Offering the verb on the screen it already produced is a chip that does nothing. It belongs
+  /// in every phase, not in the state it leaves behind.
+  func testEndingTheDayIsNotOfferedOnceTheDayHasEnded() {
+    let available = TimerActions.available(for: makeClientState(phase: .idle, dayEnded: true))
+    XCTAssertFalse(available.contains(.skipToday))
+    XCTAssertEqual(available, [.start, .newCycle])
+  }
+
   func testAnEndedDayIsReadableFromTheDaemonState() {
     XCTAssertTrue(makeClientState(phase: .idle, dayEnded: true).dayEnded)
     XCTAssertFalse(makeClientState(phase: .idle).dayEnded)
@@ -167,4 +192,106 @@ final class RefusedLaunchTests: XCTestCase {
     XCTAssertTrue(note.contains(ServiceAction.start.title), note)
     XCTAssertEqual(client.unresolvedError, note)
   }
+}
+
+// MARK: - RestartAfterStopTests
+
+/// Pressing Start has to behave like a cold launch, not like a client that has lost a daemon:
+/// the daemon it knew is gone, and launchd takes a moment, so the dialling that follows must be
+/// as quiet as the app's own first dial.
+@MainActor
+final class RestartAfterStopTests: XCTestCase {
+
+  // MARK: Internal
+
+  func testStartingAfterAStopIsAsQuietAsAColdLaunch() async throws {
+    let transport = StoppableTransport()
+    // One long step, so the client parks in `reconnecting` where the assertions can see it
+    // instead of racing through the attempts.
+    let client = DaemonClient(transport: transport, registrar: RecordingRegistrar(), backoff: [.seconds(30)])
+    client.start()
+    defer { client.stop() }
+    try await waitUntil { client.state != nil }
+
+    // Stopping the service really does take the socket away, so the dials that follow fail.
+    transport.takeDown()
+    client.stopService()
+    client.startService()
+
+    try await waitUntil { client.connection == .reconnecting(attempt: 1) }
+    XCTAssertNil(client.unresolvedError, "a start the user just asked for must not report the outage it is fixing")
+    XCTAssertFalse(client.hasConnected, "the daemon the client knew is gone")
+  }
+
+  /// The control the refused-launch note points at has to dial now. The reconnect loop is parked
+  /// in its backoff at that moment, so re-registering alone leaves the user pressing a button
+  /// that does nothing until the sleep runs out.
+  func testStartingAfterARefusedLaunchDialsWithoutWaitingOutTheBackoff() async throws {
+    let transport = OutageTransport()
+    let client = DaemonClient(
+      transport: transport,
+      registrar: RecordingRegistrar(registerError: RecordingRegistrar.Denied()),
+      backoff: Self.parkedAfterRefusal,
+    )
+    client.start()
+    defer { client.stop() }
+    try await waitUntil { client.connection == .startingDaemon }
+
+    // launchd will take it now; the parked loop must not be what decides when we find out.
+    transport.recover()
+    client.startService()
+
+    try await waitUntil(timeout: 3) { client.connection == .connected }
+  }
+
+  // MARK: Private
+
+  /// Short enough to reach the refusal quickly, then long enough that a client which waits its
+  /// backoff out never dials again inside the test's timeout.
+  private static let parkedAfterRefusal: [Duration] = [
+    .milliseconds(10),
+    .milliseconds(10),
+    .seconds(30),
+  ]
+
+}
+
+// MARK: - StoppableTransport
+
+/// A daemon that answers until the test takes it away, the way stopping the service does.
+// Every mutable member is read and written under `lock`.
+// swiftlint:disable:next no_unchecked_sendable
+final class StoppableTransport: DaemonTransport, @unchecked Sendable {
+
+  // MARK: Internal
+
+  func takeDown() {
+    lock.withLock { isUp = false }
+  }
+
+  func request(_: String, _: String, body _: Data?) async throws -> HTTPResponse {
+    guard lock.withLock({ isUp }) else {
+      throw Self.gone
+    }
+    return HTTPResponse(status: 200, headers: [:], body: Data(#"{"active":[],"done":[]}"#.utf8))
+  }
+
+  func events(_: String) -> AsyncThrowingStream<Data, Error> {
+    let up = lock.withLock { isUp }
+    return AsyncThrowingStream { continuation in
+      guard up else {
+        continuation.finish(throwing: Self.gone)
+        return
+      }
+      continuation.yield(Data(StateDecodingTests.idleJSON.utf8))
+    }
+  }
+
+  // MARK: Private
+
+  private static let gone = DaemonError.transport("POSIXErrorCode(rawValue: 2): No such file or directory")
+
+  private let lock = NSLock()
+  private var isUp = true
+
 }

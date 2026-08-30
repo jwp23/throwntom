@@ -66,8 +66,12 @@ final class ServiceChipTests: XCTestCase {
 
   // MARK: Private
 
+  /// Every client here is torn down with the test: `startService()` starts a real reconnect loop,
+  /// and a stream task that outlives its test is a flake waiting to happen.
   private func client(_ registrar: RecordingRegistrar = RecordingRegistrar()) -> DaemonClient {
-    DaemonClient(transport: UnreachableDaemonTransport(), registrar: registrar)
+    let client = DaemonClient(transport: UnreachableDaemonTransport(), registrar: registrar)
+    addTeardownBlock { @MainActor in client.stop() }
+    return client
   }
 
   private func serviceContent(

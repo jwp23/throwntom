@@ -492,3 +492,33 @@ func TestRestoringASnapshotKeepsTheEndedDay(t *testing.T) {
 		t.Fatal("expected day_ended to survive a restore")
 	}
 }
+
+// Invalid is the complete statement of what the engine's own transitions can
+// produce, so it has to cover day_ended too: only SkipToday sets it, and that
+// leaves the engine idle with the work day closed.
+func TestSnapshotWithAnEndedDayMidPhaseIsInvalid(t *testing.T) {
+	cases := map[string]Snapshot{
+		"running":       {State: Work, LastPhase: Work, WorkDayStarted: true, DayEnded: true},
+		"work day open": {State: Idle, LastPhase: Idle, WorkDayStarted: true, DayEnded: true},
+		"awaiting a phase": {
+			State:          AwaitingConfirm,
+			LastPhase:      Work,
+			WorkDayStarted: true,
+			DayEnded:       true,
+		},
+	}
+	for name, snap := range cases {
+		if snap.Invalid() == "" {
+			t.Fatalf("%s: expected an ended day mid-phase to be rejected", name)
+		}
+	}
+}
+
+func TestSnapshotFromSkipTodayIsValid(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartWork()
+	e.SkipToday()
+	if reason := e.Snapshot().Invalid(); reason != "" {
+		t.Fatalf("the engine's own skip-today snapshot must be valid, got %q", reason)
+	}
+}
