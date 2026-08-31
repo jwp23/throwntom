@@ -111,6 +111,49 @@ Do not apply `macos/mask-icon.swift` here. That masks the *app icon* to Apple's 
 squircle, and the banner is different art with a soft, full-bleed edge of its own — a geometric
 mask fits it no better than 5px and would clip the artwork.
 
+## Reading the app's log after a failure
+
+The window never shows an error's own text — it shows a fixed sentence, because a socket errno or
+a `ServiceManagement` domain is not something a reader can act on. What the failure actually *was*
+goes to Apple's unified log instead, so there is somewhere to look afterwards.
+
+Everything the app records is under the subsystem `com.jwp23.throwntom`, in one of five
+categories: `daemon` (requests and the event stream), `service` (launchd and Login Items),
+`reminders` (notification permission and banners), `tasks` (the task list and its editor) and
+`stats` (the panel's one fetch). Read the last hour of all of it:
+
+```bash
+/usr/bin/log show --last 1h --predicate 'subsystem == "com.jwp23.throwntom"' --style compact
+```
+
+```
+Timestamp               Ty Process[PID:TID]
+2026-08-31 02:43:59.212 E  Throwntom[78422:1015cda] [com.jwp23.throwntom:daemon] read the event stream failed: NSCocoaErrorDomain 4865
+2026-08-31 02:43:59.740 E  Throwntom[78422:1015cda] [com.jwp23.throwntom:daemon] read the event stream failed: NSCocoaErrorDomain 4865
+```
+
+Use `/usr/bin/log`, not `log`: `log` is a zsh builtin, and a bare `log show …` fails with
+`zsh:log:1: too many arguments` rather than doing anything.
+
+Narrow to one area with `category`, or follow it live while reproducing:
+
+```bash
+/usr/bin/log show --last 1h --predicate 'subsystem == "com.jwp23.throwntom" AND category == "daemon"' --style compact
+/usr/bin/log stream --predicate 'subsystem == "com.jwp23.throwntom"' --style compact
+```
+
+The two lines above are a real capture, and they are worth reading as an example of what the log
+is for. The window's whole account of that moment was "Timer is restarting…"; the log names a
+decode failure, which is the actual cause — a freshly built client against a daemon left running
+from an older build, whose frames are missing fields the client now requires. That is the ordinary
+dev-loop skew the section below is about, and `macos/install.sh` is the fix.
+
+An entry is the operation that failed and the *shape* of the error — a status code, a transport
+reason, an `NSError` domain and code. Never the error's own words, and never anything the user
+typed: the daemon quotes the request back in its refusals (`unknown command: %s` in
+`internal/core/core.go`), so a `DaemonError.http`'s message is dropped rather than logged. See
+`ClientLog` in `macos/Throwntom/Sources/ThrowntomClient/ClientLog.swift`.
+
 ## The macOS dev loop
 
 `macos/install.sh` quits the app, stops the agent, rebuilds (about a minute), copies the bundle to

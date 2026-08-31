@@ -86,6 +86,17 @@ The app registers it again the next time it opens. Rebuilding is the same
 `macos/README.md`, and driving the daemon or checking the window from a
 terminal is in `docs/development.md`.
 
+The window reports a failure as a plain sentence and never as an error's own
+text. When that sentence is not enough, what actually went wrong is in the
+system log:
+
+```bash
+/usr/bin/log show --last 1h --predicate 'subsystem == "com.jwp23.throwntom"' --style compact
+```
+
+The categories and what is recorded are in
+[docs/development.md](docs/development.md#reading-the-apps-log-after-a-failure).
+
 ## Commands
 
 The TUI reads these at its prompt; the daemon accepts the same lines through
