@@ -204,6 +204,51 @@ final class MainWindowContentTests: XCTestCase {
     XCTAssertEqual(content(nil, connection: .connecting).pose, .disconnected)
   }
 
+  /// throwntom-jnv. The headline was three bare `Text` views, which VoiceOver reads as three
+  /// unrelated stops with no relation between them and no clue that the middle one is a value that
+  /// has already moved on. It is one element now: the phase and what follows it are the label, and
+  /// the countdown is its value.
+  func testTheHeadlineReadsAsOneLabelledThingWithTheCountdownAsItsValue() {
+    let c = content(makeState(
+      phase: .work,
+      nextStage: DaemonState.Stage(state: .shortBreak, duration: 300),
+      phaseEndAt: now.addingTimeInterval(1500),
+    ))
+
+    XCTAssertEqual(c.spokenHeadline, "Pomodoro. Next: Short break 5 min")
+    XCTAssertEqual(c.countdown, "25:00", "the value is the countdown itself, not a second wording")
+  }
+
+  /// A VoiceOver user and a sighted user must be told the same thing, so the label is built from
+  /// the strings already on screen rather than from a second copy of them. Two wordings drift.
+  func testTheHeadlineLabelIsTheTitleAndTheLineUnderIt() {
+    for state in [makeState(phase: .idle), makeState(phase: .idle, dayEnded: true), makeState(phase: .work)] {
+      let c = content(state)
+      XCTAssertTrue(c.spokenHeadline.hasPrefix(c.title), "\"\(c.spokenHeadline)\" does not start with \"\(c.title)\"")
+      if let next = c.nextStage {
+        XCTAssertTrue(c.spokenHeadline.hasSuffix(next), c.spokenHeadline)
+      }
+    }
+  }
+
+  /// A screen with nothing counting has a title and nothing else under it, and the label must not
+  /// invent punctuation for a sentence that is not there.
+  func testAHeadlineWithNothingUnderItIsJustTheTitle() {
+    let c = content(nil, connection: .stopped)
+
+    XCTAssertEqual(c.spokenHeadline, c.title)
+    XCTAssertNil(c.countdown)
+  }
+
+  /// The reconnect mark is part of what the window says, so it is part of what is read out. The
+  /// spoken announcement is the *change*; this is the standing fact, there whenever the reader
+  /// goes back to the headline (throwntom-92i).
+  func testTheReconnectMarkIsInWhatTheHeadlineReadsAs() {
+    let c = content(makeState(phase: .work), connection: .reconnecting(attempt: 1))
+
+    XCTAssertTrue(c.spokenHeadline.contains("(reconnecting)"), c.spokenHeadline)
+  }
+
   // MARK: Private
 
   private let now = Date(timeIntervalSince1970: 1_000_000)
