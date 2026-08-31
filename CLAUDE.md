@@ -214,6 +214,20 @@
 - If measurement disproves the bead's premise, record that on the bead with
   `bd update <id> --notes=...` before fixing, so the correction outlives the session.
 
+## Behavioural doc claims must cite file:line
+
+- Prose in a diff that asserts runtime behaviour must be verified against source
+  and cited `file:line`, or removed. This covers README, `docs/`, ADRs, config
+  templates and code comments alike — not just the main README.
+- The trap: the claim usually looks like a description, not a claim. "The daemon
+  builds its notifier once, at startup" reads as context and is a testable
+  assertion. If a reader could act on the sentence and be wrong, it is a claim.
+- Cite against the final diff. Your own edits shift line numbers, so re-verify
+  positions after the last edit rather than reusing the ones you read first.
+- A diff that changes no prose reports "no behavioural claims made" and is done.
+- Where the mechanism can be pinned by a test, write the test instead of citing
+  it — see `internal/config/template_test.go`. A citation ages; a test does not.
+
 ## Absolutes are not yours to interpret
 
 - When a governing decision states an absolute — NEVER, MUST NOT, ALWAYS — and the
