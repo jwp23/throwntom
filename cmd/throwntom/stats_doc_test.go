@@ -57,6 +57,9 @@ func parseTierRow(t *testing.T, row []string, wantLow int, isLast bool) (tierBou
 	if open && !isLast {
 		t.Fatalf("tier %s has no upper bound but is not the last row", tier)
 	}
+	if !open && isLast {
+		t.Fatalf("tier %s has an upper bound but must cover all remaining counts", tier)
+	}
 	// The open-ended row ("6+") has no upper bound to read, so probe a few
 	// counts past its lower one: all of them are still that tier.
 	const beyondTheTable = 3
