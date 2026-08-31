@@ -114,7 +114,11 @@ func TestBuildCallbacksExecuteDelegatesToCore(t *testing.T) {
 		t.Fatalf("expected new cycle message, got %q", resp.Message)
 	}
 
-	prompted, err := callbacks.Execute("start")
+	// The focus prompt belongs to a start that begins fresh work, so the core
+	// that has to surface one is idle rather than the one new-cycle just put a
+	// pomodoro on.
+	idle := newTestCore(t, cfg, tempPaths(t))
+	prompted, err := buildCallbacks(cfg, idle).Execute("start")
 	if err != nil {
 		t.Fatalf("expected nil error from execute callback, got %v", err)
 	}

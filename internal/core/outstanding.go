@@ -245,15 +245,46 @@ func (r *outstandingReminder) startLoopLocked() {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	r.loopCancel = cancel
-	go reminder.New(r.policy, r.ring).Run(ctx)
+	go reminder.New(r.policy, r.loopNotify(ctx)).Run(ctx)
 }
 
-// ring is one alert of the loop. The daemon plays nothing (ADR-007), so the
-// ring has to leave a mark a client can read: the count is what turns the
-// daemon's cadence into a chime somewhere else. The sound call stays because
-// a program that owns its own core - the TUI - is its own client.
-func (r *outstandingReminder) ring() error {
+// loopNotify is what one ring loop alerts through. It carries the loop's own
+// ctx, which is the loop's identity: quietLocked retires a loop by cancelling
+// that ctx, so ctx is how a later alert can tell whether the loop it came from
+// is still the one this reminder is running.
+//
+// The first alert is promised. Raising a reminder means it rings, and a raise
+// followed closely by a snooze or a cancel must not turn that into a coin
+// flip decided by when the goroutine happened to be scheduled. Every alert
+// after it is checked, because that is where a stray belongs.
+func (r *outstandingReminder) loopNotify(ctx context.Context) func() error {
+	promised := true
+	return func() error {
+		first := promised
+		promised = false
+		return r.ring(ctx, first)
+	}
+}
+
+// ring is one alert of the loop ctx belongs to. The daemon plays nothing
+// (ADR-007), so the ring has to leave a mark a client can read: the count is
+// what turns the daemon's cadence into a chime somewhere else. The sound call
+// stays because a program that owns its own core - the TUI - is its own
+// client.
+//
+// A retired loop rings no more. Cancelling one is not synchronous: Loop.Run
+// selects over ctx.Done() and its ticker, so a tick already due can be taken
+// instead of the cancel and land here after the reminder was snoozed or
+// retired. Testing ctx inside the same critical section that raises the count
+// is what settles that order, because quietLocked cancels while holding mu:
+// an alert that finds ctx live got here before the cancel. The owner decides
+// whether an alert counts (ADR-004), not the loop.
+func (r *outstandingReminder) ring(loop context.Context, promised bool) error {
 	r.mu.Lock()
+	if !promised && loop.Err() != nil {
+		r.mu.Unlock()
+		return nil
+	}
 	kind := r.kind
 	r.rings++
 	r.mu.Unlock()

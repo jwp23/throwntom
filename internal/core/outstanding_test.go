@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"testing"
@@ -304,8 +305,8 @@ func TestEachRingRaisesThePublishedCount(t *testing.T) {
 		t.Fatalf("expected raising to ring once, got %d", got)
 	}
 
-	_ = r.ring()
-	_ = r.ring()
+	_ = r.ring(context.Background(), false)
+	_ = r.ring(context.Background(), false)
 	if got := r.ringCount(); got != 3 {
 		t.Fatalf("expected each ring to raise the count, got %d", got)
 	}
@@ -341,7 +342,7 @@ func TestRingCountIsPublishedInState(t *testing.T) {
 	changes := 0
 	r.onChange = func() { mu.Lock(); changes++; mu.Unlock() }
 
-	_ = r.ring()
+	_ = r.ring(context.Background(), false)
 	mu.Lock()
 	got := changes
 	mu.Unlock()
@@ -382,5 +383,50 @@ func TestSnoozeStopsTheRingsAndUnsnoozeStartsThemAgain(t *testing.T) {
 	waitForSounds(t, rec, quiet+1)
 	if got := r.ringCount(); got <= quiet {
 		t.Fatalf("ending the snooze must ring again: count stuck at %d", got)
+	}
+}
+
+// Cancelling a ring loop is not synchronous: Loop.Run selects over ctx.Done()
+// and its ticker, so a tick already due can be taken instead of the cancel and
+// alert for a reminder that was just snoozed or retired. The macOS client
+// chimes on every climb of the ring count (ADR-009), so a stray alert is a
+// stray chime. The loop's own ctx is what tells the owner it is stale.
+func TestAnAlertFromARetiredLoopDoesNotRaiseTheCount(t *testing.T) {
+	r := newOutstandingReminder(onePerRaise, notifier.Silent())
+	t.Cleanup(r.cancel)
+	r.raise(reminderCycle)
+	settle()
+
+	loop, retire := context.WithCancel(context.Background())
+	notify := r.loopNotify(loop)
+	_ = notify()
+	before := r.ringCount()
+
+	retire()
+	_ = notify()
+	if got := r.ringCount(); got != before {
+		t.Fatalf("expected an alert from a retired loop to be dropped, count went %d -> %d", before, got)
+	}
+}
+
+// The alert a raise promises is not negotiable. Silencing a loop before its
+// goroutine has been scheduled must still leave that first alert, because
+// whether the user hears the reminder at all cannot depend on scheduling. This
+// pins the regression that reverted the earlier fix: acking the loop in
+// quietLocked swallowed the first ring outright.
+func TestThePromisedFirstAlertSurvivesARetirementThatBeatsIt(t *testing.T) {
+	r := newOutstandingReminder(onePerRaise, notifier.Silent())
+	t.Cleanup(r.cancel)
+	r.raise(reminderCycle)
+	settle()
+	before := r.ringCount()
+
+	loop, retire := context.WithCancel(context.Background())
+	retire()
+	if err := r.loopNotify(loop)(); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.ringCount(); got != before+1 {
+		t.Fatalf("expected the promised first alert to survive, count went %d -> %d", before, got)
 	}
 }
