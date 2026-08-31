@@ -87,14 +87,14 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
       do {
         try await presenter.postReminder(title: title, body: body)
       } catch {
-        authorization = .rejected(error)
+        authorization = .rejected()
       }
 
     case .postMorning(let title, let body):
       do {
         try await presenter.postMorningReminder(title: title, body: body)
       } catch {
-        authorization = .rejected(error)
+        authorization = .rejected()
       }
 
     case .withdraw:

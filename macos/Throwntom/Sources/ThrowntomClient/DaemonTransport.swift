@@ -16,7 +16,7 @@ public struct HTTPResponse: Equatable, Sendable {
 
 // MARK: - DaemonError
 
-public enum DaemonError: Error, Equatable {
+public enum DaemonError: Error, Equatable, Sendable {
   case transport(String)
   case malformedResponse(String)
   case http(status: Int, message: String)
@@ -45,7 +45,10 @@ extension DaemonError {
   /// Public so every surface that catches a failure — the client's own commands and the panels
   /// that call it directly — words it the same way.
   public static func userMessage(for error: Error) -> String {
-    (error as? DaemonError)?.userMessage ?? DaemonError.malformedResponse("\(error)").userMessage
+    // The empty payload is not an oversight: `malformedResponse`'s `userMessage` is a fixed
+    // sentence and never reads its associated value, so describing the error here would build a
+    // string only to drop it — and read as though the detail survived into the window.
+    (error as? DaemonError)?.userMessage ?? DaemonError.malformedResponse("").userMessage
   }
 }
 

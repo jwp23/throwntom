@@ -6,57 +6,70 @@ import XCTest
 
 // MARK: - TimerHeaderTests
 
-/// The title is the one thing in the window that carried a fixed line budget, so it is the one
-/// thing that could truncate. These measure the real `.largeTitle` bold metrics at the window's
-/// narrowest content width and assert every title the window can build still reads in full.
+/// The title was the one string in the window with a fixed line budget, so it was the one that
+/// could be cut off. These lay every title the window can build into the width the window is
+/// narrowest at, and hold the budget to what that measurement needs.
+@MainActor
 final class TimerHeaderTests: XCTestCase {
 
   // MARK: Internal
 
-  /// At the default text size the two-line budget was exactly consumed — `Pomodoro (reconnecting)`,
-  /// `Done for today (reconnecting)` and `Timer service isn’t answering` each take both lines with
-  /// nothing to spare — so any increase in text size truncated the title (throwntom-2jq). Measured
-  /// rather than assumed: at twice the default size those same titles need three and four lines.
-  func testEveryTitleTheWindowCanBuildFitsItsLineBudget() {
-    for title in Self.everyTitle() {
-      for scale in Self.textScales {
-        let needed = Self.lineCount(of: title, pointSize: Self.largeTitlePointSize * scale)
-        guard let budget = TimerHeader.titleLineLimit else { continue }
-        XCTAssertLessThanOrEqual(
-          needed,
-          budget,
-          "“\(title)” needs \(needed) lines at \(scale)× but the title is capped at \(budget)",
-        )
-      }
-    }
+  /// The budget has to cover the longest title the window can actually build, not the longest
+  /// anyone remembered. Fails the moment a limit is reintroduced that any real title overruns —
+  /// which is what shipped: a budget of two, against a worst case several times that
+  /// (throwntom-2jq). The failure message names the title and the size that overran it.
+  func testTheTitleBudgetCoversEveryTitleTheWindowCanBuild() {
+    let deepest = Self.deepestTitle()
+
+    XCTAssertGreaterThanOrEqual(
+      TimerHeader.titleLineLimit ?? Int.max,
+      deepest.lines,
+      "“\(deepest.title)” wraps to \(deepest.lines) lines at \(deepest.scale)× and would be cut off",
+    )
   }
 
-  /// The measurement above is only evidence if it can fail: a budget of two really is exceeded by
-  /// a title the window builds, at a text size the window does not forbid.
-  func testTheLongestTitlesExceedTwoLinesAtLargerTextSizes() {
+  /// The measurement is only evidence if it can fail, so this pins the defect itself: titles the
+  /// window really builds really do outgrow two lines, at sizes nothing forbids. If this ever
+  /// stops holding, the test above has gone quiet for a reason worth knowing about.
+  func testTheLongestTitlesOutgrowTheTwoLinesTheyUsedToBeGiven() {
     let longest = "Done for today (reconnecting)"
-    XCTAssertTrue(Self.everyTitle().contains(longest), "the window no longer builds \(longest)")
-    XCTAssertEqual(Self.lineCount(of: longest, pointSize: Self.largeTitlePointSize), 2)
-    XCTAssertGreaterThan(Self.lineCount(of: longest, pointSize: Self.largeTitlePointSize * 2), 2)
+    XCTAssertTrue(Self.everyTitle().contains(longest), "the window no longer builds “\(longest)”")
+
+    // At the default size it already needs more than one line, so the old budget of two had
+    // nothing spare for a longer phase name, a reworded wait, or a translation.
+    XCTAssertGreaterThan(Self.lineCount(of: longest, pointSize: Self.largeTitlePointSize), 1)
+    XCTAssertGreaterThan(Self.deepestTitle().lines, 2)
   }
 
   /// Truncation is the failure being ruled out, so the header must not reintroduce it by another
-  /// route: a scale factor would shrink the text a reader enlarged on purpose.
+  /// route: a scale factor would shrink text rather than cut it, which is the same readability
+  /// problem wearing a different hat.
   func testTheTitleWrapsRatherThanShrinkingOrTruncating() {
     XCTAssertNil(TimerHeader.titleLineLimit)
   }
 
   // MARK: Private
 
-  /// The window's minimum width (`MainWindow.swift`) less its 16pt padding on each side: the
-  /// narrowest the title is ever laid out in.
-  private static let contentWidth: CGFloat = 288
-
-  /// The default and the enlargements a reader can ask for. The app pins no `dynamicTypeSize`
-  /// anywhere, so a larger one reaches this text unchanged.
+  /// The default, and the enlargements the header must survive. Nothing here asserts that macOS
+  /// hands the app a larger size on its own — the case for the change is the headroom the default
+  /// leaves, which is none. These are the margin the title should have had.
   private static let textScales: [CGFloat] = [1, 1.2, 1.5, 2, 3]
 
   private static let largeTitlePointSize = NSFont.preferredFont(forTextStyle: .largeTitle).pointSize
+
+  /// The worst case across every title and every size: which one wraps deepest, and how far.
+  private static func deepestTitle() -> (title: String, scale: CGFloat, lines: Int) {
+    var worst = (title: "", scale: CGFloat(1), lines: 0)
+    for title in everyTitle() {
+      for scale in textScales {
+        let lines = lineCount(of: title, pointSize: largeTitlePointSize * scale)
+        if lines > worst.lines {
+          worst = (title, scale, lines)
+        }
+      }
+    }
+    return worst
+  }
 
   /// Every title `MainWindowContent` can produce, built through it rather than restated, so a new
   /// phase or a reworded wait is measured here without anyone remembering to add it.
@@ -80,8 +93,7 @@ final class TimerHeaderTests: XCTestCase {
           )
           for phase in phases {
             for dayEnded in [false, true] {
-              let state = makeState(phase: phase, dayEnded: dayEnded)
-              titles.insert(title(state: state, connection: connection, status: status))
+              titles.insert(title(state: makeState(phase: phase, dayEnded: dayEnded), connection: connection, status: status))
             }
           }
           titles.insert(title(state: nil, connection: connection, status: status))
@@ -107,15 +119,17 @@ final class TimerHeaderTests: XCTestCase {
     ).title
   }
 
-  /// How many lines the string takes when laid out in the header's font at `contentWidth`.
+  /// How many lines the string wraps to in the header's font at the window's narrowest content
+  /// width. TextKit is a close proxy rather than SwiftUI's own layout — `Text` does not lay out
+  /// through `NSLayoutManager` — so this is read for the shape of the answer (two lines, or four),
+  /// never for an exact figure, and every assertion above compares rather than equates.
   private static func lineCount(of string: String, pointSize: CGFloat) -> Int {
-    let attributed = NSAttributedString(
-      string: string,
-      attributes: [.font: NSFont.systemFont(ofSize: pointSize, weight: .bold)],
-    )
+    let attributed = NSAttributedString(string: string, attributes: [.font: boldLargeTitle(at: pointSize)])
     let storage = NSTextStorage(attributedString: attributed)
     let layout = NSLayoutManager()
-    let container = NSTextContainer(size: NSSize(width: contentWidth, height: .greatestFiniteMagnitude))
+    let container = NSTextContainer(
+      size: NSSize(width: MainWindow.minimumContentWidth, height: .greatestFiniteMagnitude)
+    )
     container.lineFragmentPadding = 0
     storage.addLayoutManager(layout)
     layout.addTextContainer(container)
@@ -129,6 +143,14 @@ final class TimerHeaderTests: XCTestCase {
       count += 1
     }
     return count
+  }
+
+  /// The font the header actually asks for — the `.largeTitle` text style with a bold trait, which
+  /// carries that style's own tracking — rather than a plain system font at a matching size.
+  private static func boldLargeTitle(at pointSize: CGFloat) -> NSFont {
+    let style = NSFont.preferredFont(forTextStyle: .largeTitle)
+    let bold = NSFontManager.shared.convert(style, toHaveTrait: .boldFontMask)
+    return NSFont(descriptor: bold.fontDescriptor, size: pointSize) ?? bold
   }
 
 }

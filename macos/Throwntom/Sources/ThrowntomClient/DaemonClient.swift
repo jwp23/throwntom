@@ -214,7 +214,7 @@ public final class DaemonClient {
       // it would otherwise be reworded as an unreadable reply and left as a fault note on the very
       // screen the user had just pressed Start on.
       guard !Task.isCancelled else { return }
-      lastError = Self.userMessage(error)
+      lastError = DaemonError.userMessage(for: error)
     }
   }
 
@@ -269,13 +269,6 @@ public final class DaemonClient {
     }
   }
 
-  /// The window's wording for anything that goes wrong. Kept as one implementation on
-  /// `DaemonError` so a view that calls the client directly — `StatsPanel` is the one that does —
-  /// words its faults exactly as the commands here do.
-  private static func userMessage(_ error: Error) -> String {
-    DaemonError.userMessage(for: error)
-  }
-
   private func record(_ intent: ServiceIntent) {
     self.intent = intent
     intents.save(intent)
@@ -309,7 +302,7 @@ public final class DaemonClient {
           return
         }
         retries.recordFailure()
-        lastError = Self.userMessage(error)
+        lastError = DaemonError.userMessage(for: error)
         // A real outage matters more than a stale command refusal from before it started.
         commandError = nil
         retries.registerAgentIfDue { registerAgent() }
@@ -361,7 +354,7 @@ public final class DaemonClient {
       commandError = nil
       return result
     } catch {
-      commandError = Self.userMessage(error)
+      commandError = DaemonError.userMessage(for: error)
       throw error
     }
   }

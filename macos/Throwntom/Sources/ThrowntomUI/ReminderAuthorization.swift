@@ -38,8 +38,10 @@ struct ReminderAuthorization: Equatable {
   }
 
   /// A reminder macOS would not accept. Permission is the usual reason and only System Settings
-  /// can grant it, so a refused reminder is reported where a refused request is.
-  static func rejected(_: Error) -> ReminderAuthorization {
+  /// can grant it, so a refused reminder is reported where a refused request is. It takes no
+  /// error: the refusal is the whole report, and the one it would be handed has no words worth
+  /// showing (see `refused`).
+  static func rejected() -> ReminderAuthorization {
     ReminderAuthorization(problem: refused)
   }
 

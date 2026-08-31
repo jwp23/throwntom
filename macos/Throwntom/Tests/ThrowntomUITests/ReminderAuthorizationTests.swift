@@ -57,7 +57,7 @@ final class ReminderAuthorizationTests: XCTestCase {
 
     for problem in [
       ReminderAuthorization.requested(granted: false, error: undescribed).problem,
-      ReminderAuthorization.rejected(undescribed).problem,
+      ReminderAuthorization.rejected().problem,
     ] {
       let sentence = try XCTUnwrap(problem)
       XCTAssertFalse(sentence.contains("UNErrorDomain"), sentence)
