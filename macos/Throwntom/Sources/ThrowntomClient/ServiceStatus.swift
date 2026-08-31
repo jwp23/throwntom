@@ -65,15 +65,17 @@ public enum ServiceStatus: Hashable, Sendable {
     }
   }
 
-  /// What to speak to assistive technology when the service moves from one situation to another,
-  /// or nil where the move is not worth interrupting for.
+  /// What to speak to assistive technology when the service moves from one *settled* situation to
+  /// another, or nil where the move has no settled wording.
   ///
   /// The wording only. Which pairs actually reach here is `ServiceAnnouncer`'s business, and it
   /// never passes the same situation twice or a blip's return, so this does not have to know what
   /// a blip is.
   ///
-  /// Arriving at dialling says nothing: it is transient, and the window has said so itself by
-  /// marking the title. Arriving from it says nothing either, which is the cold-start case —
+  /// Dialling has no line here, in either direction. That is not the same as the app saying nothing
+  /// about it: a dial is announced, at both edges, by `ServiceAnnouncer` out of `dialLine(from:)`
+  /// below. What this function has no answer for is dialling as a *destination to settle on*, which
+  /// it never is. Arriving from it says nothing either, which is the cold-start case —
   /// `ServiceAnnouncer` only ever passes `.reaching` as `previous` for a window that came up
   /// dialling, and a service that was never reported missing is not a recovery to report.
   ///
