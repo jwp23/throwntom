@@ -31,16 +31,18 @@ struct ReminderAuthorization: Equatable {
   /// What macOS answered when asked to deliver reminders. A refusal arrives either as an error
   /// or as `granted == false`, depending on whether the prompt was answered or abandoned.
   static func requested(granted: Bool, error: Error?) -> ReminderAuthorization {
-    if let error {
-      return ReminderAuthorization(problem: cannotAppear(error.localizedDescription))
+    if error != nil {
+      return ReminderAuthorization(problem: refused)
     }
     return granted ? ReminderAuthorization() : ReminderAuthorization(problem: turnedOff)
   }
 
   /// A reminder macOS would not accept. Permission is the usual reason and only System Settings
-  /// can grant it, so a refused reminder is reported where a refused request is.
-  static func rejected(_ error: Error) -> ReminderAuthorization {
-    ReminderAuthorization(problem: cannotAppear(error.localizedDescription))
+  /// can grant it, so a refused reminder is reported where a refused request is. It takes no
+  /// error: the refusal is the whole report, and the one it would be handed has no words worth
+  /// showing (see `refused`).
+  static func rejected() -> ReminderAuthorization {
+    ReminderAuthorization(problem: refused)
   }
 
   /// What macOS will do with a reminder posted right now.
@@ -58,6 +60,14 @@ struct ReminderAuthorization: Equatable {
   // MARK: Private
 
   private static let turnedOff = cannotAppear("notifications are turned off for Throwntom.")
+
+  /// What a refusal from `UNUserNotificationCenter` is reported as, rather than its own words.
+  /// It has none worth reading in the common case — an undescribed `UNError` is
+  /// `The operation couldn’t be completed. (UNErrorDomain error 1.)` — and it needs none: every
+  /// `problem` is drawn above Open Notification Settings… (`WindowNotes`), which is the reader's
+  /// move whichever refusal this was. Kept apart from `turnedOff`, which asserts the specific
+  /// reason the request never confirmed.
+  private static let refused = cannotAppear("macOS would not allow them.")
   private static let notAsked = "Reminders will not appear until you allow notifications for Throwntom."
 
   private static func cannotAppear(_ reason: String) -> String {

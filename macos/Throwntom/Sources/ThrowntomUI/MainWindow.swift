@@ -14,6 +14,17 @@ struct MainWindow: View {
   /// The gap between the window's stacked sections.
   static let sectionSpacing: CGFloat = 12
 
+  /// The narrowest the window goes, and the margin inside it. Named rather than written into the
+  /// modifiers below because the width left for text is the difference between them, which
+  /// `TimerHeaderTests` measures the title against; two literals would let the window narrow while
+  /// the measurement went on checking the width it used to have.
+  static let minimumWidth: CGFloat = 320
+
+  static let contentPadding: CGFloat = 16
+
+  /// How wide text is actually laid out at the narrowest the window goes.
+  static let minimumContentWidth = minimumWidth - contentPadding * 2
+
   /// Extra space above the service chip, on top of `sectionSpacing`. It is not one of the timer
   /// verbs above it — it turns the whole timer service off, and a service the user stops stays
   /// stopped — so it must not read as another one. The Timer menu separates the same two groups
@@ -67,8 +78,8 @@ struct MainWindow: View {
         StatsPanel(client: environment.client, scheme: content.scheme)
       }
     }
-    .padding(16)
-    .frame(minWidth: 320, maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    .padding(Self.contentPadding)
+    .frame(minWidth: Self.minimumWidth, maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     .background(content.scheme.ground.color)
     .background(WindowElevator(floating: WindowElevation.floats(
       during: environment.client.state,
