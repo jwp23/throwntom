@@ -127,8 +127,8 @@
   switches the session into it. Leave it with `ExitWorktree` (`keep` or `remove`).
 - Worktrees live inside the repo, not beside it. A sibling `../throwntom-<description>`
   is indistinguishable from a separate repository of that name once the directory is
-  gone, and a stale one is invisible to `git status`; a worktree under
-  `.claude/worktrees/` is neither.
+  gone. `.claude/worktrees/` is gitignored, so `git status` won't surface a stale one
+  there either — use `git worktree list` or a filesystem check to find them.
 - If the worktree branch already exists, enter it with `EnterWorktree`'s `path`
   argument after `git worktree add .claude/worktrees/<description> <type>/<description>`.
 - Perform edits, tests, and commits only inside the chosen branch context.
