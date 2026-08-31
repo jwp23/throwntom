@@ -318,6 +318,28 @@ final class ServiceAnnouncerTests: XCTestCase {
     XCTAssertNil(announcer.announcement(for: .stopped))
   }
 
+  /// A dial that ends back where it started must resolve out loud, whichever situation that is.
+  ///
+  /// Reachable, and not a hypothetical: `DaemonClient.startService()` clears `startStalled`
+  /// (DaemonClient.swift:134), so pressing Start Timer Service on the unanswered screen takes the
+  /// status to `.reaching`, and a launch that goes unanswered again takes it straight back. The
+  /// press is the user's own, they have just been told the app is starting the service, and the
+  /// answer to it must not be silence.
+  func testADialThatEndsWhereItBeganResolvesOutLoudFromEveryAbsence() throws {
+    for absence in [ServiceStatus.notAnswering, .launchRefused, .stopped] {
+      var announcer = announcer(startingIn: absence)
+
+      XCTAssertEqual(announcer.announcement(for: .reaching)?.text, "Starting the timer service.", "\(absence)")
+      let resolution = try XCTUnwrap(announcer.announcement(for: absence), "\(absence) never resolved aloud")
+      XCTAssertEqual(
+        resolution.text,
+        try XCTUnwrap(ServiceStatus.settledLine(for: absence)),
+        "the resolution is the screen's own words, not a second wording",
+      )
+      XCTAssertEqual(resolution.priority, .interrupting, "\(absence) answers a press the user made")
+    }
+  }
+
   /// The three lines a reader must not miss are the ones that interrupt; the two transient ones
   /// wait their turn. Asserted as a set so a line added later has to be placed deliberately.
   func testOnlyTheSettledLinesInterrupt() {

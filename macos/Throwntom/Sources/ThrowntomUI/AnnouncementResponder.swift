@@ -2,29 +2,6 @@ import Observation
 import SwiftUI
 import ThrowntomClient
 
-// MARK: - SpeechAnnouncer
-
-/// Whoever speaks a line to assistive technology. A protocol so the app's one side of the
-/// conversation — which line, in which order, at which priority — can be asserted in a test
-/// process, which is not allowed to reach VoiceOver itself.
-/// `Sendable` with the isolation on the requirement rather than on the protocol, so a conforming
-/// type can be constructed as a default argument — which is evaluated outside the main actor.
-protocol SpeechAnnouncer: Sendable {
-  @MainActor
-  func speak(_ line: AttributedString)
-}
-
-// MARK: - SystemSpeechAnnouncer
-
-/// The real thing. `.announcement` is the platform's own mechanism for a change that is not a
-/// navigation: it does not move VoiceOver's cursor, so a user reading the focus list is told the
-/// service went down without losing their place.
-struct SystemSpeechAnnouncer: SpeechAnnouncer {
-  func speak(_ line: AttributedString) {
-    AccessibilityNotification.Announcement(line).post()
-  }
-}
-
 // MARK: - AnnouncementResponder
 
 /// The app's whole side of telling assistive technology what happened to the timer service.
@@ -55,20 +32,6 @@ final class AnnouncementResponder {
     announce(client.serviceStatus)
   }
 
-  /// Re-arms on every change, the way `withObservationTracking` requires: one registration fires
-  /// once.
-  func follow() {
-    withObservationTracking {
-      _ = client.serviceStatus
-    } onChange: { [weak self] in
-      Task { @MainActor [weak self] in
-        guard let self else { return }
-        follow()
-        announce(client.serviceStatus)
-      }
-    }
-  }
-
   /// Speaks a change of service situation, if this one is worth speaking about. What to say — and
   /// when to say nothing — is `ServiceAnnouncer`.
   func announce(_ status: ServiceStatus) {
@@ -83,5 +46,25 @@ final class AnnouncementResponder {
 
   /// Remembers which service situation was last worth speaking about.
   private var announcer = ServiceAnnouncer()
+
+  /// Re-arms on every change, the way `withObservationTracking` requires: one registration fires
+  /// once. Re-armed *before* the status is read, so a change landing during the hop is tracked
+  /// rather than missed.
+  ///
+  /// Observation coalesces a burst into one callback, which is safe here rather than merely
+  /// tolerable: `ServiceAnnouncer` folds each status against the last *settled* one instead of
+  /// against its immediate predecessor, so a collapsed `running → reaching → notAnswering` still
+  /// produces the line the reader is owed for where they have ended up.
+  private func follow() {
+    withObservationTracking {
+      _ = client.serviceStatus
+    } onChange: { [weak self] in
+      Task { @MainActor [weak self] in
+        guard let self else { return }
+        follow()
+        announce(client.serviceStatus)
+      }
+    }
+  }
 
 }

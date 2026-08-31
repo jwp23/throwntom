@@ -37,26 +37,10 @@ struct TimerHeader: View {
           Text(next).font(.body)
         }
       }
-      .accessibilityElement(children: .ignore)
-      .accessibilityLabel(content.spokenHeadline)
-      .accessibilityValue(content.countdown ?? "")
-      .accessibilityAddTraits(Self.traits(counting: content.countdown != nil))
+      // One element, not three loose lines: the phase and the stage after it name it, and the
+      // countdown is its value (throwntom-jnv). `LiveValue` carries the rest of that decision.
+      .liveValue(label: content.spokenHeadline, value: content.countdown)
     }
     .frame(maxWidth: .infinity)
-  }
-
-  /// What kind of element the headline is (throwntom-jnv).
-  ///
-  /// `.updatesFrequently` is the whole decision about the live countdown, and what it says is
-  /// "this value moves on its own; re-read it rather than trusting what I told you". It is not a
-  /// request to speak: nothing here announces a tick, and nothing should. A value rewritten every
-  /// second, spoken, would be VoiceOver interrupting itself continuously and would drown the
-  /// announcements that do matter — the same judgement `ServiceAnnouncer` makes when it speaks only
-  /// settled changes. The reader asks for the time when they want it and gets a fresh one.
-  ///
-  /// Claimed only when there is a countdown. An idle screen or one waiting on a confirmation has a
-  /// still headline, and telling VoiceOver otherwise would be a small lie that costs it a re-read.
-  static func traits(counting: Bool) -> AccessibilityTraits {
-    counting ? .updatesFrequently : []
   }
 }

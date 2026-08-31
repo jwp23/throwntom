@@ -26,6 +26,16 @@ final class MainWindowContentTests: XCTestCase {
     XCTAssertEqual(c.snoozeNote, "Snoozed · 09:58 left")
   }
 
+  /// The snoozed line is the window's other live countdown, so it is split the same way the
+  /// headline is: the minutes left are held apart from the wording, ready to be the element's
+  /// value. Left inside the label they would rewrite the label every second.
+  func testTheSnoozedLineKeepsItsMovingPartApartFromItsWording() {
+    let c = content(makeState(phase: .awaitingConfirm, snoozeUntil: now.addingTimeInterval(598)))
+
+    XCTAssertEqual(c.snoozeRemaining, "09:58")
+    XCTAssertEqual(c.snoozeNote, "Snoozed · 09:58 left", "the line on screen still reads as one sentence")
+  }
+
   func testNoSnoozeNoNote() {
     XCTAssertNil(content(makeState(phase: .awaitingConfirm)).snoozeNote)
   }

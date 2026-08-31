@@ -99,15 +99,24 @@ final class AnnouncementResponderTests: XCTestCase {
   /// The `.onChange` this replaces was the only thing that ever called the announcer, and it ran
   /// only while the window was rendering. Starting the environment is now what arms it, so the
   /// baseline is taken from the situation the app came up in rather than from the first render.
-  func testStartingTheAppTakesTheSituationItCameUpInAsTheBaseline() async throws {
+  ///
+  /// A stopped service is the case worth defending: it is a screen the app can come up on, and a
+  /// service the user switched off last week must not be announced as though it had just gone.
+  /// Waiting for the status to actually settle on `.stopped` is what stops this asserting silence
+  /// at a moment before anything could have spoken anyway.
+  func testAServiceAlreadyDownAtLaunchIsNotAnnouncedAsThoughItJustWent() async throws {
     let speaker = RecordingSpeaker()
-    let environment = AppEnvironment(transport: UnreachableDaemonTransport(), speaker: speaker)
+    let environment = AppEnvironment(
+      transport: try StubTransport(states: []),
+      intents: MemoryServiceIntentStore(.stopped),
+      speaker: speaker,
+    )
     defer { shutDown(environment) }
 
     environment.start()
-    try await waitUntil { environment.client.serviceStatus != .running }
+    try await waitUntil { environment.client.serviceStatus == .stopped }
 
-    XCTAssertEqual(speaker.lines, [], "the app opening onto a dial is not something that changed")
+    XCTAssertEqual(speaker.lines, [], "the screen the app opened on is not something that changed under the reader")
   }
 
   /// throwntom-92i, through the wiring rather than the wording: the mark the window puts on its
@@ -160,9 +169,15 @@ final class AnnouncementResponderTests: XCTestCase {
 
   // MARK: Private
 
+  /// A responder over a client that is never started: these drive `announce` directly to fix the
+  /// sequence, which the observation cannot be made to do deterministically.
   private func makeResponder(_ speaker: RecordingSpeaker) throws -> AnnouncementResponder {
-    let environment = AppEnvironment(transport: try StubTransport(states: []), speaker: speaker)
-    return AnnouncementResponder(client: environment.client, speaker: speaker)
+    let client = DaemonClient(
+      transport: try StubTransport(states: []),
+      registrar: RecordingRegistrar(),
+      intents: MemoryServiceIntentStore(),
+    )
+    return AnnouncementResponder(client: client, speaker: speaker)
   }
 
   private func shutDown(_ environment: AppEnvironment) {

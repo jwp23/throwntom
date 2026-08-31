@@ -41,21 +41,6 @@ final class TimerHeaderTests: XCTestCase {
     XCTAssertGreaterThan(Self.deepestTitle().lines, 2)
   }
 
-  /// throwntom-jnv, and the decision the live countdown turns on. `.updatesFrequently` tells
-  /// VoiceOver the value moves on its own, so a reader gets a fresh one when they ask rather than
-  /// whatever was true when they last passed through. What it deliberately is not is an
-  /// announcement: a value rewritten every second, spoken, would be VoiceOver interrupting itself
-  /// continuously.
-  func testACountingHeadlineTellsVoiceOverItsValueGoesStale() {
-    XCTAssertTrue(TimerHeader.traits(counting: true).contains(.updatesFrequently))
-  }
-
-  /// A still headline must not claim to move: the trait costs a re-read every time VoiceOver
-  /// lands on it, and an idle screen has nothing new to say.
-  func testAStillHeadlineClaimsNothingOfTheSort() {
-    XCTAssertFalse(TimerHeader.traits(counting: false).contains(.updatesFrequently))
-  }
-
   /// Truncation is the failure being ruled out, so the header must not reintroduce it by another
   /// route: a scale factor would shrink text rather than cut it, which is the same readability
   /// problem wearing a different hat.

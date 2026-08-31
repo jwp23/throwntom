@@ -62,11 +62,10 @@ struct MainWindow: View {
       // Snoozing withdraws the reminder banner, so without this line an active snooze has no
       // representation on screen at all.
       if let snoozeNote = content.snoozeNote {
-        // The window's second live countdown, and it gets the headline's treatment for the same
-        // reason: the minutes left move on their own, so VoiceOver is told to re-read rather than
-        // trust what it last said. Not announced, for the same reason the headline is not.
+        // The window's second live countdown, read the same way as the headline: a steady name with
+        // the minutes left as its value.
         Text(snoozeNote).font(.caption)
-          .accessibilityAddTraits(.updatesFrequently)
+          .liveValue(label: "Snoozed", value: content.snoozeRemaining)
       }
       ServiceChip(content: content, client: environment.client)
         .padding(.top, Self.serviceChipGap)

@@ -108,11 +108,22 @@ public struct ServiceAnnouncer: Sendable {
       guard previous != .reaching else { return nil }
       return Announcement(text: ServiceStatus.dialLine(from: settled), priority: .queued)
     }
-    // A dial that ended where it began: the mark the window drew has gone and nothing else about
-    // the service changed. The settled wording has nothing to say about that — `from` and `to` are
-    // the same situation — so without this the removal of the mark would be the silent half.
-    if previous == .reaching, status == .running, settled == .running {
-      return Announcement(text: Self.reconnected, priority: .queued)
+    // A dial that ended where it began. `announcement(from:to:)` has nothing to say about it —
+    // `from` and `to` are the same situation — so without this the wait would be announced when it
+    // began and then never resolved aloud, leaving the reader on a wait the window has visibly
+    // finished with.
+    //
+    // Every situation can be arrived back at, not just a running one: `startService()` clears
+    // `startStalled` (`DaemonClient.startService`), so pressing Start Timer Service on the
+    // unanswered screen dials and a launch that goes unanswered again lands straight back there.
+    //
+    // Returning to a running service is the blip, and stays queued with the rest of the dial.
+    // Returning to an absence is the answer to a press the user made, and interrupts like every
+    // other line about a service that is not there.
+    if previous == .reaching, status == settled {
+      return status == .running
+        ? Announcement(text: Self.reconnected, priority: .queued)
+        : ServiceStatus.settledLine(for: status).map { Announcement(text: $0, priority: .interrupting) }
     }
     return ServiceStatus.announcement(from: settled, to: status)
       .map { Announcement(text: $0, priority: .interrupting) }

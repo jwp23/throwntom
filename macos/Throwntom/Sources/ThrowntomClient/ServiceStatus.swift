@@ -86,18 +86,37 @@ public enum ServiceStatus: Hashable, Sendable {
     if current == .running {
       return previous == .reaching ? nil : "Timer service running."
     }
-    guard let line = current.spokenLine else { return nil }
-    return current.explanation.map { "\(line) \($0)" } ?? line
+    return settledLine(for: current)
+  }
+
+  /// The window's whole account of a settled situation, as a sentence: its title and, where it has
+  /// one, the sentence under it. Nil for the two that have no settled line — `.running` is worded
+  /// by `announcement` and `.reaching` by `dialLine(from:)`.
+  ///
+  /// Public because a situation can be *arrived back at* as well as changed to: a dial that ends
+  /// where it began has no `from`/`to` pair to hand `announcement`, and `ServiceAnnouncer` needs
+  /// the same words for it.
+  public static func settledLine(for status: ServiceStatus) -> String? {
+    guard let line = status.spokenLine else { return nil }
+    return status.explanation.map { "\(line) \($0)" } ?? line
   }
 
   /// What to speak when the service starts being dialled, worded for the situation the dial left
   /// behind (throwntom-92i).
   ///
-  /// The two waits are different things and the reader is owed which one they are in, the same
-  /// distinction `ConnectionStatus.reachingText` draws for the eye. Leaving a running service is a
-  /// reconnection, and matches the `(reconnecting)` the window has just marked its title with.
-  /// Leaving a service that was off — the user has just pressed Start Timer Service — is a first
-  /// attempt, and calling that "reconnecting" would be false.
+  /// The two waits are different things and the reader is owed which one they are in. Leaving a
+  /// running service is a reconnection, and matches the `(reconnecting)` the window marks its title
+  /// with. Leaving a service that was off — the user has just pressed Start Timer Service — is a
+  /// first attempt from where the reader is sitting, and calling that "reconnecting" would be odd.
+  ///
+  /// Keyed off the settled situation, which is not the same input the eye's wait is worded from:
+  /// `ConnectionStatus.reachingText` splits three ways off `connection`, and the title's mark is
+  /// drawn whenever a phase is still retained. The two agree on the case that matters — a dial away
+  /// from a running service is both "reconnecting" by ear and `(reconnecting)` by eye — but they
+  /// can diverge where a phase outlives an absence: pressing Start on the unanswered screen leaves
+  /// a retained phase, so the title reads `Pomodoro (reconnecting)` while this says the service is
+  /// starting. Both are true of that moment; they are answering different questions, and no
+  /// assertion pretends otherwise.
   ///
   /// Total rather than optional: every dial has a wait to report, and the question of whether this
   /// moment is the start of one belongs to `ServiceAnnouncer`.
