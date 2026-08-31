@@ -30,6 +30,20 @@ final class StatsPanelTests: XCTestCase {
     await loader.load(from: environment.client)
     guard case .failed(let message) = loader.outcome else { return XCTFail("expected failure, got \(loader.outcome)") }
     XCTAssertTrue(message.hasPrefix("Stats unavailable: "), message)
+    // The panel must borrow the client's wording rather than describe the Error itself, so a
+    // failed fetch reads like every other failure in the window (throwntom-6dl).
+    XCTAssertEqual(message, "Stats unavailable: " + DaemonError.transport("no daemon").userMessage)
+  }
+
+  /// The transport's own words — `transport("no daemon")`, a URLSession domain, an errno — are what
+  /// interpolating the raw `Error` used to put on a phase-coloured window.
+  func testLoaderNeverShowsTheErrorsOwnDescription() async {
+    let environment = AppEnvironment(transport: UnreachableDaemonTransport(message: "connect(2) ENOENT"))
+    let loader = StatsLoader()
+    await loader.load(from: environment.client)
+    guard case .failed(let message) = loader.outcome else { return XCTFail("expected failure, got \(loader.outcome)") }
+    XCTAssertFalse(message.contains("connect(2)"), message)
+    XCTAssertFalse(message.contains("transport("), message)
   }
 
   func testTheValueColumnSaysWhatItCounts() {

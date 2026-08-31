@@ -24,6 +24,26 @@ final class DaemonErrorMessageTests: XCTestCase {
 
   // MARK: Internal
 
+  /// The one entry point every surface that catches a failure is expected to use, so a panel
+  /// calling the client directly words its faults the way the client's own commands do.
+  func testAnUnrecognisedFailureNeverReachesTheReaderAsItself() {
+    struct Unreadable: Error { let socket = "/tmp/daemon.sock" }
+
+    let message = DaemonError.userMessage(for: Unreadable())
+
+    XCTAssertEqual(message, "The timer sent a reply we could not read.")
+    XCTAssertFalse(message.contains("Unreadable"), message)
+    XCTAssertFalse(message.contains("/tmp/daemon.sock"), message)
+  }
+
+  func testARecognisedFailureKeepsTheWordingItAlreadyHas() {
+    XCTAssertEqual(
+      DaemonError.userMessage(for: DaemonError.http(status: 409, message: "nothing to snooze")),
+      "nothing to snooze",
+    )
+    XCTAssertEqual(DaemonError.userMessage(for: DaemonError.transport("ENOENT")), "Timer is restarting…")
+  }
+
   func testATransportFailureReadsAsARestart() {
     let outage = DaemonError.transport("POSIXErrorCode(rawValue: 2): No such file or directory")
 

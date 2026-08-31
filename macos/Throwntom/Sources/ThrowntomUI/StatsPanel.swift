@@ -20,7 +20,10 @@ final class StatsLoader {
     do {
       outcome = .loaded(StatsRows.rows(try await client.stats()))
     } catch {
-      outcome = .failed("Stats unavailable: \(error)")
+      // `stats()` is the one request a view makes for itself rather than through the client's
+      // command path, so the wording that path owns has to be asked for here. Describing the
+      // `Error` instead put a socket failure's own text on a phase-coloured window.
+      outcome = .failed("Stats unavailable: \(DaemonError.userMessage(for: error))")
     }
   }
 }

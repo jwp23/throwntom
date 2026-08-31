@@ -36,6 +36,17 @@ extension DaemonError {
     case .timedOut: "The timer is not responding."
     }
   }
+
+  /// The window's wording for anything that goes wrong, so no view has to render a raw error.
+  /// Anything that is not a `DaemonError` got as far as a reply the client could not decode, so it
+  /// is reported as an unreadable answer rather than as an unreachable daemon; its own description
+  /// is dropped, because a Swift error's text is not something a reader can act on.
+  ///
+  /// Public so every surface that catches a failure — the client's own commands and the panels
+  /// that call it directly — words it the same way.
+  public static func userMessage(for error: Error) -> String {
+    (error as? DaemonError)?.userMessage ?? DaemonError.malformedResponse("\(error)").userMessage
+  }
 }
 
 // MARK: - DaemonTransport
