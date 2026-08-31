@@ -37,6 +37,9 @@ struct TimerHeader: View {
           Text(next).font(.body)
         }
       }
+      // One element, not three loose lines: the phase and the stage after it name it, and the
+      // countdown is its value (throwntom-jnv). `LiveValue` carries the rest of that decision.
+      .liveValue(label: content.spokenHeadline, value: content.countdown)
     }
     .frame(maxWidth: .infinity)
   }

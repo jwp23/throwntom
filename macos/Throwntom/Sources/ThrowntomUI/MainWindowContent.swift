@@ -51,13 +51,26 @@ struct MainWindowContent: Equatable {
     // "reconnecting" rather than "connecting" is exact here, not a guess: `state` is only ever set
     // from a decoded frame and only ever cleared by `stopService()`, which clears `hasConnected`
     // with it, so a phase in hand means this client has reached a daemon since the last stop.
-    title = shown.map { Self.phaseTitle(for: $0) + (status == .reaching ? " (reconnecting)" : "") }
+    let title = shown.map { Self.phaseTitle(for: $0) + (status == .reaching ? " (reconnecting)" : "") }
       ?? ConnectionStatus.text(connection: connection, status: status)
+    self.title = title
     countdown = shown.flatMap { Self.countdown(for: $0, now: now) }
-    nextStage = shown?.nextStage.map { "Next: \($0.summary)" }
+    let nextStage = shown?.nextStage.map { "Next: \($0.summary)" }
+    self.nextStage = nextStage
+    // The headline's three lines are one thing to read, not three (throwntom-jnv). The countdown
+    // is left out because it is the element's *value* rather than part of its name: a label that
+    // carried it would be a different label every second, and VoiceOver reads a changed label as a
+    // new element rather than as the same one counting down.
+    spokenHeadline = nextStage.map { "\(title). \($0)" } ?? title
     garden = shown
       .map { TomatoGarden(completedToday: $0.completedToday, inBlock: $0.workSessionsInBlock, every: $0.longBreakEvery) }
-    snoozeNote = shown?.snoozeUntil.map { Self.snoozeNote(until: $0, now: now) }
+    // Split the way the headline is split, and for the same reason: the minutes left are the part
+    // that moves, so they are the element's value. Left inside the label they would rewrite the
+    // label every second, and VoiceOver reads a changed label as a new element rather than as the
+    // same one counting down — which is the mistake `.updatesFrequently` does not fix.
+    let snoozeRemaining = shown?.snoozeUntil.map { Countdown.formatRemaining($0.timeIntervalSince(now)) }
+    self.snoozeRemaining = snoozeRemaining
+    snoozeNote = snoozeRemaining.map { Self.snoozeNote(remaining: $0) }
     chips = shown.map(TimerActions.available(for:)) ?? []
     startTitle = TimerActions.startTitle(for: shown)
     primaryChip = [TimerAction.confirm, .start, .resume].first(where: chips.contains)
@@ -76,10 +89,16 @@ struct MainWindowContent: Equatable {
   let title: String
   let countdown: String?
   let nextStage: String?
+  /// The headline as one thing to read out: the phase and the stage after it, without the
+  /// countdown, which is carried as the element's value instead (`TimerHeader`).
+  let spokenHeadline: String
   let garden: TomatoGarden?
   /// How much of an active snooze is left, or nil when none is running. Snoozing withdraws the
   /// reminder banner, so this is the only thing on screen that says a reminder is still owed.
   let snoozeNote: String?
+  /// The moving half of `snoozeNote`, on its own, so the line can be read out as a steady name
+  /// with a value that changes under it rather than as a new label every second.
+  let snoozeRemaining: String?
   let chips: [TimerAction]
   let primaryChip: TimerAction?
   /// Start or Stop for the timer service itself, which is offered whatever the timer is doing.
@@ -118,8 +137,8 @@ struct MainWindowContent: Equatable {
 
   /// Time left rather than the hour it ends, for the same reason the phase shows a countdown:
   /// "nine minutes" is the question being asked, and it needs no locale to read.
-  private static func snoozeNote(until: Date, now: Date) -> String {
-    "Snoozed · \(Countdown.formatRemaining(until.timeIntervalSince(now))) left"
+  private static func snoozeNote(remaining: String) -> String {
+    "Snoozed · \(remaining) left"
   }
 
   private static func countdown(for state: DaemonState, now: Date) -> String? {

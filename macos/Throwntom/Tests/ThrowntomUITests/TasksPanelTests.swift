@@ -7,6 +7,18 @@ final class TasksPanelTests: XCTestCase {
 
   // MARK: Internal
 
+  /// A finished task differs from an outstanding one by a line through it and nothing else, and a
+  /// line through text is silent. Found while auditing the window for what it says only in ink;
+  /// no bead covered it.
+  func testARowSaysInWordsWhatItOtherwiseOnlyDraws() {
+    XCTAssertEqual(TaskRow(task: makeTask(id: 1, description: "write"), focused: false).label, "write")
+    XCTAssertEqual(TaskRow(task: makeTask(id: 2, description: "write"), focused: true).label, "write, focused")
+    XCTAssertEqual(
+      TaskRow(task: makeTask(id: 3, description: "write", done: true), focused: false).label,
+      "write, completed",
+    )
+  }
+
   func testEmptyStateNamesTheShortcutThatAddsATask() {
     XCTAssertEqual(TaskHints.empty, "No tasks — ⌘N to add one")
   }

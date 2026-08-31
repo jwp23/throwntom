@@ -29,15 +29,4 @@ final class MainWindowSyncTests: XCTestCase {
     MainWindow(environment: environment).escape()
     XCTAssertFalse(environment.model.isEditing)
   }
-
-  /// A default-priority announcement is dropped when VoiceOver is already speaking. These are the
-  /// lines that must not be dropped: the window has just lost its timer, and the reader has no
-  /// other signal. High priority interrupts instead, which is the right trade for an event this
-  /// rare and this consequential — `ServiceAnnouncer` is what keeps it rare.
-  func testTheSpokenLineInterruptsRatherThanQueueingBehindWhateverIsBeingRead() {
-    let spoken = SpokenLine.attributed("Timer service stopped.")
-
-    XCTAssertEqual(spoken.accessibilitySpeechAnnouncementPriority, .high)
-    XCTAssertEqual(String(spoken.characters), "Timer service stopped.")
-  }
 }

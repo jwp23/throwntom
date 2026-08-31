@@ -65,15 +65,17 @@ public enum ServiceStatus: Hashable, Sendable {
     }
   }
 
-  /// What to speak to assistive technology when the service moves from one situation to another,
-  /// or nil where the move is not worth interrupting for.
+  /// What to speak to assistive technology when the service moves from one *settled* situation to
+  /// another, or nil where the move has no settled wording.
   ///
   /// The wording only. Which pairs actually reach here is `ServiceAnnouncer`'s business, and it
   /// never passes the same situation twice or a blip's return, so this does not have to know what
   /// a blip is.
   ///
-  /// Arriving at dialling says nothing: it is transient, and the window has said so itself by
-  /// marking the title. Arriving from it says nothing either, which is the cold-start case —
+  /// Dialling has no line here, in either direction. That is not the same as the app saying nothing
+  /// about it: a dial is announced, at both edges, by `ServiceAnnouncer` out of `dialLine(from:)`
+  /// below. What this function has no answer for is dialling as a *destination to settle on*, which
+  /// it never is. Arriving from it says nothing either, which is the cold-start case —
   /// `ServiceAnnouncer` only ever passes `.reaching` as `previous` for a window that came up
   /// dialling, and a service that was never reported missing is not a recovery to report.
   ///
@@ -84,8 +86,42 @@ public enum ServiceStatus: Hashable, Sendable {
     if current == .running {
       return previous == .reaching ? nil : "Timer service running."
     }
-    guard let line = current.spokenLine else { return nil }
-    return current.explanation.map { "\(line) \($0)" } ?? line
+    return settledLine(for: current)
+  }
+
+  /// The window's whole account of a settled situation, as a sentence: its title and, where it has
+  /// one, the sentence under it. Nil for the two that have no settled line — `.running` is worded
+  /// by `announcement` and `.reaching` by `dialLine(from:)`.
+  ///
+  /// Public because a situation can be *arrived back at* as well as changed to: a dial that ends
+  /// where it began has no `from`/`to` pair to hand `announcement`, and `ServiceAnnouncer` needs
+  /// the same words for it.
+  public static func settledLine(for status: ServiceStatus) -> String? {
+    guard let line = status.spokenLine else { return nil }
+    return status.explanation.map { "\(line) \($0)" } ?? line
+  }
+
+  /// What to speak when the service starts being dialled, worded for the situation the dial left
+  /// behind (throwntom-92i).
+  ///
+  /// The two waits are different things and the reader is owed which one they are in. Leaving a
+  /// running service is a reconnection, and matches the `(reconnecting)` the window marks its title
+  /// with. Leaving a service that was off — the user has just pressed Start Timer Service — is a
+  /// first attempt from where the reader is sitting, and calling that "reconnecting" would be odd.
+  ///
+  /// Keyed off the settled situation, which is not the same input the eye's wait is worded from:
+  /// `ConnectionStatus.reachingText` splits three ways off `connection`, and the title's mark is
+  /// drawn whenever a phase is still retained. The two agree on the case that matters — a dial away
+  /// from a running service is both "reconnecting" by ear and `(reconnecting)` by eye — but they
+  /// can diverge where a phase outlives an absence: pressing Start on the unanswered screen leaves
+  /// a retained phase, so the title reads `Pomodoro (reconnecting)` while this says the service is
+  /// starting. Both are true of that moment; they are answering different questions, and no
+  /// assertion pretends otherwise.
+  ///
+  /// Total rather than optional: every dial has a wait to report, and the question of whether this
+  /// moment is the start of one belongs to `ServiceAnnouncer`.
+  public static func dialLine(from previous: ServiceStatus) -> String {
+    previous == .running ? "Reconnecting." : "Starting the timer service."
   }
 
   /// Reads the client's connection and launch bookkeeping as one of the five situations.
@@ -126,56 +162,4 @@ public enum ServiceStatus: Hashable, Sendable {
          .reaching: nil
     }
   }
-}
-
-// MARK: - ServiceAnnouncer
-
-/// Turns the stream of service situations into the things worth saying about them.
-///
-/// The wording is `ServiceStatus.announcement(from:to:)`; what this adds is memory, and the memory
-/// is the whole difficulty. Every recovery reaches `.running` through `.reaching`, so a rule
-/// reading only the immediately previous value cannot tell a Start the user pressed and that
-/// worked — which they are owed, since silence after their own press reads as a control that did
-/// nothing — from a blink of the socket, which would be an interruption mid-pomodoro. Remembering
-/// the last *settled* situation separates them: the blip returns to the situation it left and says
-/// nothing, the Start does not and says so.
-public struct ServiceAnnouncer: Sendable {
-
-  // MARK: Lifecycle
-
-  /// Empty on purpose, and required: Swift gives a public struct only an internal
-  /// memberwise initialiser, so `ThrowntomUI` could not construct one without this.
-  ///
-  /// There is nothing to set. The one stored property, `settled`, must start nil, and
-  /// nil is what it already means: no situation has been shown yet, so the next one is
-  /// the baseline and is not spoken. Taking a status here would make the caller assert
-  /// a starting point it does not have.
-  public init() {
-    // Nothing to set: `settled` starts nil, which is already the meaning wanted.
-  }
-
-  // MARK: Public
-
-  /// What to speak now the service is in `status`, or nil for nothing worth interrupting for.
-  ///
-  /// The first situation it is shown is the baseline and is never spoken: that one is the window
-  /// coming up, which the reader is already reading, not something that changed under them.
-  public mutating func announcement(for status: ServiceStatus) -> String? {
-    guard let settled else {
-      settled = status
-      return nil
-    }
-    let spoken = ServiceStatus.announcement(from: settled, to: status)
-    // Dialling is never what a later change is measured against: it is the step every recovery
-    // passes through, so recording it would erase the absence the recovery is recovering from.
-    if status != .reaching {
-      self.settled = status
-    }
-    return spoken
-  }
-
-  // MARK: Private
-
-  private var settled: ServiceStatus?
-
 }

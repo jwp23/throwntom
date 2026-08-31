@@ -26,6 +26,16 @@ final class MainWindowContentTests: XCTestCase {
     XCTAssertEqual(c.snoozeNote, "Snoozed · 09:58 left")
   }
 
+  /// The snoozed line is the window's other live countdown, so it is split the same way the
+  /// headline is: the minutes left are held apart from the wording, ready to be the element's
+  /// value. Left inside the label they would rewrite the label every second.
+  func testTheSnoozedLineKeepsItsMovingPartApartFromItsWording() {
+    let c = content(makeState(phase: .awaitingConfirm, snoozeUntil: now.addingTimeInterval(598)))
+
+    XCTAssertEqual(c.snoozeRemaining, "09:58")
+    XCTAssertEqual(c.snoozeNote, "Snoozed · 09:58 left", "the line on screen still reads as one sentence")
+  }
+
   func testNoSnoozeNoNote() {
     XCTAssertNil(content(makeState(phase: .awaitingConfirm)).snoozeNote)
   }
@@ -202,6 +212,62 @@ final class MainWindowContentTests: XCTestCase {
     XCTAssertEqual(content(makeState(phase: .awaitingConfirm)).pose, .awaitingConfirm)
     XCTAssertEqual(content(makeState(phase: .paused, pausedFrom: .shortBreak)).pose, MascotPose.shortBreak.paused())
     XCTAssertEqual(content(nil, connection: .connecting).pose, .disconnected)
+  }
+
+  /// throwntom-jnv. The headline was three bare `Text` views, which VoiceOver reads as three
+  /// unrelated stops with no relation between them and no clue that the middle one is a value that
+  /// has already moved on. It is one element now: the phase and what follows it are the label, and
+  /// the countdown is its value.
+  func testTheHeadlineReadsAsOneLabelledThingWithTheCountdownAsItsValue() {
+    let c = content(makeState(
+      phase: .work,
+      nextStage: DaemonState.Stage(state: .shortBreak, duration: 300),
+      phaseEndAt: now.addingTimeInterval(1500),
+    ))
+
+    XCTAssertEqual(c.spokenHeadline, "Pomodoro. Next: Short break 5 min")
+    XCTAssertEqual(c.countdown, "25:00", "the value is the countdown itself, not a second wording")
+  }
+
+  /// A VoiceOver user and a sighted user must be told the same thing, so the label is built from
+  /// the strings already on screen rather than from a second copy of them. Two wordings drift.
+  func testTheHeadlineLabelIsTheTitleAndTheLineUnderIt() {
+    let states = [
+      makeState(phase: .idle),
+      makeState(phase: .idle, dayEnded: true),
+      makeState(phase: .work, nextStage: DaemonState.Stage(state: .shortBreak, duration: 300)),
+    ]
+    var withAStageAfterIt = 0
+
+    for state in states {
+      let c = content(state)
+      XCTAssertTrue(c.spokenHeadline.hasPrefix(c.title), "\"\(c.spokenHeadline)\" does not start with \"\(c.title)\"")
+      guard let next = c.nextStage else { continue }
+      withAStageAfterIt += 1
+      XCTAssertTrue(c.spokenHeadline.hasSuffix(next), c.spokenHeadline)
+    }
+
+    // Without this the loop above would pass having skipped its second assertion entirely, which
+    // is how a test comes to assert nothing while still failing when the code is reverted.
+    XCTAssertEqual(withAStageAfterIt, 1, "no case exercised the half of the label that follows the title")
+  }
+
+  /// A screen with nothing counting has a title and nothing else under it, and the label must not
+  /// invent punctuation for a sentence that is not there.
+  func testAHeadlineWithNothingUnderItIsJustTheTitle() {
+    let c = content(nil, connection: .stopped)
+
+    XCTAssertEqual(c.spokenHeadline, c.title)
+    XCTAssertNil(c.countdown)
+  }
+
+  /// The reconnect mark is part of what the window says, so it is part of what is read out. The
+  /// spoken announcement is the *change*; this is the standing fact, there whenever the reader
+  /// goes back to the headline (throwntom-92i).
+  func testTheReconnectMarkIsInWhatTheHeadlineReadsAs() {
+    let c = content(makeState(phase: .work), connection: .reconnecting(attempt: 1))
+
+    XCTAssertTrue(c.spokenHeadline.contains("(reconnecting)"), c.spokenHeadline)
   }
 
   // MARK: Private

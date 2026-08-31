@@ -162,14 +162,28 @@ final class ServiceAnnouncementTests: XCTestCase {
     }
   }
 
-  /// Dialling is transient and says nothing, in both directions. A one-second blip of the socket
-  /// takes the window from running to reaching and back; announcing either edge would turn it into
-  /// a spoken interruption mid-pomodoro, which is worse than the silence this is fixing.
-  func testADiallingBlipIsNeverAnnounced() {
+  /// This function is the *settled* wording only: what the window says once it has arrived
+  /// somewhere. Dialling is not a settled situation, so it has no line here — its line is
+  /// `dialLine(from:)`, and which of the two a moment calls for is `ServiceAnnouncer`'s decision.
+  func testTheSettledWordingHasNoLineForDialling() {
     XCTAssertNil(ServiceStatus.announcement(from: .running, to: .reaching))
     XCTAssertNil(ServiceStatus.announcement(from: .reaching, to: .running))
     for absence in [ServiceStatus.stopped, .launchRefused, .notAnswering] {
       XCTAssertNil(ServiceStatus.announcement(from: absence, to: .reaching), "\(absence)")
+    }
+  }
+
+  /// throwntom-92i. A window that still holds a phase marks its title `(reconnecting)` the moment
+  /// the socket goes, and Joe's ruling on throwntom-7rb is that the mark stays visible with no
+  /// debounce, delay or suppression. The spoken line is that mark: same moment, same fact.
+  ///
+  /// The wording turns on what the dial left, because the two waits are different things. Leaving
+  /// a running service is a reconnection; leaving a service that was off — the user has just
+  /// pressed Start — is a first attempt, and calling that "reconnecting" would be false.
+  func testEnteringADialIsWordedForWhatTheDialLeft() {
+    XCTAssertEqual(ServiceStatus.dialLine(from: .running), "Reconnecting.")
+    for absence in [ServiceStatus.stopped, .launchRefused, .notAnswering] {
+      XCTAssertEqual(ServiceStatus.dialLine(from: absence), "Starting the timer service.", "\(absence)")
     }
   }
 
@@ -220,13 +234,17 @@ final class ServiceAnnouncerTests: XCTestCase {
   // MARK: Internal
 
   /// The user pressed Start Timer Service and it worked. They are owed that: the press is theirs,
-  /// and silence after it reads as a control that did nothing.
+  /// and silence after it reads as a control that did nothing. The dial in between is spoken too,
+  /// but as the wait it is rather than as the arrival.
   func testAStartThatWorksIsAnnouncedEvenThoughItPassesThroughDialling() {
     var announcer = announcer(startingIn: .running)
 
     XCTAssertNotNil(announcer.announcement(for: .stopped))
-    XCTAssertNil(announcer.announcement(for: .reaching), "pressing Start says nothing on its own")
-    XCTAssertEqual(announcer.announcement(for: .running), "Timer service running.")
+    XCTAssertEqual(announcer.announcement(for: .reaching)?.text, "Starting the timer service.")
+    XCTAssertEqual(announcer.announcement(for: .running), Announcement(
+      text: "Timer service running.",
+      priority: .interrupting,
+    ))
   }
 
   /// The same shape from the other two absences: what matters is the situation left behind, not
@@ -234,30 +252,43 @@ final class ServiceAnnouncerTests: XCTestCase {
   func testRecoveryIsAnnouncedFromEveryAbsence() {
     for absence in [ServiceStatus.launchRefused, .notAnswering] {
       var announcer = announcer(startingIn: absence)
-      XCTAssertNil(announcer.announcement(for: .reaching), "\(absence)")
-      XCTAssertEqual(announcer.announcement(for: .running), "Timer service running.", "\(absence)")
+      XCTAssertEqual(announcer.announcement(for: .reaching)?.text, "Starting the timer service.", "\(absence)")
+      XCTAssertEqual(announcer.announcement(for: .running)?.text, "Timer service running.", "\(absence)")
     }
   }
 
-  /// A blink of the socket leaves `running` and comes back to it within a backoff step. Nobody was
-  /// told it went, so nobody is told it came back — otherwise the fix for silence becomes a spoken
-  /// interruption mid-pomodoro.
-  func testASocketBlipSaysNothingInEitherDirection() {
+  /// throwntom-92i. A blink of the socket leaves `running` and comes back to it within a backoff
+  /// step. This used to be silent in both directions, which is exactly the gap: the window marks
+  /// its title `(reconnecting)` for the whole of that blink, so a sighted reader is told and a
+  /// VoiceOver reader was not. Both edges of the mark now speak.
+  ///
+  /// What keeps that from becoming an interruption mid-pomodoro is the priority, not silence: a
+  /// queued line waits for VoiceOver to finish what it is saying and is dropped if it cannot be
+  /// fitted in, where the three service-down lines interrupt.
+  func testASocketBlipIsSpokenAtBothEdgesWithoutInterrupting() {
     var announcer = announcer(startingIn: .running)
 
-    XCTAssertNil(announcer.announcement(for: .reaching))
-    XCTAssertNil(announcer.announcement(for: .running))
+    XCTAssertEqual(announcer.announcement(for: .reaching), Announcement(
+      text: "Reconnecting.",
+      priority: .queued,
+    ))
+    XCTAssertEqual(announcer.announcement(for: .running), Announcement(
+      text: "Reconnected.",
+      priority: .queued,
+    ))
   }
 
-  /// Repeated dial failures walk `.reaching` several times before settling. None of them speaks,
-  /// and none of them may erase the situation the announcer is measuring against.
-  func testAProlongedDialDoesNotForgetWhatItLeft() {
+  /// Repeated dial failures walk `.reaching` several times before settling. The wait was announced
+  /// when it began and has not changed since, so the backoff steps say nothing — and none of them
+  /// may erase the situation the announcer is measuring against.
+  func testAProlongedDialSpeaksOnceAndDoesNotForgetWhatItLeft() {
     var announcer = announcer(startingIn: .stopped)
 
-    for _ in 0..<4 {
-      XCTAssertNil(announcer.announcement(for: .reaching))
+    XCTAssertEqual(announcer.announcement(for: .reaching)?.text, "Starting the timer service.")
+    for step in 0..<3 {
+      XCTAssertNil(announcer.announcement(for: .reaching), "backoff step \(step)")
     }
-    XCTAssertEqual(announcer.announcement(for: .running), "Timer service running.")
+    XCTAssertEqual(announcer.announcement(for: .running)?.text, "Timer service running.")
   }
 
   /// Launching straight into a dial and arriving is not a recovery from anything: the user has
@@ -273,7 +304,10 @@ final class ServiceAnnouncerTests: XCTestCase {
   func testAColdStartThatEndsInAnAbsenceIsStillAnnounced() {
     var announcer = announcer(startingIn: .reaching)
 
-    XCTAssertEqual(announcer.announcement(for: .launchRefused), "Timer service can\u{2019}t launch.")
+    XCTAssertEqual(announcer.announcement(for: .launchRefused), Announcement(
+      text: "Timer service can\u{2019}t launch.",
+      priority: .interrupting,
+    ))
   }
 
   /// The same situation arriving twice is not news the second time.
@@ -282,6 +316,39 @@ final class ServiceAnnouncerTests: XCTestCase {
 
     XCTAssertNotNil(announcer.announcement(for: .stopped))
     XCTAssertNil(announcer.announcement(for: .stopped))
+  }
+
+  /// A dial that ends back where it started must resolve out loud, whichever situation that is.
+  ///
+  /// Reachable, and not a hypothetical: `DaemonClient.startService()` clears `startStalled`
+  /// (DaemonClient.swift:134), so pressing Start Timer Service on the unanswered screen takes the
+  /// status to `.reaching`, and a launch that goes unanswered again takes it straight back. The
+  /// press is the user's own, they have just been told the app is starting the service, and the
+  /// answer to it must not be silence.
+  func testADialThatEndsWhereItBeganResolvesOutLoudFromEveryAbsence() throws {
+    for absence in [ServiceStatus.notAnswering, .launchRefused, .stopped] {
+      var announcer = announcer(startingIn: absence)
+
+      XCTAssertEqual(announcer.announcement(for: .reaching)?.text, "Starting the timer service.", "\(absence)")
+      let resolution = try XCTUnwrap(announcer.announcement(for: absence), "\(absence) never resolved aloud")
+      XCTAssertEqual(
+        resolution.text,
+        try XCTUnwrap(ServiceStatus.settledLine(for: absence)),
+        "the resolution is the screen's own words, not a second wording",
+      )
+      XCTAssertEqual(resolution.priority, .interrupting, "\(absence) answers a press the user made")
+    }
+  }
+
+  /// The three lines a reader must not miss are the ones that interrupt; the two transient ones
+  /// wait their turn. Asserted as a set so a line added later has to be placed deliberately.
+  func testOnlyTheSettledLinesInterrupt() {
+    var announcer = announcer(startingIn: .running)
+
+    XCTAssertEqual(announcer.announcement(for: .reaching)?.priority, .queued)
+    XCTAssertEqual(announcer.announcement(for: .notAnswering)?.priority, .interrupting)
+    XCTAssertEqual(announcer.announcement(for: .reaching)?.priority, .queued)
+    XCTAssertEqual(announcer.announcement(for: .running)?.priority, .interrupting)
   }
 
   // MARK: Private
