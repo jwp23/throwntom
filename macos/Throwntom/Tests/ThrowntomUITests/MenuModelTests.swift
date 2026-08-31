@@ -76,6 +76,48 @@ final class TimerMenuModelTests: XCTestCase {
     XCTAssertEqual(try XCTUnwrap(menu.item(for: .start)).title, TimerAction.start.title)
   }
 
+  /// throwntom-46y. The Timer menu and the window's chip row are two renderings of one control, so
+  /// ⌘R must not be labelled Start in the menu bar while the chip beside it names a short break.
+  func testTheTimerMenuNamesThePhaseStartWouldBegin() throws {
+    let owing = makeState(phase: .idle, owedStage: DaemonState.Stage(state: .shortBreak, duration: 300))
+    let menu = MenuModel.timer(state: owing, isEditing: false, daemonAvailable: true)
+
+    XCTAssertEqual(try XCTUnwrap(menu.items.first { $0.action == .start }).title, "Start Short break")
+  }
+
+  /// The other title the Timer menu takes from the snapshot. ⌘P reads Resume only while the timer
+  /// is paused, so with the service gone a retained `paused` snapshot would word it from a daemon
+  /// the window has already declared missing — the same lie ⌘R is held away from, and the reason
+  /// both titles have to ask `daemonAvailable` rather than only the one that was noticed first.
+  func testAMenuWithNoServiceDoesNotOfferResumeFromTheDeadDaemon() throws {
+    let paused = makeState(phase: .paused)
+
+    XCTAssertEqual(
+      try XCTUnwrap(MenuModel.timer(state: paused, isEditing: false, daemonAvailable: true).items
+        .first { $0.action == .resume }).title,
+      TimerAction.resume.title,
+      "with a service, a paused timer really does offer Resume",
+    )
+    let gone = MenuModel.timer(state: paused, isEditing: false, daemonAvailable: false)
+    XCTAssertNil(gone.items.first { $0.action == .resume }, "no daemon, no phase to resume")
+    XCTAssertEqual(
+      try XCTUnwrap(gone.items.first { $0.action == .pause }).title,
+      TimerAction.pause.title,
+    )
+  }
+
+  /// With the service gone the window drops its retained phase, and the menu must drop it too: a
+  /// menu item naming a phase from a daemon already confirmed gone is the same lie the window
+  /// stopped telling.
+  func testAMenuWithNoServiceDoesNotNameAPhaseFromTheDeadDaemon() throws {
+    let owing = makeState(phase: .idle, owedStage: DaemonState.Stage(state: .shortBreak, duration: 300))
+    let menu = MenuModel.timer(state: owing, isEditing: false, daemonAvailable: false)
+    let start = try XCTUnwrap(menu.items.first { $0.action == .start })
+
+    XCTAssertEqual(start.title, "Start")
+    XCTAssertFalse(start.isEnabled)
+  }
+
   // MARK: Private
 
   private func enabledActions(_ menu: MenuModel<TimerAction>) -> [TimerAction] {

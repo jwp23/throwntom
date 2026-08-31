@@ -12,8 +12,8 @@ final class PhaseDisplayTests: XCTestCase {
   }
 
   func testNextStageSummaryTruncatesToWholeMinutes() {
-    XCTAssertEqual(DaemonState.NextStage(state: .work, duration: 1500).summary, "Pomodoro 25 min")
-    XCTAssertEqual(DaemonState.NextStage(state: .shortBreak, duration: 90).summary, "Short break 1 min")
-    XCTAssertEqual(DaemonState.NextStage(state: .longBreak, duration: 30).summary, "Long break 0 min")
+    XCTAssertEqual(DaemonState.Stage(state: .work, duration: 1500).summary, "Pomodoro 25 min")
+    XCTAssertEqual(DaemonState.Stage(state: .shortBreak, duration: 90).summary, "Short break 1 min")
+    XCTAssertEqual(DaemonState.Stage(state: .longBreak, duration: 30).summary, "Long break 0 min")
   }
 }

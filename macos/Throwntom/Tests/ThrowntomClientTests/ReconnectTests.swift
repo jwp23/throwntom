@@ -365,6 +365,30 @@ final class ReconnectTests: XCTestCase {
     XCTAssertEqual(client.unresolvedError, "The timer sent a reply we could not read.")
   }
 
+  /// throwntom-ibf. A first dial that fails is still a first dial: until a daemon has answered
+  /// once there is no connection to re-make, so counting the failure as a reconnect tells the
+  /// user about a connection they never had. `Connecting…` and `Reconnecting…` are the only two
+  /// lines the window has to tell those two waits apart, and a cold start with no daemon running
+  /// is the common way in — the very first failure would otherwise say the wrong one.
+  func testAFailedFirstDialIsStillWordedAsAFirstDial() async throws {
+    let client = DaemonClient(
+      transport: OutageTransport(),
+      registrar: RecordingRegistrar(),
+      backoff: [.seconds(30)],
+    )
+    client.start()
+    defer { client.stop() }
+
+    try await waitUntil("the first dial to fail") { client.lastError != nil }
+
+    XCTAssertFalse(client.hasConnected, "no daemon has answered")
+    XCTAssertEqual(client.connection, .connecting)
+    XCTAssertEqual(
+      ConnectionStatus.text(connection: client.connection, status: client.serviceStatus),
+      "Connecting…",
+    )
+  }
+
   // MARK: Private
 
   /// Short until the registration attempt, then long enough that a client which does not rewind

@@ -38,7 +38,8 @@ let daemonEncoder: JSONEncoder = {
 func makeState(
   phase: DaemonState.Phase = .idle,
   morningPending: Bool = false,
-  nextStage: DaemonState.NextStage? = nil,
+  nextStage: DaemonState.Stage? = nil,
+  owedStage: DaemonState.Stage? = nil,
   snoozeUntil: Date? = nil,
   phaseEndAt: Date? = nil,
   pausedRemaining: Int = 0,
@@ -59,6 +60,7 @@ func makeState(
     workSessionsInBlock: workSessionsInBlock,
     longBreakEvery: 4,
     nextStage: nextStage,
+    owedStage: owedStage,
     morningPending: morningPending,
     snoozeUntil: snoozeUntil,
     statusLine: phase.displayName,

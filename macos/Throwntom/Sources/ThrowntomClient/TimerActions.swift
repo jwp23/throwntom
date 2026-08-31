@@ -85,7 +85,10 @@ public enum TimerAction: CaseIterable, Sendable {
 public enum TimerActions {
   public static let defaultSnoozeMinutes = 10
 
-  /// Verbs the daemon would accept in this state, in display order. Mirrors internal/core/commands.go.
+  /// Verbs to offer in this state, in display order. A display list rather than a transcript of
+  /// what `internal/core/commands.go` accepts: the daemon also accepts `start` at awaiting-confirm,
+  /// where it does exactly what `confirm` does, and offering both would put two chips on one screen
+  /// for one outcome. Every verb listed here is one the daemon accepts; the converse is not claimed.
   ///
   /// Ending the day comes last in every state rather than only while idle: `handleSkipToday` has
   /// no state guard, and a user who is finished mid-pomodoro needs to be able to say so without
@@ -115,6 +118,17 @@ public enum TimerActions {
     case .awaitingConfirm:
       [.confirm, .snooze, .newCycle, .skipToday]
     }
+  }
+
+  /// What the Start control says: the phase an idle start would enter, when the daemon has said
+  /// which. Only an idle timer owes a phase, so every other state — and a client with no state at
+  /// all — falls back to the plain verb rather than inventing one.
+  ///
+  /// Naming the phase is the point: stop is a suspend, so Start over an "Idle" title can begin the
+  /// short break the user earned rather than the pomodoro they expected (throwntom-46y).
+  public static func startTitle(for state: DaemonState?) -> String {
+    guard let owed = state?.owedStage else { return TimerAction.start.title }
+    return "\(TimerAction.start.title) \(owed.state.displayName)"
   }
 
   /// The single play/pause control: resuming is only on offer while the timer is paused.

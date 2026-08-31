@@ -29,4 +29,21 @@ final class ShortcutSheetTests: XCTestCase {
     ShortcutSheet(environment: environment).close()
     XCTAssertFalse(environment.windowModel.showsShortcuts)
   }
+
+  /// The sheet's own claim about itself is that it "stays the same complete list on every screen".
+  /// It read the live daemon snapshot, so it did not: ⌘R was worded from `owedStage` and ⌘P from
+  /// the phase, which meant the cheat sheet named a phase out of a daemon the rest of the window
+  /// had already given up on — the same lie the Timer menu is held away from. A key reference is
+  /// about the binding, so it is built from no state at all.
+  func testTheSheetNamesNoPhaseFromTheDaemonSnapshot() async throws {
+    let owing = makeState(phase: .idle, owedStage: DaemonState.Stage(state: .shortBreak, duration: 300))
+    let environment = AppEnvironment(transport: try StubTransport(states: [owing]))
+    defer { environment.client.stop() }
+    environment.client.start()
+    try await waitUntil { environment.client.state?.owedStage != nil }
+
+    let timer = try XCTUnwrap(ShortcutList.sections(for: environment).first { $0.name == "Timer" })
+
+    XCTAssertEqual(timer.entries.map(\.title), ["Start", "Confirm", "Pause", "Skip", "Snooze 10 min"])
+  }
 }
