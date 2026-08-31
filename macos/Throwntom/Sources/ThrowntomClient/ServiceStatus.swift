@@ -150,7 +150,9 @@ public struct ServiceAnnouncer: Sendable {
   /// nil is what it already means: no situation has been shown yet, so the next one is
   /// the baseline and is not spoken. Taking a status here would make the caller assert
   /// a starting point it does not have.
-  public init() { }
+  public init() {
+    // Nothing to set: `settled` starts nil, which is already the meaning wanted.
+  }
 
   // MARK: Public
 
