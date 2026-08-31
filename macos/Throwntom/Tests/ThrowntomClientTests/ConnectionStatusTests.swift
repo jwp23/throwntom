@@ -78,10 +78,10 @@ final class ConnectionStatusTests: XCTestCase {
     )
   }
 
-  /// throwntom-ibf. A first dial is not "re"-anything. This used to be unsayable: the wording
-  /// turned on whether a state was passed alongside the connection, and both branches appended
-  /// "(reconnecting)" — so the only thing separating a first dial from a lost one was a parameter
-  /// the app never passed. The parameter is gone; the connection alone decides.
+  /// A first dial is not "re"-anything, so the two waits get two lines. This pins the wording map
+  /// only — it holds for any `Connection` handed to it, and so cannot say whether the client hands
+  /// over the right one. That is the half of throwntom-ibf where the bug actually lived, and it is
+  /// covered where it can fail: `ReconnectTests.testAFailedFirstDialIsStillWordedAsAFirstDial`.
   func testAFirstDialIsWordedAsAFirstDialAndALostOneAsALostOne() {
     XCTAssertEqual(ConnectionStatus.text(connection: .connecting, status: .reaching), "Connecting…")
     XCTAssertEqual(ConnectionStatus.text(connection: .reconnecting(attempt: 1), status: .reaching), "Reconnecting…")

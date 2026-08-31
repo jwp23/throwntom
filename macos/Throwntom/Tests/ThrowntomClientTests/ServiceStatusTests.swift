@@ -173,6 +173,23 @@ final class ServiceAnnouncementTests: XCTestCase {
     }
   }
 
+  /// A VoiceOver user and a sighted user must be told the same thing, which means the spoken line
+  /// has to *be* the window's title rather than a second copy of the same words. They are written
+  /// as two separate literals, so only an assertion keeps them from drifting: change one wording
+  /// and this fails rather than the two quietly disagreeing.
+  func testTheSpokenLineIsTheWindowsOwnTitle() throws {
+    for (status, connection) in [
+      (ServiceStatus.stopped, DaemonClient.Connection.stopped),
+      (.launchRefused, .startingDaemon),
+      (.notAnswering, .startingDaemon),
+    ] {
+      let spoken = try XCTUnwrap(ServiceStatus.announcement(from: .running, to: status), "\(status)")
+      let title = ConnectionStatus.text(connection: connection, status: status)
+
+      XCTAssertTrue(spoken.hasPrefix(title + "."), "spoke \"\(spoken)\", window reads \"\(title)\"")
+    }
+  }
+
   /// A status that has not changed is not news. `onChange` should not fire on an equal value, but
   /// the rule belongs in the function rather than in the caller that happens to obey it.
   func testAnUnchangedStatusIsNotAnnounced() {

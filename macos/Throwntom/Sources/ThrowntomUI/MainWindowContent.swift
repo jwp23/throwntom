@@ -43,10 +43,10 @@ struct MainWindowContent: Equatable {
     scheme = Palette.scheme(for: shown?.state)
     pose = MascotPose.pose(for: shown?.state, pausedFrom: shown?.pausedFrom ?? .idle)
     // A retained phase is still counting (ADR-008), so the window goes on naming it and keeps its
-    // ground and its verbs — but it must not read as a live connection. Before this, a client that
-    // had lost the daemon drew a window byte-for-byte identical to the connected one, and the only
-    // way to find out was to wait for the retry budget to run out (throwntom-7rb). The mark is on
-    // the title alone: the countdown and the ground are as true as they were.
+    // ground and its verbs — but it must not read as a live connection. Unmarked, a client that has
+    // lost the daemon draws a window byte-for-byte identical to the connected one, and the only way
+    // to find out is to wait for the retry budget to run out (throwntom-7rb). The mark is on the
+    // title alone: the countdown and the ground are as true as they were.
     //
     // "reconnecting" rather than "connecting" is exact here, not a guess: `state` is only ever set
     // from a decoded frame and only ever cleared by `stopService()`, which clears `hasConnected`

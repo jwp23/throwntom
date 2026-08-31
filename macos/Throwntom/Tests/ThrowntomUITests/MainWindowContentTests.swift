@@ -138,6 +138,17 @@ final class MainWindowContentTests: XCTestCase {
     }
   }
 
+  /// The mark goes on whatever title the window is showing, and the ended day is the one title
+  /// that is not a phase name. It reads as a sentence rather than a phase, so it is worth pinning
+  /// what it actually says: the day is still over and the client is still out of touch, and both
+  /// halves have to survive being put together.
+  func testTheEndedDayTitleIsMarkedLikeAnyOther() {
+    XCTAssertEqual(
+      content(makeState(phase: .idle, dayEnded: true), connection: .reconnecting(attempt: 1)).title,
+      "Done for today (reconnecting)",
+    )
+  }
+
   /// The mark says the client is out of touch, so it must not appear when it is in touch. The
   /// day-ended title is checked too, because it is the one title not taken from the phase name.
   func testAConnectedWindowIsNeverMarked() {
