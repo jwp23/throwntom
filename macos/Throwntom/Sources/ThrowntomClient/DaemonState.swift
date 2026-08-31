@@ -60,6 +60,10 @@ public struct DaemonState: Codable, Equatable, Sendable {
   public var owedStage: Stage?
   public var morningPending: Bool
   public var snoozeUntil: Date?
+  /// The daemon's own rendering of the current state, the string the TUI shows. The window
+  /// composes its own text from the fields above instead, so nothing in this client reads it. It
+  /// stays because it is part of the daemon's state document, and `StateDecodingTests` pins that
+  /// it still decodes — not because anything here is waiting to use it.
   public var statusLine: String
   public var focusedTaskIds: [Int]
   /// How many chimes the outstanding reminder has asked for, resetting when it is retired.

@@ -143,7 +143,16 @@ public struct ServiceAnnouncer: Sendable {
 
   // MARK: Lifecycle
 
-  public init() { }
+  /// Empty on purpose, and required: Swift gives a public struct only an internal
+  /// memberwise initialiser, so `ThrowntomUI` could not construct one without this.
+  ///
+  /// There is nothing to set. The one stored property, `settled`, must start nil, and
+  /// nil is what it already means: no situation has been shown yet, so the next one is
+  /// the baseline and is not spoken. Taking a status here would make the caller assert
+  /// a starting point it does not have.
+  public init() {
+    // Nothing to set: `settled` starts nil, which is already the meaning wanted.
+  }
 
   // MARK: Public
 

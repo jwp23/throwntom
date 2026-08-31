@@ -7,22 +7,40 @@ import (
 	"time"
 )
 
-func TestLoopRepeatsUntilAck(t *testing.T) {
+// Cancelling the context is how a loop is retired: the owner of the
+// outstanding reminder holds that ctx and treats it as the loop's identity
+// (ADR-004; internal/core/outstanding.go loopNotify).
+func TestLoopRepeatsUntilItsContextIsCancelled(t *testing.T) {
 	var count atomic.Int32
-	loop := New(Policy{Interval: 20 * time.Millisecond, MaxAlerts: 100}, func() error {
+	// The bound is set far out of reach so that cancellation is the only thing
+	// that can end this loop; a bound the test could reach would pass even if
+	// Run ignored its ctx entirely.
+	loop := New(Policy{Interval: 20 * time.Millisecond, MaxAlerts: 1_000_000}, func() error {
 		count.Add(1)
 		return nil
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go loop.Run(ctx)
+	done := make(chan struct{})
+	go func() {
+		loop.Run(ctx)
+		close(done)
+	}()
 
 	time.Sleep(70 * time.Millisecond)
-	loop.Ack()
+	if repeats := count.Load(); repeats < 2 {
+		t.Fatalf("expected the loop to repeat, got %d alerts", repeats)
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("loop kept running after its context was cancelled")
+	}
 	got := count.Load()
 	time.Sleep(50 * time.Millisecond)
-	if count.Load() != got {
-		t.Fatalf("expected no reminders after ack")
+	if now := count.Load(); now != got {
+		t.Fatalf("expected no alerts after cancellation, got %d more", now-got)
 	}
 }
 
