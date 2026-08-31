@@ -1,5 +1,3 @@
-import Foundation
-
 // MARK: - DaemonError
 
 public enum DaemonError: Error, Equatable, Sendable {

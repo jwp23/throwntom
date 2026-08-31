@@ -1,5 +1,3 @@
-import Foundation
-
 /// GET /v1/tasks response; both arrays are always present.
 public struct TaskList: Codable, Equatable, Sendable {
   public init(active: [TaskItem] = [], completed: [TaskItem] = []) {

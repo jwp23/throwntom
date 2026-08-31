@@ -1,5 +1,3 @@
-import Foundation
-
 public enum TimerActions {
   public static let defaultSnoozeMinutes = 10
 
