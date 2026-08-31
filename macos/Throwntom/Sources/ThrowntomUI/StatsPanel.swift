@@ -44,7 +44,9 @@ struct StatsPanel: View {
       Text("Stats").font(.caption).textCase(.uppercase)
       switch loader.outcome {
       case .loading:
+        // A bare spinner is an unnamed busy indicator: it says something is happening and not what.
         ProgressView().controlSize(.small)
+          .accessibilityLabel("Loading stats")
 
       case .loaded(let rows):
         Text(StatsRows.unitsHeader).font(.caption)
