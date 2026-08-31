@@ -27,7 +27,7 @@ final class StallingTransport: DaemonTransport, @unchecked Sendable {
 // MARK: - CancelledStatsTests
 
 /// Closing the panel cancels the fetch it opened, and a fetch the panel itself cancelled is not
-/// stats that failed to load (throwntom-esk).
+/// stats that failed to load: the loader stays on its loading state for the next time it opens.
 @MainActor
 final class CancelledStatsTests: XCTestCase {
 

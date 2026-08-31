@@ -4,11 +4,10 @@ import os
 /// Where a failure the user was told about in a sentence leaves a record of what actually went
 /// wrong.
 ///
-/// The window shows fixed wording and never an error's own text (throwntom-e5s), which is right:
-/// a socket errno or a `ServiceManagement` domain is not something a reader can act on. That
-/// decision cost the detail entirely, because there was nowhere else for it to go. This is the
-/// somewhere else — Apple's unified log, off by default, kept by the system, and readable after
-/// the fact with the command in docs/development.md.
+/// The window shows fixed wording and never an error's own text, which is right: a socket errno
+/// or a `ServiceManagement` domain is not something a reader can act on. The detail still has to
+/// go somewhere, and this is where — Apple's unified log, off by default, kept by the system, and
+/// readable after the fact with the command in docs/development.md.
 ///
 /// It is a diagnostic channel and not a second way to word a failure: nothing here reaches a view.
 public enum ClientLog {
@@ -40,16 +39,6 @@ public enum ClientLog {
   /// predicate in docs/development.md filters on.
   public static let subsystem = "com.jwp23.throwntom"
 
-  /// Where a line goes. Replaced only by tests, which is the one way to see that a catch site
-  /// recorded anything: the unified log is not readable from inside the process that wrote it.
-  nonisolated(unsafe) public static var sink: @Sendable (Entry) -> Void = { entry in
-    Logger(subsystem: subsystem, category: entry.area.rawValue)
-      // `.public` because nothing here is private: `describe` admits no free text but our own
-      // literals, a status code and an NSError's domain and code. Left at the default, every
-      // line would read `<private>` and the channel would record nothing worth having.
-      .error("\(entry.message, privacy: .public)")
-  }
-
   /// Records that `operation` failed. `operation` is a fixed literal at every call site — never
   /// an interpolated command, task or draft — and `describe` admits no free text from the daemon,
   /// so no user content can reach the log through here.
@@ -58,6 +47,18 @@ public enum ClientLog {
   }
 
   // MARK: Internal
+
+  /// Where a line goes. Replaced only by tests, which is the one way to see that a catch site
+  /// recorded anything: the unified log is not readable from inside the process that wrote it.
+  /// Internal rather than public: redirecting the whole diagnostic channel is not something a
+  /// client of this module should be able to do.
+  nonisolated(unsafe) static var sink: @Sendable (Entry) -> Void = { entry in
+    Logger(subsystem: subsystem, category: entry.area.rawValue)
+      // `.public` because nothing here is private: `describe` admits no free text but our own
+      // literals, a status code and an NSError's domain and code. Left at the default, every
+      // line would read `<private>` and the channel would record nothing worth having.
+      .error("\(entry.message, privacy: .public)")
+  }
 
   /// An error reduced to its shape: a kind, and a status code, a wait or an `NSError` domain and
   /// code. Deliberately not the error's own words.

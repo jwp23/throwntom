@@ -26,8 +26,8 @@ final class StallingTransport: DaemonTransport, @unchecked Sendable {
 // MARK: - CancelledWorkTests
 
 /// Work this client itself cancelled is not a failure the user caused, so it leaves no note on
-/// the window. `refreshTasks()` has always guarded for this; these cover the request paths that
-/// did not (throwntom-esk).
+/// the window. These cover the request paths, which reach the window through `commandError`;
+/// `refreshTasks()` guards the same way for the task list.
 @MainActor
 final class CancelledWorkTests: XCTestCase {
 

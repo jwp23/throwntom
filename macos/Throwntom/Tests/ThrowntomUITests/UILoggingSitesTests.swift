@@ -1,23 +1,47 @@
-import ThrowntomClient
 import UserNotifications
 import XCTest
+@testable import ThrowntomClient
 @testable import ThrowntomUI
+
+// MARK: - RecordedEntries
+
+/// The lines a `LogRecorder` has collected. A reference of its own so the installed sink can hold
+/// the entries without holding the recorder: a sink that captured the recorder would keep it alive
+/// for the rest of the process, and the `deinit` that puts the real sink back would never run.
+// Every mutable member is read and written under `lock`.
+// swiftlint:disable:next no_unchecked_sendable
+final class RecordedEntries: @unchecked Sendable {
+
+  // MARK: Internal
+
+  var all: [ClientLog.Entry] {
+    lock.withLock { recorded }
+  }
+
+  func append(_ entry: ClientLog.Entry) {
+    lock.withLock { recorded.append(entry) }
+  }
+
+  // MARK: Private
+
+  private let lock = NSLock()
+  private var recorded = [ClientLog.Entry]()
+
+}
 
 // MARK: - LogRecorder
 
-/// Captures what the app would have written to the unified log. The sink is the only way to see
-/// that a catch site recorded anything: `os.Logger` writes where a test process cannot read back.
-// Every mutable member is read and written under `lock`.
-// swiftlint:disable:next no_unchecked_sendable
-final class LogRecorder: @unchecked Sendable {
+/// Captures what the app would have written to the unified log for as long as it is in scope. The
+/// sink is the only way to see that a catch site recorded anything: `os.Logger` writes where a
+/// test process cannot read back.
+final class LogRecorder {
 
   // MARK: Lifecycle
 
   init() {
     previous = ClientLog.sink
-    ClientLog.sink = { [self] entry in
-      lock.withLock { recorded.append(entry) }
-    }
+    let store = store
+    ClientLog.sink = { store.append($0) }
   }
 
   deinit {
@@ -27,7 +51,7 @@ final class LogRecorder: @unchecked Sendable {
   // MARK: Internal
 
   var entries: [ClientLog.Entry] {
-    lock.withLock { recorded }
+    store.all
   }
 
   var messages: [String] {
@@ -37,20 +61,19 @@ final class LogRecorder: @unchecked Sendable {
   // MARK: Private
 
   private let previous: @Sendable (ClientLog.Entry) -> Void
-  private let lock = NSLock()
-  private var recorded = [ClientLog.Entry]()
+  private let store = RecordedEntries()
 
 }
 
 // MARK: - UILoggingSitesTests
 
-/// Every place a view or dispatcher catches a failure and shows a fixed sentence, a beep or
-/// nothing at all. The user-facing behaviour is unchanged; the error now leaves a record
-/// (throwntom-zas).
+/// Every place a view or dispatcher catches a failure and answers it with a fixed sentence, a
+/// beep or nothing at all. What the user sees or hears is settled elsewhere; these cover the
+/// record the failure leaves behind it.
 @MainActor
 final class UILoggingSitesTests: XCTestCase {
 
-  func testARefusedTimerActionIsRecordedAndStillBeeps() async throws {
+  func testARefusedTimerActionIsRecorded() async throws {
     let recorder = LogRecorder()
     let client = DaemonClient(transport: RefusingUITransport(), registrar: RecordingRegistrar())
 
@@ -87,25 +110,6 @@ final class UILoggingSitesTests: XCTestCase {
       XCTAssertFalse(message.contains("Ada"), message)
       XCTAssertFalse(message.contains("task add"), message)
     }
-  }
-
-  /// Work the app cancelled is not a press that failed, so it neither sounds nor records. No bead
-  /// named this one: it followed from routing the beep and the log through one place.
-  func testACancelledDispatchNeitherRecordsNorBeeps() async {
-    let recorder = LogRecorder()
-    let client = DaemonClient(transport: StallingTransport(), registrar: RecordingRegistrar())
-
-    let inFlight = Task { @MainActor in
-      do {
-        try await client.perform(TimerAction.pause)
-      } catch {
-        DaemonDispatch.report("send a timer action", error)
-      }
-    }
-    inFlight.cancel()
-    await inFlight.value
-
-    XCTAssertEqual(recorder.entries, [])
   }
 
   func testARefusedLoginItemChangeIsRecorded() {

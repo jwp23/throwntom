@@ -4,7 +4,7 @@ import XCTest
 // MARK: - ClientLoggingSitesTests
 
 /// Every place the client itself catches a failure and tells the window a sentence instead of the
-/// error. The sentence stays; what the error actually was now goes to the log (throwntom-zas).
+/// error. The sentence is what the reader gets; the log is where the error itself is kept.
 @MainActor
 final class ClientLoggingSitesTests: XCTestCase {
 

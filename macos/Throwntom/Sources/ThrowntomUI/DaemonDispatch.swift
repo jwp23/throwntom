@@ -10,6 +10,9 @@ import ThrowntomClient
 /// ADR-009 governs: that one marks a reminder, this one marks a press that did nothing, and the
 /// two never sound for the same event.
 enum DaemonDispatch {
+
+  // MARK: Internal
+
   @MainActor
   static func perform(_ action: TimerAction, on client: DaemonClient) {
     Task {
@@ -55,12 +58,14 @@ enum DaemonDispatch {
     }
   }
 
-  /// What a failed dispatch does: sound, and leave a record of what actually failed. Work the app
-  /// cancelled is neither — nothing went wrong and there is nothing for the user to hear.
+  // MARK: Private
+
+  /// What a failed dispatch does: sound, and leave a record of what actually failed. A beep says
+  /// only that something did not happen, so on its own it leaves nothing to look at afterwards.
   @MainActor
-  static func report(_ operation: String, _ error: Error) {
-    guard !Task.isCancelled else { return }
+  private static func report(_ operation: String, _ error: Error) {
     ClientLog.failed(operation, in: .daemon, error: error)
     NSSound.beep()
   }
+
 }

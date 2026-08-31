@@ -20,10 +20,9 @@ final class SMAppServiceRegistrarTests: XCTestCase {
     XCTAssertEqual(agent.calls, [.unregister, .register])
   }
 
-  /// The refused unregister is deliberately not thrown when the register that follows succeeds —
-  /// but it is the trace of a stale BTM entry, and until now it was dropped without a word
-  /// anywhere. Registering over it works today and stops working eventually, so the one moment
-  /// the app knows about it is the moment worth recording.
+  /// The refused unregister is deliberately not thrown when the register that follows succeeds,
+  /// but it is the trace of a stale BTM entry. Registering over one works until it does not, so
+  /// the moment the app learns of it is the only moment there is to record it.
   func testARefusedUnregisterIsRecordedEvenWhenRegisterSucceeds() throws {
     let recorder = LogRecorder()
     let agent = FakeAgentService(

@@ -1,21 +1,45 @@
 import XCTest
 @testable import ThrowntomClient
 
-// MARK: - LogRecorder
+// MARK: - RecordedEntries
 
-/// Captures what the app would have written to the unified log. The sink is the only way to see
-/// that a catch site recorded anything: `os.Logger` writes where a test process cannot read back.
+/// The lines a `LogRecorder` has collected. A reference of its own so the installed sink can hold
+/// the entries without holding the recorder: a sink that captured the recorder would keep it alive
+/// for the rest of the process, and the `deinit` that puts the real sink back would never run.
 // Every mutable member is read and written under `lock`.
 // swiftlint:disable:next no_unchecked_sendable
-final class LogRecorder: @unchecked Sendable {
+final class RecordedEntries: @unchecked Sendable {
+
+  // MARK: Internal
+
+  var all: [ClientLog.Entry] {
+    lock.withLock { recorded }
+  }
+
+  func append(_ entry: ClientLog.Entry) {
+    lock.withLock { recorded.append(entry) }
+  }
+
+  // MARK: Private
+
+  private let lock = NSLock()
+  private var recorded = [ClientLog.Entry]()
+
+}
+
+// MARK: - LogRecorder
+
+/// Captures what the app would have written to the unified log for as long as it is in scope. The
+/// sink is the only way to see that a catch site recorded anything: `os.Logger` writes where a
+/// test process cannot read back.
+final class LogRecorder {
 
   // MARK: Lifecycle
 
   init() {
     previous = ClientLog.sink
-    ClientLog.sink = { [self] entry in
-      lock.withLock { recorded.append(entry) }
-    }
+    let store = store
+    ClientLog.sink = { store.append($0) }
   }
 
   deinit {
@@ -25,7 +49,7 @@ final class LogRecorder: @unchecked Sendable {
   // MARK: Internal
 
   var entries: [ClientLog.Entry] {
-    lock.withLock { recorded }
+    store.all
   }
 
   var messages: [String] {
@@ -47,15 +71,14 @@ final class LogRecorder: @unchecked Sendable {
   private struct NothingRecorded: Error { }
 
   private let previous: @Sendable (ClientLog.Entry) -> Void
-  private let lock = NSLock()
-  private var recorded = [ClientLog.Entry]()
+  private let store = RecordedEntries()
 
 }
 
 // MARK: - ClientLogTests
 
-/// The diagnostic channel a failure leaves behind. The window's sentence stays as it is
-/// (throwntom-e5s); this is where the shape of the failure goes instead of nowhere (throwntom-zas).
+/// The diagnostic channel a failure leaves behind. The window's sentence is settled elsewhere;
+/// what this covers is the shape of the failure that goes to the log alongside it.
 final class ClientLogTests: XCTestCase {
 
   func testTheSubsystemIsTheAppsBundleIdentifier() {
@@ -122,6 +145,22 @@ final class ClientLogTests: XCTestCase {
     let described = ClientLog.describe(TaskCommandError.controlCharacters)
 
     XCTAssertTrue(described.contains("TaskCommandError"), described)
+  }
+
+  /// A recorder that never let go would leave its own closure installed for the rest of the test
+  /// process, so the real `os.Logger` sink would never run again and every later recorder would
+  /// only appear to work. Nesting is how that shows: the outer one has to start receiving again.
+  func testARecorderPutsBackTheSinkItReplaced() {
+    let outer = LogRecorder()
+
+    do {
+      let inner = LogRecorder()
+      ClientLog.failed("inner", in: .daemon, error: CancellationError())
+      XCTAssertEqual(inner.messages, ["inner failed: cancelled"])
+    }
+    ClientLog.failed("outer", in: .daemon, error: CancellationError())
+
+    XCTAssertEqual(outer.messages, ["outer failed: cancelled"])
   }
 
   func testAFailureRecordsTheOperationAndTheShapeOfTheError() throws {
