@@ -341,7 +341,7 @@ ThrowntomUI/
   ShortcutSheet
   Palette                            phase → colours
   AppMenus, MenuModel
-  ReminderBanner, ReminderResponder, NotificationAdapters
+  ReminderBanner, ReminderResponder, SystemNotificationAuthorizer, SystemReminderPresenter
 ```
 
 `URLSession` cannot reach a Unix socket, so the client carries its own
