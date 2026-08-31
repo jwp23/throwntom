@@ -2,7 +2,6 @@ package reminder
 
 import (
 	"context"
-	"sync/atomic"
 	"time"
 )
 
@@ -28,7 +27,6 @@ func NewPolicy(interval, limit time.Duration) Policy {
 type Loop struct {
 	policy Policy
 	notify func() error
-	acked  atomic.Bool
 }
 
 func New(policy Policy, notify func() error) *Loop {
@@ -38,28 +36,21 @@ func New(policy Policy, notify func() error) *Loop {
 	return &Loop{policy: policy, notify: notify}
 }
 
-// Ack says the reminder was answered, so it stops even the first alert: there
-// is nothing left to alert anyone about. That is what separates it from
-// cancelling Run's ctx, which only retires this loop and still owes the alert
-// the loop was started to make. The two are not interchangeable — a caller
-// that means "stop ringing" wants the ctx, and acking there silences a loop
-// whose goroutine has not been scheduled yet.
-func (l *Loop) Ack() {
-	l.acked.Store(true)
-}
-
-// Run alerts on the policy's cadence until it is acked, its ctx is cancelled
-// or the policy's bound is reached. The first alert is checked against acked
-// but deliberately not against ctx: an answered reminder has nothing to say,
-// while a retired one still made the alert it was started for, and which of
-// those happened must not depend on when this goroutine was scheduled.
+// Run alerts on the policy's cadence until its ctx is cancelled or the
+// policy's bound is reached. Cancelling the ctx is the only way a caller
+// retires a loop, and it deliberately does not reach the first alert: a
+// retired loop still made the alert it was started for, and whether the user
+// hears it must not depend on when this goroutine was scheduled.
+//
+// Answering a reminder is not this type's business. The outstanding reminder
+// owns that (ADR-004): an answer is a transition, and leaving the state that
+// owed the nudge is what retires it — see Core.onTransition in
+// internal/core/core.go. Whether a later alert still counts is likewise the
+// owner's call, decided in outstandingReminder.ring, not the loop's.
 func (l *Loop) Run(ctx context.Context) {
-	if l.acked.Load() {
-		return
-	}
 	_ = l.notify()
 	alerts := 1
-	if l.acked.Load() || alerts >= l.policy.MaxAlerts {
+	if alerts >= l.policy.MaxAlerts {
 		return
 	}
 	ticker := time.NewTicker(l.policy.Interval)
@@ -69,9 +60,6 @@ func (l *Loop) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if l.acked.Load() {
-				return
-			}
 			_ = l.notify()
 			alerts++
 			if alerts >= l.policy.MaxAlerts {
