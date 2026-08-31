@@ -180,13 +180,13 @@ func TestBuiltInMacOSSoundsAreTheOnesDocumented(t *testing.T) {
 func TestTheDaemonsNotifierPlaysNothing(t *testing.T) {
 	mustContain(t, "README.md", readmeText(t), "`throwntomd` plays no sound at all")
 
-	var calls [][]string
+	// The silent notifier holds no runner, so there is no command line to
+	// inspect: that it plays nothing is the absence of one. Audible is the
+	// observable half, and cmd/throwntomd's TestDaemonPlaysNoSound pins the
+	// daemon to this notifier.
 	silent := Silent()
 	if err := silent.PlaySound("default"); err != nil {
 		t.Fatalf("the silent notifier reported an error: %v", err)
-	}
-	if len(calls) != 0 {
-		t.Fatalf("the silent notifier ran %v", calls)
 	}
 	if Audible(silent) {
 		t.Fatal("the daemon's notifier reports itself audible")

@@ -11,6 +11,7 @@ import (
 
 	"github.com/jwp23/throwntom/v3/internal/config"
 	"github.com/jwp23/throwntom/v3/internal/doctest"
+	"github.com/jwp23/throwntom/v3/internal/notifier"
 	"github.com/jwp23/throwntom/v3/internal/reminder"
 )
 
@@ -110,6 +111,28 @@ func TestReadmeGivesTheReasonEachRestartSettingIsNotReloaded(t *testing.T) {
 		if !strings.Contains(prose, want) {
 			t.Errorf("README no longer explains a restart-only setting with %q", want)
 		}
+	}
+}
+
+// TestAReloadDoesNotRebuildTheNotifier pins the mechanism the README gives
+// for sound_command: a notifier is built once, at start-up, and a reload does
+// not reread the setting. Without this the bullet could keep its name in the
+// restart list while a reload quietly began applying it.
+func TestAReloadDoesNotRebuildTheNotifier(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	cfg.SoundCommand = []string{"first"}
+	built := noopNotifier{}
+	c := newCore(cfg, built)
+	defer c.Stop()
+
+	cfg.SoundCommand = []string{"second"}
+	c.ApplyConfig(cfg)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.notifier != notifier.Notifier(built) {
+		t.Fatal("a reload replaced the notifier, which the README says is built once at start-up")
 	}
 }
 
