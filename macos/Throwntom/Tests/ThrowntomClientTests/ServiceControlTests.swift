@@ -285,7 +285,10 @@ final class RestartAfterStopTests: XCTestCase {
     client.stopService()
     client.startService()
 
-    try await waitUntil("the reconnect loop to park in its first attempt") { client.connection == .reconnecting(attempt: 1) }
+    // The failure is what proves the loop actually dialled and parked, rather than the assertions
+    // reading the connection `startService` set on its way in.
+    try await waitUntil("the reconnect loop to park after its first failed dial") { client.lastError != nil }
+    XCTAssertEqual(client.connection, .connecting, "the daemon this client knew is gone, so this is a first dial")
     XCTAssertNil(client.unresolvedError, "a start the user just asked for must not report the outage it is fixing")
     XCTAssertFalse(client.hasConnected, "the daemon the client knew is gone")
   }

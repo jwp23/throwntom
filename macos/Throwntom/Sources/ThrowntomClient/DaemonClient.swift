@@ -314,9 +314,18 @@ public final class DaemonClient {
         commandError = nil
         retries.registerAgentIfDue { registerAgent() }
         startStalled = (retries.failuresSinceRegistration ?? 0) >= Self.failuresBeforeReportingAStall
-        connection = retries.failures >= Self.failuresBeforeRegistering
-          ? .startingDaemon
-          : .reconnecting(attempt: retries.failures)
+        // A dial that has never reached a daemon is still a first dial, however many times it has
+        // failed: there is no connection to re-make, so `hasConnected` is what separates the two
+        // waits the window words differently (throwntom-ibf). Asking launchd outranks both — that
+        // one is about what is being done, not about which wait this is.
+        connection =
+          if retries.failures >= Self.failuresBeforeRegistering {
+            .startingDaemon
+          } else if hasConnected {
+            .reconnecting(attempt: retries.failures)
+          } else {
+            .connecting
+          }
         try? await Task.sleep(for: retries.delay)
       }
     }
