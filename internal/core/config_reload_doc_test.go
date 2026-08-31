@@ -43,6 +43,17 @@ var restartSettings = []string{
 // backticked matches the README's markup for a setting's name.
 var backticked = regexp.MustCompile("`([^`]+)`")
 
+// emDash is what a restart bullet puts between its setting names and the
+// explanation. A hyphen or an en dash there would read the same to a person
+// and leave the names unfindable, so the failure below names the character.
+const emDash = "—"
+
+// isIndented reports whether a line is a bullet's wrapped continuation rather
+// than the prose that follows the list.
+func isIndented(line string) bool {
+	return strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t")
+}
+
 // documentedRestartList reads the settings the README lists as needing a
 // restart: the bullets under the sentence introducing them, each naming its
 // settings ahead of the dash that starts the explanation.
@@ -56,17 +67,19 @@ func documentedRestartList(t *testing.T, readme string) []string {
 	started := false
 	for _, line := range strings.Split(readme[start:], "\n") {
 		if !strings.HasPrefix(line, "- ") {
-			// The list ends at the blank line after it; the indented
-			// continuations of a bullet carry no setting name.
-			if started && strings.TrimSpace(line) == "" {
+			// A bullet's indented continuation carries no setting name, and a
+			// blank line between bullets is markdown's loose list rather than
+			// the end of one. The list ends at the next unindented prose.
+			if started && strings.TrimSpace(line) != "" && !isIndented(line) {
 				break
 			}
 			continue
 		}
 		started = true
-		head, _, found := strings.Cut(line, "—")
+		head, _, found := strings.Cut(line, emDash)
 		if !found {
-			t.Fatalf("restart bullet %q does not name its settings before a dash", line)
+			t.Fatalf("restart bullet %q separates its settings from the explanation with something "+
+				"other than an em dash (%s); this test reads the names before that character", line, emDash)
 		}
 		for _, m := range backticked.FindAllStringSubmatch(head, -1) {
 			names = append(names, m[1])
