@@ -54,14 +54,25 @@ func TestDocumentedTierRangesAreWhatTierMarkDoes(t *testing.T) {
 	// The open-ended row ("6+") has no upper bound to read, so probe a few
 	// counts past its lower one: all of them are still that tier.
 	const beyondTheTable = 3
-	for _, row := range rows {
+	// The rows must cover every count from 0 with no gap: a table missing a
+	// count between two declared ranges would still pass if each row were
+	// only checked against its own bounds.
+	wantLow := 0
+	for i, row := range rows {
 		tier, glyph := row[1], row[4]
 		low, err := strconv.Atoi(row[2])
 		if err != nil {
 			t.Fatalf("tier %s: unreadable lower bound %q", tier, row[2])
 		}
+		if low != wantLow {
+			t.Fatalf("tier %s starts at %d; the previous row leaves %d uncovered", tier, low, wantLow)
+		}
+		open := row[3] == ""
+		if open && i != len(rows)-1 {
+			t.Fatalf("tier %s has no upper bound but is not the last row", tier)
+		}
 		high := low + beyondTheTable
-		if row[3] != "" {
+		if !open {
 			if high, err = strconv.Atoi(row[3]); err != nil {
 				t.Fatalf("tier %s: unreadable upper bound %q", tier, row[3])
 			}
@@ -70,6 +81,7 @@ func TestDocumentedTierRangesAreWhatTierMarkDoes(t *testing.T) {
 		if !known {
 			t.Fatalf("tier %s: README names the colour %q, which this test cannot match to a theme colour", tier, row[5])
 		}
+		wantLow = high + 1
 		for count := low; count <= high; count++ {
 			got, style := tierMark(count, defaults.TierLow, defaults.TierMid)
 			if got != glyph {
