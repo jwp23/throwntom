@@ -75,6 +75,16 @@
 - Use standard library only; third-party deps only with explicit approval.
 - Preserve public APIs/behavior unless requested to change.
 - No secrets in code; use config/env.
+- Never log user content. Task descriptions, focus text, config paths, command
+  lines, notification titles and bodies — anything the user typed or named —
+  stay out of logs, telemetry and crash reports. Log the SHAPE of a failure:
+  a fixed operation name and an error kind, never the payload.
+- This needs care because user text arrives wearing an error's clothes. The
+  daemon echoes input back in its own messages (`unknown command: %s`), so a
+  `DaemonError.http` message can carry whatever was typed. `ClientLog.describe`
+  discards it by pattern match (`case .http(let status, _)`) rather than by
+  discipline — keep that shape. A logger that formats `error` or reads
+  `localizedDescription` re-opens the leak.
 
 ## Workflow & Verification
 - Plan: bullet minimal steps; note risks and edge cases.
