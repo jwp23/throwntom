@@ -4,18 +4,31 @@ import ThrowntomClient
 /// Sends a user's action to the daemon and forgets it: the event stream reports the new state,
 /// and a refusal (409) or transport failure beeps. Every button, menu and context-menu item goes
 /// through here so the rule is written once.
+///
+/// The beep is what the user gets and stays that way; the log line is what is left to look at
+/// afterwards, since a beep says only that something did not happen. The beep is not the chime
+/// ADR-009 governs: that one marks a reminder, this one marks a press that did nothing, and the
+/// two never sound for the same event.
 enum DaemonDispatch {
   @MainActor
   static func perform(_ action: TimerAction, on client: DaemonClient) {
     Task {
-      do { try await client.perform(action) } catch { NSSound.beep() }
+      do {
+        try await client.perform(action)
+      } catch {
+        report("send a timer action", error)
+      }
     }
   }
 
   @MainActor
   static func perform(_ request: SnoozeRequest, on client: DaemonClient) {
     Task {
-      do { try await client.perform(request) } catch { NSSound.beep() }
+      do {
+        try await client.perform(request)
+      } catch {
+        report("send a snooze request", error)
+      }
     }
   }
 
@@ -32,7 +45,22 @@ enum DaemonDispatch {
   @MainActor
   static func send(_ line: String, to client: DaemonClient) {
     Task {
-      do { _ = try await client.command(line) } catch { NSSound.beep() }
+      do {
+        _ = try await client.command(line)
+      } catch {
+        // `line` is what the user typed and is deliberately not passed on: the operation names
+        // the kind of request, and nothing else about it is recorded.
+        report("send a command", error)
+      }
     }
+  }
+
+  /// What a failed dispatch does: sound, and leave a record of what actually failed. Work the app
+  /// cancelled is neither — nothing went wrong and there is nothing for the user to hear.
+  @MainActor
+  static func report(_ operation: String, _ error: Error) {
+    guard !Task.isCancelled else { return }
+    ClientLog.failed(operation, in: .daemon, error: error)
+    NSSound.beep()
   }
 }

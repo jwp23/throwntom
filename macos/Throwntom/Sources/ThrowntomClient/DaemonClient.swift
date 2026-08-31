@@ -145,6 +145,7 @@ public final class DaemonClient {
     do {
       try registrar.stopAgent()
     } catch {
+      ClientLog.failed("stop the timer service", in: .service, error: error)
       commandError = "The timer service could not be stopped."
       return
     }
@@ -214,6 +215,9 @@ public final class DaemonClient {
       // it would otherwise be reworded as an unreadable reply and left as a fault note on the very
       // screen the user had just pressed Start on.
       guard !Task.isCancelled else { return }
+      // Below the guard: a cancelled fetch is not a failure, and logging it would fill the log
+      // with an entry for every Stop and Start, which are working as designed.
+      ClientLog.failed("refresh tasks", in: .tasks, error: error)
       lastError = DaemonError.userMessage(for: error)
     }
   }
@@ -302,6 +306,10 @@ public final class DaemonClient {
           return
         }
         retries.recordFailure()
+        // The reason behind "Timer is restarting…", which is the same sentence whether the socket
+        // is missing, the daemon died mid-frame or a frame would not decode. One line per failed
+        // dial, and the backoff is what keeps that from being a flood.
+        ClientLog.failed("read the event stream", in: .daemon, error: error)
         lastError = DaemonError.userMessage(for: error)
         // A real outage matters more than a stale command refusal from before it started.
         commandError = nil
@@ -331,6 +339,7 @@ public final class DaemonClient {
       registrationError = nil
       return true
     } catch {
+      ClientLog.failed("register the launch agent", in: .service, error: error)
       // Names what refused and what to press, because the status line above it can only say the
       // service will not launch. The framework's own error stays out of it for the same reason
       // every other error is reworded here: it names ServiceManagement internals, not a next step.

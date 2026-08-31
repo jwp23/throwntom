@@ -87,6 +87,9 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
       do {
         try await presenter.postReminder(title: title, body: body)
       } catch {
+        // Neither `title` nor `body` is passed on: a reminder's text is built from the daemon's
+        // state and can name the focused task.
+        ClientLog.failed("post a reminder", in: .reminders, error: error)
         authorization = .rejected()
       }
 
@@ -94,6 +97,7 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
       do {
         try await presenter.postMorningReminder(title: title, body: body)
       } catch {
+        ClientLog.failed("post a morning reminder", in: .reminders, error: error)
         authorization = .rejected()
       }
 
@@ -127,6 +131,9 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
       let granted = try await authorizer.requestAuthorization()
       authorization = .requested(granted: granted, error: nil)
     } catch {
+      // `ReminderAuthorization` takes the error only to tell a refusal from an ungranted prompt
+      // and then drops it — the window has no room for a `UNError`. This is where it is kept.
+      ClientLog.failed("request notification authorization", in: .reminders, error: error)
       authorization = .requested(granted: false, error: error)
     }
   }
@@ -172,7 +179,10 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
       do {
         try await ReminderNotification.answer(action, using: client)
       } catch {
-        // Already recorded on `client` for the window's caption; nothing more to do here.
+        // The window's caption already has this from `client`, but only as a sentence. What the
+        // failure actually was is recorded here, since a banner button is pressed with the window
+        // closed and the caption may never be read.
+        ClientLog.failed("answer a reminder", in: .reminders, error: error)
       }
       completion()
     }

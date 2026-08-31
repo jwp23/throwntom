@@ -44,7 +44,14 @@ public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
     for step in AgentRegistrationPlan.steps(for: agent.status) {
       switch step {
       case .unregister:
-        do { try agent.unregister() } catch { unregisterError = error }
+        do { try agent.unregister() } catch {
+          // Kept for the register below to throw if that fails too, and recorded here because
+          // when register succeeds it is thrown away: a stale entry that refuses to unregister
+          // is the thing to know about, and registering over it stops working eventually.
+          ClientLog.failed("unregister the stale launch agent", in: .service, error: error)
+          unregisterError = error
+        }
+
       case .register:
         do { try agent.register() } catch { throw unregisterError ?? error }
       }

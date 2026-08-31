@@ -42,6 +42,9 @@ struct NewTaskRow: View {
       }
       return .nothing
     } catch {
+      // The draft itself stays out of it: `ClientLog` records which grammar rule refused, and the
+      // draft is the plainest user content in the app.
+      ClientLog.failed("commit the new task", in: .tasks, error: error)
       model.cancelEdit()
       return .refused
     }

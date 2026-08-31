@@ -40,6 +40,7 @@ struct LoginItemSetting: Equatable {
       try registrar.setLoginItem(enabled)
       return LoginItemSetting(isOn: enabled, message: nil)
     } catch {
+      ClientLog.failed("set the login item", in: .service, error: error)
       return LoginItemSetting(isOn: registrar.loginItemEnabled, message: Self.refused)
     }
   }
