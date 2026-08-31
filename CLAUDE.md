@@ -226,7 +226,12 @@
   positions after the last edit rather than reusing the ones you read first.
 - A diff that changes no prose reports "no behavioural claims made" and is done.
 - Where the mechanism can be pinned by a test, write the test instead of citing
-  it — see `internal/config/template_test.go`. A citation ages; a test does not.
+  it — see `internal/config/template_test.go` for a doc's values and
+  `internal/core/config_reload_doc_test.go` for its behaviour. `internal/doctest`
+  reads a doc from the repo root. A citation ages; a test does not.
+- A doc test asserts the prose *and* runs the code the prose is about. One that
+  passes when the behaviour changes pins nothing: prove it fails by changing the
+  code, not the sentence.
 
 ## Absolutes are not yours to interpret
 
