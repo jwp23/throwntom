@@ -68,7 +68,7 @@ func TestDocumentedTierRangesAreWhatTierMarkDoes(t *testing.T) {
 // day of 5 is not full.
 func TestTemplateStatesTheStrictTierBoundaries(t *testing.T) {
 	const claim = "Both are strict, so with the defaults a day of 2 is light and a day of 5 is moderate"
-	if !strings.Contains(doctest.Unwrap(config.Template), claim) {
+	if !strings.Contains(doctest.UnwrapComments(config.Template), claim) {
 		t.Errorf("the config template no longer says %q", claim)
 	}
 

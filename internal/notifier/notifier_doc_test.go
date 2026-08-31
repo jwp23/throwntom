@@ -12,13 +12,6 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/doctest"
 )
 
-// templateText is the config template's prose, which documents sound_command
-// alongside the README and must agree with it.
-func templateText(t *testing.T) string {
-	t.Helper()
-	return config.Template
-}
-
 // sound_command is where the docs have gone wrong most often, and the claims
 // are all about what gets run: which element is the executable, whether the
 // sound's name reaches the command, and what happens when it fails. Each of
@@ -59,7 +52,7 @@ func recordRun(calls *[][]string, err error) runner {
 func TestConfiguredCommandRunsAsWrittenWithoutTheSoundName(t *testing.T) {
 	mustContain(t, "README.md", readmeText(t),
 		"the first item is the executable, the rest are its arguments")
-	mustContain(t, "the config template", doctest.Unwrap(templateText(t)),
+	mustContain(t, "the config template", doctest.UnwrapComments(config.Template),
 		"It is run as written; the sound name is not passed to it")
 
 	command := []string{"afplay", "-v", "2", "/System/Library/Sounds/Purr.aiff"}
@@ -84,7 +77,7 @@ func TestConfiguredCommandRunsAsWrittenWithoutTheSoundName(t *testing.T) {
 // makes no noise and says so.
 func TestMacOSReplacesTheBuiltInSoundOutright(t *testing.T) {
 	mustContain(t, "README.md", readmeText(t), "it *replaces* the built-in sound entirely")
-	mustContain(t, "the config template", doctest.Unwrap(templateText(t)),
+	mustContain(t, "the config template", doctest.UnwrapComments(config.Template),
 		"on macOS it replaces the sound outright")
 
 	var calls [][]string
@@ -118,16 +111,23 @@ func TestLinuxFallsBackThroughTheDocumentedChain(t *testing.T) {
 	if m == nil {
 		t.Fatal("README no longer states the Linux sound fallback order")
 	}
-	mustContain(t, "the config template", doctest.Unwrap(templateText(t)),
+	mustContain(t, "the config template", doctest.UnwrapComments(config.Template),
 		"On Linux that same chain also backs up a command that fails")
 
 	var calls [][]string
 	out := &bytes.Buffer{}
-	n := &linuxTerminalNotifier{
-		out:          out,
-		soundCommand: []string{"mycommand"},
-		run:          recordRun(&calls, errors.New("command failed")),
+	// Built the way the terminal interface builds it, so the claim covers the
+	// wiring too: a constructor that dropped soundCommand would leave the
+	// README's "it is tried first" false with the chain itself intact.
+	built, err := NewSystemNotifier("linux", out, []string{"mycommand"})
+	if err != nil {
+		t.Fatalf("build notifier: %v", err)
 	}
+	n, ok := built.(*linuxTerminalNotifier)
+	if !ok {
+		t.Fatalf("a configured sound_command on Linux built a %T, not the terminal notifier", built)
+	}
+	n.run = recordRun(&calls, errors.New("command failed"))
 	if err := n.PlaySound("default"); err != nil {
 		t.Fatalf("play sound: %v", err)
 	}

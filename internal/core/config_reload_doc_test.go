@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/json"
 	"reflect"
 	"regexp"
 	"sort"
@@ -29,12 +30,110 @@ var reloadedSettings = []string{
 }
 
 // restartSettings is every other setting a user can write in config.toml. A
-// reload does not apply these, and the docs must say so.
+// reload does not apply these, and the docs must list exactly these under the
+// restart heading.
 var restartSettings = []string{
 	"sound_command",
 	"morning_reminder_pending",
 	"emoji",
 	"[stats]",
+}
+
+// backticked matches the README's markup for a setting's name.
+var backticked = regexp.MustCompile("`([^`]+)`")
+
+// documentedRestartList reads the settings the README lists as needing a
+// restart: the bullets under the sentence introducing them, each naming its
+// settings ahead of the dash that starts the explanation.
+func documentedRestartList(t *testing.T, readme string) []string {
+	t.Helper()
+	start := strings.Index(readme, "The rest needs a restart")
+	if start < 0 {
+		t.Fatal("README no longer introduces the settings that need a restart")
+	}
+	var names []string
+	started := false
+	for _, line := range strings.Split(readme[start:], "\n") {
+		if !strings.HasPrefix(line, "- ") {
+			// The list ends at the blank line after it; the indented
+			// continuations of a bullet carry no setting name.
+			if started && strings.TrimSpace(line) == "" {
+				break
+			}
+			continue
+		}
+		started = true
+		head, _, found := strings.Cut(line, "—")
+		if !found {
+			t.Fatalf("restart bullet %q does not name its settings before a dash", line)
+		}
+		for _, m := range backticked.FindAllStringSubmatch(head, -1) {
+			names = append(names, m[1])
+		}
+	}
+	if !started {
+		t.Fatal("README lists no settings under the restart heading")
+	}
+	sort.Strings(names)
+	return names
+}
+
+// TestReadmeListsTheSettingsThatNeedARestart is the other half of the reload
+// contract. Without it a setting could be dropped from the restart list, or
+// gain one, with nothing to notice — the drift this file exists to stop.
+func TestReadmeListsTheSettingsThatNeedARestart(t *testing.T) {
+	readme, err := doctest.Read("README.md")
+	if err != nil {
+		t.Fatalf("read README: %v", err)
+	}
+	got := documentedRestartList(t, readme)
+	if want := sorted(restartSettings); !reflect.DeepEqual(got, want) {
+		t.Errorf("README says %v need a restart, want %v", got, want)
+	}
+}
+
+// TestReadmeGivesTheReasonEachRestartSettingIsNotReloaded pins the sentence
+// under each bullet, not only the name. A bullet that keeps its name and
+// gains a false explanation is the failure this branch exists to catch, and
+// the sound_command line is the one CLAUDE.md holds up as the example.
+func TestReadmeGivesTheReasonEachRestartSettingIsNotReloaded(t *testing.T) {
+	readme, err := doctest.Read("README.md")
+	if err != nil {
+		t.Fatalf("read README: %v", err)
+	}
+	prose := doctest.Unwrap(readme)
+	for _, want := range []string{
+		"the terminal UI that does use it builds its notifier once, at startup; neither rereads it",
+		"it answers whether today's morning reminder is owed when the daemon starts",
+		"client settings, read by `throwntom` when it launches",
+	} {
+		if !strings.Contains(prose, want) {
+			t.Errorf("README no longer explains a restart-only setting with %q", want)
+		}
+	}
+}
+
+// TestTheDaemonCarriesNoClientSetting pins "client settings" for emoji and
+// the [stats] tiers: the daemon publishes neither, which is why a reload
+// could not deliver them to the terminal interface even in principle.
+func TestTheDaemonCarriesNoClientSetting(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	cfg.Emoji = true
+	cfg.Stats.TierLow = 3
+	cfg.Stats.TierMid = 8
+	c := newCore(cfg, noopNotifier{})
+	defer c.Stop()
+
+	published, err := json.Marshal(c.State())
+	if err != nil {
+		t.Fatalf("marshal state: %v", err)
+	}
+	for _, key := range []string{"emoji", "tier_low", "tier_mid"} {
+		if strings.Contains(string(published), key) {
+			t.Errorf("the daemon publishes %q, which the README calls a client setting", key)
+		}
+	}
 }
 
 // reloadSentence matches the docs' promise in either wording: the template
@@ -46,7 +145,7 @@ var reloadSentence = regexp.MustCompile(`(?:daemon reloads|Reloading covers) ([^
 // reloaded. Backticks are the README's markup, not part of a setting's name.
 func documentedReloadList(t *testing.T, doc, source string) []string {
 	t.Helper()
-	m := reloadSentence.FindStringSubmatch(strings.ReplaceAll(doctest.Unwrap(doc), "`", ""))
+	m := reloadSentence.FindStringSubmatch(strings.ReplaceAll(unwrapFor(source, doc), "`", ""))
 	if m == nil {
 		t.Fatalf("%s no longer states which settings the daemon reloads", source)
 	}
@@ -58,6 +157,15 @@ func documentedReloadList(t *testing.T, doc, source string) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// unwrapFor joins a document's wrapped prose, dropping comment markers only
+// for the config template, whose prose is commented out.
+func unwrapFor(source, text string) string {
+	if strings.Contains(source, "template") {
+		return doctest.UnwrapComments(text)
+	}
+	return doctest.Unwrap(text)
 }
 
 func sorted(names []string) []string {
@@ -89,7 +197,7 @@ func TestDocsPromiseTheSettingsApplyConfigReloads(t *testing.T) {
 // asks first and the one nothing else answers.
 func TestDocsClassifyEverySetting(t *testing.T) {
 	classified := map[string]bool{}
-	for _, name := range append(sorted(reloadedSettings), restartSettings...) {
+	for _, name := range append(append([]string(nil), reloadedSettings...), restartSettings...) {
 		classified[name] = true
 	}
 	for _, name := range settingNames(reflect.TypeOf(config.Config{})) {
@@ -209,10 +317,10 @@ func TestDocsSayTheDaemonPublishesFloatWindowWhenWaiting(t *testing.T) {
 		t.Fatalf("read README: %v", err)
 	}
 	for _, doc := range []struct{ source, text, want string }{
-		{"README.md", readme, "it is passed through in the daemon's published state for the macOS app to read"},
+		{"README.md", readme, "it reloads this setting and publishes it in its state for the macOS app to read"},
 		{"the config template", config.Template, "it reloads this setting and publishes it in its state for the app to read"},
 	} {
-		if !strings.Contains(doctest.Unwrap(doc.text), doc.want) {
+		if !strings.Contains(unwrapFor(doc.source, doc.text), doc.want) {
 			t.Errorf("%s does not say the daemon publishes float_window_when_waiting; it says only that the daemon does not act on it", doc.source)
 		}
 	}
@@ -240,7 +348,7 @@ func TestDocsSayMorningReminderPendingNeedsARestart(t *testing.T) {
 		{"README.md", readme, "a question already settled by the time an edit arrives"},
 		{"the config template", config.Template, "A reload does not apply this"},
 	} {
-		if !strings.Contains(doctest.Unwrap(doc.text), doc.want) {
+		if !strings.Contains(unwrapFor(doc.source, doc.text), doc.want) {
 			t.Errorf("%s no longer says a reload leaves morning_reminder_pending alone", doc.source)
 		}
 	}

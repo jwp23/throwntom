@@ -82,7 +82,7 @@ func TestASaveLandsOnTheSecondPollThatSeesIt(t *testing.T) {
 // nothing" — the case where applying the file would silently replace the
 // user's durations with defaults.
 func TestEmptyingTheConfigResetsNothing(t *testing.T) {
-	if !strings.Contains(doctest.Unwrap(Template),
+	if !strings.Contains(doctest.UnwrapComments(Template),
 		"An empty file is read as a save still in flight and ignored, so emptying this one resets nothing") {
 		t.Error("the config template no longer says an empty file is ignored")
 	}

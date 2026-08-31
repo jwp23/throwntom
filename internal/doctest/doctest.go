@@ -51,11 +51,15 @@ func repoRoot() (string, error) {
 	}
 }
 
-// Unwrap joins hard-wrapped prose into single lines, dropping the comment
-// marker a wrapped config-template line carries, so a sentence can be looked
-// for without depending on where it happens to wrap.
+// Unwrap joins hard-wrapped prose into a single line, so a sentence can be
+// looked for without depending on where it happens to wrap.
 func Unwrap(text string) string {
-	text = strings.ReplaceAll(text, "\n# ", " ")
-	text = strings.ReplaceAll(text, "\n", " ")
 	return strings.Join(strings.Fields(text), " ")
+}
+
+// UnwrapComments is Unwrap for a file whose prose is a run of comment lines,
+// dropping the marker each wrapped line carries. Markdown keeps its own
+// meaning for "# ", so a document that is not commented out uses Unwrap.
+func UnwrapComments(text string) string {
+	return Unwrap(strings.ReplaceAll(text, "\n# ", " "))
 }

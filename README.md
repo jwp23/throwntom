@@ -271,9 +271,9 @@ open.
 It never takes keyboard focus. Raising a window's level changes the stacking
 order only; taking the keyboard is a separate act the app does not perform, so
 the window cannot interrupt what you are typing — it can only appear in front
-of it. The daemon does nothing with this setting and the terminal UI has no
-window to raise; it is passed through in the daemon's published state for the
-macOS app to read.
+of it. The daemon raises no window of its own: it reloads this setting and
+publishes it in its state for the macOS app to read. The terminal UI has no
+window to raise.
 
 ### `sound_command`
 
