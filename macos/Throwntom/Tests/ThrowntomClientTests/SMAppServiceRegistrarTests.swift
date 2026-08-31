@@ -20,6 +20,24 @@ final class SMAppServiceRegistrarTests: XCTestCase {
     XCTAssertEqual(agent.calls, [.unregister, .register])
   }
 
+  /// The refused unregister is deliberately not thrown when the register that follows succeeds,
+  /// but it is the trace of a stale BTM entry. Registering over one works until it does not, so
+  /// the moment the app learns of it is the only moment there is to record it.
+  func testARefusedUnregisterIsRecordedEvenWhenRegisterSucceeds() throws {
+    let recorder = LogRecorder()
+    let agent = FakeAgentService(
+      status: .enabled,
+      unregisterError: NSError(domain: "SMAppServiceErrorDomain", code: 1),
+    )
+
+    try SMAppServiceRegistrar(agent: agent).ensureAgentRegistered()
+
+    XCTAssertEqual(agent.calls, [.unregister, .register])
+    let entry = try recorder.onlyEntry()
+    XCTAssertEqual(entry.area, .service)
+    XCTAssertEqual(entry.message, "unregister the stale launch agent failed: SMAppServiceErrorDomain 1")
+  }
+
   func testRefusedUnregisterIsReportedWhenRegisterAlsoFails() {
     let agent = FakeAgentService(
       status: .enabled,

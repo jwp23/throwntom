@@ -145,6 +145,7 @@ public final class DaemonClient {
     do {
       try registrar.stopAgent()
     } catch {
+      ClientLog.failed("stop the timer service", in: .service, error: error)
       commandError = "The timer service could not be stopped."
       return
     }
@@ -214,6 +215,9 @@ public final class DaemonClient {
       // it would otherwise be reworded as an unreadable reply and left as a fault note on the very
       // screen the user had just pressed Start on.
       guard !Task.isCancelled else { return }
+      // Below the guard: a cancelled fetch is not a failure, and logging it would fill the log
+      // with an entry for every Stop and Start, which are working as designed.
+      ClientLog.failed("refresh tasks", in: .tasks, error: error)
       lastError = DaemonError.userMessage(for: error)
     }
   }
@@ -302,6 +306,10 @@ public final class DaemonClient {
           return
         }
         retries.recordFailure()
+        // The reason behind "Timer is restarting…", which is the same sentence whether the socket
+        // is missing, the daemon died mid-frame or a frame would not decode. One line per failed
+        // dial, and the backoff is what keeps that from being a flood.
+        ClientLog.failed("read the event stream", in: .daemon, error: error)
         lastError = DaemonError.userMessage(for: error)
         // A real outage matters more than a stale command refusal from before it started.
         commandError = nil
@@ -331,6 +339,7 @@ public final class DaemonClient {
       registrationError = nil
       return true
     } catch {
+      ClientLog.failed("register the launch agent", in: .service, error: error)
       // Names what refused and what to press, because the status line above it can only say the
       // service will not launch. The framework's own error stays out of it for the same reason
       // every other error is reworded here: it names ServiceManagement internals, not a next step.
@@ -354,6 +363,16 @@ public final class DaemonClient {
       commandError = nil
       return result
     } catch {
+      // A request this client itself cancelled is not a refusal the user caused, and
+      // `CancellationError` is not a `DaemonError`, so without this it would be reworded as an
+      // unreadable reply and left on the window as a fault the user did nothing to deserve.
+      //
+      // No caller today can reach it: every one of these runs inside an unstructured `Task` whose
+      // handle is dropped, and those are never cancelled. It guards the shape of the API rather
+      // than a live path — these methods are public, and the first caller to await one from a
+      // cancellable context (a SwiftUI `.task`, as `StatsLoader` already does) would otherwise
+      // reintroduce the fault note. The error is still thrown: the caller's work has to stop.
+      guard !Task.isCancelled else { throw error }
       commandError = DaemonError.userMessage(for: error)
       throw error
     }
