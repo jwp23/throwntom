@@ -38,6 +38,7 @@ final class ShortcutSheetTests: XCTestCase {
   func testTheSheetNamesNoPhaseFromTheDaemonSnapshot() async throws {
     let owing = makeState(phase: .idle, owedStage: DaemonState.Stage(state: .shortBreak, duration: 300))
     let environment = AppEnvironment(transport: try StubTransport(states: [owing]))
+    defer { environment.client.stop() }
     environment.client.start()
     try await waitUntil { environment.client.state?.owedStage != nil }
 
