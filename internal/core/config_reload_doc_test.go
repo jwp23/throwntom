@@ -236,7 +236,13 @@ func TestDocsClassifyEverySetting(t *testing.T) {
 	for _, name := range append(append([]string(nil), reloadedSettings...), restartSettings...) {
 		classified[name] = true
 	}
-	for _, name := range settingNames(reflect.TypeOf(config.Config{})) {
+	settings := settingNames(reflect.TypeOf(config.Config{}))
+	// Without this the loop below would have nothing to check and the test
+	// would pass having asserted nothing.
+	if len(settings) < len(classified) {
+		t.Fatalf("read %d settings off config.Config, fewer than the %d the docs classify", len(settings), len(classified))
+	}
+	for _, name := range settings {
 		if !classified[name] {
 			t.Errorf("config setting %q is documented as neither reloaded nor needing a restart", name)
 		}
