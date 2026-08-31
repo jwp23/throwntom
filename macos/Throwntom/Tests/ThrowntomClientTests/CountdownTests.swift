@@ -11,7 +11,7 @@ final class CountdownTests: XCTestCase {
     XCTAssertEqual(Countdown.formatRemaining(6000), "100:00")
   }
 
-  /// The daemon formats its own copy of this string in Go, where it is never localized, so a
+  /// The TUI renders the same remaining time in Go, where it is never localized, so a
   /// locale-sensitive formatter here would disagree with it. `fi_FI` is known to use a period for
   /// this pattern, so it would catch a regression back to the unlocalized `Duration.TimeFormatStyle`.
   func testFormatRemainingStaysColonSeparatedRegardlessOfSystemLocale() {
