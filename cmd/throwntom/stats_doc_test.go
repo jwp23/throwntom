@@ -1,6 +1,8 @@
 package main
 
 import (
+	"github.com/charmbracelet/lipgloss"
+
 	"regexp"
 	"strconv"
 	"strings"
@@ -17,7 +19,17 @@ import (
 
 // tierRow matches one row of the README's tier table: a name, a range such as
 // "0–2" or "6+", and the glyph.
-var tierRow = regexp.MustCompile(`\|\s*(\w+)\s*\|\s*(\d+)(?:–(\d+)|\+)\s*\|\s*(\S)\s*\|`)
+var tierRow = regexp.MustCompile(`\|\s*(\w+)\s*\|\s*(\d+)(?:–(\d+)|\+)\s*\|\s*(\S)\s*\|\s*(\w+)\s*\|`)
+
+// documentedColors maps the colour names the README's table uses to the theme
+// colours tierMark actually returns. A glyph alone leaves half of every
+// documented row unchecked: swapping two of these in stats_handler.go would
+// make the table wrong with nothing to say so.
+var documentedColors = map[string]lipgloss.TerminalColor{
+	"gray":   colorDim,
+	"tomato": colorTomato,
+	"teal":   colorTeal,
+}
 
 // TestDocumentedTierRangesAreWhatTierMarkDoes reads the README's table and
 // checks every count it covers against tierMark at the documented defaults.
@@ -39,7 +51,8 @@ func TestDocumentedTierRangesAreWhatTierMarkDoes(t *testing.T) {
 			defaults.TierLow, defaults.TierMid)
 	}
 
-	// The open-ended row's upper bound: one past it is still the same tier.
+	// The open-ended row ("6+") has no upper bound to read, so probe a few
+	// counts past its lower one: all of them are still that tier.
 	const beyondTheTable = 3
 	for _, row := range rows {
 		tier, glyph := row[1], row[4]
@@ -53,10 +66,17 @@ func TestDocumentedTierRangesAreWhatTierMarkDoes(t *testing.T) {
 				t.Fatalf("tier %s: unreadable upper bound %q", tier, row[3])
 			}
 		}
+		wantColor, known := documentedColors[row[5]]
+		if !known {
+			t.Fatalf("tier %s: README names the colour %q, which this test cannot match to a theme colour", tier, row[5])
+		}
 		for count := low; count <= high; count++ {
-			got, _ := tierMark(count, defaults.TierLow, defaults.TierMid)
+			got, style := tierMark(count, defaults.TierLow, defaults.TierMid)
 			if got != glyph {
 				t.Errorf("README puts %d in %s (%s); tierMark gives %s", count, tier, glyph, got)
+			}
+			if fg := style.GetForeground(); fg != wantColor {
+				t.Errorf("README colours %d %s (%s); tierMark gives %v", count, row[5], tier, fg)
 			}
 		}
 	}
@@ -72,15 +92,20 @@ func TestTemplateStatesTheStrictTierBoundaries(t *testing.T) {
 		t.Errorf("the config template no longer says %q", claim)
 	}
 
+	// Probed at the thresholds themselves rather than at 2 and 5, so a change
+	// of defaults reports the boundary that broke instead of blaming the one
+	// that did not.
 	defaults := config.Default().Stats
-	light, _ := tierMark(2, defaults.TierLow, defaults.TierMid)
-	moderate, _ := tierMark(5, defaults.TierLow, defaults.TierMid)
-	full, _ := tierMark(6, defaults.TierLow, defaults.TierMid)
+	light, _ := tierMark(defaults.TierLow, defaults.TierLow, defaults.TierMid)
+	moderate, _ := tierMark(defaults.TierMid, defaults.TierLow, defaults.TierMid)
+	full, _ := tierMark(defaults.TierMid+1, defaults.TierLow, defaults.TierMid)
 
 	if light == moderate {
-		t.Errorf("a day of 2 marks %s, the same as a day of 5: tier_low is no longer strict", light)
+		t.Errorf("a day of %d marks %s, the same as a day of %d: tier_low is no longer strict",
+			defaults.TierLow, light, defaults.TierMid)
 	}
 	if moderate == full {
-		t.Errorf("a day of 5 marks %s, the same as a day of 6: tier_mid is no longer strict", moderate)
+		t.Errorf("a day of %d marks %s, the same as a day of %d: tier_mid is no longer strict",
+			defaults.TierMid, moderate, defaults.TierMid+1)
 	}
 }

@@ -179,9 +179,9 @@ var reloadSentence = regexp.MustCompile(`(?:daemon reloads|Reloading covers) ([^
 
 // documentedReloadList reads the list of settings a document promises are
 // reloaded. Backticks are the README's markup, not part of a setting's name.
-func documentedReloadList(t *testing.T, doc, source string) []string {
+func documentedReloadList(t *testing.T, prose, source string) []string {
 	t.Helper()
-	m := reloadSentence.FindStringSubmatch(strings.ReplaceAll(unwrapFor(source, doc), "`", ""))
+	m := reloadSentence.FindStringSubmatch(strings.ReplaceAll(prose, "`", ""))
 	if m == nil {
 		t.Fatalf("%s no longer states which settings the daemon reloads", source)
 	}
@@ -195,14 +195,16 @@ func documentedReloadList(t *testing.T, doc, source string) []string {
 	return names
 }
 
-// unwrapFor joins a document's wrapped prose, dropping comment markers only
-// for the config template, whose prose is commented out.
-func unwrapFor(source, text string) string {
-	if strings.Contains(source, "template") {
-		return doctest.UnwrapComments(text)
-	}
-	return doctest.Unwrap(text)
+// doc is one document this file holds to the code, carrying how its prose is
+// unwrapped: the config template's is commented out, the README's is not.
+// Naming the function here keeps that off the display string in source.
+type doc struct {
+	source string
+	text   string
+	unwrap func(string) string
 }
+
+func (d doc) prose() string { return d.unwrap(d.text) }
 
 func sorted(names []string) []string {
 	out := append([]string(nil), names...)
@@ -218,12 +220,12 @@ func TestDocsPromiseTheSettingsApplyConfigReloads(t *testing.T) {
 		t.Fatalf("read README: %v", err)
 	}
 	want := sorted(reloadedSettings)
-	for _, doc := range []struct{ source, text string }{
-		{"README.md", readme},
-		{"the config template", config.Template},
+	for _, d := range []doc{
+		{"README.md", readme, doctest.Unwrap},
+		{"the config template", config.Template, doctest.UnwrapComments},
 	} {
-		if got := documentedReloadList(t, doc.text, doc.source); !reflect.DeepEqual(got, want) {
-			t.Errorf("%s promises %v is reloaded, ApplyConfig reloads %v", doc.source, got, want)
+		if got := documentedReloadList(t, d.prose(), d.source); !reflect.DeepEqual(got, want) {
+			t.Errorf("%s promises %v is reloaded, ApplyConfig reloads %v", d.source, got, want)
 		}
 	}
 }
@@ -288,7 +290,11 @@ func TestEverySettingDocumentedAsReloadedIsApplied(t *testing.T) {
 			c.execute(cmdStart)
 			cfg.Pomodoro.WorkMinutes = 50
 			c.ApplyConfig(*cfg)
-			if remaining := time.Until(*c.State().PhaseEndAt); remaining < 40*time.Minute {
+			endAt := c.State().PhaseEndAt
+			if endAt == nil {
+				t.Fatal("a running phase publishes no end time, so the reloaded duration cannot be read")
+			}
+			if remaining := time.Until(*endAt); remaining < 40*time.Minute {
 				t.Fatalf("the running phase kept its old duration: %s left", remaining)
 			}
 		},
@@ -358,12 +364,15 @@ func TestDocsSayTheDaemonPublishesFloatWindowWhenWaiting(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read README: %v", err)
 	}
-	for _, doc := range []struct{ source, text, want string }{
-		{"README.md", readme, "it reloads this setting and publishes it in its state for the macOS app to read"},
-		{"the config template", config.Template, "it reloads this setting and publishes it in its state for the app to read"},
+	for _, d := range []struct {
+		doc
+		want string
+	}{
+		{doc{"README.md", readme, doctest.Unwrap}, "it reloads this setting and publishes it in its state for the macOS app to read"},
+		{doc{"the config template", config.Template, doctest.UnwrapComments}, "it reloads this setting and publishes it in its state for the app to read"},
 	} {
-		if !strings.Contains(unwrapFor(doc.source, doc.text), doc.want) {
-			t.Errorf("%s does not say the daemon publishes float_window_when_waiting; it says only that the daemon does not act on it", doc.source)
+		if !strings.Contains(d.prose(), d.want) {
+			t.Errorf("%s does not say the daemon publishes float_window_when_waiting; it says only that the daemon does not act on it", d.source)
 		}
 	}
 
@@ -386,12 +395,15 @@ func TestDocsSayMorningReminderPendingNeedsARestart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read README: %v", err)
 	}
-	for _, doc := range []struct{ source, text, want string }{
-		{"README.md", readme, "a question already settled by the time an edit arrives"},
-		{"the config template", config.Template, "A reload does not apply this"},
+	for _, d := range []struct {
+		doc
+		want string
+	}{
+		{doc{"README.md", readme, doctest.Unwrap}, "a question already settled by the time an edit arrives"},
+		{doc{"the config template", config.Template, doctest.UnwrapComments}, "A reload does not apply this"},
 	} {
-		if !strings.Contains(unwrapFor(doc.source, doc.text), doc.want) {
-			t.Errorf("%s no longer says a reload leaves morning_reminder_pending alone", doc.source)
+		if !strings.Contains(d.prose(), d.want) {
+			t.Errorf("%s no longer says a reload leaves morning_reminder_pending alone", d.source)
 		}
 	}
 
