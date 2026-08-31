@@ -9,8 +9,6 @@ let mainWindowID = "main"
 /// optional panel. Everything it shows is decided by `MainWindowContent`.
 struct MainWindow: View {
 
-  // MARK: Internal
-
   /// The gap between the window's stacked sections.
   static let sectionSpacing: CGFloat = 12
 
@@ -101,13 +99,6 @@ struct MainWindow: View {
         environment.windowModel.isEnteringSnooze = false
       }
     }
-    // A service going down transforms the whole window at once — the chips go, the panel closes,
-    // the title and the sentence change. A sighted user sees that happen; without this a VoiceOver
-    // user is told nothing and the likeliest reading is that the app has stopped responding
-    // (throwntom-07o). `ServiceStatus.announcement` decides both the wording and the silences.
-    .onChange(of: environment.client.serviceStatus, initial: true) { _, current in
-      announce(current)
-    }
     .onChange(of: environment.client.tasks, initial: true) { syncModel() }
     .onChange(of: environment.client.state?.focusedTaskIds, initial: true) { syncModel() }
     .task { await trackAuthorization() }
@@ -123,16 +114,6 @@ struct MainWindow: View {
     }
   }
 
-  /// Speaks a change of service situation to assistive technology. `.announcement` is the
-  /// platform's own mechanism for a change that is not a navigation: it does not move VoiceOver's
-  /// cursor, so a user reading the focus list is told the service went down without losing their
-  /// place. What to say — and when to say nothing — is `ServiceAnnouncer`.
-  @MainActor
-  func announce(_ status: ServiceStatus) {
-    guard let spoken = announcer.announcement(for: status) else { return }
-    AccessibilityNotification.Announcement(SpokenLine.attributed(spoken)).post()
-  }
-
   /// Copies the daemon's task list and focus into the model the list and menus read from.
   func syncModel() {
     environment.model.sync(tasks: environment.client.tasks, focusedTaskIDs: environment.client.state?.focusedTaskIds)
@@ -146,26 +127,4 @@ struct MainWindow: View {
     }
   }
 
-  // MARK: Private
-
-  /// Remembers which service situation was last worth speaking about. Held by the window rather
-  /// than the client because it is a property of what this window has already said, not of the
-  /// service: a second window would have its own, and the client has no business tracking either.
-  @State private var announcer = ServiceAnnouncer()
-
-}
-
-// MARK: - SpokenLine
-
-/// How an announcement is dressed before it is posted.
-enum SpokenLine {
-  /// A default-priority announcement is dropped when VoiceOver is already mid-utterance, and
-  /// these are the lines that must not be dropped: the window has just lost its timer service and
-  /// there is no other signal that it has. High priority interrupts instead — the right trade for
-  /// an event this consequential, and `ServiceAnnouncer` is what keeps it rare enough to be one.
-  static func attributed(_ text: String) -> AttributedString {
-    var line = AttributedString(text)
-    line.accessibilitySpeechAnnouncementPriority = .high
-    return line
-  }
 }

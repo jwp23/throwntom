@@ -88,6 +88,21 @@ public enum ServiceStatus: Hashable, Sendable {
     return current.explanation.map { "\(line) \($0)" } ?? line
   }
 
+  /// What to speak when the service starts being dialled, worded for the situation the dial left
+  /// behind (throwntom-92i).
+  ///
+  /// The two waits are different things and the reader is owed which one they are in, the same
+  /// distinction `ConnectionStatus.reachingText` draws for the eye. Leaving a running service is a
+  /// reconnection, and matches the `(reconnecting)` the window has just marked its title with.
+  /// Leaving a service that was off — the user has just pressed Start Timer Service — is a first
+  /// attempt, and calling that "reconnecting" would be false.
+  ///
+  /// Total rather than optional: every dial has a wait to report, and the question of whether this
+  /// moment is the start of one belongs to `ServiceAnnouncer`.
+  public static func dialLine(from previous: ServiceStatus) -> String {
+    previous == .running ? "Reconnecting." : "Starting the timer service."
+  }
+
   /// Reads the client's connection and launch bookkeeping as one of the five situations.
   ///
   /// The order is the precedence. A stop is the user's own decision and outranks whatever the
@@ -126,56 +141,4 @@ public enum ServiceStatus: Hashable, Sendable {
          .reaching: nil
     }
   }
-}
-
-// MARK: - ServiceAnnouncer
-
-/// Turns the stream of service situations into the things worth saying about them.
-///
-/// The wording is `ServiceStatus.announcement(from:to:)`; what this adds is memory, and the memory
-/// is the whole difficulty. Every recovery reaches `.running` through `.reaching`, so a rule
-/// reading only the immediately previous value cannot tell a Start the user pressed and that
-/// worked — which they are owed, since silence after their own press reads as a control that did
-/// nothing — from a blink of the socket, which would be an interruption mid-pomodoro. Remembering
-/// the last *settled* situation separates them: the blip returns to the situation it left and says
-/// nothing, the Start does not and says so.
-public struct ServiceAnnouncer: Sendable {
-
-  // MARK: Lifecycle
-
-  /// Empty on purpose, and required: Swift gives a public struct only an internal
-  /// memberwise initialiser, so `ThrowntomUI` could not construct one without this.
-  ///
-  /// There is nothing to set. The one stored property, `settled`, must start nil, and
-  /// nil is what it already means: no situation has been shown yet, so the next one is
-  /// the baseline and is not spoken. Taking a status here would make the caller assert
-  /// a starting point it does not have.
-  public init() {
-    // Nothing to set: `settled` starts nil, which is already the meaning wanted.
-  }
-
-  // MARK: Public
-
-  /// What to speak now the service is in `status`, or nil for nothing worth interrupting for.
-  ///
-  /// The first situation it is shown is the baseline and is never spoken: that one is the window
-  /// coming up, which the reader is already reading, not something that changed under them.
-  public mutating func announcement(for status: ServiceStatus) -> String? {
-    guard let settled else {
-      settled = status
-      return nil
-    }
-    let spoken = ServiceStatus.announcement(from: settled, to: status)
-    // Dialling is never what a later change is measured against: it is the step every recovery
-    // passes through, so recording it would erase the absence the recovery is recovering from.
-    if status != .reaching {
-      self.settled = status
-    }
-    return spoken
-  }
-
-  // MARK: Private
-
-  private var settled: ServiceStatus?
-
 }

@@ -14,6 +14,7 @@ final class AppEnvironment {
     authorizer: NotificationAuthorizer = SystemNotificationAuthorizer(),
     presenter: ReminderPresenter = SystemReminderPresenter(),
     intents: ServiceIntentStore = MemoryServiceIntentStore(),
+    speaker: SpeechAnnouncer = SystemSpeechAnnouncer(),
   ) {
     let registrar = SMAppServiceRegistrar()
     let client = DaemonClient(transport: transport, registrar: registrar, intents: intents)
@@ -21,6 +22,7 @@ final class AppEnvironment {
     self.ticker = ticker ?? Ticker()
     self.client = client
     responder = ReminderResponder(client: client, authorizer: authorizer, presenter: presenter)
+    announcements = AnnouncementResponder(client: client, speaker: speaker)
   }
 
   // MARK: Internal
@@ -29,6 +31,9 @@ final class AppEnvironment {
   let ticker: Ticker
   let registrar: SMAppServiceRegistrar
   let responder: ReminderResponder
+  /// What tells assistive technology the timer service went down or came back. Held here rather
+  /// than by the window so it follows the client for as long as the app runs.
+  let announcements: AnnouncementResponder
   let model = TaskWindowModel()
   let windowModel = WindowModel()
 
@@ -42,10 +47,15 @@ final class AppEnvironment {
     )
   }
 
-  /// Starts the event stream and the countdown clock.
+  /// Starts the event stream, the countdown clock, and the spoken account of the service.
+  ///
+  /// Announcing belongs here rather than with the reminder responder below: it reaches for nothing
+  /// a process without an app bundle is refused, and starting it with the stream is what keeps the
+  /// baseline honest — the first situation the client reports is the one the app came up in.
   func start() {
     client.start()
     ticker.start()
+    announcements.start()
   }
 
   /// Claims the notification delegate and begins raising the reminder banner. Kept apart from
