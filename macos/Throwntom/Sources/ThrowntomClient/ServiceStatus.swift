@@ -139,7 +139,7 @@ public enum ServiceStatus: Hashable, Sendable {
 /// nothing — from a blink of the socket, which would be an interruption mid-pomodoro. Remembering
 /// the last *settled* situation separates them: the blip returns to the situation it left and says
 /// nothing, the Start does not and says so.
-public struct ServiceAnnouncer {
+public struct ServiceAnnouncer: Sendable {
 
   // MARK: Lifecycle
 

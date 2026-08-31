@@ -100,8 +100,10 @@ struct MainWindowContent: Equatable {
 
   // MARK: Private
 
-  /// Resolved once at build time, so the chip row, the menu and the cheat sheet cannot word one
-  /// control three ways.
+  /// Resolved once at build time so the chip row cannot drift from the Timer menu, which asks
+  /// `TimerActions.startTitle(for:)` the same question off the same gated state. The cheat sheet
+  /// asks it with no state at all and so always says the bare verb, deliberately: it is a
+  /// reference to what is bound, not a report of what is live.
   private let startTitle: String
 
   /// The phase's own name, except while the user has ended the day: the daemon is idle then, and

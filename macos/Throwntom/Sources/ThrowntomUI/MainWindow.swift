@@ -9,6 +9,8 @@ let mainWindowID = "main"
 /// optional panel. Everything it shows is decided by `MainWindowContent`.
 struct MainWindow: View {
 
+  // MARK: Internal
+
   /// The gap between the window's stacked sections.
   static let sectionSpacing: CGFloat = 12
 
@@ -20,11 +22,6 @@ struct MainWindow: View {
   static let serviceChipGap: CGFloat = 12
 
   let environment: AppEnvironment
-
-  /// Remembers which service situation was last worth speaking about. Held by the window rather
-  /// than the client because it is a property of what this window has already said, not of the
-  /// service: a second window would have its own, and the client has no business tracking either.
-  @State var announcer = ServiceAnnouncer()
 
   /// Everything the window draws for this moment. A property rather than a `let` in `body` so
   /// `escape()` can ask what is actually on screen instead of re-deriving the rule. Named apart
@@ -137,6 +134,13 @@ struct MainWindow: View {
       environment.model.cancelEdit()
     }
   }
+
+  // MARK: Private
+
+  /// Remembers which service situation was last worth speaking about. Held by the window rather
+  /// than the client because it is a property of what this window has already said, not of the
+  /// service: a second window would have its own, and the client has no business tracking either.
+  @State private var announcer = ServiceAnnouncer()
 
 }
 
