@@ -51,6 +51,14 @@ started from no prior state, the single case the guard covered.
 The `NSSound` chime is the only audio path on macOS. Neither reminder banner
 carries a sound.
 
+> Scope noted 2026-08-31: this decision is about REMINDER audio, which is what
+> the context above reasons over — a banner sound and a ring chime doubling on
+> ring one. The `NSSound.beep()` on a failed timer verb
+> (`DaemonDispatch.swift`) is a different event: feedback on a command the user
+> just issued, not a reminder, and the two cannot coincide. It predates this
+> decision and was never weighed here. The sentence above is not a licence to
+> delete it. Nothing decided is changed by saying so.
+
 1. `ReminderAlert`'s shared builder sets no `content.sound`. Nothing audible
    is lost: the chime sounds ring one at the moment the banner posts.
 2. `chimeForNewRings` keys off a ring count that starts at zero rather than an
