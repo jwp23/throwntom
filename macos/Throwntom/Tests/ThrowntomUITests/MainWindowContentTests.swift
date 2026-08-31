@@ -222,13 +222,24 @@ final class MainWindowContentTests: XCTestCase {
   /// A VoiceOver user and a sighted user must be told the same thing, so the label is built from
   /// the strings already on screen rather than from a second copy of them. Two wordings drift.
   func testTheHeadlineLabelIsTheTitleAndTheLineUnderIt() {
-    for state in [makeState(phase: .idle), makeState(phase: .idle, dayEnded: true), makeState(phase: .work)] {
+    let states = [
+      makeState(phase: .idle),
+      makeState(phase: .idle, dayEnded: true),
+      makeState(phase: .work, nextStage: DaemonState.Stage(state: .shortBreak, duration: 300)),
+    ]
+    var withAStageAfterIt = 0
+
+    for state in states {
       let c = content(state)
       XCTAssertTrue(c.spokenHeadline.hasPrefix(c.title), "\"\(c.spokenHeadline)\" does not start with \"\(c.title)\"")
-      if let next = c.nextStage {
-        XCTAssertTrue(c.spokenHeadline.hasSuffix(next), c.spokenHeadline)
-      }
+      guard let next = c.nextStage else { continue }
+      withAStageAfterIt += 1
+      XCTAssertTrue(c.spokenHeadline.hasSuffix(next), c.spokenHeadline)
     }
+
+    // Without this the loop above would pass having skipped its second assertion entirely, which
+    // is how a test comes to assert nothing while still failing when the code is reverted.
+    XCTAssertEqual(withAStageAfterIt, 1, "no case exercised the half of the label that follows the title")
   }
 
   /// A screen with nothing counting has a title and nothing else under it, and the label must not
