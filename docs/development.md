@@ -118,9 +118,9 @@ a `ServiceManagement` domain is not something a reader can act on. What the fail
 goes to Apple's unified log instead, so there is somewhere to look afterwards.
 
 Everything the app records is under the subsystem `com.jwp23.throwntom`, in one of five
-categories: `daemon` (requests and the event stream), `service` (launchd and Login Items),
-`reminders` (notification permission and banners), `tasks` (the task list and its editor) and
-`stats` (the panel's one fetch). Read the last hour of all of it:
+categories: `daemon` (requests and the event stream), `service` (launchd, Login Items and other
+requests to macOS), `reminders` (notification permission and banners), `tasks` (the task list and
+its editor) and `stats` (the panel's one fetch). Read the last hour of all of it:
 
 ```bash
 /usr/bin/log show --last 1h --predicate 'subsystem == "com.jwp23.throwntom"' --style compact

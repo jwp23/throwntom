@@ -363,10 +363,15 @@ public final class DaemonClient {
       commandError = nil
       return result
     } catch {
-      // Same reason `refreshTasks()` guards: a request this client itself cancelled is not a
-      // refusal the user caused, and `CancellationError` is not a `DaemonError`, so it would be
-      // reworded as an unreadable reply and left on the window as a fault the user did nothing to
-      // deserve. The error is still thrown — the caller's own work was cancelled and has to stop.
+      // A request this client itself cancelled is not a refusal the user caused, and
+      // `CancellationError` is not a `DaemonError`, so without this it would be reworded as an
+      // unreadable reply and left on the window as a fault the user did nothing to deserve.
+      //
+      // No caller today can reach it: every one of these runs inside an unstructured `Task` whose
+      // handle is dropped, and those are never cancelled. It guards the shape of the API rather
+      // than a live path — these methods are public, and the first caller to await one from a
+      // cancellable context (a SwiftUI `.task`, as `StatsLoader` already does) would otherwise
+      // reintroduce the fault note. The error is still thrown: the caller's work has to stop.
       guard !Task.isCancelled else { throw error }
       commandError = DaemonError.userMessage(for: error)
       throw error

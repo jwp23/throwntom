@@ -20,9 +20,9 @@ final class StatsLoader {
     do {
       outcome = .loaded(StatsRows.rows(try await client.stats()))
     } catch {
-      // A fetch this panel itself cancelled is not stats that failed to load: closing the panel
-      // cancels the task this runs in, and the outcome would otherwise be left reading as a
-      // failure for the next time the panel opens on the same loader.
+      // A fetch this panel itself cancelled is not stats that failed to load. This runs from the
+      // `.task` modifier below, which SwiftUI cancels when the panel goes away, so the outcome
+      // would otherwise be left reading as a failure for the next time the panel opens.
       guard !Task.isCancelled else { return }
       ClientLog.failed("load the stats", in: .stats, error: error)
       // `stats()` is the one request a view makes for itself rather than through the client's

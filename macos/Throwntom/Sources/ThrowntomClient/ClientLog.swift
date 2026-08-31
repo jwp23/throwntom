@@ -18,7 +18,7 @@ public enum ClientLog {
   public enum Area: String, CaseIterable, Sendable {
     /// Requests to the daemon and the event stream that carries its state.
     case daemon
-    /// launchd and Login Items: everything ServiceManagement is asked to do.
+    /// launchd, Login Items, and anything else macOS is asked to do on the app's behalf.
     case service
     /// Notification authorization and the reminder banners themselves.
     case reminders
@@ -46,12 +46,23 @@ public enum ClientLog {
     sink(Entry(area: area, message: "\(operation) failed: \(describe(error))"))
   }
 
+  /// Records a failure that arrives as a refusal rather than an `Error` — a framework call that
+  /// answers `false` and says no more than that. `reason` is a fixed literal at every call site,
+  /// for the same reason `describe` admits none of the error's own words.
+  public static func refused(_ operation: String, in area: Area, reason: String) {
+    sink(Entry(area: area, message: "\(operation) failed: \(reason)"))
+  }
+
   // MARK: Internal
 
   /// Where a line goes. Replaced only by tests, which is the one way to see that a catch site
   /// recorded anything: the unified log is not readable from inside the process that wrote it.
   /// Internal rather than public: redirecting the whole diagnostic channel is not something a
   /// client of this module should be able to do.
+  /// A `Logger` is built per line rather than cached per category. `os_log_create` is cached by
+  /// the system, and the alternative — a dictionary keyed by `Area` — returns an optional, which
+  /// would drop a line silently on a lookup that cannot fail. That is the wrong trade for a
+  /// channel whose whole job is not losing things.
   nonisolated(unsafe) static var sink: @Sendable (Entry) -> Void = { entry in
     Logger(subsystem: subsystem, category: entry.area.rawValue)
       // `.public` because nothing here is private: `describe` admits no free text but our own
