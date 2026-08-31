@@ -64,9 +64,42 @@ final class TimerActionsTests: XCTestCase {
     XCTAssertEqual(TimerActions.pauseOrResume(for: nil), .pause, "no state yet reads as not paused")
   }
 
+  /// throwntom-46y. Stop is a suspend, so an idle timer can owe the break it earned: the daemon
+  /// says which in `owed_stage`, and without reading it the chip says Start over a window whose
+  /// title reads Idle and cannot say which phase the press begins.
+  func testStartNamesThePhaseAnIdleStartWouldEnter() {
+    XCTAssertEqual(
+      TimerActions.startTitle(for: state(.idle, owedStage: DaemonState.Stage(state: .shortBreak, duration: 300))),
+      "Start Short break",
+    )
+    XCTAssertEqual(
+      TimerActions.startTitle(for: state(.idle, owedStage: DaemonState.Stage(state: .work, duration: 1500))),
+      "Start Pomodoro",
+    )
+  }
+
+  /// The daemon publishes an owed stage only while idle, and a client with no state at all has
+  /// nothing to name. Both fall back to the plain verb rather than inventing a phase.
+  func testStartIsThePlainVerbWhenNothingIsOwed() {
+    XCTAssertEqual(TimerActions.startTitle(for: state(.work)), TimerAction.start.title)
+    XCTAssertEqual(TimerActions.startTitle(for: nil), TimerAction.start.title)
+  }
+
+  /// An ended day still owes a phase, and Start is still offered there (`available(for:)`), so the
+  /// title has to answer on that screen too.
+  func testAnEndedDayStillNamesWhatStartWouldBegin() {
+    let ended = state(.idle, dayEnded: true, owedStage: DaemonState.Stage(state: .work, duration: 1500))
+    XCTAssertEqual(TimerActions.startTitle(for: ended), "Start Pomodoro")
+  }
+
   // MARK: Private
 
-  private func state(_ phase: DaemonState.Phase, morningPending: Bool = false) -> DaemonState {
+  private func state(
+    _ phase: DaemonState.Phase,
+    morningPending: Bool = false,
+    dayEnded: Bool = false,
+    owedStage: DaemonState.Stage? = nil,
+  ) -> DaemonState {
     DaemonState(
       state: phase,
       phaseEndAt: nil,
@@ -76,12 +109,13 @@ final class TimerActionsTests: XCTestCase {
       workSessionsInBlock: 0,
       longBreakEvery: 4,
       nextStage: nil,
+      owedStage: owedStage,
       morningPending: morningPending,
       snoozeUntil: nil,
       statusLine: "",
       focusedTaskIds: [],
       reminderRings: 0,
-      dayEnded: false,
+      dayEnded: dayEnded,
       floatWindowWhenWaiting: false,
     )
   }

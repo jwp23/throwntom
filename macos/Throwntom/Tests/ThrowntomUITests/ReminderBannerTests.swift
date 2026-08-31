@@ -191,7 +191,7 @@ final class ReminderBannerTests: XCTestCase {
 
   // MARK: Private
 
-  private let shortBreak = DaemonState.NextStage(state: .shortBreak, duration: 300)
+  private let shortBreak = DaemonState.Stage(state: .shortBreak, duration: 300)
   private let deliverable = ReminderAuthorization()
 
   private func decide(

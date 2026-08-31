@@ -288,7 +288,11 @@ final class RecordingRegistrar: LaunchAgentRegistrar, @unchecked Sendable {
 
 /// A daemon state document with everything but the phase left at its resting value, so a test
 /// names only the field it is about.
-func makeClientState(phase: DaemonState.Phase = .idle, dayEnded: Bool = false) -> DaemonState {
+func makeClientState(
+  phase: DaemonState.Phase = .idle,
+  dayEnded: Bool = false,
+  owedStage: DaemonState.Stage? = nil,
+) -> DaemonState {
   DaemonState(
     state: phase,
     phaseEndAt: nil,
@@ -298,6 +302,7 @@ func makeClientState(phase: DaemonState.Phase = .idle, dayEnded: Bool = false) -
     workSessionsInBlock: 0,
     longBreakEvery: 4,
     nextStage: nil,
+    owedStage: owedStage,
     morningPending: false,
     snoozeUntil: nil,
     statusLine: phase.displayName,

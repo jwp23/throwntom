@@ -33,7 +33,7 @@ struct ActionChips: View {
   /// asserted on directly instead of only through the (untestable) rendering pass.
   func chip(for action: TimerAction) -> Chip {
     Chip(
-      title: action.title,
+      title: content.title(for: action),
       hint: action.shortcutHint,
       isPrimary: action == content.primaryChip,
       scheme: content.scheme,

@@ -120,7 +120,9 @@ removed after the lock is won.
 `awaiting_confirm`. `owed_stage` is what `start` would enter, and is present
 only while idle: stop suspends the cycle rather than abandoning it, so an idle
 timer can still owe the break it earned. It is what lets a client showing a
-Start control name the phase that control will begin; no client reads it yet.
+Start control name the phase that control will begin: the macOS window and
+Timer menu read it through `TimerActions.startTitle(for:)`, so ⌘R and the chip
+read `Start Short break` rather than a bare `Start`.
 
 `snooze_until` is the morning-reminder snooze deadline (null when no
 morning snooze is active). `status_line` is the same string the TUI shows; the core owns
@@ -251,9 +253,13 @@ the arm curves and rotation over 250 ms, matching the ground colour
 change. Pose changes do not animate under Reduce Motion either. Paused
 freezes everything.
 
-Before the daemon has sent state, and while reconnecting, the same
-layout renders on a neutral dark ground with the `ConnectionStatus`
-placeholder in the header; the window never goes blank.
+With no phase in hand — before the daemon has ever sent state, and once a
+retained phase has been dropped — the same layout renders on a neutral dark
+ground with the `ConnectionStatus` line in the header; the window never goes
+blank. A reconnect that still holds a phase is the other case: the phase, its
+ground, its countdown and its verbs all stay, because that phase is still
+counting, and only the title changes, to `<Phase> (reconnecting)`, so the
+window does not read as connected while it is dialling.
 
 ### Attention
 

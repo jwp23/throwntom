@@ -1,5 +1,7 @@
 import Foundation
 
+// MARK: - ServiceStatus
+
 /// Whether the timer service is there, and when it is not, why not. The three absent readings are
 /// deliberately separate values: a service the user switched off, a service launchd would not
 /// launch, and a service still being dialled are three different situations, and the reader's next
@@ -63,6 +65,29 @@ public enum ServiceStatus: Hashable, Sendable {
     }
   }
 
+  /// What to speak to assistive technology when the service moves from one situation to another,
+  /// or nil where the move is not worth interrupting for.
+  ///
+  /// The wording only. Which pairs actually reach here is `ServiceAnnouncer`'s business, and it
+  /// never passes the same situation twice or a blip's return, so this does not have to know what
+  /// a blip is.
+  ///
+  /// Arriving at dialling says nothing: it is transient, and the window has said so itself by
+  /// marking the title. Arriving from it says nothing either, which is the cold-start case —
+  /// `ServiceAnnouncer` only ever passes `.reaching` as `previous` for a window that came up
+  /// dialling, and a service that was never reported missing is not a recovery to report.
+  ///
+  /// The sentence is the window's own title and explanation, not a second wording: a VoiceOver
+  /// user and a sighted user must be told the same thing, and two wordings drift apart.
+  public static func announcement(from previous: ServiceStatus, to current: ServiceStatus) -> String? {
+    guard previous != current else { return nil }
+    if current == .running {
+      return previous == .reaching ? nil : "Timer service running."
+    }
+    guard let line = current.spokenLine else { return nil }
+    return current.explanation.map { "\(line) \($0)" } ?? line
+  }
+
   /// Reads the client's connection and launch bookkeeping as one of the five situations.
   ///
   /// The order is the precedence. A stop is the user's own decision and outranks whatever the
@@ -86,4 +111,62 @@ public enum ServiceStatus: Hashable, Sendable {
     }
     return startStalled ? .notAnswering : .reaching
   }
+
+  // MARK: Private
+
+  /// The window's own title for this situation, as a sentence. Only the three settled absences
+  /// have one: `.running` is announced by `announcement` in its own words and `.reaching` is never
+  /// announced at all.
+  private var spokenLine: String? {
+    switch self {
+    case .stopped: "Timer service stopped."
+    case .launchRefused: "Timer service can’t launch."
+    case .notAnswering: "Timer service isn’t answering."
+    case .running,
+         .reaching: nil
+    }
+  }
+}
+
+// MARK: - ServiceAnnouncer
+
+/// Turns the stream of service situations into the things worth saying about them.
+///
+/// The wording is `ServiceStatus.announcement(from:to:)`; what this adds is memory, and the memory
+/// is the whole difficulty. Every recovery reaches `.running` through `.reaching`, so a rule
+/// reading only the immediately previous value cannot tell a Start the user pressed and that
+/// worked — which they are owed, since silence after their own press reads as a control that did
+/// nothing — from a blink of the socket, which would be an interruption mid-pomodoro. Remembering
+/// the last *settled* situation separates them: the blip returns to the situation it left and says
+/// nothing, the Start does not and says so.
+public struct ServiceAnnouncer: Sendable {
+
+  // MARK: Lifecycle
+
+  public init() { }
+
+  // MARK: Public
+
+  /// What to speak now the service is in `status`, or nil for nothing worth interrupting for.
+  ///
+  /// The first situation it is shown is the baseline and is never spoken: that one is the window
+  /// coming up, which the reader is already reading, not something that changed under them.
+  public mutating func announcement(for status: ServiceStatus) -> String? {
+    guard let settled else {
+      settled = status
+      return nil
+    }
+    let spoken = ServiceStatus.announcement(from: settled, to: status)
+    // Dialling is never what a later change is measured against: it is the step every recovery
+    // passes through, so recording it would erase the absence the recovery is recovering from.
+    if status != .reaching {
+      self.settled = status
+    }
+    return spoken
+  }
+
+  // MARK: Private
+
+  private var settled: ServiceStatus?
+
 }
