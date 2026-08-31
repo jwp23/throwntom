@@ -27,5 +27,13 @@
 .beads-credential-key
 .beads/proxieddb/
 
+# The interaction log is a passive export; the Dolt database is the source of
+# truth and syncs over refs/dolt/data. Tracking it made every branch conflict
+# server-side: .gitattributes marks it merge=union, which resolves locally but
+# GitHub does not apply merge drivers when it computes mergeability, and GitHub
+# does not run pull_request workflows on a conflicted PR. CI was silently
+# skipped on most PRs as a result (throwntom-80k).
+.beads/interactions.jsonl
+
 # brainstorming visual-companion mockups
 .claude/brainstorm/
