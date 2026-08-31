@@ -198,6 +198,36 @@ func assertPolicy(t *testing.T, c *Core, want reminder.Policy) {
 	}
 }
 
+// TestDocsSayTheDaemonPublishesFloatWindowWhenWaiting guards the one setting
+// the daemon carries without acting on. Saying only that the daemon does
+// nothing with it contradicts the same document's reload list and hides the
+// reason it is reloaded at all: the state it publishes is where the macOS app
+// reads it.
+func TestDocsSayTheDaemonPublishesFloatWindowWhenWaiting(t *testing.T) {
+	readme, err := doctest.Read("README.md")
+	if err != nil {
+		t.Fatalf("read README: %v", err)
+	}
+	for _, doc := range []struct{ source, text, want string }{
+		{"README.md", readme, "it is passed through in the daemon's published state for the macOS app to read"},
+		{"the config template", config.Template, "it reloads this setting and publishes it in its state for the app to read"},
+	} {
+		if !strings.Contains(doctest.Unwrap(doc.text), doc.want) {
+			t.Errorf("%s does not say the daemon publishes float_window_when_waiting; it says only that the daemon does not act on it", doc.source)
+		}
+	}
+
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	cfg.FloatWindowWhenWaiting = true
+	c := newCore(cfg, noopNotifier{})
+	defer c.Stop()
+
+	if !c.State().FloatWindowWhenWaiting {
+		t.Fatal("the daemon's published state does not carry float_window_when_waiting")
+	}
+}
+
 // TestDocsSayMorningReminderPendingNeedsARestart pairs the one restart-only
 // setting the core holds with the behaviour: a reload must leave it alone,
 // because start-up has already answered the question it asks.
