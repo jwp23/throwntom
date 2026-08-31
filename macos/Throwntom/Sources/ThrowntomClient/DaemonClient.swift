@@ -354,6 +354,11 @@ public final class DaemonClient {
       commandError = nil
       return result
     } catch {
+      // Same reason `refreshTasks()` guards: a request this client itself cancelled is not a
+      // refusal the user caused, and `CancellationError` is not a `DaemonError`, so it would be
+      // reworded as an unreadable reply and left on the window as a fault the user did nothing to
+      // deserve. The error is still thrown — the caller's own work was cancelled and has to stop.
+      guard !Task.isCancelled else { throw error }
       commandError = DaemonError.userMessage(for: error)
       throw error
     }

@@ -20,6 +20,10 @@ final class StatsLoader {
     do {
       outcome = .loaded(StatsRows.rows(try await client.stats()))
     } catch {
+      // A fetch this panel itself cancelled is not stats that failed to load: closing the panel
+      // cancels the task this runs in, and the outcome would otherwise be left reading as a
+      // failure for the next time the panel opens on the same loader.
+      guard !Task.isCancelled else { return }
       // `stats()` is the one request a view makes for itself rather than through the client's
       // command path, so the wording that path owns is asked for here instead. Describing the
       // `Error` would put a socket failure's own text — `transport("no daemon")` — on a
