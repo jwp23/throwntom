@@ -126,7 +126,7 @@ its editor) and `stats` (the panel's one fetch). Read the last hour of all of it
 /usr/bin/log show --last 1h --predicate 'subsystem == "com.jwp23.throwntom"' --style compact
 ```
 
-```
+```text
 Timestamp               Ty Process[PID:TID]
 2026-08-31 02:43:59.212 E  Throwntom[78422:1015cda] [com.jwp23.throwntom:daemon] read the event stream failed: NSCocoaErrorDomain 4865
 2026-08-31 02:43:59.740 E  Throwntom[78422:1015cda] [com.jwp23.throwntom:daemon] read the event stream failed: NSCocoaErrorDomain 4865
@@ -142,7 +142,7 @@ Narrow to one area with `category`, or follow it live while reproducing:
 /usr/bin/log stream --predicate 'subsystem == "com.jwp23.throwntom"' --style compact
 ```
 
-The two lines above are a real capture, and they are worth reading as an example of what the log
+The sample output above is a real capture, and it is worth reading as an example of what the log
 is for. The window's whole account of that moment was "Timer is restarting…"; the log names a
 decode failure, which is the actual cause — a freshly built client against a daemon left running
 from an older build, whose frames are missing fields the client now requires. That is the ordinary
