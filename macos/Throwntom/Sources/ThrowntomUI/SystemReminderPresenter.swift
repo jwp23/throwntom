@@ -2,33 +2,11 @@ import AppKit
 import ThrowntomClient
 import UserNotifications
 
-// MARK: - SystemNotificationAuthorizer
-
-/// The app's way through to `UNUserNotificationCenter`. Each type here is a pass-through to the
-/// real notification centre, which no test process may reach: `UNUserNotificationCenter.current()`
-/// refuses to answer a process without an app bundle. Everything that decides anything lives
-/// behind the protocols instead, in `ReminderAuthorization` and `ReminderBanner`.
-///
-/// Gathered in one file so the boundary is visible, and so coverage can be measured on the part
-/// that a test can actually run. See `sonar.coverage.exclusions` in sonar-project.properties.
-
-/// The real notification centre's answers about permission.
-struct SystemNotificationAuthorizer: NotificationAuthorizer {
-  func authorizationStatus() async -> UNAuthorizationStatus {
-    await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
-  }
-
-  /// `.alert` only. Every sound a reminder makes is `NSSound` played by this app
-  /// (`SystemReminderPresenter.chime()`), which needs no notification permission; the banners
-  /// carry no `content.sound` for a `.sound` grant to apply to (ADR-009).
-  func requestAuthorization() async throws -> Bool {
-    try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert])
-  }
-}
-
-// MARK: - SystemReminderPresenter
-
-/// The real notification centre's reminder banner.
+/// The real notification centre's reminder banner. A pass-through to `UNUserNotificationCenter`,
+/// which no test process may reach: `UNUserNotificationCenter.current()` refuses to answer a
+/// process without an app bundle. Everything that decides anything lives behind
+/// `ReminderPresenter` instead, in `ReminderBanner`. Left out of coverage measurement for that
+/// reason; see `sonar.coverage.exclusions` in sonar-project.properties.
 final class SystemReminderPresenter: ReminderPresenter {
 
   // MARK: Lifecycle
