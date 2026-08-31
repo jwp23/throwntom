@@ -73,8 +73,9 @@ const Template = `# throwntom configuration.
 # windows, at the cost of a window that puts itself in front of whatever you
 # are looking at. It never takes keyboard focus, so it cannot interrupt
 # typing; it only changes which window is on top.
-# This one belongs to the macOS window app. The daemon does nothing with it
-# and the terminal interface has no window to raise.
+# This one belongs to the macOS window app. The daemon raises no window of its
+# own: it reloads this setting and publishes it in its state for the app to
+# read. The terminal interface has no window to raise.
 # float_window_when_waiting = false
 
 # [pomodoro] sets the length of each phase and how often a long break comes.
