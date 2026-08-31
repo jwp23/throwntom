@@ -61,7 +61,27 @@ final class LoginItemSettingTests: XCTestCase {
       current: LoginItemSetting(isOn: true, message: nil),
     )
 
-    XCTAssertEqual(setting, LoginItemSetting(isOn: true, message: "Login item: Operation not permitted"))
+    XCTAssertEqual(setting, LoginItemSetting(isOn: true, message: "Login item: macOS refused the change."))
+  }
+
+  /// `SMAppService` refuses through plain `NSError`s as often as through described ones, and an
+  /// undescribed `NSError` reads as its domain and code. The menu says the same thing either way:
+  /// the reader is being told the switch did not move, and a framework's error identity is not
+  /// part of that.
+  func testMacOSsOwnErrorTextNeverReachesTheMenu() throws {
+    let undescribed = NSError(domain: "SMAppServiceErrorDomain", code: 1)
+    let registrar = StubLoginItemRegistrar(loginItemEnabled: true, refusal: undescribed)
+
+    let setting = LoginItemSetting.afterSetting(
+      false,
+      in: registrar,
+      current: LoginItemSetting(isOn: true, message: nil),
+    )
+
+    let message = try XCTUnwrap(setting.message)
+    XCTAssertFalse(message.contains("SMAppServiceErrorDomain"), message)
+    XCTAssertFalse(message.lowercased().contains("error 1"), message)
+    XCTAssertEqual(message, "Login item: macOS refused the change.")
   }
 
   func testARefusalToEnableLeavesTheToggleOff() {
@@ -87,7 +107,7 @@ final class LoginItemSettingTests: XCTestCase {
       in: registrar,
       current: LoginItemSetting(isOn: false, message: nil),
     )
-    XCTAssertEqual(afterFailure, LoginItemSetting(isOn: false, message: "Login item: Operation not permitted"))
+    XCTAssertEqual(afterFailure, LoginItemSetting(isOn: false, message: "Login item: macOS refused the change."))
 
     // The toggle's isOn snapped back to false, which changes it again and re-fires onChange with
     // the opposite value, exactly what LoginItemToggle receives next.

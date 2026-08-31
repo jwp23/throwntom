@@ -45,8 +45,25 @@ final class ReminderAuthorizationTests: XCTestCase {
 
     XCTAssertEqual(
       authorization.problem,
-      "Reminders will not appear: Notifications are not allowed for this application",
+      "Reminders will not appear: macOS would not allow them.",
     )
+  }
+
+  /// `UNUserNotificationCenter` refuses through plain `NSError`s too, and an undescribed one reads
+  /// as its domain and a code. The sentence under the chips is followed by Open Notification
+  /// Settings…, which is the reader's move whatever the framework called the failure.
+  func testMacOSsOwnErrorTextNeverReachesTheWindow() throws {
+    let undescribed = NSError(domain: "UNErrorDomain", code: 1)
+
+    for problem in [
+      ReminderAuthorization.requested(granted: false, error: undescribed).problem,
+      ReminderAuthorization.rejected(undescribed).problem,
+    ] {
+      let sentence = try XCTUnwrap(problem)
+      XCTAssertFalse(sentence.contains("UNErrorDomain"), sentence)
+      XCTAssertFalse(sentence.lowercased().contains("error 1"), sentence)
+      XCTAssertEqual(sentence, "Reminders will not appear: macOS would not allow them.")
+    }
   }
 
   func testDecliningThePromptIsReportedThoughMacOSRaisesNoError() {
@@ -109,7 +126,7 @@ final class ReminderResponderAuthorizationTests: XCTestCase {
 
     XCTAssertEqual(
       responder.authorization.problem,
-      "Reminders will not appear: Notifications are not allowed for this application",
+      "Reminders will not appear: macOS would not allow them.",
     )
   }
 

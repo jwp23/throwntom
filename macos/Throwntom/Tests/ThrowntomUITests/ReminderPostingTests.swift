@@ -63,7 +63,7 @@ final class ReminderPostingTests: XCTestCase {
 
     XCTAssertEqual(
       responder.authorization.problem,
-      "Reminders will not appear: Notifications are not allowed for this application",
+      "Reminders will not appear: macOS would not allow them.",
     )
   }
 
