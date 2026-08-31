@@ -16,8 +16,10 @@ final class StallingTransport: DaemonTransport, @unchecked Sendable {
     return HTTPResponse(status: 200, headers: [:], body: Data())
   }
 
+  /// Never yields and never ends, so a client built on it stays in its first dial rather than
+  /// running the reconnect loop underneath whatever the test is actually about.
   func events(_: String) -> AsyncThrowingStream<Data, Error> {
-    AsyncThrowingStream { $0.finish() }
+    AsyncThrowingStream { _ in }
   }
 
 }
