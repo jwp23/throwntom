@@ -141,6 +141,47 @@ final class UILoggingSitesTests: XCTestCase {
     XCTAssertEqual(recorder.messages, ["post a reminder failed: UNErrorDomain 1"])
   }
 
+  func testAMorningReminderMacOSWillNotPostIsRecorded() async {
+    let recorder = LogRecorder()
+    let presenter = StubReminderPresenter()
+    presenter.refusal = NSError(domain: UNErrorDomain, code: 1)
+    let responder = ReminderResponder(
+      client: DaemonClient(transport: RefusingUITransport(), registrar: RecordingRegistrar()),
+      authorizer: StubAuthorizer(status: .authorized, granted: true),
+      presenter: presenter,
+    )
+
+    await responder.present(makeState(phase: .idle, morningPending: true))
+
+    XCTAssertFalse(responder.authorization.willDeliver)
+    XCTAssertEqual(recorder.messages, ["post a morning reminder failed: UNErrorDomain 1"])
+  }
+
+  /// A banner button is pressed with the window closed, so the caption the client already carries
+  /// may never be read. What the daemon refused is recorded where it can be found later.
+  func testARefusedReminderAnswerIsRecorded() async throws {
+    let client = DaemonClient(transport: StreamingButRefusingTransport(), registrar: RecordingRegistrar())
+    client.start()
+    defer { client.stop() }
+    try await waitUntil { client.serviceStatus.offersDaemonCommands }
+
+    let recorder = LogRecorder()
+    let responder = ReminderResponder(
+      client: client,
+      authorizer: StubAuthorizer(status: .authorized, granted: true),
+      presenter: StubReminderPresenter(),
+    )
+    let answered = expectation(description: "macOS is told the press was handled")
+    responder.respond(to: ReminderNotification.Action.confirm.rawValue) { answered.fulfill() }
+    await fulfillment(of: [answered], timeout: 5)
+
+    XCTAssertEqual(recorder.entries.first?.area, .reminders)
+    XCTAssertTrue(
+      recorder.messages.contains("answer a reminder failed: http 409"),
+      "\(recorder.messages)",
+    )
+  }
+
   func testARefusedAuthorizationRequestIsRecorded() async {
     let recorder = LogRecorder()
     let responder = ReminderResponder(
@@ -203,6 +244,35 @@ final class RefusingUITransport: DaemonTransport, @unchecked Sendable {
   func events(_: String) -> AsyncThrowingStream<Data, Error> {
     AsyncThrowingStream { _ in }
   }
+
+}
+
+// MARK: - StreamingButRefusingTransport
+
+/// A daemon that is plainly up — it sends one state frame and holds the stream open — and refuses
+/// every command. That pairing is what a reminder button pressed against a running timer meets
+/// when the daemon will not do what the button says.
+// Holds no mutable state; DaemonTransport requires Sendable.
+// swiftlint:disable:next no_unchecked_sendable
+final class StreamingButRefusingTransport: DaemonTransport, @unchecked Sendable {
+
+  // MARK: Internal
+
+  func request(_: String, _: String, body _: Data?) async throws -> HTTPResponse {
+    HTTPResponse(status: 409, headers: [:], body: Data(#"{"error":"no such thing"}"#.utf8))
+  }
+
+  func events(_: String) -> AsyncThrowingStream<Data, Error> {
+    let frame = Self.runningFrame
+    return AsyncThrowingStream { continuation in
+      continuation.yield(frame)
+    }
+  }
+
+  // MARK: Private
+
+  /// One frame of a timer that is plainly running. Encoded once, so `events` cannot throw.
+  private static let runningFrame = (try? daemonEncoder.encode(makeState(phase: .work))) ?? Data()
 
 }
 
