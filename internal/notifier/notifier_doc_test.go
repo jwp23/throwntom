@@ -145,6 +145,33 @@ func TestLinuxFallsBackThroughTheDocumentedChain(t *testing.T) {
 	}
 }
 
+// TestLinuxStopsAtAConfiguredCommandThatWorks is the other half of "it is
+// tried first": a command that succeeds ends the chain. Without this the
+// README would read true even if the fallbacks ran alongside it.
+func TestLinuxStopsAtAConfiguredCommandThatWorks(t *testing.T) {
+	var calls [][]string
+	out := &bytes.Buffer{}
+	built, err := NewSystemNotifier("linux", out, []string{"mycommand"})
+	if err != nil {
+		t.Fatalf("build notifier: %v", err)
+	}
+	n, ok := built.(*linuxTerminalNotifier)
+	if !ok {
+		t.Fatalf("a configured sound_command on Linux built a %T, not the terminal notifier", built)
+	}
+	n.run = recordRun(&calls, nil)
+	if err := n.PlaySound("default"); err != nil {
+		t.Fatalf("play sound: %v", err)
+	}
+
+	if len(calls) != 1 || calls[0][0] != "mycommand" {
+		t.Fatalf("Linux ran %v, want only the configured command that succeeded", calls)
+	}
+	if out.String() != "" {
+		t.Fatalf("the terminal bell rang after the command succeeded: %q", out.String())
+	}
+}
+
 // builtInSounds matches the README's parenthetical naming each built-in macOS
 // sound, in both the Config section and the Notes.
 var builtInSounds = regexp.MustCompile(
