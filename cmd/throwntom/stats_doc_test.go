@@ -31,6 +31,48 @@ var documentedColors = map[string]lipgloss.TerminalColor{
 	"teal":   colorTeal,
 }
 
+// tierBounds is one parsed, validated row of the README's tier table.
+type tierBounds struct {
+	tier, glyph, colorName string
+	low, high              int
+	wantColor              lipgloss.TerminalColor
+}
+
+// parseTierRow validates a table row against wantLow (the count the previous
+// row's range ended just before) and returns its bounds plus the wantLow the
+// next row must start at. A table missing a count between two declared
+// ranges, or naming an unknown colour, fails here rather than passing
+// silently because only each row's own bounds were checked.
+func parseTierRow(t *testing.T, row []string, wantLow int, isLast bool) (tierBounds, int) {
+	t.Helper()
+	tier, glyph := row[1], row[4]
+	low, err := strconv.Atoi(row[2])
+	if err != nil {
+		t.Fatalf("tier %s: unreadable lower bound %q", tier, row[2])
+	}
+	if low != wantLow {
+		t.Fatalf("tier %s starts at %d; the previous row leaves %d uncovered", tier, low, wantLow)
+	}
+	open := row[3] == ""
+	if open && !isLast {
+		t.Fatalf("tier %s has no upper bound but is not the last row", tier)
+	}
+	// The open-ended row ("6+") has no upper bound to read, so probe a few
+	// counts past its lower one: all of them are still that tier.
+	const beyondTheTable = 3
+	high := low + beyondTheTable
+	if !open {
+		if high, err = strconv.Atoi(row[3]); err != nil {
+			t.Fatalf("tier %s: unreadable upper bound %q", tier, row[3])
+		}
+	}
+	wantColor, known := documentedColors[row[5]]
+	if !known {
+		t.Fatalf("tier %s: README names the colour %q, which this test cannot match to a theme colour", tier, row[5])
+	}
+	return tierBounds{tier: tier, glyph: glyph, colorName: row[5], low: low, high: high, wantColor: wantColor}, high + 1
+}
+
 // TestDocumentedTierRangesAreWhatTierMarkDoes reads the README's table and
 // checks every count it covers against tierMark at the documented defaults.
 func TestDocumentedTierRangesAreWhatTierMarkDoes(t *testing.T) {
@@ -51,44 +93,17 @@ func TestDocumentedTierRangesAreWhatTierMarkDoes(t *testing.T) {
 			defaults.TierLow, defaults.TierMid)
 	}
 
-	// The open-ended row ("6+") has no upper bound to read, so probe a few
-	// counts past its lower one: all of them are still that tier.
-	const beyondTheTable = 3
-	// The rows must cover every count from 0 with no gap: a table missing a
-	// count between two declared ranges would still pass if each row were
-	// only checked against its own bounds.
 	wantLow := 0
 	for i, row := range rows {
-		tier, glyph := row[1], row[4]
-		low, err := strconv.Atoi(row[2])
-		if err != nil {
-			t.Fatalf("tier %s: unreadable lower bound %q", tier, row[2])
-		}
-		if low != wantLow {
-			t.Fatalf("tier %s starts at %d; the previous row leaves %d uncovered", tier, low, wantLow)
-		}
-		open := row[3] == ""
-		if open && i != len(rows)-1 {
-			t.Fatalf("tier %s has no upper bound but is not the last row", tier)
-		}
-		high := low + beyondTheTable
-		if !open {
-			if high, err = strconv.Atoi(row[3]); err != nil {
-				t.Fatalf("tier %s: unreadable upper bound %q", tier, row[3])
-			}
-		}
-		wantColor, known := documentedColors[row[5]]
-		if !known {
-			t.Fatalf("tier %s: README names the colour %q, which this test cannot match to a theme colour", tier, row[5])
-		}
-		wantLow = high + 1
-		for count := low; count <= high; count++ {
+		var bounds tierBounds
+		bounds, wantLow = parseTierRow(t, row, wantLow, i == len(rows)-1)
+		for count := bounds.low; count <= bounds.high; count++ {
 			got, style := tierMark(count, defaults.TierLow, defaults.TierMid)
-			if got != glyph {
-				t.Errorf("README puts %d in %s (%s); tierMark gives %s", count, tier, glyph, got)
+			if got != bounds.glyph {
+				t.Errorf("README puts %d in %s (%s); tierMark gives %s", count, bounds.tier, bounds.glyph, got)
 			}
-			if fg := style.GetForeground(); fg != wantColor {
-				t.Errorf("README colours %d %s (%s); tierMark gives %v", count, row[5], tier, fg)
+			if fg := style.GetForeground(); fg != bounds.wantColor {
+				t.Errorf("README colours %d %s (%s); tierMark gives %v", count, bounds.colorName, bounds.tier, fg)
 			}
 		}
 	}
