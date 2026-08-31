@@ -243,7 +243,7 @@ Omitted (see front matter). Two things are still fixed in code and worth knowing
 
 - The TUI's only "type styles" are foreground colour; there is no bold, italic, or underline
   anywhere in `theme.go`.
-- The macOS window uses `.largeTitle` bold for the phase name, `.title2` with monospaced digits for the countdown, `.body` for the next-stage line, tasks, the garden summary and the shortcut hints (hints monospaced), `.caption` for section labels and notes. Notes are sentences that say what to do, so they wrap rather than truncate.
+- The macOS window uses `.largeTitle` bold for the phase name, `.title2` with monospaced digits for the countdown, `.body` for the next-stage line, tasks, the garden summary and the shortcut hints (hints monospaced), `.caption` for section labels and notes. Notes are sentences that say what to do, so they wrap rather than truncate. Nothing in the window truncates: the phase name wraps to as many lines as it needs, like the notes and hints below it and the chip rows beside them. It carried a two-line cap until `TimerHeaderTests` measured what that cost — at the 320pt minimum width, `Pomodoro (reconnecting)` and `Timer service isn’t answering` fill both lines at the default text size and are cut off at every size above it, and the title is the part read from across the room.
 - A panel's or sheet's shortcut hint (`ShortcutHint`) is monospaced `.body` at medium weight in that surface's own text colour — never `.secondary` and never smaller — and it wraps rather than truncating, because the shortcut is the part a new user opened the panel to read.
 
 ## Layout
