@@ -73,7 +73,7 @@ struct SnoozeChip: View {
   /// for the daemon: it opens the field, and the answer arrives as an ordinary snooze.
   func run(_ action: SnoozeAction) {
     guard let request = action.request else {
-      model.isEnteringSnooze = true
+      model.beginEntry(.snooze)
       return
     }
     DaemonDispatch.perform(request, on: client)

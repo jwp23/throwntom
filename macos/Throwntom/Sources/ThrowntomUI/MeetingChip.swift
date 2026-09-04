@@ -63,7 +63,7 @@ struct MeetingChip: View {
 
   func run(_ action: MeetingAction) {
     guard let request = action.request else {
-      model.isEnteringMeeting = true
+      model.beginEntry(.meeting)
       return
     }
     DaemonDispatch.perform(request, on: client)

@@ -126,6 +126,21 @@ final class MeetingPresentationTests: XCTestCase {
     XCTAssertTrue(model.showsShortcuts, "the sheet must outlast the field Escape was answering")
   }
 
+  /// The two inline fields sit in the same place under the chips and each takes the keyboard
+  /// when it appears, so opening one has to close the other: two open at once leaves the user
+  /// typing into whichever won the focus, and Escape answering the one they are not looking at.
+  func testOpeningOneLengthFieldClosesTheOther() {
+    let model = WindowModel()
+
+    model.beginEntry(.snooze)
+    XCTAssertTrue(model.isEnteringSnooze)
+    XCTAssertFalse(model.isEnteringMeeting)
+
+    model.beginEntry(.meeting)
+    XCTAssertTrue(model.isEnteringMeeting)
+    XCTAssertFalse(model.isEnteringSnooze, "the snooze field was left open behind the meeting field")
+  }
+
   func testATypedLengthIsRefusedUnlessItIsAWholeNumberOfMinutes() {
     for entry in ["", " ", "abc", "1.5", "30m", "0", "-5", "\(Minutes.maximum + 1)"] {
       XCTAssertNil(Minutes.parse(entry), entry)
