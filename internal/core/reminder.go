@@ -31,7 +31,8 @@ func (c *Core) tickMorning() {
 	if c.timer.State() != engine.Idle {
 		return
 	}
-	if c.reminder.shouldRaiseMorning(c.now(), c.scheduler) {
+	now := c.now()
+	if c.reminder.shouldRaiseMorning(now, c.scheduler.ShouldTrigger(now)) {
 		c.reminder.raise(reminderMorning)
 	}
 }

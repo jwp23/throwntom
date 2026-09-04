@@ -50,6 +50,11 @@ final class WindowSectionBodyTests: XCTestCase {
   /// A note is the only account on screen of a refused command or a stopped service, and the focus
   /// list is the only account of what the pomodoro is for. Neither may be the smallest type in the
   /// window (throwntom-bxd.14, throwntom-bxd.15).
+  ///
+  /// This pins the values alone; nothing here runs a body, so on its own it stays green while a
+  /// body draws `.caption` and ignores the constant beside it. `WindowFontRenderingTests` renders
+  /// the two views and holds them to the size named here, and the pair is what closes the gap:
+  /// this says which size is right, that one says the body is drawn at it.
   func testNotesAndFocusRowsAreReadAtTheWindowsOwnTextSize() {
     XCTAssertEqual(WindowNotes.font, .body)
     XCTAssertEqual(FocusSection.font, Font.body.weight(.medium))

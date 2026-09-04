@@ -107,17 +107,34 @@ func TestNextPhaseDoesNotMutateState(t *testing.T) {
 	}
 }
 
-func TestCompletedTodayResetsOnFirstStart(t *testing.T) {
+// Picking work back up after "done for the day" keeps the day's totals. The
+// assertion here used to be the opposite, because StartWork read
+// work_day_started as "a new day is beginning" — and SkipToday clears that
+// flag, so every start after an ended day wiped the count of pomodoros that
+// had actually been worked. Only the day boundary resets a day's totals, and
+// AdvanceDay is what knows where that boundary is.
+func TestStartAfterDoneForTheDayKeepsTodaysCount(t *testing.T) {
 	e := New(25, 5, 15, 4)
+	e.AdvanceDay(time.Date(2026, 9, 3, 9, 0, 0, 0, time.Local))
 	e.StartWork()
 	e.MarkPeriodComplete()
-	if e.CompletedToday() != 1 {
-		t.Fatalf("expected completedToday=1")
+	e.ConfirmNext()
+	e.MarkPeriodComplete()
+	e.ConfirmNext()
+	e.MarkPeriodComplete()
+	if e.CompletedToday() != 2 || e.WorkSessionsInBlock() != 2 {
+		t.Fatalf("expected 2 pomodoros in the block, got %d/%d",
+			e.CompletedToday(), e.WorkSessionsInBlock())
 	}
+
 	e.SkipToday()
 	e.StartWork()
-	if e.CompletedToday() != 0 {
-		t.Fatalf("expected reset on first start, got %d", e.CompletedToday())
+
+	if e.CompletedToday() != 2 {
+		t.Fatalf("expected today's count kept across done-for-the-day, got %d", e.CompletedToday())
+	}
+	if e.WorkSessionsInBlock() != 2 {
+		t.Fatalf("expected block progress kept across done-for-the-day, got %d", e.WorkSessionsInBlock())
 	}
 }
 
@@ -273,6 +290,49 @@ func TestAdvanceDayResetsOnNewDay(t *testing.T) {
 	}
 	if e.WorkSessionsInBlock() != 0 {
 		t.Fatalf("expected workSessionsBlock=0 after day rollover, got %d", e.WorkSessionsInBlock())
+	}
+}
+
+// AdvanceDay runs while the daemon is up, so midnight can arrive with a phase
+// in flight. What it must not leave behind is a snapshot the engine's own
+// transitions could not have reached: core discards one of those on the next
+// start, and the phase and the day's focused tasks go with it.
+func TestRollingOverMidPhaseLeavesAReachableSnapshot(t *testing.T) {
+	lastNight := time.Date(2026, 3, 5, 23, 50, 0, 0, time.Local)
+	afterMidnight := time.Date(2026, 3, 6, 0, 5, 0, 0, time.Local)
+	inFlight := map[string]func(e *Engine){
+		"running work":     func(e *Engine) { e.StartWork() },
+		"awaiting confirm": func(e *Engine) { e.StartWork(); e.MarkPeriodComplete() },
+		"paused":           func(e *Engine) { e.StartWork(); e.Pause() },
+	}
+	for name, reach := range inFlight {
+		t.Run(name, func(t *testing.T) {
+			e := New(25, 5, 15, 4)
+			e.AdvanceDay(lastNight)
+			reach(e)
+
+			e.AdvanceDay(afterMidnight)
+
+			if reason := e.Snapshot().Invalid(); reason != "" {
+				t.Fatalf("the rollover produced an unreachable snapshot: %s", reason)
+			}
+		})
+	}
+}
+
+// A work period waiting to be confirmed is still a work period after midnight,
+// so confirming it gives the break it earned. Forgetting which phase is waiting
+// hands the user a second work period back to back.
+func TestRollingOverKeepsThePhaseAwaitingConfirmation(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.AdvanceDay(time.Date(2026, 3, 5, 23, 50, 0, 0, time.Local))
+	e.StartWork()
+	e.MarkPeriodComplete()
+
+	e.AdvanceDay(time.Date(2026, 3, 6, 0, 5, 0, 0, time.Local))
+
+	if next := e.NextPhase(); next != ShortBreak {
+		t.Fatalf("expected the completed work period to still owe a break, got %v", next)
 	}
 }
 

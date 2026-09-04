@@ -111,13 +111,14 @@ func (e *Engine) State() State {
 // StartWork picks the cycle back up. A stop that suspended an owed phase left
 // that phase recorded in lastPhase, and it is what resumes; with nothing owed,
 // work begins. A day that has not started yet owes nothing by definition.
+//
+// The day's totals are not touched. Starting work opens the work day, and
+// SkipToday closes it, so work_day_started swings freely within a single day
+// and cannot stand in for a day boundary; AdvanceDay owns that, by the work
+// date, and resets the totals there.
 func (e *Engine) StartWork() {
 	next := e.OwedPhase()
-	if !e.workDayStarted {
-		e.completedToday = 0
-		e.workDayStarted = true
-		e.workSessionsBlock = 0
-	}
+	e.workDayStarted = true
 	e.dayEnded = false
 	e.state = next
 	e.lastPhase = next
@@ -377,11 +378,19 @@ func (e *Engine) AdvanceDay(now time.Time) {
 	}
 	e.completedToday = 0
 	e.workSessionsBlock = 0
-	e.workDayStarted = false
 	e.dayEnded = false
-	// A new day owes nothing: yesterday's suspended cycle does not carry over.
-	e.lastPhase = Idle
-	e.skipped = false
+	// A phase in flight when the day turns carries into the new day: it is
+	// running, paused or waiting to be confirmed now, so the new day's work has
+	// already begun, and lastPhase and skipped describe that phase rather than
+	// a debt. Forgetting them here leaves a snapshot the engine's own
+	// transitions could not reach, and the next start discards the session
+	// whole. Only an idle engine crosses owing something, and a new day owes
+	// nothing: yesterday's suspended cycle does not carry over.
+	if e.state == Idle {
+		e.workDayStarted = false
+		e.lastPhase = Idle
+		e.skipped = false
+	}
 	e.workDate = now
 }
 
