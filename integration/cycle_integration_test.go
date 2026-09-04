@@ -14,7 +14,7 @@ import (
 )
 
 func TestCycleTransition(t *testing.T) {
-	cycle := pomodoro.New(25, 5, 15, 4)
+	cycle := pomodoro.New(pomodoro.Durations{WorkMinutes: 25, ShortBreakMinutes: 5, LongBreakMinutes: 15, LunchMinutes: 60, LongBreakEvery: 4})
 
 	cycle.Start()
 	cycle.CompletePeriod()
@@ -50,7 +50,7 @@ time = "09:15"
 }
 
 func TestStatusIncludesPomodoroProgress(t *testing.T) {
-	cycle := pomodoro.New(25, 5, 15, 4)
+	cycle := pomodoro.New(pomodoro.Durations{WorkMinutes: 25, ShortBreakMinutes: 5, LongBreakMinutes: 15, LunchMinutes: 60, LongBreakEvery: 4})
 	cycle.Start()
 
 	if status := cycle.StatusLine(); !strings.Contains(status, "Cycle: 0/4") {

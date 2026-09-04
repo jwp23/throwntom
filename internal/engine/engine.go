@@ -12,6 +12,9 @@ const (
 	Work
 	ShortBreak
 	LongBreak
+	// Lunch is the break the user chooses rather than the one a finished
+	// pomodoro earns. No transition leads to it; only StartLunch does.
+	Lunch
 	AwaitingConfirm
 	Paused
 )
@@ -21,6 +24,7 @@ var stateNames = [...]string{
 	Work:            "work",
 	ShortBreak:      "short_break",
 	LongBreak:       "long_break",
+	Lunch:           "lunch",
 	AwaitingConfirm: "awaiting_confirm",
 	Paused:          "paused",
 }
@@ -142,7 +146,7 @@ func (e *Engine) owedPhase() State {
 	switch e.lastPhase {
 	case Work:
 		return e.breakAfterWork()
-	case ShortBreak, LongBreak:
+	case ShortBreak, LongBreak, Lunch:
 		return Work
 	default:
 		return Work
@@ -174,6 +178,27 @@ func (e *Engine) StartNewCycle() {
 	e.pausedFrom = Idle
 }
 
+// StartLunch takes the user to lunch from wherever they are. Lunch is chosen
+// rather than earned, so no transition leads to it and nothing has to be owed
+// for it to begin.
+//
+// Taking it ends the block: the count of pomodoros toward the long break
+// starts again, exactly as StartNewCycle resets it, so the pomodoro after
+// lunch is the first of a fresh block. The day's total is untouched — those
+// pomodoros were worked. The reset happens here, at the start of lunch, rather
+// than when lunch ends: the block is over the moment the user leaves for it,
+// and a count left standing through lunch would promise a long break the far
+// side of it that will not come.
+func (e *Engine) StartLunch() {
+	e.skipped = false
+	e.dayEnded = false
+	e.workDayStarted = true
+	e.workSessionsBlock = 0
+	e.state = Lunch
+	e.lastPhase = Lunch
+	e.pausedFrom = Idle
+}
+
 func (e *Engine) MarkPeriodComplete() {
 	e.skipped = false
 	if e.state == Work {
@@ -183,7 +208,7 @@ func (e *Engine) MarkPeriodComplete() {
 		e.state = AwaitingConfirm
 		return
 	}
-	if e.state == ShortBreak || e.state == LongBreak {
+	if e.state == ShortBreak || e.state == LongBreak || e.state == Lunch {
 		e.lastPhase = e.state
 		e.state = AwaitingConfirm
 	}
@@ -250,7 +275,7 @@ func (e *Engine) SkipToday() {
 // It reports whether a phase was running to skip.
 func (e *Engine) SkipPhase() bool {
 	switch e.state {
-	case Work, ShortBreak, LongBreak:
+	case Work, ShortBreak, LongBreak, Lunch:
 		e.lastPhase = e.state
 		e.state = AwaitingConfirm
 		e.skipped = true
@@ -262,7 +287,7 @@ func (e *Engine) SkipPhase() bool {
 
 func (e *Engine) Pause() bool {
 	switch e.state {
-	case Work, ShortBreak, LongBreak:
+	case Work, ShortBreak, LongBreak, Lunch:
 		e.pausedFrom = e.state
 		e.state = Paused
 		return true
@@ -327,7 +352,7 @@ func (s Snapshot) Invalid() string {
 	}
 	if s.State == AwaitingConfirm {
 		switch s.LastPhase {
-		case Work, ShortBreak, LongBreak:
+		case Work, ShortBreak, LongBreak, Lunch:
 		default:
 			return "awaiting_confirm with an unreachable last_phase"
 		}
@@ -338,11 +363,11 @@ func (s Snapshot) Invalid() string {
 	return ""
 }
 
-// isTimedPhase reports whether s is one of the three phases that run on a
-// clock, which are the only ones a confirm or a pause can have come from.
+// isTimedPhase reports whether s is one of the phases that run on a clock,
+// which are the only ones a confirm or a pause can have come from.
 func isTimedPhase(s State) bool {
 	switch s {
-	case Work, ShortBreak, LongBreak:
+	case Work, ShortBreak, LongBreak, Lunch:
 		return true
 	default:
 		return false

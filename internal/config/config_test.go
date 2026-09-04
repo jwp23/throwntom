@@ -416,3 +416,31 @@ func TestLoadRejectsNonPositiveRepeatLimit(t *testing.T) {
 		t.Fatal("expected repeat_limit_secs validation error")
 	}
 }
+
+// Lunch is a break the user chooses, so its length is theirs to set; an hour
+// is the default working assumption.
+func TestDefaultLunchMinutes(t *testing.T) {
+	if got := Default().Pomodoro.LunchMinutes; got != 60 {
+		t.Fatalf("default lunch_minutes is %d, want 60", got)
+	}
+}
+
+func TestLoadBytesParsesLunchMinutes(t *testing.T) {
+	cfg, err := LoadBytes([]byte("[pomodoro]\nlunch_minutes = 45\n"))
+	if err != nil {
+		t.Fatalf(fmtUnexpectedErr, err)
+	}
+	if cfg.Pomodoro.LunchMinutes != 45 {
+		t.Fatalf("lunch_minutes is %d, want 45", cfg.Pomodoro.LunchMinutes)
+	}
+}
+
+func TestLoadRejectsNonPositiveLunchMinutes(t *testing.T) {
+	_, err := LoadBytes([]byte("[pomodoro]\nlunch_minutes = 0\n"))
+	if err == nil {
+		t.Fatal("expected lunch_minutes = 0 to be rejected")
+	}
+	if want := "lunch_minutes must be > 0"; err.Error() != want {
+		t.Fatalf("error is %q, want %q", err, want)
+	}
+}

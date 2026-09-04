@@ -27,6 +27,7 @@ func (c *Core) buildCommandHandlers() map[string]commandHandler {
 	return map[string]commandHandler{
 		"start":      c.handleStart,
 		"new-cycle":  c.handleNewCycle,
+		"lunch":      c.handleLunch,
 		"pause":      c.handlePause,
 		"resume":     c.handleResume,
 		"stop":       c.handleStop,
@@ -88,6 +89,18 @@ func (c *Core) handleNewCycle(_ []string) commandResult {
 	c.logDisplacedCompletion(before)
 	c.logEvent("pomodoro_started", nil)
 	return commandResult{message: "New cycle started -- fresh start!"}
+}
+
+// handleLunch takes the user to lunch, whatever the timer was doing. Lunch is
+// the one break nothing earns and no schedule picks, so it needs no state to
+// be in and refuses nothing. A phase that was waiting to be confirmed is still
+// credited on the way past, for the reason new-cycle credits it: the engine
+// counted it the moment it finished.
+func (c *Core) handleLunch(_ []string) commandResult {
+	before := c.timer.StartLunch()
+	c.logDisplacedCompletion(before)
+	c.logPhaseStart(engine.Lunch)
+	return commandResult{message: "Lunch started -- a fresh block when you're back."}
 }
 
 func (c *Core) handlePause(_ []string) commandResult {
@@ -176,6 +189,8 @@ func (c *Core) logConfirmCompletion(lastPhase engine.State) {
 		c.logEvent("break_completed", map[string]any{"kind": "short"})
 	case engine.LongBreak:
 		c.logEvent("break_completed", map[string]any{"kind": "long"})
+	case engine.Lunch:
+		c.logEvent("break_completed", map[string]any{"kind": "lunch"})
 	}
 }
 
@@ -189,6 +204,8 @@ func (c *Core) logPhaseStart(newState engine.State) {
 		c.logEvent("break_started", map[string]any{"kind": "short"})
 	case engine.LongBreak:
 		c.logEvent("break_started", map[string]any{"kind": "long"})
+	case engine.Lunch:
+		c.logEvent("break_started", map[string]any{"kind": "lunch"})
 	}
 }
 
@@ -263,6 +280,7 @@ func Help() string {
 		"commands:",
 		"  start              start a pomodoro, or take the phase you are owed",
 		"  new-cycle          start a fresh cycle",
+		"  lunch              take the lunch break; the pomodoro after it starts a fresh block",
 		"  pause              pause the timer",
 		"  resume             resume the timer",
 		"  stop               suspend the cycle; start again to resume the owed phase",

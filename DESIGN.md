@@ -218,6 +218,12 @@ are the dark-terminal variants; `-light` variants carry the light-terminal value
   TUI has no success colour; plain text is the default.
 - **Long break (#1F4E9C / #7AA6F5):** Blue, a deeper rest than teal, and separable from it
   for deuteranopes. Do not swap either break colour for a green.
+- **Lunch (#1F4E9C / #7AA6F5):** The long break's blue, reused rather than
+  joined by a seventh hue. Lunch is the deepest rest and blue is what rest
+  already means; the ground has to carry dark ink at 4.5:1, which leaves no
+  room for another hue that is still separable for deuteranopes, and green is
+  ruled out above. The phase name is what tells the two blues apart, so a
+  surface that paints lunch must also name it.
 - **Idle (#6B5E00 / #E6C84A):** Olive / straw yellow. The timer is ready but nothing is
   running. This is also the default for any unknown state.
 - **Paused (#6B6B6B / #9A9A9A):** Grey. The only muted colour; also reused for the lowest
@@ -229,7 +235,7 @@ are the dark-terminal variants; `-light` variants carry the light-terminal value
 - **Error (#B3001B / #FF5C5C):** Red, for the message line only when `IsError` is set. It
   never colours the status line; a timer state is never "red".
 
-**macOS grounds.** `macos-work`, `macos-short-break`, `macos-long-break`, `macos-idle`, `macos-paused` and `macos-awaiting-confirm` are mid-tone, saturated versions of the same six hues and fill the entire window; `macos-disconnected` is a dark brown used whenever there is no phase to show: before the first connection, after the user stops the service, or once launchd has refused to launch it. A reconnect that still holds a phase keeps that phase's ground and goes on naming it, because the timer it names is still running; the phase name gains `(reconnecting)` so the window is not claiming a connection it does not have, but the ground does not change, because what changed is the client's reach, not the phase. A refusal has no such timer behind it, so the window drops the phase rather than keep a colour that says one is going. All text on a ground is `macos-ink` (cream on disconnected). `macos-cream` is the label of the primary chip and the mascot's glint, page edges and drink; `macos-outline`, the icon's outline brown, is the primary chip. Each `*-chip` token is its ground under 55% black and carries white text, except `macos-disconnected-chip`, which is cream with `macos-outline` text because the service chip carries this ground's only weight — Start while stopped or refused, Stop while on its way up — and either reading has to look right. `PaletteTests` asserts text on ground and label on chip at 4.5:1 and chip on ground at 3:1; `DesignTokensTests` asserts these values equal `Palette.swift`. The look is the same in light and dark system appearance.
+**macOS grounds.** `macos-work`, `macos-short-break`, `macos-long-break`, `macos-idle`, `macos-paused` and `macos-awaiting-confirm` are mid-tone, saturated versions of the same six hues and fill the entire window; lunch takes `macos-long-break` too, for the reason the TUI does. `macos-disconnected` is a dark brown used whenever there is no phase to show: before the first connection, after the user stops the service, or once launchd has refused to launch it. A reconnect that still holds a phase keeps that phase's ground and goes on naming it, because the timer it names is still running; the phase name gains `(reconnecting)` so the window is not claiming a connection it does not have, but the ground does not change, because what changed is the client's reach, not the phase. A refusal has no such timer behind it, so the window drops the phase rather than keep a colour that says one is going. All text on a ground is `macos-ink` (cream on disconnected). `macos-cream` is the label of the primary chip and the mascot's glint, page edges and drink; `macos-outline`, the icon's outline brown, is the primary chip. Each `*-chip` token is its ground under 55% black and carries white text, except `macos-disconnected-chip`, which is cream with `macos-outline` text because the service chip carries this ground's only weight — Start while stopped or refused, Stop while on its way up — and either reading has to look right. `PaletteTests` asserts text on ground and label on chip at 4.5:1 and chip on ground at 3:1; `DesignTokensTests` asserts these values equal `Palette.swift`. The look is the same in light and dark system appearance.
 
 **Mascot.** The `mascot-*` tokens are the character's own paint and never appear elsewhere: `mascot-body-light` → `mascot-body` → `mascot-body-dark` is the body's radial gradient (centre upper-left, dark at the rim); `mascot-leaf-light` → `mascot-leaf-dark` the leaf gradient; `mascot-blush` the cheeks; `mascot-prop-light`/`-dark` the laptop; `mascot-wood` the book; `mascot-sky` the drink, screen and yo-yo. The sofa is painted in the phase's tones: back `*-panel`, arms the ground under 19% black, seat the ground under 10% black, so it belongs to the room it is in. Hands are `mascot-body`; every outline is `macos-outline`.
 
@@ -277,6 +283,7 @@ macOS squircle, plus an unmasked square; the `.icns` is built from the masked on
 |---|---|---|
 | Work | 🍅 | `*` |
 | Short / long break | ☕ / 🌿 | `~` |
+| Lunch | 🍽️ | `~` |
 | Idle | 🌱 | `-` |
 | Paused | ⏸️ | `\|\|` |
 | Awaiting confirm | 🔔 | `!` |
@@ -313,7 +320,7 @@ done.
 
 ### Mascot (macOS)
 
-The README tomato drawn in code on a 100×100 canvas scaled to 200pt: a radial-gradient body with a 2-unit `macos-outline` stroke, stem and two gradient leaves, a cream glint, two blush cheeks, eyes with a white catchlight, a mouth, and two thin line arms (3-unit `macos-outline`) that hang from one shoulder per side, ending in round `mascot-body` hands. The whole character is rotated 12° counter-clockwise and the face is drawn three-quarter, features shifted toward the near side, so it reads as turned slightly away like the README sticker. One pose per phase — laptop for work, cold drink for short break, reading on a sofa for long break, a yo-yo for idle, arms up for awaiting confirm, eyes closed and still for paused, a yanked cable for disconnected — with props always drawn so the tomato faces them, not the viewer. `docs/designs/mascot-screenshots/` holds the rendered poses, regenerated by `tools/mascot-snap.sh`. Idle motion (blink, ±2° breathing bob, the yo-yo's drop and return, a jump on awaiting confirm) is small and off under Reduce Motion.
+The README tomato drawn in code on a 100×100 canvas scaled to 200pt: a radial-gradient body with a 2-unit `macos-outline` stroke, stem and two gradient leaves, a cream glint, two blush cheeks, eyes with a white catchlight, a mouth, and two thin line arms (3-unit `macos-outline`) that hang from one shoulder per side, ending in round `mascot-body` hands. The whole character is rotated 12° counter-clockwise and the face is drawn three-quarter, features shifted toward the near side, so it reads as turned slightly away like the README sticker. One pose per phase — laptop for work, cold drink for short break, reading on a sofa for long break, a sandwich in both hands for lunch, a yo-yo for idle, arms up for awaiting confirm, eyes closed and still for paused, a yanked cable for disconnected — with props always drawn so the tomato faces them, not the viewer. Lunch and the long break share a ground, so the pose is the second thing that separates them after the name. `docs/designs/mascot-screenshots/` holds the rendered poses, regenerated by `tools/mascot-snap.sh`. Idle motion (blink, ±2° breathing bob, the yo-yo's drop and return, a jump on awaiting confirm) is small and off under Reduce Motion.
 
 ### Chip (macOS)
 

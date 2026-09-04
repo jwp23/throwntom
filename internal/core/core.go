@@ -66,18 +66,25 @@ type Core struct {
 
 type commandHandler func(parts []string) commandResult
 
+// durationsFrom reads the phase lengths out of a config, so the timer's first
+// durations and every reloaded set are built from the same one place.
+func durationsFrom(cfg config.Config) pomodoro.Durations {
+	return pomodoro.Durations{
+		WorkMinutes:       cfg.Pomodoro.WorkMinutes,
+		ShortBreakMinutes: cfg.Pomodoro.ShortBreakMinutes,
+		LongBreakMinutes:  cfg.Pomodoro.LongBreakMinutes,
+		LunchMinutes:      cfg.Pomodoro.LunchMinutes,
+		LongBreakEvery:    cfg.Pomodoro.LongBreakEvery,
+	}
+}
+
 func newCore(cfg config.Config, n notifier.Notifier) *Core {
 	policy := reminder.NewPolicy(
 		time.Duration(cfg.RepeatSecs)*time.Second,
 		time.Duration(cfg.RepeatLimitSecs)*time.Second,
 	)
 	c := &Core{
-		timer: pomodoro.New(
-			cfg.Pomodoro.WorkMinutes,
-			cfg.Pomodoro.ShortBreakMinutes,
-			cfg.Pomodoro.LongBreakMinutes,
-			cfg.Pomodoro.LongBreakEvery,
-		),
+		timer:                  pomodoro.New(durationsFrom(cfg)),
 		notifier:               n,
 		reminder:               newOutstandingReminder(policy, n),
 		scheduler:              scheduler.New(config.ScheduleDayTimes(cfg.Schedule)),

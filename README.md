@@ -108,6 +108,7 @@ through its tasks panel.
 
 - `start` - start work period, or take the phase you are owed (at the end of a phase it does what `confirm` does)
 - `new-cycle` - start a fresh cycle now (reset cycle progress, keep today's total; a finished phase is still counted)
+- `lunch` - take the lunch break (`lunch_minutes`, default 60); it starts from any state and the pomodoro after it begins a fresh block
 - `pause` - pause the active pomodoro or break timer
 - `resume` - resume a paused pomodoro or break timer
 - `skip` - end the running phase now and move to the next stage (the skipped phase is not counted)
@@ -130,6 +131,12 @@ anything: it just asks again later.
 still outstanding and unanswered — so ending the snooze early brings it back at
 once, exactly as running out the clock would have. That is what separates it from
 `start` and `skip-today`, which also clear a snooze but retire the reminder with it.
+
+`lunch` is the one break you choose rather than earn: no schedule starts it and
+no finished pomodoro leads to it, so it is available from any state and never
+offered by the timer itself. Taking it ends the current block — the count
+toward the long break starts again, while the day's total stands — so the
+pomodoro you come back to is the first of a fresh block.
 
 `stop` is a suspend, not an abandon — for stepping into a meeting, not for ending
 the day. It returns the timer to idle but keeps the phase you were owed, your
@@ -238,6 +245,7 @@ float_window_when_waiting = false
 work_minutes = 25
 short_break_minutes = 5
 long_break_minutes = 15
+lunch_minutes = 60
 long_break_every = 4
 
 # days omitted → defaults to weekday (Mon-Fri)
