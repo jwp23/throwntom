@@ -51,9 +51,14 @@ func (t *Timer) ApplyDurations(d Durations) {
 	t.longBreakDuration = time.Duration(d.LongBreakMinutes) * time.Minute
 	t.lunchDuration = time.Duration(d.LunchMinutes) * time.Minute
 	t.engine.SetLongBreakEvery(d.LongBreakEvery)
+	t.engine.SetWorkMinutes(d.WorkMinutes)
 
 	switch state {
-	case engine.Work, engine.ShortBreak, engine.LongBreak, engine.Lunch:
+	// A meeting is re-derived with the rest although no field here can have
+	// changed its length: it was given one at the moment it started rather
+	// than taking one from the config. Leaving it out would only mean the one
+	// running phase that does not re-derive, and it re-derives to itself.
+	case engine.Work, engine.ShortBreak, engine.LongBreak, engine.Lunch, engine.Meeting:
 		t.rederiveRunningLocked(state)
 	case engine.Paused:
 		t.rederivePausedLocked()
@@ -66,9 +71,10 @@ func (t *Timer) rederiveRunningLocked(state engine.State) {
 	if t.phaseStartedAt.IsZero() {
 		return
 	}
-	remaining := t.phaseDurationLocked(state) - t.elapsedSincePhaseStartLocked()
+	elapsed := t.elapsedSincePhaseStartLocked()
+	remaining := t.phaseDurationLocked(state) - elapsed
 	if remaining <= 0 {
-		t.completePeriodLocked()
+		t.completePeriodLocked(elapsed)
 		return
 	}
 	t.startPhaseFromLocked(t.phaseStartedAt, remaining)
@@ -77,7 +83,8 @@ func (t *Timer) rederiveRunningLocked(state engine.State) {
 // rederivePausedLocked keeps a paused phase paused with its re-derived
 // remainder, or ends it when the new duration has already been served.
 func (t *Timer) rederivePausedLocked() {
-	remaining := t.phaseDurationLocked(t.engine.Snapshot().PausedFrom) - t.pausedElapsed
+	elapsed := t.pausedElapsed
+	remaining := t.phaseDurationLocked(t.engine.Snapshot().PausedFrom) - elapsed
 	if remaining > 0 {
 		t.pausedRemaining = remaining
 		return
@@ -85,7 +92,7 @@ func (t *Timer) rederivePausedLocked() {
 	t.pausedRemaining = 0
 	t.pausedElapsed = 0
 	t.engine.Resume()
-	t.completePeriodLocked()
+	t.completePeriodLocked(elapsed)
 }
 
 func (t *Timer) phaseDurationLocked(state engine.State) time.Duration {
@@ -98,6 +105,10 @@ func (t *Timer) phaseDurationLocked(state engine.State) time.Duration {
 		return t.longBreakDuration
 	case engine.Lunch:
 		return t.lunchDuration
+	// A meeting's length is the one the user gave it, kept on the Timer
+	// because no config field holds it.
+	case engine.Meeting:
+		return t.meetingDuration
 	default:
 		return 0
 	}

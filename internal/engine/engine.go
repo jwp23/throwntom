@@ -357,6 +357,16 @@ func (e *Engine) SetLongBreakEvery(n int) {
 	e.longBreakEvery = n
 }
 
+// SetWorkMinutes changes the pomodoro length the engine measures a meeting's
+// credit against, so a meeting in flight when the config changed is credited
+// against the length in force when it ends (ADR-008), not the one it started
+// under.
+//
+// n must be positive, as New requires: MeetingCredits divides by it.
+func (e *Engine) SetWorkMinutes(n int) {
+	e.workMinutes = n
+}
+
 // SkipToday ends the work day: the timer goes idle and stays there, and the
 // day is marked over so nothing reminds the user again until tomorrow.
 func (e *Engine) SkipToday() {
