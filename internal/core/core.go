@@ -171,7 +171,14 @@ func (c *Core) Start(ctx context.Context) {
 		defer close(done)
 		c.runMorningSchedule(scheduleCtx)
 	}()
-	if c.morningPending && c.timer.State() == engine.Idle && c.scheduler.IsActiveNow(c.now()) {
+	// A daemon starting up mid-morning rings for the reminder it was not
+	// running to give, so it asks whether the schedule has already struck
+	// today rather than whether it is striking now. What it must not do is
+	// ring for a morning the day has already answered: morningPending is the
+	// config's standing default, and only the reminder knows what today did.
+	now := c.now()
+	if c.morningPending && c.timer.State() == engine.Idle &&
+		c.reminder.shouldRaiseMorning(now, c.scheduler.IsActiveNow(now)) {
 		c.reminder.raise(reminderMorning)
 	}
 }

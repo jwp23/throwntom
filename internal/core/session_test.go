@@ -443,7 +443,8 @@ func TestLoadSessionIntoAwaitingConfirmKeepsCycleReminder(t *testing.T) {
 		t.Fatal("expected the cycle reminder to survive a restore into awaiting_confirm")
 	}
 	waitForSounds(t, rec, 1)
-	if c.reminder.shouldRaiseMorning(mondayAt(9, 15).Now(), c.scheduler) {
+	morning := mondayAt(9, 15).Now()
+	if c.reminder.shouldRaiseMorning(morning, c.scheduler.ShouldTrigger(morning)) {
 		t.Fatal("expected the morning reminder to still be marked owed for today")
 	}
 }
@@ -513,7 +514,8 @@ func TestLoadSessionIntoAnEndedDayOwesNoMorningReminder(t *testing.T) {
 	if !c.State().DayEnded {
 		t.Fatal("expected the ended day to survive the restore")
 	}
-	if c.reminder.shouldRaiseMorning(mondayAt(9, 15).Now(), c.scheduler) {
+	morning := mondayAt(9, 15).Now()
+	if c.reminder.shouldRaiseMorning(morning, c.scheduler.ShouldTrigger(morning)) {
 		t.Fatal("expected no morning reminder owed on a day the user ended")
 	}
 }

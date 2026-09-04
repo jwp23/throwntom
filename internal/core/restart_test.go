@@ -1,12 +1,30 @@
 package core
 
 import (
+	"context"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/jwp23/throwntom/v3/internal/config"
 )
+
+// restartAt loads sessPath into a fresh core and starts it, the way the daemon
+// comes back up. The clock is the restart's wall time and cfg is the config the
+// daemon was launched with, morning_reminder_pending included.
+func restartAt(t *testing.T, cfg config.Config, sessPath string, clk *fakeClock) *Core {
+	t.Helper()
+	c := newCore(cfg, noopNotifier{})
+	c.setClock(clk)
+	c.sessionPath = sessPath
+	if err := c.loadSession(); err != nil {
+		t.Fatalf(fmtLoadSession, err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	c.Start(ctx)
+	t.Cleanup(func() { cancel(); c.Stop() })
+	return c
+}
 
 // workTwoPomodoros drives c through two completed work periods and the short
 // break between them, the way a morning of actual use does.
@@ -52,5 +70,51 @@ func TestStartingWorkAfterAnEndedDayKeepsTheDaysCount(t *testing.T) {
 	status, _, _ := restarted.Status()
 	if !strings.Contains(status, "Today: 2") {
 		t.Fatalf("expected the day's two pomodoros to survive, got %s", status)
+	}
+}
+
+// "Done for the day" is answered once, and restarting the daemon does not
+// unask it. morning_reminder_pending is a config default, not a record of
+// today, so start-up has to check what the day already knows before it rings.
+func TestRestartIntoAnEndedDayRaisesNoMorningReminder(t *testing.T) {
+	sessPath := filepath.Join(t.TempDir(), testSessionFile)
+	cfg := config.Default()
+
+	c := newCore(cfg, noopNotifier{})
+	c.setClock(mondayAt(10, 0))
+	c.sessionPath = sessPath
+	defer c.Stop()
+	c.Execute(cmdStart)
+	c.Execute("skip-today")
+	c.saveSession()
+
+	restarted := restartAt(t, cfg, sessPath, mondayAt(19, 0))
+
+	if got := restarted.reminder.outstanding(); got != reminderNone {
+		t.Fatalf("the restart re-raised a reminder on a day the user ended: %v", got)
+	}
+}
+
+// A day whose work has already begun is past what the morning reminder exists
+// to nudge, so a restart while it is idle between phases must not ring it
+// either. Only day_ended used to say the day was underway, and a stop leaves
+// the engine idle with day_ended false.
+func TestRestartIntoAStartedDayRaisesNoMorningReminder(t *testing.T) {
+	sessPath := filepath.Join(t.TempDir(), testSessionFile)
+	cfg := config.Default()
+
+	c := newCore(cfg, noopNotifier{})
+	c.setClock(mondayAt(10, 0))
+	c.sessionPath = sessPath
+	defer c.Stop()
+	c.Execute(cmdStart)
+	c.timer.CompletePeriod()
+	c.Execute("stop")
+	c.saveSession()
+
+	restarted := restartAt(t, cfg, sessPath, mondayAt(19, 0))
+
+	if got := restarted.reminder.outstanding(); got != reminderNone {
+		t.Fatalf("the restart re-raised a reminder on a day already worked: %v", got)
 	}
 }
