@@ -73,8 +73,9 @@ final class ViewBodyTests: XCTestCase {
     environment.windowModel.panel = .stats
     _ = MainWindow(environment: environment).body
     _ = NewTaskRow(model: environment.model) { _ in }.body
-    _ = TaskRow(task: makeTask(id: 1), focused: true).body
-    _ = TaskRow(task: makeTask(id: 2, done: true), focused: false).body
+    let mark = Palette.scheme(for: .work).panelTaskMark
+    _ = TaskRow(task: makeTask(id: 1), focused: true, markColor: mark).body
+    _ = TaskRow(task: makeTask(id: 2, done: true), focused: false, markColor: mark).body
     _ = LoginItemToggle(registrar: environment.registrar).body
     _ = ShortcutSheet(environment: environment).body
   }

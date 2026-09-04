@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jwp23/throwntom/v3/internal/engine"
 	"github.com/jwp23/throwntom/v3/internal/task"
 )
 
@@ -19,13 +18,6 @@ const (
 	fmtInvalidTaskNumber = "invalid task number: %s"
 	fmtInvalidPosition   = "invalid position: %s"
 )
-
-func (c *Core) requireWorkSession(name string) (commandResult, bool) {
-	if !c.isWorkSession() {
-		return commandResult{err: fmt.Errorf("%s is %w", name, errNotWorkSession)}, false
-	}
-	return commandResult{}, true
-}
 
 func parseTaskPosition(parts []string, usage, errFmt string) (int, commandResult, bool) {
 	if len(parts) < 3 {
@@ -156,10 +148,11 @@ func (c *Core) handleTaskClear() commandResult {
 	return commandResult{message: "completed tasks cleared"}
 }
 
+// handleTaskFocus adds a task to the focus list, in any timer state. Focus is
+// not a property of the phase that is running: it survives a stop, it is what
+// the prompt at the head of a pomodoro is seeded from, and choosing it before
+// starting is how a session begins with the work already named.
 func (c *Core) handleTaskFocus(parts []string) commandResult {
-	if res, ok := c.requireWorkSession("focus"); !ok {
-		return res
-	}
 	pos, res, ok := parseTaskPosition(parts, "usage: task focus <n>", fmtInvalidTaskNumber)
 	if !ok {
 		return res
@@ -184,9 +177,6 @@ func (c *Core) handleTaskFocus(parts []string) commandResult {
 }
 
 func (c *Core) handleTaskUnfocus(parts []string) commandResult {
-	if res, ok := c.requireWorkSession("unfocus"); !ok {
-		return res
-	}
 	pos, res, ok := parseTaskPosition(parts, "usage: task unfocus <n>", fmtInvalidPosition)
 	if !ok {
 		return res
@@ -199,9 +189,6 @@ func (c *Core) handleTaskUnfocus(parts []string) commandResult {
 }
 
 func (c *Core) handleTaskUp(parts []string) commandResult {
-	if res, ok := c.requireWorkSession("up"); !ok {
-		return res
-	}
 	pos, res, ok := parseTaskPosition(parts, "usage: task up <n>", fmtInvalidPosition)
 	if !ok {
 		return res
@@ -214,9 +201,6 @@ func (c *Core) handleTaskUp(parts []string) commandResult {
 }
 
 func (c *Core) handleTaskDown(parts []string) commandResult {
-	if res, ok := c.requireWorkSession("down"); !ok {
-		return res
-	}
 	pos, res, ok := parseTaskPosition(parts, "usage: task down <n>", fmtInvalidPosition)
 	if !ok {
 		return res
@@ -347,10 +331,6 @@ func (c *Core) FocusPromptPending() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.pendingFocusPrompt
-}
-
-func (c *Core) isWorkSession() bool {
-	return c.timer.State() == engine.Work
 }
 
 func (c *Core) initTasks(path string) error {

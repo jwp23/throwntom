@@ -5,7 +5,13 @@ import XCTest
 @MainActor
 final class TaskContextMenuTests: XCTestCase {
   func testHintLineIsBuiltFromTaskActionHints() {
-    XCTAssertEqual(TaskHints.line, "⌘N new · ⌘⏎ done · ⌘F focus · ⌥↑↓ move · ⌘⌫ delete")
+    XCTAssertEqual(TaskHints.line(focused: false), "⌘N new · ⌘⏎ done · ⌘F focus · ⌥↑↓ move · ⌘⌫ delete")
+  }
+
+  /// Focus is a toggle, and until this the only thing that said so was the context menu — which a
+  /// reader has to already suspect exists before they can find it (throwntom-bxd.16).
+  func testHintLineNamesTheUndoOnAFocusedRow() {
+    XCTAssertEqual(TaskHints.line(focused: true), "⌘N new · ⌘⏎ done · ⌘F unfocus · ⌥↑↓ move · ⌘⌫ delete")
   }
 
   func testChoosingAnItemActsOnThatRowNotTheSelection() async throws {
