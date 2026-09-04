@@ -30,8 +30,8 @@ final class SnoozedLineTests: XCTestCase {
       )
       XCTAssertGreaterThan(AppearanceRender.pixels(of: ink, in: reference), 20, appearance.name)
       XCTAssertEqual(
-        drawn.representation(using: .png, properties: [:]),
-        reference.representation(using: .png, properties: [:]),
+        try AppearanceRender.png(drawn),
+        try AppearanceRender.png(reference),
         appearance.name,
       )
     }

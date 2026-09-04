@@ -93,16 +93,28 @@ final class SnoozeEntryRowTests: XCTestCase {
         scheme: appearance.scheme,
       )
       XCTAssertNotEqual(
-        reference.representation(using: .png, properties: [:]),
-        blank.representation(using: .png, properties: [:]),
+        try AppearanceRender.png(reference),
+        try AppearanceRender.png(blank),
         appearance.name,
       )
       XCTAssertEqual(
-        drawn.representation(using: .png, properties: [:]),
-        reference.representation(using: .png, properties: [:]),
+        try AppearanceRender.png(drawn),
+        try AppearanceRender.png(reference),
         appearance.name,
       )
     }
+  }
+
+  /// What the user types is content, not a footnote about it: the row reads at the window's body
+  /// size, and only the rule under it is a caption. Measured by forcing the whole row to caption —
+  /// a row that was already one would not get any smaller, and `rule` sets its own font either way.
+  func testTheRowItselfIsBodyTextAndOnlyTheRuleIsACaption() throws {
+    let (row, _, _, _) = try makeRow()
+
+    XCTAssertGreaterThan(
+      try AppearanceRender.size(row.body).height,
+      try AppearanceRender.size(row.body.font(.caption)).height,
+    )
   }
 
   // MARK: Private

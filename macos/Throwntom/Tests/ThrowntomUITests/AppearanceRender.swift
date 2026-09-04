@@ -42,13 +42,9 @@ enum AppearanceRender {
     return try XCTUnwrap(rendered, "nothing rendered")
   }
 
-  /// The drawn image as PNG bytes, for comparing two renderings pixel for pixel.
-  static func png(
-    _ view: some View,
-    appearance: NSAppearance.Name,
-    scheme: ColorScheme,
-  ) throws -> Data {
-    try XCTUnwrap(bitmap(view, appearance: appearance, scheme: scheme).representation(using: .png, properties: [:]))
+  /// A drawing as PNG bytes, which is how two of them are compared pixel for pixel.
+  static func png(_ rep: NSBitmapImageRep) throws -> Data {
+    try XCTUnwrap(rep.representation(using: .png, properties: [:]))
   }
 
   /// How much of the drawing is exactly `hex`. Zero says the colour was never painted.

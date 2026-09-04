@@ -116,8 +116,8 @@ final class SnoozeChipTests: XCTestCase {
       )
       XCTAssertGreaterThan(AppearanceRender.pixels(of: fill, in: reference), 500, appearance.name)
       XCTAssertEqual(
-        drawn.representation(using: .png, properties: [:]),
-        reference.representation(using: .png, properties: [:]),
+        try AppearanceRender.png(drawn),
+        try AppearanceRender.png(reference),
         appearance.name,
       )
     }
