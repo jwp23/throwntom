@@ -111,13 +111,14 @@ func (e *Engine) State() State {
 // StartWork picks the cycle back up. A stop that suspended an owed phase left
 // that phase recorded in lastPhase, and it is what resumes; with nothing owed,
 // work begins. A day that has not started yet owes nothing by definition.
+//
+// The day's totals are not touched. Starting work opens the work day, and
+// SkipToday closes it, so work_day_started swings freely within a single day
+// and cannot stand in for a day boundary; AdvanceDay owns that, by the work
+// date, and resets the totals there.
 func (e *Engine) StartWork() {
 	next := e.OwedPhase()
-	if !e.workDayStarted {
-		e.completedToday = 0
-		e.workDayStarted = true
-		e.workSessionsBlock = 0
-	}
+	e.workDayStarted = true
 	e.dayEnded = false
 	e.state = next
 	e.lastPhase = next

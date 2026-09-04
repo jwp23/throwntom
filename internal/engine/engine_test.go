@@ -107,17 +107,34 @@ func TestNextPhaseDoesNotMutateState(t *testing.T) {
 	}
 }
 
-func TestCompletedTodayResetsOnFirstStart(t *testing.T) {
+// Picking work back up after "done for the day" keeps the day's totals. The
+// assertion here used to be the opposite, because StartWork read
+// work_day_started as "a new day is beginning" — and SkipToday clears that
+// flag, so every start after an ended day wiped the count of pomodoros that
+// had actually been worked. Only the day boundary resets a day's totals, and
+// AdvanceDay is what knows where that boundary is.
+func TestStartAfterDoneForTheDayKeepsTodaysCount(t *testing.T) {
 	e := New(25, 5, 15, 4)
+	e.AdvanceDay(time.Date(2026, 9, 3, 9, 0, 0, 0, time.Local))
 	e.StartWork()
 	e.MarkPeriodComplete()
-	if e.CompletedToday() != 1 {
-		t.Fatalf("expected completedToday=1")
+	e.ConfirmNext()
+	e.MarkPeriodComplete()
+	e.ConfirmNext()
+	e.MarkPeriodComplete()
+	if e.CompletedToday() != 2 || e.WorkSessionsInBlock() != 2 {
+		t.Fatalf("expected 2 pomodoros in the block, got %d/%d",
+			e.CompletedToday(), e.WorkSessionsInBlock())
 	}
+
 	e.SkipToday()
 	e.StartWork()
-	if e.CompletedToday() != 0 {
-		t.Fatalf("expected reset on first start, got %d", e.CompletedToday())
+
+	if e.CompletedToday() != 2 {
+		t.Fatalf("expected today's count kept across done-for-the-day, got %d", e.CompletedToday())
+	}
+	if e.WorkSessionsInBlock() != 2 {
+		t.Fatalf("expected block progress kept across done-for-the-day, got %d", e.WorkSessionsInBlock())
 	}
 }
 
