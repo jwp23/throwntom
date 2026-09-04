@@ -47,9 +47,35 @@ public struct NotificationReport: Equatable, Encodable {
   /// One reminder macOS has delivered and not yet had taken down: which reminder it was, and when
   /// it arrived. Deliberately three fields, none of them the banner's own words.
   public struct Delivered: Equatable, Encodable {
+
+    // MARK: Public
+
+    /// Written field by field rather than by the synthesized encoder, for the same reason the
+    /// report itself is: a property nobody names here cannot reach the output. This is the type
+    /// built from `UNNotificationContent`, which holds the title and the body, so it is the half
+    /// that must fail closed — a field added to it stays out of the report until someone writes
+    /// a line for it, instead of appearing the moment it is declared.
+    public func encode(to encoder: any Encoder) throws {
+      var fields = encoder.container(keyedBy: CodingKeys.self)
+      try fields.encode(identifier, forKey: .identifier)
+      try fields.encode(category, forKey: .category)
+      try fields.encode(deliveredAt, forKey: .deliveredAt)
+    }
+
+    // MARK: Internal
+
     let identifier: String
     let category: String
     let deliveredAt: Date
+
+    // MARK: Private
+
+    private enum CodingKeys: String, CodingKey {
+      case identifier
+      case category
+      case deliveredAt
+    }
+
   }
 
   /// The flag that asks the app for this report instead of the window. It is answered by the

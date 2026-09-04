@@ -58,6 +58,37 @@ final class NotificationReportTests: XCTestCase {
     XCTAssertEqual(ISO8601DateFormatter().date(from: entry["deliveredAt"] as? String ?? ""), delivered)
   }
 
+  /// The same three fields, asserted where they are written rather than where the report happens
+  /// to embed them: `Delivered` is encoded field by field, so its contract holds however the
+  /// report around it is put together.
+  func testADeliveredReminderEncodesItsThreeFieldsOnItsOwn() throws {
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    let data = try encoder.encode(NotificationReport.Delivered(
+      identifier: "com.jwp23.throwntom.reminder.pending",
+      category: "com.jwp23.throwntom.reminder",
+      deliveredAt: Date(timeIntervalSince1970: 1_756_900_000),
+    ))
+
+    let entry = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    XCTAssertEqual(Set(entry.keys), ["identifier", "category", "deliveredAt"])
+  }
+
+  /// The other half of the same guarantee, and the half no assertion about the output can make.
+  /// A field added to `Delivered` and left out of its encoder never reaches the JSON, so the key
+  /// set above stays green while the title or the body it was built from sits in the type — one
+  /// `try fields.encode` away from the report, and one careless line away from a log. `Delivered`
+  /// is built from `UNNotificationContent`, so what it is allowed to hold is the guarantee.
+  func testADeliveredReminderHoldsNothingButThoseThreeFields() {
+    let fields = Mirror(reflecting: NotificationReport.Delivered(
+      identifier: "com.jwp23.throwntom.reminder.pending",
+      category: "com.jwp23.throwntom.reminder",
+      deliveredAt: Date(timeIntervalSince1970: 1_756_900_000),
+    )).children.compactMap(\.label)
+
+    XCTAssertEqual(Set(fields), ["identifier", "category", "deliveredAt"])
+  }
+
   func testNothingIsReportedWhenMacOSWillShowTheReminder() {
     XCTAssertEqual(makeReport().findings, [])
   }
