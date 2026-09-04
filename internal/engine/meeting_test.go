@@ -218,6 +218,21 @@ func TestOwedPhaseAfterAMeetingFollowsItsCredits(t *testing.T) {
 	}
 }
 
+// Only a meeting can be completed as one. The guard is what stops a stray
+// call crediting a pomodoro's worth of meeting time to a phase that was never
+// a meeting, which would inflate the day's total from nowhere.
+func TestCompletingAMeetingThatIsNotRunningChangesNothing(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartWork()
+	before := e.Snapshot()
+
+	e.CompleteMeeting(60 * time.Minute)
+
+	if e.Snapshot() != before {
+		t.Fatalf("completing a meeting during %s changed the engine", before.State)
+	}
+}
+
 func TestMeetingCanBePausedAndResumed(t *testing.T) {
 	e := New(25, 5, 15, 4)
 	e.StartMeeting()
