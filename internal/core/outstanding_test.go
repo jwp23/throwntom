@@ -219,10 +219,10 @@ func TestShouldRaiseMorningOncePerDayAndNotWhileSnoozed(t *testing.T) {
 	r, rec, _ := newTestReminder(t)
 	sched := scheduler.New(config.ScheduleDayTimes(config.Default().Schedule))
 	now := time.Date(2026, 3, 2, 9, 15, 0, 0, time.Local) // Monday 09:15, the default schedule
-	if !r.shouldRaiseMorning(now, sched) {
+	if !r.shouldRaiseMorning(now, sched.ShouldTrigger(now)) {
 		t.Fatal("expected first check at schedule time to trigger")
 	}
-	if r.shouldRaiseMorning(now.Add(time.Minute), sched) {
+	if r.shouldRaiseMorning(now.Add(time.Minute), sched.ShouldTrigger(now.Add(time.Minute))) {
 		t.Fatal("expected second check on the same day not to trigger")
 	}
 	r.raise(reminderMorning)
@@ -231,7 +231,7 @@ func TestShouldRaiseMorningOncePerDayAndNotWhileSnoozed(t *testing.T) {
 		t.Fatal(err)
 	}
 	tomorrow := now.Add(24 * time.Hour)
-	if r.shouldRaiseMorning(tomorrow, sched) {
+	if r.shouldRaiseMorning(tomorrow, sched.ShouldTrigger(tomorrow)) {
 		t.Fatal("expected no trigger while snoozed")
 	}
 }
@@ -245,7 +245,8 @@ func TestSkipTodayCancelsAndStampsDay(t *testing.T) {
 	if r.outstanding() != reminderNone {
 		t.Fatal("expected skipToday to cancel")
 	}
-	if r.shouldRaiseMorning(time.Date(2026, 3, 2, 9, 15, 0, 0, time.Local), sched) {
+	scheduleTime := time.Date(2026, 3, 2, 9, 15, 0, 0, time.Local)
+	if r.shouldRaiseMorning(scheduleTime, sched.ShouldTrigger(scheduleTime)) {
 		t.Fatal("expected no trigger after skipToday")
 	}
 }
