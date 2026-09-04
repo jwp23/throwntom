@@ -25,12 +25,70 @@ func TestTaskFocusDuringWorkSession(t *testing.T) {
 	}
 }
 
-func TestTaskFocusRejectsOutsideWorkSession(t *testing.T) {
+func TestTaskFocusWhileIdle(t *testing.T) {
 	c := newTestCoreWithTasks(t)
 	c.execute(cmdTaskAddImportant)
 	result := c.execute(cmdTaskFocus1)
-	if result.err == nil {
-		t.Fatal("expected error when not in work session")
+	if result.err != nil {
+		t.Fatalf("focus while idle failed: %v", result.err)
+	}
+	if len(c.Focused()) != 1 {
+		t.Fatalf("expected 1 focused, got %d", len(c.Focused()))
+	}
+}
+
+func TestTaskUnfocusWhileIdle(t *testing.T) {
+	c := newTestCoreWithTasks(t)
+	c.execute(cmdTaskAddImportant)
+	c.execute(cmdTaskFocus1)
+	result := c.execute("task unfocus 1")
+	if result.err != nil {
+		t.Fatalf("unfocus while idle failed: %v", result.err)
+	}
+	if len(c.Focused()) != 0 {
+		t.Fatalf("expected nothing focused, got %d", len(c.Focused()))
+	}
+}
+
+func TestTaskReorderWhileIdle(t *testing.T) {
+	c := newTestCoreWithTasks(t)
+	c.execute("task add first")
+	c.execute("task add second")
+	c.execute(cmdTaskFocus1)
+	c.execute("task focus 2")
+	if result := c.execute("task up 2"); result.err != nil {
+		t.Fatalf("reorder while idle failed: %v", result.err)
+	}
+	focused := c.Focused()
+	if len(focused) != 2 || focused[0].Description != "second" {
+		t.Fatalf("expected 'second' at top of %v", focused)
+	}
+	if result := c.execute("task down 1"); result.err != nil {
+		t.Fatalf("reorder while idle failed: %v", result.err)
+	}
+	if c.Focused()[0].Description != "first" {
+		t.Fatalf("expected 'first' back at top, got %v", c.Focused())
+	}
+}
+
+// Focus chosen before the timer runs is the point of allowing it while idle: the
+// prompt that start opens is seeded from it, and the empty answer the daemon API
+// gives that prompt keeps it rather than clearing it.
+func TestFocusChosenWhileIdleSurvivesTheStart(t *testing.T) {
+	c := newTestCoreWithTasks(t)
+	c.execute(cmdTaskAddImportant)
+	c.execute(cmdTaskFocus1)
+	prompt := c.execute("start")
+	if !strings.Contains(prompt.message, "*1) important work") {
+		t.Fatalf("expected the idle focus offered back in the prompt, got %q", prompt.message)
+	}
+	c.execute("") // the answer runNonInteractive gives on the daemon's behalf
+	if c.timer.State() != engine.Work {
+		t.Fatalf("expected work after start, got %s", c.timer.State())
+	}
+	focused := c.Focused()
+	if len(focused) != 1 || focused[0].Description != "important work" {
+		t.Fatalf("expected the idle focus kept, got %v", focused)
 	}
 }
 

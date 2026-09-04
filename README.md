@@ -148,12 +148,12 @@ Manage focused tasks for your pomodoro sessions. Tasks are persisted to `~/.conf
 - `task list` - show active tasks
 - `task completed` - show completed tasks
 - `task clear` - clear completed tasks
-- `task focus <n>` - focus on task `n` during a work session
+- `task focus <n>` - focus on task `n`, in any timer state
 - `task unfocus <n>` - remove focus from task at position `n`
 - `task up <n>` - move focused task up in priority
 - `task down <n>` - move focused task down in priority
 
-When starting a pomodoro or confirming a transition to work, you'll be prompted to select which tasks to focus on for that session.
+Focus is not tied to a running pomodoro: you can focus and unfocus in any timer state, including while idle, so a session can begin with the work already named. Starting a pomodoro always asks which tasks it is for, offering back whatever is already focused; confirming into a work phase asks only when nothing is focused yet.
 
 ## Session Persistence
 
