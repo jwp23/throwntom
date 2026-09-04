@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -133,6 +134,8 @@ func TestLoadSessionDiscardsInternallyInconsistentState(t *testing.T) {
 	n := &countingNotifier{}
 	c := newCore(cfg, n)
 	c.sessionPath = sessPath
+	var warnings bytes.Buffer
+	c.setWarnOut(&warnings)
 	defer c.Stop()
 	if err := c.loadSession(); err != nil {
 		t.Fatalf(fmtLoadSession, err)
@@ -140,6 +143,10 @@ func TestLoadSessionDiscardsInternallyInconsistentState(t *testing.T) {
 	status, _, _ := c.Status()
 	if !strings.Contains(status, "Idle") {
 		t.Fatalf("expected Idle for internally inconsistent session, got %s", status)
+	}
+	wantWarning := "warning: discarding inconsistent session: work_day_started is false but state/last_phase is not idle\n"
+	if got := warnings.String(); got != wantWarning {
+		t.Fatalf("expected discard warning %q, got %q", wantWarning, got)
 	}
 	time.Sleep(1200 * time.Millisecond)
 	if got := n.calls.Load(); got != 0 {
@@ -443,7 +450,8 @@ func TestLoadSessionIntoAwaitingConfirmKeepsCycleReminder(t *testing.T) {
 		t.Fatal("expected the cycle reminder to survive a restore into awaiting_confirm")
 	}
 	waitForSounds(t, rec, 1)
-	if c.reminder.shouldRaiseMorning(mondayAt(9, 15).Now(), c.scheduler) {
+	morning := mondayAt(9, 15).Now()
+	if c.reminder.shouldRaiseMorning(morning, c.scheduler.ShouldTrigger(morning)) {
 		t.Fatal("expected the morning reminder to still be marked owed for today")
 	}
 }
@@ -473,8 +481,19 @@ func TestSessionSavedAfterMidnightResetsOnReload(t *testing.T) {
 	c2.sessionPath = sessPath
 	defer c2.Stop()
 	c2.setNow(func() time.Time { return today })
+	var warnings bytes.Buffer
+	c2.setWarnOut(&warnings)
 	if err := c2.loadSession(); err != nil {
 		t.Fatalf(fmtLoadSession, err)
+	}
+	// A rollover with a phase in flight keeps that phase, so the snapshot the
+	// reload sees is reachable and is restored in place: only the day's totals
+	// reset, which is why today's count below comes back zero.
+	if got := warnings.String(); got != "" {
+		t.Fatalf("expected the session to be restored, not discarded, got warning %q", got)
+	}
+	if got := c2.timer.State(); got != engine.AwaitingConfirm {
+		t.Fatalf("expected the paused work period to survive the rollover, got %v", got)
 	}
 
 	status, _, _ := c2.Status()
@@ -513,7 +532,8 @@ func TestLoadSessionIntoAnEndedDayOwesNoMorningReminder(t *testing.T) {
 	if !c.State().DayEnded {
 		t.Fatal("expected the ended day to survive the restore")
 	}
-	if c.reminder.shouldRaiseMorning(mondayAt(9, 15).Now(), c.scheduler) {
+	morning := mondayAt(9, 15).Now()
+	if c.reminder.shouldRaiseMorning(morning, c.scheduler.ShouldTrigger(morning)) {
 		t.Fatal("expected no morning reminder owed on a day the user ended")
 	}
 }

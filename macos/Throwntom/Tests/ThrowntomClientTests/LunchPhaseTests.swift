@@ -3,15 +3,11 @@ import XCTest
 
 /// Lunch is a phase the daemon can publish and a verb the client can send. It is chosen rather
 /// than earned (`internal/engine/engine.go`), so nothing in the timer's own flow leads to it.
+///
+/// Decoding the wire name is covered by `StateDecodingTests.testDecodesEveryPhaseName`, which
+/// builds its document from the one State fixture the whole target shares; a second literal here
+/// would only rot the next time the daemon gains a field.
 final class LunchPhaseTests: XCTestCase {
-  func testLunchDecodesFromTheDaemonsName() throws {
-    let json = #"{"state":"lunch","phase_end_at":null,"paused_remaining":0,"paused_from":"idle","completed_today":0,"work_sessions_in_block":0,"long_break_every":4,"next_stage":null,"owed_stage":null,"morning_pending":false,"snooze_until":null,"status_line":"Lunch","focused_task_ids":[],"reminder_rings":0,"day_ended":false,"float_window_when_waiting":false}"#
-
-    let state = try DaemonJSON.decoder.decode(DaemonState.self, from: Data(json.utf8))
-
-    XCTAssertEqual(state.state, .lunch)
-  }
-
   func testLunchIsNamedInTheWindow() {
     XCTAssertEqual(DaemonState.Phase.lunch.displayName, "Lunch")
   }

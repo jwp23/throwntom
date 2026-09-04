@@ -54,6 +54,16 @@ never takes keyboard focus (see the root README for the setting)
 `docs/adr/007-the-daemon-plays-no-sound.md`,
 `docs/adr/009-the-chime-is-the-only-audio-path.md`).
 
+A pause the user walks away from bounces the Dock too. The daemon keeps that
+clock — `paused_too_long_minutes`, ten by default — and publishes
+`paused_too_long`; the app asks for attention when it turns true and calls the
+bounce off when the timer is resumed, so a resume from the terminal ends it
+without the app ever being looked at
+(`docs/adr/003-clients-own-user-facing-notification.md`). Setting
+`bounce_dock_when_paused = false` in `config.toml` turns the bounce off; the
+daemon keeps publishing `paused_too_long` on the same clock either way, the
+app just declines to act on it (see the root README for the setting).
+
 The app never spawns the daemon itself. If the socket is unreachable it
 reconnects with backoff and, after three failures, re-registers the agent.
 
@@ -79,9 +89,12 @@ retries the registration.
 
 The configs in `Throwntom/.swiftformat` and `Throwntom/.swiftlint.yml` are copied
 verbatim from [airbnb/swift](https://github.com/airbnb/swift) at the newest revision
-the pinned SwiftFormat release understands; the script refuses to run under any other
-tool version so a developer machine and CI cannot disagree. `brew install swiftformat
-swiftlint` provides both.
+the pinned SwiftFormat release understands. `brew install swiftformat swiftlint` gets
+you close, but a brew upgrade can drift past the pin; when the installed version
+doesn't match, `swift-lint.sh` downloads the pinned release itself, verifies it
+against the checksum `ci.yml` uses, and caches it under `macos/.swift-lint-cache`
+(gitignored) so that only happens once per checkout (each worktree has its
+own cache).
 
 `DaemonClient` and the transport are tested against a real `throwntomd`,
 built by the tests with `go build` and run with `HOME` under `/tmp`.

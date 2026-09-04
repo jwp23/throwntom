@@ -45,6 +45,17 @@ type State struct {
 	// daemon neither reads nor enforces it; presentation is the client's
 	// (ADR-003).
 	FloatWindowWhenWaiting bool `json:"float_window_when_waiting"`
+	// PausedTooLong is true once the pause in flight has outlasted
+	// `paused_too_long_minutes`. The daemon keeps the clock and says only
+	// that the pause has been forgotten; asking for the user's attention is
+	// the client's (ADR-003).
+	PausedTooLong bool `json:"paused_too_long"`
+	// BounceDockWhenPaused is the user's `bounce_dock_when_paused` setting,
+	// passed through for the macOS app the way FloatWindowWhenWaiting is. The
+	// daemon neither reads nor enforces it: paused_too_long above turns true
+	// on the same clock either way, and only the client's decision to bounce
+	// the Dock (ADR-003) depends on this.
+	BounceDockWhenPaused bool `json:"bounce_dock_when_paused"`
 }
 
 func (c *Core) State() State {
@@ -69,6 +80,8 @@ func (c *Core) stateLocked() State {
 		FocusedTaskIDs:         c.focusedIDs(),
 		ReminderRings:          c.reminder.ringCount(),
 		FloatWindowWhenWaiting: c.floatWindowWhenWaiting,
+		PausedTooLong:          c.timer.PausedTooLong(),
+		BounceDockWhenPaused:   c.bounceDockWhenPaused,
 	}
 	if !snap.PhaseEndAt.IsZero() {
 		end := snap.PhaseEndAt

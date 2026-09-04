@@ -73,6 +73,71 @@ automation, and no use case for one so far.
   toggled from a script (`defaults write com.apple.universalaccess` is refused); flip it in System
   Settings → Accessibility → Display and repeat the check — nothing should move.
 - `tools/dev-quiet.sh` runs the TUI against a throwaway `HOME` with sound disabled.
+- `tools/notification-report.sh` answers whether a reminder can be seen at all, and what has been
+  delivered — see the next section.
+
+## Did the reminder actually fire?
+
+`tools/notification-report.sh` asks the app itself what macOS will do with a reminder and what it
+is holding right now, as JSON on standard output:
+
+```bash
+tools/notification-report.sh                        # the running Throwntom
+tools/notification-report.sh ~/Applications/Throwntom.app
+```
+
+```json
+{
+  "authorization" : "authorized",
+  "alerts" : "enabled",
+  "alertStyle" : "alert",
+  "runningApp" : "thisBundle",
+  "deliveredCount" : 1,
+  "delivered" : [
+    {
+      "category" : "com.jwp23.throwntom.reminder",
+      "deliveredAt" : "2026-09-04T02:25:55Z",
+      "identifier" : "com.jwp23.throwntom.reminder.pending"
+    }
+  ],
+  "findings" : []
+}
+```
+
+`findings` is the part to read. It is empty when nothing macOS knows about would stop a reminder
+being seen, and otherwise names each thing that would: notifications denied — the state a
+dev loop lands in, since a permission prompt quit without an answer is recorded as a refusal —
+notifications never asked about, alerts turned off, an alert style of None, Scheduled Summary
+holding reminders back, and a Throwntom that is not running to post any. `category` tells the
+cycle reminder from the morning nudge. Titles and bodies are never reported: a reminder's body is
+built from the daemon's state and can name the focused task.
+
+Only the app can answer this. `UNUserNotificationCenter` gives a process the app's notification
+identity only when it is running the bundle's own executable — a helper binary next to it inside
+the same bundle is answered with a blank record, everything `notDetermined` and `notSupported` —
+so the report is a flag on the app's own binary rather than a tool of its own. It writes the
+report and exits before the window, the daemon connection and the notification delegate start, so
+it is safe to run while Throwntom is up.
+
+Run it against the copy that is running, which is what the script does by default. macOS answers a
+copy of the app about the notifications *that copy* posted, and tells copies apart by their code
+signature: a bundle you have just built is answered with an empty delivered list while the
+installed app has a reminder on screen, and a byte-identical copy at another path is answered with
+the reminder. An empty list looks exactly like a reminder that was never posted, so `runningApp`
+says which copy answered and `findings` calls it out.
+
+To reach a reminder without waiting out a pomodoro, end the phase early — the skipped phase is not
+credited, so the day's total is untouched (`internal/core/commands.go`, `handleSkip`):
+
+```bash
+curl -s --unix-socket ~/.config/throwntom/daemon.sock -X POST http://d/v1/timer/start
+go run ./tools/tomctl cmd skip     # -> awaiting_confirm, and the app posts the reminder
+tools/notification-report.sh
+```
+
+What the report cannot see is a Focus mode: `UNNotificationSettings` says nothing about one. A
+report with no findings and a delivered reminder still leaves "was a banner drawn on the screen"
+to human eyes.
 
 ## The README banner
 

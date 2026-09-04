@@ -1,3 +1,4 @@
+import SwiftUI
 import ThrowntomClient
 import XCTest
 @testable import ThrowntomUI
@@ -38,10 +39,32 @@ final class WindowSectionBodyTests: XCTestCase {
   }
 
   func testFocusAndNotesBuild() throws {
-    _ = FocusSection(tasks: []).body
-    _ = FocusSection(tasks: [makeTask(id: 1), makeTask(id: 2)]).body
+    let scheme = Palette.scheme(for: .work)
+    _ = FocusSection(tasks: [], scheme: scheme).body
+    _ = FocusSection(tasks: [makeTask(id: 1), makeTask(id: 2)], scheme: scheme).body
     let responder = AppEnvironment(transport: try StubTransport(states: [])).responder
     _ = WindowNotes(error: nil, notice: nil, responder: responder).body
     _ = WindowNotes(error: "socket closed", notice: "You stopped the timer service.", responder: responder).body
+  }
+
+  /// A note is the only account on screen of a refused command or a stopped service, and the focus
+  /// list is the only account of what the pomodoro is for. Neither may be the smallest type in the
+  /// window (throwntom-bxd.14, throwntom-bxd.15).
+  ///
+  /// This pins the values alone; nothing here runs a body, so on its own it stays green while a
+  /// body draws `.caption` and ignores the constant beside it. `WindowFontRenderingTests` renders
+  /// the two views and holds them to the size named here, and the pair is what closes the gap:
+  /// this says which size is right, that one says the body is drawn at it.
+  func testNotesAndFocusRowsAreReadAtTheWindowsOwnTextSize() {
+    XCTAssertEqual(WindowNotes.font, .body)
+    XCTAssertEqual(FocusSection.font, Font.body.weight(.medium))
+  }
+
+  /// The star takes the ground's own text colour; `PaletteTests` is what holds that colour to
+  /// 4.5:1 on every ground.
+  func testTheFocusStarTakesTheGroundsOwnTextColour() {
+    for (name, scheme) in Palette.schemes {
+      XCTAssertEqual(FocusSection(tasks: [], scheme: scheme).markColor, scheme.taskMark, name)
+    }
   }
 }

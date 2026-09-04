@@ -8,7 +8,6 @@ import (
 
 	"github.com/jwp23/throwntom/v3/internal/notifier"
 	"github.com/jwp23/throwntom/v3/internal/reminder"
-	"github.com/jwp23/throwntom/v3/internal/scheduler"
 )
 
 // reminderKind is which nudge is outstanding. At most one is, because the
@@ -191,17 +190,23 @@ func (r *outstandingReminder) markTriggeredToday(now time.Time) {
 	r.mu.Unlock()
 }
 
-// shouldRaiseMorning reports whether the schedule wants the morning reminder
-// now, at most once per day and never during a snooze. Callers check that the
-// timer is idle first.
-func (r *outstandingReminder) shouldRaiseMorning(now time.Time, sched *scheduler.Scheduler) bool {
+// shouldRaiseMorning reports whether the morning reminder is owed now, at most
+// once per day and never during a snooze, and claims the day when it says yes.
+// Callers check that the timer is idle first.
+//
+// scheduleDue is the caller's reading of the schedule, because the two callers
+// ask different questions of it: a schedule tick rings on the minute the
+// schedule names, while a daemon starting up has to ring for a morning it
+// missed entirely, so it asks whether that minute has already passed today.
+// What must not differ is the once-a-day record, which is why it lives here.
+func (r *outstandingReminder) shouldRaiseMorning(now time.Time, scheduleDue bool) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if !r.snoozeUntil.IsZero() {
 		return false
 	}
 	key := dayKey(now)
-	if !sched.ShouldTrigger(now) || key == r.lastTriggerDay {
+	if !scheduleDue || key == r.lastTriggerDay {
 		return false
 	}
 	r.lastTriggerDay = key

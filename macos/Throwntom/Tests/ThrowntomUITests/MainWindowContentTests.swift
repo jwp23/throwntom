@@ -109,6 +109,15 @@ final class MainWindowContentTests: XCTestCase {
     XCTAssertEqual(c.focused.map(\.id), [4, 6])
   }
 
+  /// Focus is no longer gated on a running pomodoro (`internal/core/tasks.go`), so a user can pick
+  /// the work before starting it — and the window has to show what they picked, or an idle screen
+  /// gives the choice no acknowledgement at all (throwntom-bxd.14).
+  func testFocusedTasksShowWhileTheTimerIsIdle() {
+    let tasks = TaskList(active: [makeTask(id: 4), makeTask(id: 5)])
+    let c = content(makeState(phase: .idle, focusedTaskIds: [5]), tasks: tasks)
+    XCTAssertEqual(c.focused.map(\.id), [5])
+  }
+
   func testDisconnectedShowsPlaceholderAndNoGarden() {
     let c = content(nil, connection: .reconnecting(attempt: 2), error: "socket closed")
     XCTAssertEqual(c.scheme, Palette.scheme(for: nil))

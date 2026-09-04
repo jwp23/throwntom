@@ -42,7 +42,7 @@ func (c *Core) loadSession() error {
 		return nil
 	}
 	if reason := data.Timer.Engine.Invalid(); reason != "" {
-		fmt.Fprintf(os.Stderr, "warning: discarding inconsistent session: %s\n", reason)
+		_, _ = fmt.Fprintf(c.warnOut, "warning: discarding inconsistent session: %s\n", reason)
 		return nil
 	}
 	if err := c.timer.Restore(data.Timer, c.now()); err != nil {
@@ -60,12 +60,20 @@ func (c *Core) loadSession() error {
 		}
 	}
 	c.timer.AdvanceDay(c.now())
-	// A restored day the user already ended owes no morning reminder either,
-	// and the engine is idle in that case, so the state check alone misses it.
-	// Read day_ended from the advanced engine, not from the file: a rollover
-	// reopens the day, and the saved value would suppress the new day's reminder.
-	if data.Timer.Engine.State != engine.Idle || c.timer.Snapshot().Engine.DayEnded {
+	if dayUnderway(c.timer.Snapshot().Engine) {
 		c.reminder.markTriggeredToday(c.now())
 	}
 	return nil
+}
+
+// dayUnderway reports whether the restored day is past the point the morning
+// reminder exists to nudge it past: a phase is running, the day's work has
+// begun, or the user declared the day over. Two of the three leave the engine
+// idle, so state alone misses them.
+//
+// Callers read it from the advanced engine rather than from the session file:
+// a rollover reopens the day, and the saved values would suppress the new
+// day's reminder.
+func dayUnderway(s engine.Snapshot) bool {
+	return s.State != engine.Idle || s.WorkDayStarted || s.DayEnded
 }

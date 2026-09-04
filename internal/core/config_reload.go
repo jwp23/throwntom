@@ -27,6 +27,8 @@ func (c *Core) ApplyConfig(cfg config.Config) {
 	}
 	c.longBreakEvery = cfg.Pomodoro.LongBreakEvery
 	c.floatWindowWhenWaiting = cfg.FloatWindowWhenWaiting
+	c.bounceDockWhenPaused = cfg.BounceDockWhenPaused
+	c.timer.SetPausedTooLongAfter(pausedTooLongAfter(cfg))
 	// morning_reminder_pending is deliberately not reloaded: it answers
 	// whether today's reminder is owed at start-up, a question Start has
 	// already settled by the time any reload arrives.
@@ -41,6 +43,12 @@ func (c *Core) ApplyConfig(cfg config.Config) {
 	c.timer.ApplyDurations(durationsFrom(cfg))
 	c.mu.Unlock()
 	c.publish()
+}
+
+// pausedTooLongAfter is how long a pause may last before the timer calls it
+// forgotten, as the config writes it.
+func pausedTooLongAfter(cfg config.Config) time.Duration {
+	return time.Duration(cfg.PausedTooLongMinutes) * time.Minute
 }
 
 // setPolicy changes how often the reminder repeats. A reminder already

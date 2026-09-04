@@ -155,12 +155,12 @@ Manage focused tasks for your pomodoro sessions. Tasks are persisted to `~/.conf
 - `task list` - show active tasks
 - `task completed` - show completed tasks
 - `task clear` - clear completed tasks
-- `task focus <n>` - focus on task `n` during a work session
+- `task focus <n>` - focus on task `n`, in any timer state
 - `task unfocus <n>` - remove focus from task at position `n`
 - `task up <n>` - move focused task up in priority
 - `task down <n>` - move focused task down in priority
 
-When starting a pomodoro or confirming a transition to work, you'll be prompted to select which tasks to focus on for that session.
+Focus is not tied to a running pomodoro: you can focus and unfocus in any timer state, including while idle, so a session can begin with the work already named. Starting a pomodoro always asks which tasks it is for, offering back whatever is already focused; confirming into a work phase asks only when nothing is focused yet.
 
 ## Session Persistence
 
@@ -240,6 +240,8 @@ sound_command = ["paplay", "/usr/share/sounds/freedesktop/stereo/bell.oga"]
 morning_reminder_pending = true
 emoji = true
 float_window_when_waiting = false
+paused_too_long_minutes = 10
+bounce_dock_when_paused = true
 
 [pomodoro]
 work_minutes = 25
@@ -282,6 +284,31 @@ the window cannot interrupt what you are typing — it can only appear in front
 of it. The daemon raises no window of its own: it reloads this setting and
 publishes it in its state for the macOS app to read. The terminal UI has no
 window to raise.
+
+### `paused_too_long_minutes`
+
+Ten minutes by default. A pause is easy to walk away from and hard to notice
+you are still in, so once one has lasted this long the daemon publishes it as
+`paused_too_long` and the macOS app bounces its Dock icon. Resuming before the
+threshold passes does nothing at all.
+
+The daemon keeps the clock and nothing else: what to do about a forgotten
+pause is the client's, the way every other reminder is
+(`docs/adr/003-clients-own-user-facing-notification.md`). The pause keeps its
+age across a daemon restart, so restarting is not a way to get the ten minutes
+back. The terminal UI does not use this setting.
+
+### `bounce_dock_when_paused`
+
+On by default. Turns off the Dock bounce `paused_too_long` above drives on
+macOS, for anyone who finds it more distracting than useful. It changes
+nothing about `paused_too_long_minutes`: the daemon keeps the same clock and
+publishes `paused_too_long` on the same schedule regardless, since the clock
+and the threshold are not this setting's to change — only whether the app
+acts on the answer is (ADR-003). The daemon raises no Dock icon of its own:
+it reloads this setting and publishes it in its state for the macOS app to
+read. A live edit that turns it off also calls off a bounce already in
+progress; the terminal UI does not use this setting.
 
 ### `sound_command`
 
@@ -330,7 +357,8 @@ already be over. A file that does not parse is reported on the daemon's
 stderr and ignored; the config in force stays in force.
 
 Reloading covers `[pomodoro]`, `[[schedule]]`, `repeat_secs`,
-`repeat_limit_secs` and `float_window_when_waiting`. The rest needs a restart
+`repeat_limit_secs`, `float_window_when_waiting`,
+`paused_too_long_minutes` and `bounce_dock_when_paused`. The rest needs a restart
 of whichever process reads it:
 
 - `sound_command` — `throwntomd` plays no sound at all (see above), and the

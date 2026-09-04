@@ -48,6 +48,23 @@ struct PhaseScheme: Equatable, Sendable {
   let panelText: HexColor
 }
 
+/// The mark at the head of a task — a filled star when it is focused, an open circle when it is
+/// not — takes the colour of whatever surface it sits on rather than a tint of its own. These are
+/// the values `PaletteTests` holds to 4.5:1 on the ground and on the panel, and a mark is read
+/// like the words beside it. `Color.yellow`, which the star used to carry, never went through
+/// that gate: it lands at 1.8:1 on the idle ground and changes with the system appearance, where
+/// the rest of the window looks the same in both. Nothing is lost by dropping it — the two glyphs
+/// differ in shape, and a row says "focused" aloud (`TaskRow.label`).
+extension PhaseScheme {
+  var taskMark: HexColor {
+    text
+  }
+
+  var panelTaskMark: HexColor {
+    panelText
+  }
+}
+
 /// The sofa the mascot reads on during a long break is upholstered in the phase's own tones so it
 /// belongs to the room rather than importing a wood colour.
 extension PhaseScheme {
