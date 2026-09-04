@@ -378,11 +378,19 @@ func (e *Engine) AdvanceDay(now time.Time) {
 	}
 	e.completedToday = 0
 	e.workSessionsBlock = 0
-	e.workDayStarted = false
 	e.dayEnded = false
-	// A new day owes nothing: yesterday's suspended cycle does not carry over.
-	e.lastPhase = Idle
-	e.skipped = false
+	// A phase in flight when the day turns carries into the new day: it is
+	// running, paused or waiting to be confirmed now, so the new day's work has
+	// already begun, and lastPhase and skipped describe that phase rather than
+	// a debt. Forgetting them here leaves a snapshot the engine's own
+	// transitions could not reach, and the next start discards the session
+	// whole. Only an idle engine crosses owing something, and a new day owes
+	// nothing: yesterday's suspended cycle does not carry over.
+	if e.state == Idle {
+		e.workDayStarted = false
+		e.lastPhase = Idle
+		e.skipped = false
+	}
 	e.workDate = now
 }
 
