@@ -48,7 +48,7 @@ public enum TimerAction: CaseIterable, Sendable {
   /// now"; this says when, so the row still teaches on the screen the reader happens to be on.
   ///
   /// It states the timer's condition and not the service's. Every verb here is a command line for
-  /// the daemon, so every one of them also needs a timer service, and repeating that on six rows
+  /// the daemon, so every one of them also needs a timer service, and repeating that on every row
   /// would bury the part that differs between them.
   ///
   /// Pause and Resume are one row, one key and two faces (`TimerActions.pauseOrResume`), so the
