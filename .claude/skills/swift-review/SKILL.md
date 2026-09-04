@@ -12,7 +12,7 @@ style; it says nothing about deprecated SwiftUI API, data flow, accessibility, o
 which is what the swiftui-pro review exists for. Lint passing is not a review.
 
 Swift files this branch touches:
-!`git diff --name-only origin/main -- 'macos/Throwntom/*.swift'`
+!`git diff --name-only origin/main...HEAD -- 'macos/Throwntom/*.swift'`
 
 ## The gate
 
