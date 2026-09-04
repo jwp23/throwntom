@@ -39,7 +39,11 @@ type Config struct {
 	// this file is where the user's settings are, and because LoadBytes
 	// rejects keys the struct does not name.
 	FloatWindowWhenWaiting bool `toml:"float_window_when_waiting"`
-	Stats                  struct {
+	// PausedTooLongMinutes is how long a pause may last before the daemon
+	// calls it forgotten and publishes that in its state. What a client makes
+	// of it is the client's (ADR-003): the macOS app bounces its Dock icon.
+	PausedTooLongMinutes int `toml:"paused_too_long_minutes"`
+	Stats                struct {
 		TierLow int `toml:"tier_low"`
 		TierMid int `toml:"tier_mid"`
 	} `toml:"stats"`
@@ -59,6 +63,7 @@ func Default() Config {
 	cfg.RepeatLimitSecs = 300
 	cfg.MorningReminderPending = true
 	cfg.Emoji = true
+	cfg.PausedTooLongMinutes = 10
 	cfg.Stats.TierLow = 2
 	cfg.Stats.TierMid = 5
 	return cfg
@@ -127,6 +132,9 @@ func validate(cfg Config) error {
 	}
 	if cfg.RepeatLimitSecs <= 0 {
 		return fmt.Errorf("repeat_limit_secs must be > 0")
+	}
+	if cfg.PausedTooLongMinutes <= 0 {
+		return fmt.Errorf("paused_too_long_minutes must be > 0")
 	}
 	if len(cfg.Schedule) == 0 {
 		return fmt.Errorf("at least one [[schedule]] entry is required")

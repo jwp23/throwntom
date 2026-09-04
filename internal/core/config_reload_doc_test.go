@@ -28,6 +28,7 @@ var reloadedSettings = []string{
 	"repeat_secs",
 	"repeat_limit_secs",
 	"float_window_when_waiting",
+	"paused_too_long_minutes",
 }
 
 // restartSettings is every other setting a user can write in config.toml. A
@@ -325,6 +326,13 @@ func TestEverySettingDocumentedAsReloadedIsApplied(t *testing.T) {
 			c.ApplyConfig(*cfg)
 			if !c.State().FloatWindowWhenWaiting {
 				t.Fatal("the reloaded setting did not reach the published state")
+			}
+		},
+		"paused_too_long_minutes": func(t *testing.T, c *Core, cfg *config.Config) {
+			cfg.PausedTooLongMinutes = 3
+			c.ApplyConfig(*cfg)
+			if got := c.timer.PausedTooLongAfter(); got != 3*time.Minute {
+				t.Fatalf("the timer measures a pause against %s, want the reloaded 3m", got)
 			}
 		},
 	}

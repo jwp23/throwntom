@@ -87,6 +87,7 @@ func newCore(cfg config.Config, n notifier.Notifier) *Core {
 		floatWindowWhenWaiting: cfg.FloatWindowWhenWaiting,
 		subscribers:            make(map[chan State]struct{}),
 	}
+	c.timer.SetPausedTooLongAfter(pausedTooLongAfter(cfg))
 	c.handlers = c.buildCommandHandlers()
 	c.timer.SetOnChange(c.publishAsync)
 	c.timer.SetOnTransition(c.onTransition)
