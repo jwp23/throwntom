@@ -15,6 +15,11 @@ const (
 	// Lunch is the break the user chooses rather than the one a finished
 	// pomodoro earns. No transition leads to it; only StartLunch does.
 	Lunch
+	// Meeting is time spent away from the timer but still at work. Like lunch
+	// it is chosen rather than earned, and only StartMeeting leads to it;
+	// unlike lunch it is worked time, so it credits pomodoros instead of
+	// ending the block.
+	Meeting
 	AwaitingConfirm
 	Paused
 )
@@ -25,6 +30,7 @@ var stateNames = [...]string{
 	ShortBreak:      "short_break",
 	LongBreak:       "long_break",
 	Lunch:           "lunch",
+	Meeting:         "meeting",
 	AwaitingConfirm: "awaiting_confirm",
 	Paused:          "paused",
 }
@@ -95,6 +101,12 @@ type Engine struct {
 	// only because breakAfterWork is the sole reader and only runs when
 	// lastPhase is Work. Read it anywhere else and it may be stale.
 	skipped bool
+	// lastCredit is how many pomodoros the phase behind lastPhase added to the
+	// block. An ordinary pomodoro credits one; a meeting credits its length
+	// rounded to the nearest pomodoro, which can be several at once or none.
+	// It is what lets blockBoundaryCrossed tell a block that was completed
+	// from one that was jumped clean over, which a count on its own cannot.
+	lastCredit int
 }
 
 func New(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery int) *Engine {
@@ -147,6 +159,8 @@ func (e *Engine) owedPhase() State {
 	switch e.lastPhase {
 	case Work:
 		return e.breakAfterWork()
+	case Meeting:
+		return e.nextAfterMeeting()
 	case ShortBreak, LongBreak, Lunch:
 		return Work
 	default:
@@ -163,10 +177,35 @@ func (e *Engine) breakAfterWork() State {
 	if e.skipped {
 		return ShortBreak
 	}
-	if e.workSessionsBlock > 0 && e.workSessionsBlock%e.longBreakEvery == 0 {
+	if e.blockBoundaryCrossed() {
 		return LongBreak
 	}
 	return ShortBreak
+}
+
+// nextAfterMeeting reports the phase a finished meeting leads to. A meeting is
+// credited work rather than rest, so the user goes back to work after one
+// instead of taking the short break a pomodoro earns. The long break is the
+// exception: it belongs to the block rather than to the pomodoro before it, so
+// credits that carry the block over its boundary earn it like any others.
+func (e *Engine) nextAfterMeeting() State {
+	if e.blockBoundaryCrossed() {
+		return LongBreak
+	}
+	return Work
+}
+
+// blockBoundaryCrossed reports whether the credits of the phase behind
+// lastPhase carried the block count over a multiple of longBreakEvery. A
+// pomodoro credits one and so can only land on the multiple; a meeting can
+// credit several at once and jump it without landing on it, which a bare
+// remainder test would miss — and would then go on missing every boundary
+// after it, since the count never returns to a multiple.
+func (e *Engine) blockBoundaryCrossed() bool {
+	if e.lastCredit <= 0 || e.workSessionsBlock <= 0 {
+		return false
+	}
+	return e.workSessionsBlock/e.longBreakEvery > (e.workSessionsBlock-e.lastCredit)/e.longBreakEvery
 }
 
 func (e *Engine) StartNewCycle() {
@@ -174,6 +213,7 @@ func (e *Engine) StartNewCycle() {
 	e.skipped = false
 	e.workDayStarted = true
 	e.workSessionsBlock = 0
+	e.lastCredit = 0
 	e.state = Work
 	e.lastPhase = Work
 	e.pausedFrom = Idle
@@ -195,9 +235,62 @@ func (e *Engine) StartLunch() {
 	e.dayEnded = false
 	e.workDayStarted = true
 	e.workSessionsBlock = 0
+	e.lastCredit = 0
 	e.state = Lunch
 	e.lastPhase = Lunch
 	e.pausedFrom = Idle
+}
+
+// StartMeeting takes the user into a meeting from wherever they are. Like
+// lunch it is chosen rather than earned, so nothing has to be owed for it to
+// begin and no transition leads to it.
+//
+// Unlike lunch it leaves the block alone. A meeting is worked time — it
+// credits pomodoros when it ends — so the pomodoros done before it are still
+// pomodoros of the same block, and the long break they are working toward is
+// still coming.
+func (e *Engine) StartMeeting() {
+	e.skipped = false
+	e.dayEnded = false
+	e.workDayStarted = true
+	e.state = Meeting
+	e.lastPhase = Meeting
+	e.pausedFrom = Idle
+}
+
+// MeetingCredits reports how many pomodoros a meeting of the given length is
+// worth: its length in pomodoros, rounded to the nearest, with exactly half
+// rounding up. A meeting shorter than half a pomodoro is worth none.
+//
+// The arithmetic is integer so the boundary is exact — a meeting of precisely
+// half a pomodoro credits one, and the float rounding that would decide such a
+// case by the last bit of a division never runs.
+func MeetingCredits(elapsed time.Duration, workMinutes int) int {
+	work := time.Duration(workMinutes) * time.Minute
+	if work <= 0 || elapsed <= 0 {
+		return 0
+	}
+	return int((2*elapsed + work) / (2 * work))
+}
+
+// CompleteMeeting ends a meeting that has run its course or been cut short,
+// crediting the time actually spent in it. The credit lands in the day's total
+// and in the block alike: it is work that was done, so it counts toward the
+// long break exactly as a worked pomodoro does.
+//
+// A meeting too short to credit anything still ends here rather than being
+// refused; the user was in it, and the phase has to end somewhere.
+func (e *Engine) CompleteMeeting(elapsed time.Duration) {
+	if e.state != Meeting {
+		return
+	}
+	credits := MeetingCredits(elapsed, e.workMinutes)
+	e.skipped = false
+	e.lastCredit = credits
+	e.completedToday += credits
+	e.workSessionsBlock += credits
+	e.lastPhase = Meeting
+	e.state = AwaitingConfirm
 }
 
 func (e *Engine) MarkPeriodComplete() {
@@ -205,11 +298,13 @@ func (e *Engine) MarkPeriodComplete() {
 	if e.state == Work {
 		e.completedToday++
 		e.workSessionsBlock++
+		e.lastCredit = 1
 		e.lastPhase = e.state
 		e.state = AwaitingConfirm
 		return
 	}
 	if e.state == ShortBreak || e.state == LongBreak || e.state == Lunch {
+		e.lastCredit = 0
 		e.lastPhase = e.state
 		e.state = AwaitingConfirm
 	}
@@ -228,10 +323,14 @@ func (e *Engine) NextPhase() State {
 	if e.state != AwaitingConfirm {
 		return Idle
 	}
-	if e.lastPhase == Work {
+	switch e.lastPhase {
+	case Work:
 		return e.breakAfterWork()
+	case Meeting:
+		return e.nextAfterMeeting()
+	default:
+		return Work
 	}
-	return Work
 }
 
 func (e *Engine) CompletedToday() int {
@@ -262,6 +361,7 @@ func (e *Engine) SetLongBreakEvery(n int) {
 // day is marked over so nothing reminds the user again until tomorrow.
 func (e *Engine) SkipToday() {
 	e.skipped = false
+	e.lastCredit = 0
 	e.state = Idle
 	e.lastPhase = Idle
 	e.pausedFrom = Idle
@@ -274,12 +374,18 @@ func (e *Engine) SkipToday() {
 // confirmation. Nothing is credited — a skipped pomodoro was not worked, so
 // counting it would inflate the day's total and the long-break cycle alike.
 // It reports whether a phase was running to skip.
+//
+// Meeting is deliberately absent: a meeting cut short still credits the time
+// that was spent in it, which is CompleteMeeting's job and needs the elapsed
+// time this method is not given. Adding Meeting here would end the phase while
+// silently discarding its credit.
 func (e *Engine) SkipPhase() bool {
 	switch e.state {
 	case Work, ShortBreak, LongBreak, Lunch:
 		e.lastPhase = e.state
 		e.state = AwaitingConfirm
 		e.skipped = true
+		e.lastCredit = 0
 		return true
 	default:
 		return false
@@ -288,7 +394,7 @@ func (e *Engine) SkipPhase() bool {
 
 func (e *Engine) Pause() bool {
 	switch e.state {
-	case Work, ShortBreak, LongBreak, Lunch:
+	case Work, ShortBreak, LongBreak, Lunch, Meeting:
 		e.pausedFrom = e.state
 		e.state = Paused
 		return true
@@ -319,6 +425,9 @@ type Snapshot struct {
 	// Skipped reports that the phase in LastPhase was skipped rather than
 	// served, so nothing about it should be recorded as completed.
 	Skipped bool `json:"skipped"`
+	// LastCredit is how many pomodoros the phase in LastPhase credited to the
+	// block, which is what decides whether the block's long break is owed.
+	LastCredit int `json:"last_credit"`
 }
 
 func (e *Engine) Snapshot() Snapshot {
@@ -332,6 +441,7 @@ func (e *Engine) Snapshot() Snapshot {
 		DayEnded:       e.dayEnded,
 		WorkDate:       e.workDate,
 		Skipped:        e.skipped,
+		LastCredit:     e.lastCredit,
 	}
 }
 
@@ -353,7 +463,7 @@ func (s Snapshot) Invalid() string {
 	}
 	if s.State == AwaitingConfirm {
 		switch s.LastPhase {
-		case Work, ShortBreak, LongBreak, Lunch:
+		case Work, ShortBreak, LongBreak, Lunch, Meeting:
 		default:
 			return "awaiting_confirm with an unreachable last_phase"
 		}
@@ -368,7 +478,7 @@ func (s Snapshot) Invalid() string {
 // which are the only ones a confirm or a pause can have come from.
 func isTimedPhase(s State) bool {
 	switch s {
-	case Work, ShortBreak, LongBreak, Lunch:
+	case Work, ShortBreak, LongBreak, Lunch, Meeting:
 		return true
 	default:
 		return false
@@ -385,6 +495,7 @@ func (e *Engine) Restore(s Snapshot) {
 	e.dayEnded = s.DayEnded
 	e.workDate = s.WorkDate
 	e.skipped = s.Skipped
+	e.lastCredit = s.LastCredit
 }
 
 func IsSameDay(a, b time.Time) bool {
@@ -403,6 +514,7 @@ func (e *Engine) AdvanceDay(now time.Time) {
 	}
 	e.completedToday = 0
 	e.workSessionsBlock = 0
+	e.lastCredit = 0
 	e.dayEnded = false
 	// A phase in flight when the day turns carries into the new day: it is
 	// running, paused or waiting to be confirmed now, so the new day's work has
