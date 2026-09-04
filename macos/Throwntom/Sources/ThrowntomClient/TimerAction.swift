@@ -25,12 +25,17 @@ public enum TimerAction: CaseIterable, Sendable {
   }
 
   /// Display-only hint; the real key bindings are attached to menu items in the app target.
+  ///
+  /// Confirm and Pause carry a shift the other verbs do not, because the unshifted keys are the
+  /// platform's: ⌘P prints in every app the user has, and bare Return is what a default button and
+  /// a text field commit on. `MenuBindingTests` holds the list to the platform's keys as well as to
+  /// its own.
   public var shortcutHint: String {
     switch self {
     case .start: "⌘R"
-    case .confirm: "⏎"
+    case .confirm: "⇧⏎"
     case .pause,
-         .resume: "⌘P"
+         .resume: "⌘⇧P"
     case .skip: "⌘K"
     case .snooze: "⌘⇧S"
     case .skipToday,

@@ -51,12 +51,12 @@ extension MenuModel where Action == TimerAction {
         ),
         item(
           .confirm,
-          MenuShortcut(key: .return, modifiers: []),
+          MenuShortcut(key: .return, modifiers: .shift),
           isEnabled: available.contains(.confirm) && !isEditing,
         ),
         item(
           TimerActions.pauseOrResume(for: daemonAvailable ? state?.state : nil),
-          MenuShortcut(key: "p", modifiers: .command),
+          MenuShortcut(key: "p", modifiers: [.command, .shift]),
         ),
         item(.skip, MenuShortcut(key: "k", modifiers: .command)),
         item(.snooze, MenuShortcut(key: "s", modifiers: [.command, .shift])),
@@ -140,7 +140,7 @@ extension MenuModel where Action == TaskAction {
         item(.newTask, "n", .command),
         item(.complete, .return, .command),
         item(.delete, .delete, .command),
-        item(.focus, "f", .command),
+        item(.focus, "f", [.command, .shift]),
       ],
       [
         item(.moveUp, .upArrow, .option),

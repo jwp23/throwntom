@@ -19,12 +19,14 @@ public enum TaskAction: CaseIterable, Sendable {
     }
   }
 
+  /// Focus carries a shift the other verbs do not: ⌘F is Find, and this window holds a list, which
+  /// is the surface a user reaches for Find on.
   public var shortcutHint: String {
     switch self {
     case .newTask: "⌘N"
     case .complete: "⌘⏎"
     case .delete: "⌘⌫"
-    case .focus: "⌘F"
+    case .focus: "⌘⇧F"
     case .moveUp: "⌥↑"
     case .moveDown: "⌥↓"
     }
