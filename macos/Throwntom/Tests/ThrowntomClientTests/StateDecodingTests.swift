@@ -3,11 +3,11 @@ import XCTest
 
 final class StateDecodingTests: XCTestCase {
   /// Captured from GET /v1/state on a fresh throwntomd.
-  static let idleJSON = #"{"state":"idle","phase_end_at":null,"paused_remaining":0,"paused_from":"idle","completed_today":0,"work_sessions_in_block":0,"long_break_every":4,"next_stage":null,"owed_stage":{"state":"work","duration":1500},"morning_pending":true,"snooze_until":null,"status_line":"Idle  Today: 0  Cycle: 0/4","focused_task_ids":[],"reminder_rings":0,"day_ended":false,"float_window_when_waiting":false,"paused_too_long":false}"#
+  static let idleJSON = #"{"state":"idle","phase_end_at":null,"paused_remaining":0,"paused_from":"idle","completed_today":0,"work_sessions_in_block":0,"long_break_every":4,"next_stage":null,"owed_stage":{"state":"work","duration":1500},"morning_pending":true,"snooze_until":null,"status_line":"Idle  Today: 0  Cycle: 0/4","focused_task_ids":[],"reminder_rings":0,"day_ended":false,"float_window_when_waiting":false,"paused_too_long":false,"bounce_dock_when_paused":true}"#
 
-  static let workJSON = #"{"state":"work","phase_end_at":"2026-08-25T10:25:00.123456789-07:00","paused_remaining":0,"paused_from":"idle","completed_today":3,"work_sessions_in_block":1,"long_break_every":4,"next_stage":{"state":"short_break","duration":300},"owed_stage":null,"morning_pending":false,"snooze_until":"2026-08-25T09:00:00Z","status_line":"Pomodoro  12:34  Today: 3  Cycle: 1/4","focused_task_ids":[3,7],"reminder_rings":2,"day_ended":false,"float_window_when_waiting":false,"paused_too_long":false}"#
+  static let workJSON = #"{"state":"work","phase_end_at":"2026-08-25T10:25:00.123456789-07:00","paused_remaining":0,"paused_from":"idle","completed_today":3,"work_sessions_in_block":1,"long_break_every":4,"next_stage":{"state":"short_break","duration":300},"owed_stage":null,"morning_pending":false,"snooze_until":"2026-08-25T09:00:00Z","status_line":"Pomodoro  12:34  Today: 3  Cycle: 1/4","focused_task_ids":[3,7],"reminder_rings":2,"day_ended":false,"float_window_when_waiting":false,"paused_too_long":false,"bounce_dock_when_paused":true}"#
 
-  static let pausedJSON = #"{"state":"paused","phase_end_at":null,"paused_remaining":900,"paused_from":"long_break","completed_today":4,"work_sessions_in_block":0,"long_break_every":4,"next_stage":{"state":"work","duration":1500},"owed_stage":null,"morning_pending":false,"snooze_until":null,"status_line":"Paused","focused_task_ids":[],"reminder_rings":0,"day_ended":false,"float_window_when_waiting":false,"paused_too_long":false}"#
+  static let pausedJSON = #"{"state":"paused","phase_end_at":null,"paused_remaining":900,"paused_from":"long_break","completed_today":4,"work_sessions_in_block":0,"long_break_every":4,"next_stage":{"state":"work","duration":1500},"owed_stage":null,"morning_pending":false,"snooze_until":null,"status_line":"Paused","focused_task_ids":[],"reminder_rings":0,"day_ended":false,"float_window_when_waiting":false,"paused_too_long":false,"bounce_dock_when_paused":true}"#
 
   func testDecodesPausedFrom() throws {
     let s = try DaemonJSON.decoder.decode(DaemonState.self, from: Data(Self.pausedJSON.utf8))
@@ -47,6 +47,19 @@ final class StateDecodingTests: XCTestCase {
     )
     XCTAssertTrue(try DaemonJSON.decoder.decode(DaemonState.self, from: Data(forgotten.utf8)).pausedTooLong)
     XCTAssertFalse(try DaemonJSON.decoder.decode(DaemonState.self, from: Data(Self.pausedJSON.utf8)).pausedTooLong)
+  }
+
+  /// The wire key the daemon writes for the Dock-bounce setting; the daemon is held to the same
+  /// name in `internal/core/state_test.go`.
+  func testDecodesTheBounceDockWhenPausedSetting() throws {
+    let off = Self.idleJSON.replacingOccurrences(
+      of: #""bounce_dock_when_paused":true"#,
+      with: #""bounce_dock_when_paused":false"#,
+    )
+    XCTAssertFalse(try DaemonJSON.decoder.decode(DaemonState.self, from: Data(off.utf8)).bounceDockWhenPaused)
+    XCTAssertTrue(
+      try DaemonJSON.decoder.decode(DaemonState.self, from: Data(Self.idleJSON.utf8)).bounceDockWhenPaused
+    )
   }
 
   func testDecodesIdleState() throws {

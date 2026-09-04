@@ -118,6 +118,7 @@ final class TimerActionsTests: XCTestCase {
       dayEnded: dayEnded,
       floatWindowWhenWaiting: false,
       pausedTooLong: false,
+      bounceDockWhenPaused: true,
     )
   }
 
