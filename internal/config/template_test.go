@@ -26,6 +26,7 @@ var documentedKeys = []string{
 	"emoji",
 	"float_window_when_waiting",
 	"paused_too_long_minutes",
+	"bounce_dock_when_paused",
 	"tier_low",
 	"tier_mid",
 }

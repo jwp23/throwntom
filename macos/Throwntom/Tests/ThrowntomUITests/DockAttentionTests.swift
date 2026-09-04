@@ -66,6 +66,25 @@ final class DockAttentionTests: XCTestCase {
     XCTAssertEqual(decide(from: makeState(phase: .work), to: makeState(phase: .shortBreak)), .unchanged)
   }
 
+  /// bounce_dock_when_paused off means the pause bounce is declined, not merely deferred: the
+  /// forgotten pause still asks for nothing.
+  func testBounceDockWhenPausedOffAsksForNothing() {
+    XCTAssertEqual(
+      decide(from: pausedState(), to: pausedState(tooLong: true, bounceDockWhenPaused: false)),
+      .unchanged,
+    )
+  }
+
+  /// A live config reload can turn the setting off while a bounce it started is still running.
+  /// Without an explicit cancel here the Dock would keep bouncing until the pause is resumed or
+  /// the reminder underneath it changes, neither of which the user asked for.
+  func testTurningBounceDockWhenPausedOffLiveCancelsAnActiveBounce() {
+    XCTAssertEqual(
+      decide(from: pausedState(tooLong: true), to: pausedState(tooLong: true, bounceDockWhenPaused: false)),
+      .cancel,
+    )
+  }
+
   // MARK: Private
 
   private let shortBreak = DaemonState.Stage(state: .shortBreak, duration: 300)
@@ -74,8 +93,14 @@ final class DockAttentionTests: XCTestCase {
     DockAttention.decide(from: previous, to: current)
   }
 
-  private func pausedState(tooLong: Bool = false) -> DaemonState {
-    makeState(phase: .paused, pausedRemaining: 600, pausedFrom: .work, pausedTooLong: tooLong)
+  private func pausedState(tooLong: Bool = false, bounceDockWhenPaused: Bool = true) -> DaemonState {
+    makeState(
+      phase: .paused,
+      pausedRemaining: 600,
+      pausedFrom: .work,
+      pausedTooLong: tooLong,
+      bounceDockWhenPaused: bounceDockWhenPaused,
+    )
   }
 
 }

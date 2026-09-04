@@ -51,6 +51,7 @@ func makeState(
   dayEnded: Bool = false,
   floatWhenWaiting: Bool = false,
   pausedTooLong: Bool = false,
+  bounceDockWhenPaused: Bool = true,
 ) -> DaemonState {
   DaemonState(
     state: phase,
@@ -70,6 +71,7 @@ func makeState(
     dayEnded: dayEnded,
     floatWindowWhenWaiting: floatWhenWaiting,
     pausedTooLong: pausedTooLong,
+    bounceDockWhenPaused: bounceDockWhenPaused,
   )
 }
 

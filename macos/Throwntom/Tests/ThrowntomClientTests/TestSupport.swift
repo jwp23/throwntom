@@ -311,5 +311,6 @@ func makeClientState(
     dayEnded: dayEnded,
     floatWindowWhenWaiting: false,
     pausedTooLong: false,
+    bounceDockWhenPaused: true,
   )
 }

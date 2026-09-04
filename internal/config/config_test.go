@@ -90,6 +90,22 @@ func TestFloatWindowWhenWaitingDefaultsOffAndCanBeEnabled(t *testing.T) {
 	}
 }
 
+// On by default: the bounce is what tells a user a pause has been forgotten,
+// so a config that says nothing keeps it, unlike float_window_when_waiting
+// above.
+func TestBounceDockWhenPausedDefaultsOnAndCanBeDisabled(t *testing.T) {
+	if !Default().BounceDockWhenPaused {
+		t.Fatal("expected bounce_dock_when_paused to default to true")
+	}
+	cfg, err := LoadBytes([]byte(`bounce_dock_when_paused = false`))
+	if err != nil {
+		t.Fatalf(fmtUnexpectedErr, err)
+	}
+	if cfg.BounceDockWhenPaused {
+		t.Fatal("expected bounce_dock_when_paused to be false when explicitly set")
+	}
+}
+
 func TestEmojiDefaultsTrueAndCanBeDisabled(t *testing.T) {
 	cfg, err := LoadBytes([]byte(`emoji = false`))
 	if err != nil {

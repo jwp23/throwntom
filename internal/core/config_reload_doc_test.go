@@ -29,6 +29,7 @@ var reloadedSettings = []string{
 	"repeat_limit_secs",
 	"float_window_when_waiting",
 	"paused_too_long_minutes",
+	"bounce_dock_when_paused",
 }
 
 // restartSettings is every other setting a user can write in config.toml. A
@@ -335,6 +336,13 @@ func TestEverySettingDocumentedAsReloadedIsApplied(t *testing.T) {
 				t.Fatalf("the timer measures a pause against %s, want the reloaded 3m", got)
 			}
 		},
+		"bounce_dock_when_paused": func(t *testing.T, c *Core, cfg *config.Config) {
+			cfg.BounceDockWhenPaused = false
+			c.ApplyConfig(*cfg)
+			if c.State().BounceDockWhenPaused {
+				t.Fatal("the reloaded setting did not reach the published state")
+			}
+		},
 	}
 
 	for _, name := range reloadedSettings {
@@ -392,6 +400,38 @@ func TestDocsSayTheDaemonPublishesFloatWindowWhenWaiting(t *testing.T) {
 
 	if !c.State().FloatWindowWhenWaiting {
 		t.Fatal("the daemon's published state does not carry float_window_when_waiting")
+	}
+}
+
+// TestDocsSayTheDaemonPublishesBounceDockWhenPaused guards the same promise
+// float_window_when_waiting gets above: the daemon carries the setting
+// without acting on it, and the reload list is worth nothing unless a reader
+// is told the state it publishes is where the macOS app reads it.
+func TestDocsSayTheDaemonPublishesBounceDockWhenPaused(t *testing.T) {
+	readme, err := doctest.Read("README.md")
+	if err != nil {
+		t.Fatalf("read README: %v", err)
+	}
+	for _, d := range []struct {
+		doc
+		want string
+	}{
+		{doc{"README.md", readme, doctest.Unwrap}, "it reloads this setting and publishes it in its state for the macOS app to read"},
+		{doc{"the config template", config.Template, doctest.UnwrapComments}, "it reloads this setting and publishes it in its state for the app to read"},
+	} {
+		if !strings.Contains(d.prose(), d.want) {
+			t.Errorf("%s does not say the daemon publishes bounce_dock_when_paused; it says only that the daemon does not act on it", d.source)
+		}
+	}
+
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	cfg.BounceDockWhenPaused = false
+	c := newCore(cfg, noopNotifier{})
+	defer c.Stop()
+
+	if c.State().BounceDockWhenPaused {
+		t.Fatal("the daemon's published state does not carry bounce_dock_when_paused")
 	}
 }
 
