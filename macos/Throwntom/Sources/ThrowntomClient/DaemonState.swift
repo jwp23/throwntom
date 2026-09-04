@@ -77,4 +77,8 @@ public struct DaemonState: Codable, Equatable, Sendable {
   /// decides nothing there: what a client does with its window is the client's (ADR-003), and the
   /// setting rides state only because the config file it is written in is the daemon's.
   public var floatWindowWhenWaiting: Bool
+  /// Whether the pause in flight has outlasted `paused_too_long_minutes`. The daemon keeps that
+  /// clock and says only that the pause has been forgotten; what to do about it is the client's
+  /// (ADR-003), and here it is a Dock bounce. False whenever the timer is not paused.
+  public var pausedTooLong: Bool
 }

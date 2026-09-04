@@ -54,6 +54,13 @@ never takes keyboard focus (see the root README for the setting)
 `docs/adr/007-the-daemon-plays-no-sound.md`,
 `docs/adr/009-the-chime-is-the-only-audio-path.md`).
 
+A pause the user walks away from bounces the Dock too. The daemon keeps that
+clock — `paused_too_long_minutes`, ten by default — and publishes
+`paused_too_long`; the app asks for attention when it turns true and calls the
+bounce off when the timer is resumed, so a resume from the terminal ends it
+without the app ever being looked at
+(`docs/adr/003-clients-own-user-facing-notification.md`).
+
 The app never spawns the daemon itself. If the socket is unreachable it
 reconnects with backoff and, after three failures, re-registers the agent.
 
