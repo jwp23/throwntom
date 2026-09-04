@@ -25,7 +25,7 @@ extension MenuModel where Action == TimerAction {
   /// `daemonAvailable` is asked separately from the snapshot because the client goes on holding
   /// that snapshot after the service is gone — the cheat sheet and the focus list read it, and
   /// blanking it to dress the menus would blank those too. Reading enablement from the retained
-  /// state alone is what left ⌘P and ⌘K firing into a dead daemon with no control on screen to
+  /// state alone is what left ⌘⇧P and ⌘K firing into a dead daemon with no control on screen to
   /// look wrong.
   static func timer(state: DaemonState?, returnIsTaken: Bool, daemonAvailable: Bool) -> MenuModel {
     let available = daemonAvailable ? state.map(TimerActions.available(for:)) ?? [] : []

@@ -19,7 +19,7 @@ final class TasksPanelTests: XCTestCase {
   }
 
   /// The panel's hint is the one place a reader who has never opened a context menu learns that
-  /// ⌘F is a toggle, so it has to word itself for the row the key would act on.
+  /// ⌘⇧F is a toggle, so it has to word itself for the row the key would act on.
   func testTheHintNamesUnfocusWhenTheSelectedRowIsFocused() throws {
     let panel = try makePanel()
     panel.model.sync(tasks: TaskList(active: [makeTask(id: 1), makeTask(id: 2)], completed: []), focusedTaskIDs: [2])

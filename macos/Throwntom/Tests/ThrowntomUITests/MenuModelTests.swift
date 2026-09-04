@@ -85,7 +85,7 @@ final class TimerMenuModelTests: XCTestCase {
     XCTAssertEqual(try XCTUnwrap(menu.items.first { $0.action == .start }).title, "Start Short break")
   }
 
-  /// The other title the Timer menu takes from the snapshot. ⌘P reads Resume only while the timer
+  /// The other title the Timer menu takes from the snapshot. ⌘⇧P reads Resume only while the timer
   /// is paused, so with the service gone a retained `paused` snapshot would word it from a daemon
   /// the window has already declared missing — the same lie ⌘R is held away from, and the reason
   /// both titles have to ask `daemonAvailable` rather than only the one that was noticed first.

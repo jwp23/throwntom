@@ -25,7 +25,7 @@ final class ServiceDownMenuTests: XCTestCase {
       )
 
       XCTAssertFalse(menu.items.isEmpty, "\(status)")
-      XCTAssertTrue(menu.items.allSatisfy { !$0.isEnabled }, "\(status): ⌘P and ⌘K would fire into nothing")
+      XCTAssertTrue(menu.items.allSatisfy { !$0.isEnabled }, "\(status): ⌘⇧P and ⌘K would fire into nothing")
     }
   }
 
@@ -258,7 +258,7 @@ final class ServiceDownWiringTests: XCTestCase {
     let menus = AppMenus(environment: try stoppedEnvironment())
 
     XCTAssertFalse(menus.daemonAvailable)
-    XCTAssertTrue(menus.timerMenu.items.allSatisfy { !$0.isEnabled }, "⌘P and ⌘K would fire into nothing")
+    XCTAssertTrue(menus.timerMenu.items.allSatisfy { !$0.isEnabled }, "⌘⇧P and ⌘K would fire into nothing")
     XCTAssertEqual(menus.serviceMenu.items.map(\.title), ["Start Timer Service"])
   }
 
