@@ -14,7 +14,7 @@ final class ShortcutSheetTests: XCTestCase {
     XCTAssertEqual(
       sections[0].entries.map(\.hint),
       ["⌘R", "⇧⏎", "⌘⇧P", "⌘K", "⌘⇧S"],
-      "Skip Today and New Cycle have none",
+      "Skip Today, New Cycle and Lunch have none",
     )
     XCTAssertEqual(sections[1].entries.map(\.hint), ["⌘T", "⌘⇧I", "⌘/", "⎋"])
     XCTAssertEqual(sections[2].entries.map(\.hint), ["⌘N", "⌘⏎", "⌘⌫", "⌘⇧F", "⌥↑", "⌥↓"])

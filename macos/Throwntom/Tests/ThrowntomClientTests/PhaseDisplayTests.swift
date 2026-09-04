@@ -7,6 +7,7 @@ final class PhaseDisplayTests: XCTestCase {
     XCTAssertEqual(DaemonState.Phase.work.displayName, "Pomodoro")
     XCTAssertEqual(DaemonState.Phase.shortBreak.displayName, "Short break")
     XCTAssertEqual(DaemonState.Phase.longBreak.displayName, "Long break")
+    XCTAssertEqual(DaemonState.Phase.lunch.displayName, "Lunch")
     XCTAssertEqual(DaemonState.Phase.awaitingConfirm.displayName, "Confirm")
     XCTAssertEqual(DaemonState.Phase.paused.displayName, "Paused")
   }

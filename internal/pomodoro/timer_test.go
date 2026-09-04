@@ -15,7 +15,7 @@ const (
 )
 
 func TestNextStageWhenAwaitingAfterWork(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	a.Start()
 	a.CompletePeriod()
 	state, dur := a.NextStage()
@@ -28,7 +28,7 @@ func TestNextStageWhenAwaitingAfterWork(t *testing.T) {
 }
 
 func TestNextStageWhenAwaitingAfterBreak(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	a.Start()
 	a.CompletePeriod()
 	a.Confirm()
@@ -43,7 +43,7 @@ func TestNextStageWhenAwaitingAfterBreak(t *testing.T) {
 }
 
 func TestNextStageLongBreakBoundary(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	a.Start()
 	for i := 0; i < 3; i++ {
 		a.CompletePeriod()
@@ -62,7 +62,7 @@ func TestNextStageLongBreakBoundary(t *testing.T) {
 }
 
 func TestNextStageOutsideAwaitingConfirm(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	state, dur := a.NextStage()
 	if state != engine.Idle {
 		t.Fatalf("expected Idle when not awaiting, got %s", state)
@@ -73,7 +73,7 @@ func TestNextStageOutsideAwaitingConfirm(t *testing.T) {
 }
 
 func TestStateShowsAwaitingConfirm(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	a.Start()
 	a.CompletePeriod()
 	if got := a.State(); got != engine.AwaitingConfirm {
@@ -89,7 +89,7 @@ func TestCountdownFormatMMSS(t *testing.T) {
 }
 
 func TestStatusLineShowsPendingWhenAwaitingConfirm(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	a.Start()
 	a.CompletePeriod()
 	line := a.StatusLine()
@@ -99,7 +99,7 @@ func TestStatusLineShowsPendingWhenAwaitingConfirm(t *testing.T) {
 }
 
 func TestStatusLineUsesPomodoroLabel(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	a.Start()
 	line := a.StatusLine()
 	if !strings.Contains(line, "Cycle: 0/4") {
@@ -116,7 +116,7 @@ func TestStatusLineUsesPomodoroLabel(t *testing.T) {
 }
 
 func TestStatusLineShowsFullCycleAtLongBreakBoundary(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	a.Start()
 
 	for i := 0; i < 3; i++ {
@@ -146,7 +146,7 @@ func TestStatusLineShowsFullCycleAtLongBreakBoundary(t *testing.T) {
 }
 
 func TestPauseAndResume(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	a.Start()
 	a.Pause()
 	if got := a.State(); got != engine.Paused {
@@ -159,7 +159,7 @@ func TestPauseAndResume(t *testing.T) {
 }
 
 func TestStopResetsToIdle(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	a.Start()
 	a.Stop()
 	if got := a.State(); got != engine.Idle {
@@ -172,7 +172,7 @@ func TestStopResetsToIdle(t *testing.T) {
 }
 
 func TestStartNewCycleResetsCycleProgressButPreservesDailyTotal(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	a.Start()
 	a.CompletePeriod()
 	if !strings.Contains(a.StatusLine(), statusTodayPomodoros1) {
@@ -193,7 +193,7 @@ func TestStartNewCycleResetsCycleProgressButPreservesDailyTotal(t *testing.T) {
 }
 
 func TestRestoreWorkWithTimeRemaining(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	now := time.Now()
 	a.setClock(newFakeClock(now))
 	snap := Snapshot{
@@ -223,7 +223,7 @@ func TestRestoreWorkWithTimeRemaining(t *testing.T) {
 }
 
 func TestRestoreWorkExpiredTransitionsToAwaitingConfirm(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	now := time.Now()
 	snap := Snapshot{
 		Engine: engine.Snapshot{
@@ -245,7 +245,7 @@ func TestRestoreWorkExpiredTransitionsToAwaitingConfirm(t *testing.T) {
 }
 
 func TestRestorePausedPreservesRemaining(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	snap := Snapshot{
 		Engine: engine.Snapshot{
 			State:      engine.Paused,
@@ -267,7 +267,7 @@ func TestRestorePausedPreservesRemaining(t *testing.T) {
 }
 
 func TestRestoreIdleIsClean(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	snap := Snapshot{
 		Engine: engine.Snapshot{
 			State:          engine.Idle,
@@ -288,13 +288,13 @@ func TestRestoreIdleIsClean(t *testing.T) {
 }
 
 func TestSnapshotRestoreRoundTrip(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	a.Start()
 	a.CompletePeriod()
 	a.Confirm()
 
 	snap := a.Snapshot()
-	a2 := New(25, 5, 15, 4)
+	a2 := New(minutes(25, 5, 15, 4))
 	if err := a2.Restore(snap, time.Now()); err != nil {
 		t.Fatalf(fmtRestore, err)
 	}
@@ -309,7 +309,7 @@ func TestSnapshotRestoreRoundTrip(t *testing.T) {
 }
 
 func TestOnChangeFiresWhenPhaseTimerExpires(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	clk := newFakeClock(time.Now())
 	a.setClock(clk)
 	fired := make(chan struct{}, 4)
@@ -339,7 +339,7 @@ func TestOnChangeFiresWhenPhaseTimerExpires(t *testing.T) {
 }
 
 func TestStatusLineCountdownFollowsInjectedClock(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	clk := newFakeClock(time.Now())
 	a.setClock(clk)
 	a.Start()
@@ -355,7 +355,7 @@ func TestStatusLineCountdownFollowsInjectedClock(t *testing.T) {
 }
 
 func TestPauseCapturesRemainingFromInjectedClock(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	clk := newFakeClock(time.Now())
 	a.setClock(clk)
 	a.Start()
@@ -384,7 +384,7 @@ func TestPauseCapturesRemainingFromInjectedClock(t *testing.T) {
 // than reviving it with a fresh full duration, which would hand back time
 // the phase never had.
 func TestResumeCompletesAPhaseThatExpiredWhilePaused(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	clk := newFakeClock(time.Now())
 	a.setClock(clk)
 	a.Start()
@@ -417,7 +417,7 @@ func TestResumeCompletesAPhaseThatExpiredWhilePaused(t *testing.T) {
 }
 
 func TestOnChangeFiresOnVerbs(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	count := 0
 	a.SetOnChange(func() { count++ })
 	a.Start()
@@ -430,7 +430,7 @@ func TestOnChangeFiresOnVerbs(t *testing.T) {
 }
 
 func TestAdvanceDayDoesNotNotifyWithoutRollover(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	now := time.Now()
 	count := 0
 	a.SetOnChange(func() { count++ })
@@ -443,7 +443,7 @@ func TestAdvanceDayDoesNotNotifyWithoutRollover(t *testing.T) {
 }
 
 func TestAdvanceDayNotifiesOnRollover(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	yesterday := time.Now().Add(-24 * time.Hour)
 	snap := a.Snapshot()
 	snap.Engine.WorkDate = yesterday
@@ -464,7 +464,7 @@ func TestAdvanceDayNotifiesOnRollover(t *testing.T) {
 }
 
 func TestPauseReportsRefusalWhenIdle(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	if a.Pause() {
 		t.Fatal("expected Pause to report false when idle")
 	}
@@ -482,7 +482,7 @@ func TestPauseReportsRefusalWhenIdle(t *testing.T) {
 }
 
 func TestRefusedPauseAndResumeDoNotNotify(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	count := 0
 	a.SetOnChange(func() { count++ })
 

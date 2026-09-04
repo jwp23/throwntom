@@ -11,7 +11,7 @@ import (
 // clock on by elapsed, returning the timer and its clock.
 func pausedFor(t *testing.T, threshold, elapsed time.Duration) (*Timer, *fakeClock) {
 	t.Helper()
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	clk := newFakeClock(time.Date(2026, 9, 3, 10, 0, 0, 0, time.UTC))
 	a.setClock(clk)
 	a.SetPausedTooLongAfter(threshold)
@@ -96,7 +96,7 @@ func TestAZeroThresholdNeverReportsTooLong(t *testing.T) {
 // The pause's age is wall-clock time the daemon was not necessarily running
 // for. A pause forgotten before a restart is still forgotten after it.
 func TestARestoredPauseKeepsItsAge(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	clk := newFakeClock(time.Date(2026, 9, 3, 10, 0, 0, 0, time.UTC))
 	a.setClock(clk)
 	a.SetPausedTooLongAfter(10 * time.Minute)
@@ -123,7 +123,7 @@ func TestARestoredPauseKeepsItsAge(t *testing.T) {
 }
 
 func TestARestoredPauseAlreadyPastTheThresholdIsTooLongAtOnce(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	clk := newFakeClock(time.Date(2026, 9, 3, 10, 0, 0, 0, time.UTC))
 	a.setClock(clk)
 	a.SetPausedTooLongAfter(10 * time.Minute)
@@ -140,7 +140,7 @@ func TestARestoredPauseAlreadyPastTheThresholdIsTooLongAtOnce(t *testing.T) {
 // A pause with no recorded start cannot be aged, and the user is owed the
 // whole threshold rather than an instant verdict.
 func TestARestoredPauseWithNoRecordedStartAgesFromTheRestore(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	clk := newFakeClock(time.Date(2026, 9, 3, 10, 0, 0, 0, time.UTC))
 	a.setClock(clk)
 	a.SetPausedTooLongAfter(10 * time.Minute)
@@ -163,7 +163,7 @@ func TestARestoredPauseWithNoRecordedStartAgesFromTheRestore(t *testing.T) {
 // pause the user has already forgotten: it counts as just begun rather than
 // handing out the skew. The same reading phaseStartOnRestore gives a phase.
 func TestARestoredPauseStartedInTheFutureAgesFromTheRestore(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	clk := newFakeClock(time.Date(2026, 9, 3, 10, 0, 0, 0, time.UTC))
 	a.setClock(clk)
 	a.SetPausedTooLongAfter(10 * time.Minute)

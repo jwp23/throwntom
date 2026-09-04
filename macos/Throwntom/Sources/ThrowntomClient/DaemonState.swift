@@ -9,8 +9,13 @@ public struct DaemonState: Codable, Equatable, Sendable {
     case work
     case shortBreak = "short_break"
     case longBreak = "long_break"
+    /// The break the user chooses rather than earns. No transition leads to it; only the `lunch`
+    /// verb does (`internal/engine/engine.go`).
+    case lunch
     case awaitingConfirm = "awaiting_confirm"
     case paused
+
+    // MARK: Public
 
     /// How the phase is named in the window.
     public var displayName: String {
@@ -19,6 +24,7 @@ public struct DaemonState: Codable, Equatable, Sendable {
       case .work: "Pomodoro"
       case .shortBreak: "Short break"
       case .longBreak: "Long break"
+      case .lunch: "Lunch"
       case .awaitingConfirm: "Confirm"
       case .paused: "Paused"
       }

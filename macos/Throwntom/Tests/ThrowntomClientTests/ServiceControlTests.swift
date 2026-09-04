@@ -138,7 +138,7 @@ final class EndOfDayActionTests: XCTestCase {
   /// The daemon accepts skip-today whatever the timer is doing (internal/core/commands.go has no
   /// state guard on it), and the user who is finished has to be able to say so mid-pomodoro.
   func testEndingTheDayIsOfferedInEveryState() {
-    let phases: [DaemonState.Phase] = [.idle, .work, .shortBreak, .longBreak, .awaitingConfirm, .paused]
+    let phases: [DaemonState.Phase] = [.idle, .work, .shortBreak, .longBreak, .lunch, .awaitingConfirm, .paused]
     for phase in phases {
       let available = TimerActions.available(for: makeClientState(phase: phase))
       XCTAssertTrue(available.contains(.skipToday), "\(phase) should offer the end-of-day verb")

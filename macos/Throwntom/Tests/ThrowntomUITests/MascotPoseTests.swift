@@ -25,14 +25,14 @@ final class MascotPoseTests: XCTestCase {
   func testOnlyAwaitingConfirmJumpsAndOnlyIdlePlaysYoyo() {
     XCTAssertEqual(MascotPose.awaitingConfirm.motions, [.jump])
     XCTAssertTrue(MascotPose.idle.motions.contains(.yoyo))
-    for pose in [MascotPose.work, .shortBreak, .longBreak, .disconnected] {
+    for pose in [MascotPose.work, .shortBreak, .longBreak, .lunch, .disconnected] {
       XCTAssertFalse(pose.motions.contains(.jump))
       XCTAssertFalse(pose.motions.contains(.yoyo))
     }
   }
 
   func testClosedEyesNeverBlink() {
-    for pose in [MascotPose.work, .shortBreak, .longBreak, .idle, .awaitingConfirm, .disconnected] {
+    for pose in [MascotPose.work, .shortBreak, .longBreak, .lunch, .idle, .awaitingConfirm, .disconnected] {
       if pose.eyes != .open {
         XCTAssertFalse(pose.motions.contains(.blink), "\(pose.held.map { "\($0)" } ?? "laptop")")
       }
@@ -47,7 +47,7 @@ final class MascotPoseTests: XCTestCase {
   }
 
   func testEveryPoseHangsItsArmsFromTheSameShoulders() {
-    for pose in [MascotPose.work, .shortBreak, .longBreak, .idle, .awaitingConfirm, .disconnected] {
+    for pose in [MascotPose.work, .shortBreak, .longBreak, .lunch, .idle, .awaitingConfirm, .disconnected] {
       XCTAssertEqual(pose.leftArm.shoulder, MascotPose.leftShoulder, "\(pose.held.map { "\($0)" } ?? "laptop") left")
       XCTAssertEqual(pose.rightArm.shoulder, MascotPose.rightShoulder, "\(pose.held.map { "\($0)" } ?? "laptop") right")
     }

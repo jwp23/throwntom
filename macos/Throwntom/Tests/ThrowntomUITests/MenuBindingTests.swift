@@ -79,7 +79,7 @@ final class MenuBindingTests: XCTestCase {
   }
 
   private static let phases: [DaemonState.Phase?] =
-    [nil, .idle, .work, .shortBreak, .longBreak, .awaitingConfirm, .paused]
+    [nil, .idle, .work, .shortBreak, .longBreak, .lunch, .awaitingConfirm, .paused]
 
   /// The key equivalents no menu model of ours may claim, because something outside them already
   /// answers the keystroke.
@@ -117,10 +117,10 @@ final class MenuBindingTests: XCTestCase {
     MenuShortcut(key: .escape, modifiers: []): "Dismiss",
   ]
 
-  /// Timer 7 + snooze 6 + service 1 + Tasks 6 + View 3 + config 1. Asserting the exact number
+  /// Timer 8 + snooze 6 + service 1 + Tasks 6 + View 3 + config 1. Asserting the exact number
   /// keeps these tests from passing vacuously: an empty list would satisfy every loop below while
   /// checking nothing.
-  private static let commandCount = 24
+  private static let commandCount = 25
 
   /// Every command the app offers for one snapshot: the four menu models, with the task menu given
   /// a selected task so none of its verbs is withheld.

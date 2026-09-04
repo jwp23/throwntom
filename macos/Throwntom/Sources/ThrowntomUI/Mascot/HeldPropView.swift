@@ -79,6 +79,45 @@ enum HeldProps {
     path.circle(units, 93.5, 88, 0.9)
   }
 
+  /// A cheeseburger held between both hands. A domed bun over a flat base is a silhouette
+  /// nothing else in the set has, which is what a stack of bread slices lacked: at mascot size
+  /// the outline is all that survives, and a sandwich's outline is a rectangle.
+  static let burgerTopBun = DesignShape { path, units in
+    path.move(units, 44, 85)
+    path.curve(units, 44, 71, 69, 71, 69, 85)
+    path.line(units, 44, 85)
+  }
+
+  static let burgerSeeds = DesignShape { path, units in
+    path.circle(units, 51, 77.5, 1.1)
+    path.circle(units, 57, 75.5, 1.1)
+    path.circle(units, 63, 78, 1.1)
+  }
+
+  /// Cheese, with the corners drooping past the patty so the edge is ragged, not straight.
+  static let burgerCheese = DesignShape { path, units in
+    path.polygon(units, [
+      (43.5, 85),
+      (69.5, 85),
+      (69.5, 88),
+      (66, 91.5),
+      (63, 88),
+      (57, 88),
+      (54, 91.5),
+      (51, 88),
+      (47, 88),
+      (43.5, 88),
+    ])
+  }
+
+  static let burgerPatty = DesignShape { path, units in
+    path.polygon(units, [(44.5, 88), (68.5, 88), (68.5, 92), (44.5, 92)])
+  }
+
+  static let burgerBottomBun = DesignShape { path, units in
+    path.polygon(units, [(45.5, 92), (67.5, 92), (67.5, 97), (45.5, 97)])
+  }
+
   /// The "!" beside a raised hand.
   static let exclamation = DesignShape { path, units in
     path.move(units, 88, 6)
@@ -141,6 +180,7 @@ struct HeldPropView: View {
       case .book: book
       case .yoyo: yoyo
       case .cable: cable
+      case .burger: burger
       case .exclamation:
         HeldProps.exclamation.stroke(Palette.cream.color, style: StrokeStyle(lineWidth: 4 * unit, lineCap: .round))
       }
@@ -184,6 +224,20 @@ struct HeldPropView: View {
       HeldProps.yoyoDisc(drop: yoyoDrop).stroke(outline, lineWidth: 2 * unit)
       HeldProps.yoyoGroove(drop: yoyoDrop).stroke(outline, lineWidth: 1.5 * unit)
       HeldProps.yoyoAxle(drop: yoyoDrop).fill(outline)
+    }
+  }
+
+  private var burger: some View {
+    ZStack {
+      HeldProps.burgerBottomBun.fill(MascotPalette.wood.color)
+      HeldProps.burgerBottomBun.stroke(outline, style: StrokeStyle(lineWidth: 2 * unit, lineJoin: .round))
+      HeldProps.burgerPatty.fill(MascotPalette.wood.darkened(by: 0.15).color)
+      HeldProps.burgerPatty.stroke(outline, style: StrokeStyle(lineWidth: 2 * unit, lineJoin: .round))
+      HeldProps.burgerCheese.fill(MascotPalette.cheese.color)
+      HeldProps.burgerCheese.stroke(outline, style: StrokeStyle(lineWidth: 2 * unit, lineJoin: .round))
+      HeldProps.burgerTopBun.fill(MascotPalette.wood.color)
+      HeldProps.burgerTopBun.stroke(outline, style: StrokeStyle(lineWidth: 2 * unit, lineJoin: .round))
+      HeldProps.burgerSeeds.fill(Palette.cream.color)
     }
   }
 

@@ -40,27 +40,37 @@ func palette() map[string]lipgloss.AdaptiveColor {
 
 func stateIcon(state engine.State, emoji bool) string {
 	if emoji {
-		switch state {
-		case engine.Work:
-			return "\U0001F345"
-		case engine.ShortBreak:
-			return "\u2615"
-		case engine.LongBreak:
-			return "\U0001F33F"
-		case engine.Idle:
-			return "\U0001F331"
-		case engine.Paused:
-			return "\u23F8\uFE0F"
-		case engine.AwaitingConfirm:
-			return "\U0001F514"
-		default:
-			return "\U0001F331"
-		}
+		return emojiStateIcon(state)
 	}
+	return asciiStateIcon(state)
+}
+
+func emojiStateIcon(state engine.State) string {
+	switch state {
+	case engine.Work:
+		return "\U0001F345"
+	case engine.ShortBreak:
+		return "\u2615"
+	case engine.LongBreak:
+		return "\U0001F33F"
+	case engine.Lunch:
+		return "\U0001F37D\uFE0F"
+	case engine.Idle:
+		return "\U0001F331"
+	case engine.Paused:
+		return "\u23F8\uFE0F"
+	case engine.AwaitingConfirm:
+		return "\U0001F514"
+	default:
+		return "\U0001F331"
+	}
+}
+
+func asciiStateIcon(state engine.State) string {
 	switch state {
 	case engine.Work:
 		return "*"
-	case engine.ShortBreak, engine.LongBreak:
+	case engine.ShortBreak, engine.LongBreak, engine.Lunch:
 		return "~"
 	case engine.Idle:
 		return "-"
@@ -86,7 +96,10 @@ func stateStyle(state engine.State) lipgloss.Style {
 		return lipgloss.NewStyle().Foreground(colorOrange)
 	case engine.ShortBreak:
 		return lipgloss.NewStyle().Foreground(colorTeal)
-	case engine.LongBreak:
+	// Lunch is the deepest rest, so it wears the colour that already means
+	// rest rather than adding a hue DESIGN.md has no room for: the phase name
+	// beside it is what tells the two blues apart.
+	case engine.LongBreak, engine.Lunch:
 		return lipgloss.NewStyle().Foreground(colorBlue)
 	case engine.Idle:
 		return lipgloss.NewStyle().Foreground(colorYellow)

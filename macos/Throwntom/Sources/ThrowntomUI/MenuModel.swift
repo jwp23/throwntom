@@ -64,6 +64,12 @@ extension MenuModel where Action == TimerAction {
       [
         item(.skipToday, nil),
         item(.newCycle, nil),
+        // Lunch is chosen rather than earned, so `TimerActions.available(for:)` — which is the
+        // chip row's list — never names it and cannot answer for it. It is enabled wherever there
+        // is a daemon to take it, which is every state but lunch itself: the daemon accepts the
+        // verb unconditionally (`Core.handleLunch`), and starting a lunch already running would
+        // only restart the hour. It binds no key; throwntom-bxd.17 owns what is bound.
+        item(.lunch, nil, isEnabled: daemonAvailable && state != nil && state?.state != .lunch),
       ],
     ])
   }

@@ -29,7 +29,7 @@ func downSnapshot(start time.Time) Snapshot {
 func TestRestoreMeasuresElapsedAgainstALengthenedDuration(t *testing.T) {
 	start := time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC)
 	now := start.Add(10 * time.Minute)
-	a := New(50, 5, 15, 4)
+	a := New(minutes(50, 5, 15, 4))
 	clock := newFakeClock(now)
 	a.setClock(clock)
 
@@ -48,7 +48,7 @@ func TestRestoreMeasuresElapsedAgainstALengthenedDuration(t *testing.T) {
 func TestRestoreMeasuresElapsedAgainstAShortenedDuration(t *testing.T) {
 	start := time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC)
 	now := start.Add(10 * time.Minute)
-	a := New(12, 5, 15, 4)
+	a := New(minutes(12, 5, 15, 4))
 	clock := newFakeClock(now)
 	a.setClock(clock)
 
@@ -66,7 +66,7 @@ func TestRestoreMeasuresElapsedAgainstAShortenedDuration(t *testing.T) {
 func TestRestoreEndsAPhaseShorterThanTheElapsedTime(t *testing.T) {
 	start := time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC)
 	now := start.Add(10 * time.Minute)
-	a := New(5, 5, 15, 4)
+	a := New(minutes(5, 5, 15, 4))
 	clock := newFakeClock(now)
 	a.setClock(clock)
 
@@ -87,7 +87,7 @@ func TestRestoreEndsAPhaseShorterThanTheElapsedTime(t *testing.T) {
 func TestRestoreCountsDowntimeTowardTheNewDuration(t *testing.T) {
 	start := time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC)
 	now := start.Add(3 * time.Hour)
-	a := New(50, 5, 15, 4)
+	a := New(minutes(50, 5, 15, 4))
 	clock := newFakeClock(now)
 	a.setClock(clock)
 
@@ -105,7 +105,7 @@ func TestRestoreCountsDowntimeTowardTheNewDuration(t *testing.T) {
 func TestRestorePausedPhaseUsesTheCurrentDuration(t *testing.T) {
 	start := time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC)
 	now := start.Add(2 * time.Hour)
-	a := New(50, 5, 15, 4)
+	a := New(minutes(50, 5, 15, 4))
 	clock := newFakeClock(now)
 	a.setClock(clock)
 	snap := Snapshot{
@@ -139,7 +139,7 @@ func TestRestorePausedPhaseUsesTheCurrentDuration(t *testing.T) {
 func TestRestoreWithoutAPhaseStartUsesTheCurrentDuration(t *testing.T) {
 	start := time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC)
 	now := start.Add(10 * time.Minute)
-	a := New(50, 5, 15, 4)
+	a := New(minutes(50, 5, 15, 4))
 	clock := newFakeClock(now)
 	a.setClock(clock)
 	snap := downSnapshot(start)
@@ -159,7 +159,7 @@ func TestRestoreWithoutAPhaseStartUsesTheCurrentDuration(t *testing.T) {
 func TestRestoreWithoutAPhaseStartRecordsTheRestoreAsTheStart(t *testing.T) {
 	start := time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC)
 	now := start.Add(10 * time.Minute)
-	a := New(50, 5, 15, 4)
+	a := New(minutes(50, 5, 15, 4))
 	clock := newFakeClock(now)
 	a.setClock(clock)
 	snap := downSnapshot(start)
@@ -179,7 +179,7 @@ func TestRestoreWithoutAPhaseStartRecordsTheRestoreAsTheStart(t *testing.T) {
 // skew as extra phase.
 func TestRestoreTreatsAFuturePhaseStartAsJustBegun(t *testing.T) {
 	now := time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC)
-	a := New(50, 5, 15, 4)
+	a := New(minutes(50, 5, 15, 4))
 	clock := newFakeClock(now)
 	a.setClock(clock)
 	snap := downSnapshot(now.Add(time.Hour))
@@ -198,7 +198,7 @@ func TestRestoreTreatsAFuturePhaseStartAsJustBegun(t *testing.T) {
 func TestRestoreKeepsThePhaseStartForLaterSnapshots(t *testing.T) {
 	start := time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC)
 	now := start.Add(10 * time.Minute)
-	a := New(50, 5, 15, 4)
+	a := New(minutes(50, 5, 15, 4))
 	clock := newFakeClock(now)
 	a.setClock(clock)
 

@@ -222,3 +222,17 @@ func TestTimerUnsnoozeWithNoSnoozeIs409(t *testing.T) {
 		t.Fatalf("status %d", resp.StatusCode)
 	}
 }
+
+func TestTimerLunchIsAcceptedFromAnyState(t *testing.T) {
+	srv, c := newTestServer(t)
+
+	if resp := postJSON(t, srv.URL+"/v1/timer/lunch", nil); resp.StatusCode != 200 {
+		t.Fatalf("lunch from idle: status %d", resp.StatusCode)
+	}
+	if c.State().State != engine.Lunch {
+		t.Fatalf("state %s, want lunch", c.State().State)
+	}
+	if resp := postJSON(t, srv.URL+"/v1/timer/lunch", nil); resp.StatusCode != 200 {
+		t.Fatalf("lunch during lunch: status %d", resp.StatusCode)
+	}
+}

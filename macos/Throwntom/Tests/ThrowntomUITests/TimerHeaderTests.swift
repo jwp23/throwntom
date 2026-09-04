@@ -74,7 +74,7 @@ final class TimerHeaderTests: XCTestCase {
   /// Every title `MainWindowContent` can produce, built through it rather than restated, so a new
   /// phase or a reworded wait is measured here without anyone remembering to add it.
   private static func everyTitle() -> Set<String> {
-    let phases: [DaemonState.Phase] = [.idle, .work, .shortBreak, .longBreak, .awaitingConfirm, .paused]
+    let phases: [DaemonState.Phase] = [.idle, .work, .shortBreak, .longBreak, .lunch, .awaitingConfirm, .paused]
     let connections: [DaemonClient.Connection] = [
       .connected,
       .connecting,

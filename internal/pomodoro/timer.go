@@ -28,6 +28,7 @@ type Timer struct {
 	workDuration       time.Duration
 	shortBreakDuration time.Duration
 	longBreakDuration  time.Duration
+	lunchDuration      time.Duration
 	now                func() time.Time
 	after              afterFunc
 	periodTimer        stopper
@@ -64,12 +65,13 @@ type Timer struct {
 	onTransition func(to engine.State)
 }
 
-func New(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery int) *Timer {
+func New(d Durations) *Timer {
 	return &Timer{
-		engine:             engine.New(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery),
-		workDuration:       time.Duration(workMinutes) * time.Minute,
-		shortBreakDuration: time.Duration(shortBreakMinutes) * time.Minute,
-		longBreakDuration:  time.Duration(longBreakMinutes) * time.Minute,
+		engine:             engine.New(d.WorkMinutes, d.ShortBreakMinutes, d.LongBreakMinutes, d.LongBreakEvery),
+		workDuration:       time.Duration(d.WorkMinutes) * time.Minute,
+		shortBreakDuration: time.Duration(d.ShortBreakMinutes) * time.Minute,
+		longBreakDuration:  time.Duration(d.LongBreakMinutes) * time.Minute,
+		lunchDuration:      time.Duration(d.LunchMinutes) * time.Minute,
 		now:                time.Now,
 		after:              realAfterFunc,
 	}
@@ -141,7 +143,7 @@ func (t *Timer) Restore(s Snapshot, now time.Time) error {
 	t.engine.Restore(s.Engine)
 
 	switch s.Engine.State {
-	case engine.Work, engine.ShortBreak, engine.LongBreak:
+	case engine.Work, engine.ShortBreak, engine.LongBreak, engine.Lunch:
 		t.restoreRunningLocked(s, now)
 	case engine.Paused:
 		t.restorePausedLocked(s, now)
@@ -275,6 +277,24 @@ func (t *Timer) StartNewCycle() engine.Snapshot {
 	t.clearPhaseLocked()
 	t.engine.StartNewCycle()
 	t.startPhaseTimerLocked(t.workDuration)
+	return before
+}
+
+// StartLunch takes the user to lunch, whatever the timer was doing, and
+// reports the engine state as of the moment it did. Reporting from inside the
+// lock, the way Stop and StartNewCycle do, saves the caller a second, racy
+// read: the phase deadline fires from its own goroutine and can otherwise
+// complete the phase between a caller's own Snapshot and this call.
+func (t *Timer) StartLunch() engine.Snapshot {
+	t.mu.Lock()
+	before := t.engine.Snapshot()
+	defer t.notifyChange()
+	defer t.mu.Unlock()
+	defer t.transitionLocked()
+	t.stopTimerLocked()
+	t.clearPhaseLocked()
+	t.engine.StartLunch()
+	t.startPhaseTimerLocked(t.lunchDuration)
 	return before
 }
 
@@ -525,6 +545,8 @@ func (t *Timer) statusLabelLocked() string {
 		return "Short break"
 	case engine.LongBreak:
 		return "Long break"
+	case engine.Lunch:
+		return "Lunch"
 	case engine.AwaitingConfirm:
 		return "Confirm to continue"
 	case engine.Paused:

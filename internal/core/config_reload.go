@@ -40,12 +40,7 @@ func (c *Core) ApplyConfig(cfg config.Config) {
 	// The timer publishes on its own once the durations land, but it does so
 	// asynchronously; the explicit publish below is what makes ApplyConfig's
 	// effect visible by the time it returns.
-	c.timer.ApplyDurations(
-		cfg.Pomodoro.WorkMinutes,
-		cfg.Pomodoro.ShortBreakMinutes,
-		cfg.Pomodoro.LongBreakMinutes,
-		cfg.Pomodoro.LongBreakEvery,
-	)
+	c.timer.ApplyDurations(durationsFrom(cfg))
 	c.mu.Unlock()
 	c.publish()
 }

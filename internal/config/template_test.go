@@ -17,6 +17,7 @@ var documentedKeys = []string{
 	"short_break_minutes",
 	"long_break_minutes",
 	"long_break_every",
+	"lunch_minutes",
 	"days",
 	"time",
 	"repeat_secs",

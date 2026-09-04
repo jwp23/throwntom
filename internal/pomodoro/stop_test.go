@@ -10,7 +10,7 @@ import (
 // Stop suspends the cycle, so a later Start resumes the owed phase — and must
 // run it for that phase's own duration, not the work duration.
 func TestStartAfterStopRunsTheOwedBreakForItsOwnDuration(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	clk := newFakeClock(time.Date(2026, 8, 29, 9, 0, 0, 0, time.Local))
 	a.now = clk.Now
 	a.after = clk.After
@@ -34,7 +34,7 @@ func TestStartAfterStopRunsTheOwedBreakForItsOwnDuration(t *testing.T) {
 // check and this call; a Start that then began fresh work would discard both
 // the owed break and the completion the caller still has to log.
 func TestStartAtAwaitingConfirmEntersTheOwedPhaseAndReportsIt(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	a.Start()
 	a.CompletePeriod()
 
@@ -55,7 +55,7 @@ func TestStartAtAwaitingConfirmEntersTheOwedPhaseAndReportsIt(t *testing.T) {
 // measured against its own duration. Answering with the work duration is the
 // bug that made a resumed 5m break run for 25 minutes.
 func TestOwedStageReportsThePhaseAndItsOwnDuration(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	if state, d := a.OwedStage(); state != engine.Work || d != 25*time.Minute {
 		t.Fatalf("expected a 25m work period owed on a fresh timer, got %v %v", state, d)
 	}
@@ -77,7 +77,7 @@ func TestOwedStageReportsThePhaseAndItsOwnDuration(t *testing.T) {
 // separately-fetched value — Stop's own return is authoritative regardless
 // of what ran in between.
 func TestStopReportsTheStateAsOfWhenItActuallyStopped(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	a.Start() // Work
 
 	// What an old-style caller (Snapshot, then act, then Stop) would have

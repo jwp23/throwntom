@@ -38,7 +38,7 @@ final class ReminderBannerTests: XCTestCase {
   func testEveryPhaseButWaitingWithdrawsTheBanner() {
     let waiting = makeState(phase: .awaitingConfirm, nextStage: shortBreak)
 
-    for phase in [DaemonState.Phase.idle, .work, .shortBreak, .longBreak, .paused] {
+    for phase in [DaemonState.Phase.idle, .work, .shortBreak, .longBreak, .lunch, .paused] {
       XCTAssertEqual(decide(from: waiting, to: makeState(phase: phase)), .withdraw, "\(phase)")
     }
   }

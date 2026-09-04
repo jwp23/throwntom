@@ -24,6 +24,7 @@ type Config struct {
 		WorkMinutes       int `toml:"work_minutes"`
 		ShortBreakMinutes int `toml:"short_break_minutes"`
 		LongBreakMinutes  int `toml:"long_break_minutes"`
+		LunchMinutes      int `toml:"lunch_minutes"`
 		LongBreakEvery    int `toml:"long_break_every"`
 	} `toml:"pomodoro"`
 	Schedule               []ScheduleEntry `toml:"schedule"`
@@ -66,6 +67,7 @@ func Default() Config {
 	cfg.Pomodoro.WorkMinutes = 25
 	cfg.Pomodoro.ShortBreakMinutes = 5
 	cfg.Pomodoro.LongBreakMinutes = 15
+	cfg.Pomodoro.LunchMinutes = 60
 	cfg.Pomodoro.LongBreakEvery = 4
 	cfg.RepeatSecs = 20
 	cfg.RepeatLimitSecs = 300
@@ -132,6 +134,9 @@ func validate(cfg Config) error {
 	}
 	if cfg.Pomodoro.LongBreakMinutes <= 0 {
 		return fmt.Errorf("long_break_minutes must be > 0")
+	}
+	if cfg.Pomodoro.LunchMinutes <= 0 {
+		return fmt.Errorf("lunch_minutes must be > 0")
 	}
 	if cfg.Pomodoro.LongBreakEvery <= 0 {
 		return fmt.Errorf("long_break_every must be > 0")

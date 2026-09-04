@@ -11,7 +11,7 @@ final class TimerActionsTests: XCTestCase {
   }
 
   func testRunningPhasesOfferPauseSkipAndEndingTheDay() {
-    for phase in [DaemonState.Phase.work, .shortBreak, .longBreak] {
+    for phase in [DaemonState.Phase.work, .shortBreak, .longBreak, .lunch] {
       XCTAssertEqual(TimerActions.available(for: state(phase)), [.pause, .skip, .skipToday], "\(phase)")
     }
   }

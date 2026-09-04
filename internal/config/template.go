@@ -107,6 +107,12 @@ const Template = `# throwntom configuration.
 # Minutes of the longer break that ends a cycle.
 # long_break_minutes = 15
 
+# Minutes of the lunch break. Lunch is the one break you choose rather than
+# earn — no schedule and no finished pomodoro ever starts it — and taking it
+# ends the current block, so the pomodoro you come back to is the first of a
+# fresh one and the long break is a whole block away again.
+# lunch_minutes = 60
+
 # Pomodoros per cycle: the break after this many is the long one.
 # long_break_every = 4
 

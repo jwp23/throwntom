@@ -64,6 +64,7 @@ final class TimerActionDispatchTests: XCTestCase {
       "/v1/timer/skip",
       "/v1/timer/skip-today",
       "/v1/timer/new-cycle",
+      "/v1/timer/lunch",
     ])
     XCTAssertEqual(Set(transport.requests.map(\.method)), ["POST"])
     XCTAssertEqual(transport.requests.compactMap(\.body), [])
