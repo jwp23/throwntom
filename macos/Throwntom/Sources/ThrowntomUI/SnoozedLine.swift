@@ -21,7 +21,10 @@ struct SnoozedLine: View {
 
   // MARK: Private
 
-  private static let font = Font.caption
+  /// The size of the window's other status text rather than a caption. A deferred reminder has
+  /// nothing else on screen to show for it, and this is the line the user reads to find out when it
+  /// comes back — the smallest type in the window is the wrong place for it.
+  private static let font = Font.body
 
   private static let label = "Snoozed"
 
