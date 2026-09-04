@@ -22,8 +22,8 @@ const Template = `# throwntom configuration.
 # it watches this file and picks an edit up within a few seconds, the pomodoro
 # already running included — shortening work_minutes below the time the
 # current pomodoro has already spent ends it. The daemon reloads [pomodoro],
-# [[schedule]], repeat_secs, repeat_limit_secs, float_window_when_waiting and
-# paused_too_long_minutes;
+# [[schedule]], repeat_secs, repeat_limit_secs, float_window_when_waiting,
+# paused_too_long_minutes and bounce_dock_when_paused;
 # the settings it does not reload say so under their own heading. Running
 # throwntom by itself, without the daemon, reloads nothing at all: it reads
 # this file once as it launches, so there every setting waits for the next
@@ -85,6 +85,14 @@ const Template = `# throwntom configuration.
 # app is looked at or the timer is resumed. Resuming before the threshold
 # passes does nothing at all. The terminal interface does not use this.
 # paused_too_long_minutes = 10
+
+# Whether the macOS app bounces its Dock icon once a pause counts as
+# forgotten. On by default. This does not change when the daemon calls a
+# pause forgotten: it keeps the same clock and publishes paused_too_long
+# either way (ADR-003). This one belongs to the macOS app; it reloads this
+# setting and publishes it in its state for the app to read. The terminal
+# interface does not use this.
+# bounce_dock_when_paused = true
 
 # [pomodoro] sets the length of each phase and how often a long break comes.
 # Uncomment the [pomodoro] header too when you uncomment any key under it.

@@ -43,6 +43,14 @@ type Config struct {
 	// calls it forgotten and publishes that in its state. What a client makes
 	// of it is the client's (ADR-003): the macOS app bounces its Dock icon.
 	PausedTooLongMinutes int `toml:"paused_too_long_minutes"`
+	// BounceDockWhenPaused is whether the macOS app should bounce its Dock
+	// icon once a pause counts as forgotten. Like FloatWindowWhenWaiting this
+	// is presentation, which belongs to the client (ADR-003): the daemon goes
+	// on publishing paused_too_long on its own clock regardless of this
+	// setting. On by default, unlike FloatWindowWhenWaiting: the bounce is
+	// the whole point of paused_too_long_minutes, so a config that says
+	// nothing keeps it.
+	BounceDockWhenPaused bool `toml:"bounce_dock_when_paused"`
 	Stats                struct {
 		TierLow int `toml:"tier_low"`
 		TierMid int `toml:"tier_mid"`
@@ -64,6 +72,7 @@ func Default() Config {
 	cfg.MorningReminderPending = true
 	cfg.Emoji = true
 	cfg.PausedTooLongMinutes = 10
+	cfg.BounceDockWhenPaused = true
 	cfg.Stats.TierLow = 2
 	cfg.Stats.TierMid = 5
 	return cfg

@@ -234,6 +234,7 @@ morning_reminder_pending = true
 emoji = true
 float_window_when_waiting = false
 paused_too_long_minutes = 10
+bounce_dock_when_paused = true
 
 [pomodoro]
 work_minutes = 25
@@ -289,6 +290,18 @@ pause is the client's, the way every other reminder is
 age across a daemon restart, so restarting is not a way to get the ten minutes
 back. The terminal UI does not use this setting.
 
+### `bounce_dock_when_paused`
+
+On by default. Turns off the Dock bounce `paused_too_long` above drives on
+macOS, for anyone who finds it more distracting than useful. It changes
+nothing about `paused_too_long_minutes`: the daemon keeps the same clock and
+publishes `paused_too_long` on the same schedule regardless, since the clock
+and the threshold are not this setting's to change — only whether the app
+acts on the answer is (ADR-003). The daemon raises no Dock icon of its own:
+it reloads this setting and publishes it in its state for the macOS app to
+read. A live edit that turns it off also calls off a bounce already in
+progress; the terminal UI does not use this setting.
+
 ### `sound_command`
 
 `sound_command` applies to the terminal UI only. `throwntomd` plays no sound
@@ -336,8 +349,8 @@ already be over. A file that does not parse is reported on the daemon's
 stderr and ignored; the config in force stays in force.
 
 Reloading covers `[pomodoro]`, `[[schedule]]`, `repeat_secs`,
-`repeat_limit_secs`, `float_window_when_waiting` and
-`paused_too_long_minutes`. The rest needs a restart
+`repeat_limit_secs`, `float_window_when_waiting`,
+`paused_too_long_minutes` and `bounce_dock_when_paused`. The rest needs a restart
 of whichever process reads it:
 
 - `sound_command` — `throwntomd` plays no sound at all (see above), and the

@@ -43,6 +43,9 @@ type Core struct {
 	// floatWindowWhenWaiting is carried for clients, not acted on here. See
 	// the field of the same name on State.
 	floatWindowWhenWaiting bool
+	// bounceDockWhenPaused is carried for clients, not acted on here. See the
+	// field of the same name on State.
+	bounceDockWhenPaused bool
 	// morningPending is the config's answer to whether today's morning
 	// reminder is still owed at start-up.
 	morningPending bool
@@ -85,6 +88,7 @@ func newCore(cfg config.Config, n notifier.Notifier) *Core {
 		morningPending:         cfg.MorningReminderPending,
 		longBreakEvery:         cfg.Pomodoro.LongBreakEvery,
 		floatWindowWhenWaiting: cfg.FloatWindowWhenWaiting,
+		bounceDockWhenPaused:   cfg.BounceDockWhenPaused,
 		subscribers:            make(map[chan State]struct{}),
 	}
 	c.timer.SetPausedTooLongAfter(pausedTooLongAfter(cfg))

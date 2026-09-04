@@ -59,7 +59,10 @@ clock — `paused_too_long_minutes`, ten by default — and publishes
 `paused_too_long`; the app asks for attention when it turns true and calls the
 bounce off when the timer is resumed, so a resume from the terminal ends it
 without the app ever being looked at
-(`docs/adr/003-clients-own-user-facing-notification.md`).
+(`docs/adr/003-clients-own-user-facing-notification.md`). Setting
+`bounce_dock_when_paused = false` in `config.toml` turns the bounce off; the
+daemon keeps publishing `paused_too_long` on the same clock either way, the
+app just declines to act on it (see the root README for the setting).
 
 The app never spawns the daemon itself. If the socket is unreachable it
 reconnects with backoff and, after three failures, re-registers the agent.
