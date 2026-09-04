@@ -12,7 +12,7 @@ import (
 
 // Snooze is absent: it carries a body and has a route of its own. Unsnooze
 // takes no argument, so it is an ordinary verb.
-var timerVerbs = map[string]bool{"start": true, "confirm": true, "pause": true, "resume": true, "skip": true, "skip-today": true, "new-cycle": true, "unsnooze": true}
+var timerVerbs = map[string]bool{"start": true, "confirm": true, "pause": true, "resume": true, "skip": true, "skip-today": true, "new-cycle": true, "lunch": true, "unsnooze": true}
 
 func (s *server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/timer/snooze", s.postSnooze)

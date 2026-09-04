@@ -6,6 +6,21 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/engine"
 )
 
+// Durations is how long each phase runs and how many pomodoros make a block.
+// It is a record rather than a list of arguments because every field is an
+// int and four of them are minutes, so a positional call says nothing about
+// which is which. The field names are the config keys they come from.
+//
+// Every field must be positive, as New requires: these come from a validated
+// config.Config, and LongBreakEvery is a divisor.
+type Durations struct {
+	WorkMinutes       int
+	ShortBreakMinutes int
+	LongBreakMinutes  int
+	LunchMinutes      int
+	LongBreakEvery    int
+}
+
 // ApplyDurations replaces the phase durations and re-derives the phase in
 // flight from the new ones: the phase keeps the time it has already spent and
 // runs for whatever the new duration leaves. A new duration shorter than the
@@ -15,10 +30,7 @@ import (
 // fact about the phase, the duration it is measured against always comes from
 // the current config — so an edit lands identically whether the daemon was
 // running at the time or not.
-//
-// Every argument must be positive, as New requires: these come from a
-// validated config.Config, and longBreakEvery is a divisor.
-func (t *Timer) ApplyDurations(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery int) {
+func (t *Timer) ApplyDurations(d Durations) {
 	t.mu.Lock()
 	defer t.notifyChange()
 	defer t.mu.Unlock()
@@ -34,13 +46,14 @@ func (t *Timer) ApplyDurations(workMinutes, shortBreakMinutes, longBreakMinutes,
 		}
 	}()
 
-	t.workDuration = time.Duration(workMinutes) * time.Minute
-	t.shortBreakDuration = time.Duration(shortBreakMinutes) * time.Minute
-	t.longBreakDuration = time.Duration(longBreakMinutes) * time.Minute
-	t.engine.SetLongBreakEvery(longBreakEvery)
+	t.workDuration = time.Duration(d.WorkMinutes) * time.Minute
+	t.shortBreakDuration = time.Duration(d.ShortBreakMinutes) * time.Minute
+	t.longBreakDuration = time.Duration(d.LongBreakMinutes) * time.Minute
+	t.lunchDuration = time.Duration(d.LunchMinutes) * time.Minute
+	t.engine.SetLongBreakEvery(d.LongBreakEvery)
 
 	switch state {
-	case engine.Work, engine.ShortBreak, engine.LongBreak:
+	case engine.Work, engine.ShortBreak, engine.LongBreak, engine.Lunch:
 		t.rederiveRunningLocked(state)
 	case engine.Paused:
 		t.rederivePausedLocked()
@@ -83,6 +96,8 @@ func (t *Timer) phaseDurationLocked(state engine.State) time.Duration {
 		return t.shortBreakDuration
 	case engine.LongBreak:
 		return t.longBreakDuration
+	case engine.Lunch:
+		return t.lunchDuration
 	default:
 		return 0
 	}

@@ -12,6 +12,7 @@ enum MascotPalette {
   static let propDark = HexColor("#3A3A3E")
   static let wood = HexColor("#B8642A")
   static let sky = HexColor("#9ED8F5")
+  static let cheese = HexColor("#F2C14E")
 
   /// Every token with its DESIGN.md name, in the order the front matter lists them.
   static let tokens: [(name: String, color: HexColor)] = [
@@ -25,5 +26,6 @@ enum MascotPalette {
     ("mascot-prop-dark", propDark),
     ("mascot-wood", wood),
     ("mascot-sky", sky),
+    ("mascot-cheese", cheese),
   ]
 }

@@ -76,6 +76,18 @@ func (t *fakeTimer) Stop() bool {
 	return false
 }
 
+// minutes builds a Durations from the four lengths these tests vary, filling
+// in the lunch length, which none of them does.
+func minutes(work, shortBreak, longBreak, every int) Durations {
+	return Durations{
+		WorkMinutes:       work,
+		ShortBreakMinutes: shortBreak,
+		LongBreakMinutes:  longBreak,
+		LunchMinutes:      60,
+		LongBreakEvery:    every,
+	}
+}
+
 // setClock points the Timer at c for both the current time and timer scheduling.
 func (t *Timer) setClock(c *fakeClock) {
 	t.mu.Lock()

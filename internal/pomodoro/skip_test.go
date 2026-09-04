@@ -8,7 +8,7 @@ import (
 )
 
 func TestSkipEndsTheRunningPhaseNow(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	clk := newFakeClock(time.Date(2026, 8, 29, 9, 0, 0, 0, time.Local))
 	a.now = clk.Now
 	a.after = clk.After
@@ -33,7 +33,7 @@ func TestSkipEndsTheRunningPhaseNow(t *testing.T) {
 // The countdown must be cancelled, or the skipped phase completes a second
 // time when its original deadline arrives.
 func TestSkipCancelsTheCountdown(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	clk := newFakeClock(time.Date(2026, 8, 29, 9, 0, 0, 0, time.Local))
 	a.now = clk.Now
 	a.after = clk.After
@@ -51,7 +51,7 @@ func TestSkipCancelsTheCountdown(t *testing.T) {
 }
 
 func TestSkipRefusedWhenIdle(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	if _, ok := a.Skip(); ok {
 		t.Fatal("expected skip to be refused while idle")
 	}

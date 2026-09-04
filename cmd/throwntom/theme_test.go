@@ -23,6 +23,7 @@ func TestStateIconEmojiMode(t *testing.T) {
 		{engine.Work, "\U0001F345", "*"},
 		{engine.ShortBreak, "\u2615", "~"},
 		{engine.LongBreak, "\U0001F33F", "~"},
+		{engine.Lunch, "\U0001F37D\uFE0F", "~"},
 		{engine.Idle, "\U0001F331", "-"},
 		{engine.Paused, "\u23F8\uFE0F", "||"},
 		{engine.AwaitingConfirm, testBellEmoji, "!"},
@@ -49,7 +50,7 @@ func TestMorningIcon(t *testing.T) {
 }
 
 func TestStateStyleReturnsNonEmpty(t *testing.T) {
-	for _, s := range []engine.State{engine.Idle, engine.Work, engine.ShortBreak, engine.LongBreak, engine.Paused, engine.AwaitingConfirm} {
+	for _, s := range []engine.State{engine.Idle, engine.Work, engine.ShortBreak, engine.LongBreak, engine.Lunch, engine.Paused, engine.AwaitingConfirm} {
 		style := stateStyle(s)
 		rendered := style.Render("test")
 		if rendered == "" {
@@ -216,5 +217,16 @@ func TestPaletteMeetsAAContrastInBothModes(t *testing.T) {
 		if got := contrastRatio(c.Dark, "#000000"); got < aa {
 			t.Errorf("%s dark %s on black: %.2f < %.1f", name, c.Dark, got, aa)
 		}
+	}
+}
+
+// Lunch is rest, and DESIGN.md keeps rest on teal and blue rather than adding
+// a hue: it wears the deeper of the two, the one the long break already means.
+func TestLunchIsPaintedTheRestBlue(t *testing.T) {
+	if got := stateStyle(engine.Lunch); got.GetForeground() != stateStyle(engine.LongBreak).GetForeground() {
+		t.Fatalf("lunch is painted %v, want the long break's blue", got.GetForeground())
+	}
+	if stateStyle(engine.Lunch).GetForeground() == stateStyle(engine.Idle).GetForeground() {
+		t.Fatal("lunch fell through to the idle default")
 	}
 }

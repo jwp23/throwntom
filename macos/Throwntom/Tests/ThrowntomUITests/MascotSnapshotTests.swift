@@ -67,6 +67,7 @@ final class MascotSnapshotTests: XCTestCase {
     ("work", .work, .idle),
     ("short-break", .shortBreak, .idle),
     ("long-break", .longBreak, .idle),
+    ("lunch", .lunch, .idle),
     ("idle", .idle, .idle),
     ("awaiting-confirm", .awaitingConfirm, .idle),
     ("paused", .paused, .work),

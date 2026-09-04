@@ -145,7 +145,8 @@ struct MainWindowContent: Equatable {
     switch state.state {
     case .work,
          .shortBreak,
-         .longBreak:
+         .longBreak,
+         .lunch:
       state.phaseEndAt.map { Countdown.formatRemaining($0.timeIntervalSince(now)) }
     case .paused:
       Countdown.formatRemaining(TimeInterval(state.pausedRemaining))

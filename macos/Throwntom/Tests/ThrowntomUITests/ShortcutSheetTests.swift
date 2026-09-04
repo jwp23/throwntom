@@ -8,7 +8,7 @@ final class ShortcutSheetTests: XCTestCase {
     let environment = AppEnvironment(transport: try StubTransport(states: []))
     let sections = ShortcutList.sections(for: environment)
     XCTAssertEqual(sections.map(\.name), ["Timer", "View", "Tasks", "App"])
-    XCTAssertEqual(sections[0].entries.map(\.hint), ["⌘R", "⏎", "⌘P", "⌘K", "⌘⇧S"], "Skip Today and New Cycle have none")
+    XCTAssertEqual(sections[0].entries.map(\.hint), ["⌘R", "⏎", "⌘P", "⌘K", "⌘⇧S"], "Skip Today, New Cycle and Lunch have none")
     XCTAssertEqual(sections[1].entries.map(\.hint), ["⌘T", "⌘⇧I", "⌘/"])
     XCTAssertEqual(sections[2].entries.map(\.hint), ["⌘N", "⌘⏎", "⌘⌫", "⌘F", "⌥↑", "⌥↓"])
     XCTAssertEqual(

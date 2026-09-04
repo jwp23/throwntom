@@ -8,6 +8,7 @@ public enum TimerAction: CaseIterable, Sendable {
   case snooze
   case skipToday
   case newCycle
+  case lunch
 
   // MARK: Public
 
@@ -21,6 +22,7 @@ public enum TimerAction: CaseIterable, Sendable {
     case .snooze: "Snooze \(TimerActions.defaultSnoozeMinutes) min"
     case .skipToday: "Done for Today"
     case .newCycle: "New Cycle"
+    case .lunch: "Lunch"
     }
   }
 
@@ -34,7 +36,8 @@ public enum TimerAction: CaseIterable, Sendable {
     case .skip: "⌘K"
     case .snooze: "⌘⇧S"
     case .skipToday,
-         .newCycle: ""
+         .newCycle,
+         .lunch: ""
     }
   }
 
@@ -57,6 +60,7 @@ public enum TimerAction: CaseIterable, Sendable {
     case .skip: .skip
     case .skipToday: .skipToday
     case .newCycle: .newCycle
+    case .lunch: .lunch
     case .snooze: nil
     }
   }

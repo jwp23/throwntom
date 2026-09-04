@@ -37,7 +37,7 @@ func (r *transitionRecorder) count() int {
 
 func TestOnTransitionFiresSynchronouslyForVerbs(t *testing.T) {
 	rec := &transitionRecorder{}
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	a.SetOnTransition(rec.record)
 
 	a.Start()
@@ -69,7 +69,7 @@ func TestOnTransitionFiresSynchronouslyForVerbs(t *testing.T) {
 func TestOnTransitionFiresBeforeOnChange(t *testing.T) {
 	var order []string
 	var mu sync.Mutex
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	a.SetOnTransition(func(engine.State) { mu.Lock(); order = append(order, "transition"); mu.Unlock() })
 	a.SetOnChange(func() { mu.Lock(); order = append(order, "change"); mu.Unlock() })
 	a.Start()
@@ -82,7 +82,7 @@ func TestOnTransitionFiresBeforeOnChange(t *testing.T) {
 
 func TestOnTransitionFiresWhenCountdownCompletes(t *testing.T) {
 	rec := &transitionRecorder{}
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	clk := newFakeClock(time.Now())
 	a.setClock(clk)
 	a.SetOnTransition(rec.record)
@@ -93,7 +93,7 @@ func TestOnTransitionFiresWhenCountdownCompletes(t *testing.T) {
 
 func TestOnTransitionFiresOnRestore(t *testing.T) {
 	rec := &transitionRecorder{}
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	a.SetOnTransition(rec.record)
 	snap := Snapshot{Engine: engine.Snapshot{State: engine.AwaitingConfirm, LastPhase: engine.Work}}
 	if err := a.Restore(snap, time.Now()); err != nil {
@@ -105,7 +105,7 @@ func TestOnTransitionFiresOnRestore(t *testing.T) {
 
 func TestOnTransitionSilentForRefusedPauseAndAdvanceDay(t *testing.T) {
 	rec := &transitionRecorder{}
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	a.SetOnTransition(rec.record)
 	if a.Pause() {
 		t.Fatal("expected pause to be refused while idle")
@@ -121,7 +121,7 @@ func TestOnTransitionSilentForRefusedPauseAndAdvanceDay(t *testing.T) {
 }
 
 func TestOnTransitionRunsUnderTimerLock(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	locked := make(chan bool, 1)
 	a.SetOnTransition(func(engine.State) {
 		// TryLock fails while the verb still holds the lock, which is the contract.
@@ -134,7 +134,7 @@ func TestOnTransitionRunsUnderTimerLock(t *testing.T) {
 }
 
 func TestNewTakesOnlyDurations(t *testing.T) {
-	a := New(25, 5, 15, 4)
+	a := New(minutes(25, 5, 15, 4))
 	if got := a.State(); got != engine.Idle {
 		t.Fatalf("expected Idle, got %s", got)
 	}

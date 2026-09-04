@@ -105,6 +105,7 @@ final class StateDecodingTests: XCTestCase {
       ("work", .work),
       ("short_break", .shortBreak),
       ("long_break", .longBreak),
+      ("lunch", .lunch),
       ("awaiting_confirm", .awaitingConfirm),
       ("paused", .paused),
     ] {
