@@ -83,7 +83,8 @@ the pinned SwiftFormat release understands. `brew install swiftformat swiftlint`
 you close, but a brew upgrade can drift past the pin; when the installed version
 doesn't match, `swift-lint.sh` downloads the pinned release itself, verifies it
 against the checksum `ci.yml` uses, and caches it under `macos/.swift-lint-cache`
-(gitignored) so that only happens once per machine.
+(gitignored) so that only happens once per checkout (each worktree has its
+own cache).
 
 `DaemonClient` and the transport are tested against a real `throwntomd`,
 built by the tests with `go build` and run with `HOME` under `/tmp`.

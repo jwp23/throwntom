@@ -10,7 +10,8 @@
 # them drifts. If the installed binary on PATH is already the pinned version, it's used as
 # is. Otherwise this script fetches the pinned release itself, verifies it against the same
 # checksum ci.yml uses, and caches it under macos/.swift-lint-cache so the download happens
-# once per machine, not once per invocation. SwiftFormat's per-user cache is ignored
+# once per checkout, not once per invocation. A second worktree of this repo has its own
+# cache. SwiftFormat's per-user cache is ignored
 # separately: it records a file as clean by content and options, and has reported clean for
 # a file the same version then flagged in CI.
 set -euo pipefail
@@ -34,7 +35,10 @@ tool_version() {
 }
 
 # Downloads $url into a temp dir, verifies it against $sha256, extracts $member from the
-# zip, and installs it at $dest. Never installs a binary whose checksum didn't match.
+# zip, and installs it at $dest. Never installs a binary whose checksum didn't match, and
+# never replaces an existing $dest with one that fails its own version check — the archive
+# member is validated at its temp path first, so a stale-but-working cache entry survives
+# a bad release rather than being clobbered by it.
 download_tool() {
   local name="$1" version="$2" url="$3" sha256="$4" member="$5" dest="$6"
   echo "swift-lint: fetching $name $version (installed version does not match)" >&2
@@ -58,10 +62,16 @@ download_tool() {
     exit 2
   fi
 
-  mkdir -p "$CACHE_DIR"
   unzip -q -o "$zip" "$member" -d "$tmp"
+  chmod +x "$tmp/$member"
+  if [[ "$(tool_version "$tmp/$member")" != "$version" ]]; then
+    rm -rf "$tmp"
+    echo "swift-lint: downloaded $name reports the wrong version" >&2
+    exit 2
+  fi
+
+  mkdir -p "$CACHE_DIR"
   mv "$tmp/$member" "$dest"
-  chmod +x "$dest"
   rm -rf "$tmp"
 }
 
@@ -83,14 +93,10 @@ resolve_tool() {
     echo "$cached"
     return
   fi
-  rm -f "$cached"
 
+  # download_tool validates the new binary before it touches $cached, so any existing
+  # (mismatched) cache entry there is left alone until the replacement is proven good.
   download_tool "$name" "$want" "$url" "$sha256" "$member" "$cached"
-
-  if [[ "$(tool_version "$cached")" != "$want" ]]; then
-    echo "swift-lint: downloaded $name reports the wrong version" >&2
-    exit 2
-  fi
   echo "$cached"
 }
 
