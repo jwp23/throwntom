@@ -19,21 +19,21 @@ final class TimerMenuModelTests: XCTestCase {
   func testIdleEnablesTheVerbsTheDaemonAccepts() {
     let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false, daemonAvailable: true)
 
-    XCTAssertEqual(enabledActions(menu), [.start, .skipToday, .newCycle])
+    XCTAssertEqual(enabledActions(menu), [.start, .skipToday, .newCycle, .lunch])
   }
 
   func testMorningPendingAlsoEnablesSnooze() {
     let menu = MenuModel.timer(state: makeState(phase: .idle, morningPending: true), isEditing: false, daemonAvailable: true)
 
-    XCTAssertEqual(enabledActions(menu), [.start, .snooze, .skipToday, .newCycle])
+    XCTAssertEqual(enabledActions(menu), [.start, .snooze, .skipToday, .newCycle, .lunch])
   }
 
   func testWorkOffersPauseAndPausedOffersResume() {
     let working = MenuModel.timer(state: makeState(phase: .work), isEditing: false, daemonAvailable: true)
     let paused = MenuModel.timer(state: makeState(phase: .paused), isEditing: false, daemonAvailable: true)
 
-    XCTAssertEqual(enabledActions(working), [.pause, .skip, .skipToday])
-    XCTAssertEqual(enabledActions(paused), [.resume, .skipToday])
+    XCTAssertEqual(enabledActions(working), [.pause, .skip, .skipToday, .lunch])
+    XCTAssertEqual(enabledActions(paused), [.resume, .skipToday, .lunch])
     XCTAssertTrue(working.items.contains { $0.action == .pause })
     XCTAssertTrue(paused.items.contains { $0.action == .resume })
   }
@@ -50,14 +50,14 @@ final class TimerMenuModelTests: XCTestCase {
   func testEditingDoesNotDisableTheOtherVerbs() {
     let menu = MenuModel.timer(state: makeState(phase: .awaitingConfirm), isEditing: true, daemonAvailable: true)
 
-    XCTAssertEqual(enabledActions(menu), [.snooze, .skipToday, .newCycle])
+    XCTAssertEqual(enabledActions(menu), [.snooze, .skipToday, .newCycle, .lunch])
   }
 
   func testCycleVerbsSitBelowTheirOwnSeparator() {
     let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false, daemonAvailable: true)
 
     XCTAssertEqual(menu.groups.count, 2)
-    XCTAssertEqual(menu.groups.last?.map(\.action), [.skipToday, .newCycle])
+    XCTAssertEqual(menu.groups.last?.map(\.action), [.skipToday, .newCycle, .lunch])
   }
 
   func testTimedVerbsCarryTheirShortcutsAndCycleVerbsDoNot() throws {

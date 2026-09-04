@@ -79,6 +79,21 @@ enum HeldProps {
     path.circle(units, 93.5, 88, 0.9)
   }
 
+  /// A sandwich held between both hands: a triangle of bread with the filling along the cut.
+  static let sandwichBread = DesignShape { path, units in
+    path.polygon(units, [(44, 90), (56, 70), (68, 90)])
+  }
+
+  static let sandwichFilling = DesignShape { path, units in
+    path.move(units, 48, 82)
+    path.line(units, 64, 82)
+  }
+
+  static let sandwichCrust = DesignShape { path, units in
+    path.move(units, 45, 89)
+    path.line(units, 67, 89)
+  }
+
   /// The "!" beside a raised hand.
   static let exclamation = DesignShape { path, units in
     path.move(units, 88, 6)
@@ -141,6 +156,7 @@ struct HeldPropView: View {
       case .book: book
       case .yoyo: yoyo
       case .cable: cable
+      case .sandwich: sandwich
       case .exclamation:
         HeldProps.exclamation.stroke(Palette.cream.color, style: StrokeStyle(lineWidth: 4 * unit, lineCap: .round))
       }
@@ -184,6 +200,21 @@ struct HeldPropView: View {
       HeldProps.yoyoDisc(drop: yoyoDrop).stroke(outline, lineWidth: 2 * unit)
       HeldProps.yoyoGroove(drop: yoyoDrop).stroke(outline, lineWidth: 1.5 * unit)
       HeldProps.yoyoAxle(drop: yoyoDrop).fill(outline)
+    }
+  }
+
+  private var sandwich: some View {
+    ZStack {
+      HeldProps.sandwichBread.fill(Palette.cream.color)
+      HeldProps.sandwichFilling.stroke(
+        MascotPalette.leafLight.color,
+        style: StrokeStyle(lineWidth: 3 * unit, lineCap: .round),
+      )
+      HeldProps.sandwichCrust.stroke(
+        MascotPalette.wood.color,
+        style: StrokeStyle(lineWidth: 3 * unit, lineCap: .round),
+      )
+      HeldProps.sandwichBread.stroke(outline, style: StrokeStyle(lineWidth: 2 * unit, lineJoin: .round))
     }
   }
 

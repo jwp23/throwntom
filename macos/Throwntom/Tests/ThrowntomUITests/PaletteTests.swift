@@ -4,7 +4,7 @@ import XCTest
 
 final class PaletteTests: XCTestCase {
   func testEveryPhaseHasAScheme() {
-    for phase in [DaemonState.Phase.idle, .work, .shortBreak, .longBreak, .awaitingConfirm, .paused] {
+    for phase in [DaemonState.Phase.idle, .work, .shortBreak, .longBreak, .lunch, .awaitingConfirm, .paused] {
       XCTAssertNotEqual(Palette.scheme(for: phase), Palette.scheme(for: nil), "\(phase) must not fall back to disconnected")
     }
   }

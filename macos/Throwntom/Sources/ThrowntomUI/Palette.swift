@@ -90,7 +90,12 @@ enum Palette {
     switch phase {
     case .work: jewel(ground: "#D9651A", secondaryChip: "#622D0C", panel: "#9C4913")
     case .shortBreak: jewel(ground: "#1E9AA3", secondaryChip: "#0D4549", panel: "#166F75")
-    case .longBreak: jewel(ground: "#5A8CE0", secondaryChip: "#283F65", panel: "#4165A1")
+    // Lunch takes the long break's blue rather than a seventh ground. Every ground carries dark
+    // ink at 4.5:1, which confines them to one narrow band of luminance, and rest is already
+    // teal and blue — DESIGN.md rules out green, and what is left is not separable for
+    // deuteranopes. The name and the mascot's pose are what tell the two rests apart.
+    case .longBreak,
+         .lunch: jewel(ground: "#5A8CE0", secondaryChip: "#283F65", panel: "#4165A1")
     case .idle: jewel(ground: "#B8961F", secondaryChip: "#53440E", panel: "#846C16")
     case .paused: jewel(ground: "#8A8A8E", secondaryChip: "#3E3E40", panel: "#636366")
     case .awaitingConfirm: jewel(ground: "#E8583A", secondaryChip: "#68281A", panel: "#A73F2A")

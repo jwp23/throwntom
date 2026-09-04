@@ -44,6 +44,20 @@ extension MascotPose {
     motions: [.breathe],
   )
 
+  /// A sandwich held in both hands, eyes shut over it.
+  static let lunch = MascotPose(
+    eyes: .closed,
+    mouth: .smile,
+    leftArm: Arm(shoulder: leftShoulder, 16, 80, 24, 88, 40, 89),
+    rightArm: Arm(shoulder: rightShoulder, 84, 80, 78, 88, 71, 89),
+    held: .sandwich,
+    furniture: nil,
+    rotation: -12,
+    scale: 1,
+    offset: .zero,
+    motions: [.breathe],
+  )
+
   /// Playing with a yo-yo, eyes on the disc.
   static let idle = MascotPose(
     eyes: .down,
@@ -93,6 +107,7 @@ extension MascotPose {
     case .work: work
     case .shortBreak: shortBreak
     case .longBreak: longBreak
+    case .lunch: lunch
     case .idle: idle
     case .awaitingConfirm: awaitingConfirm
     case .paused: pose(for: pausedFrom == .paused ? .idle : pausedFrom, pausedFrom: .idle).paused()

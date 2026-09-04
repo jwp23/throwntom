@@ -13,7 +13,16 @@ final class MascotViewTests: XCTestCase {
   }
 
   func testEveryPoseBuildsAtEveryScale() {
-    let poses: [MascotPose] = [.work, .shortBreak, .longBreak, .idle, .awaitingConfirm, .disconnected, MascotPose.work.paused()]
+    let poses: [MascotPose] = [
+      .work,
+      .shortBreak,
+      .longBreak,
+      .lunch,
+      .idle,
+      .awaitingConfirm,
+      .disconnected,
+      MascotPose.work.paused(),
+    ]
     for pose in poses {
       for unit in [CGFloat(1), 2, 3.2] {
         _ = MascotCharacterView(
@@ -40,7 +49,7 @@ final class MascotViewTests: XCTestCase {
   }
 
   func testLayersAreUniqueSoIdentityIsStable() {
-    let poses: [MascotPose] = [.work, .shortBreak, .longBreak, .idle, .awaitingConfirm, .disconnected]
+    let poses: [MascotPose] = [.work, .shortBreak, .longBreak, .lunch, .idle, .awaitingConfirm, .disconnected]
     for pose in poses {
       let layers = MascotCharacterView.layers(for: pose)
       XCTAssertEqual(Set(layers).count, layers.count)

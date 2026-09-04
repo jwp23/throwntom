@@ -7,7 +7,7 @@ import XCTest
 @MainActor
 final class WindowSectionBodyTests: XCTestCase {
   func testHeaderBuildsForEveryPhase() {
-    for phase in [DaemonState.Phase.idle, .work, .shortBreak, .longBreak, .awaitingConfirm, .paused] {
+    for phase in [DaemonState.Phase.idle, .work, .shortBreak, .longBreak, .lunch, .awaitingConfirm, .paused] {
       let content = MainWindowContent(
         state: makeState(phase: phase),
         connection: .connected,

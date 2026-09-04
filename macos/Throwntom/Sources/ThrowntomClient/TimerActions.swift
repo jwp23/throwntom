@@ -25,7 +25,8 @@ public enum TimerActions {
     // Skip ends the running phase, so it is on offer only while one is running.
     case .work,
          .shortBreak,
-         .longBreak:
+         .longBreak,
+         .lunch:
       [.pause, .skip, .skipToday]
 
     case .paused:

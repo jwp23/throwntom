@@ -9,6 +9,7 @@ enum HeldProp: Hashable {
   case yoyo
   case cable
   case exclamation
+  case sandwich
 
   /// The book is held in front of the face with the hands over its covers; everything else sits in
   /// front of the hands.
