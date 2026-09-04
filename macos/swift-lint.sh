@@ -31,7 +31,8 @@ mode=lint
 [[ "${1:-}" == "--fix" ]] && mode=fix
 
 tool_version() {
-  "$1" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true
+  local tool="$1"
+  "$tool" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true
 }
 
 # Downloads $url into a temp dir, verifies it against $sha256, extracts $member from the
