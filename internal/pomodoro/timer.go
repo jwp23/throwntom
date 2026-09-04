@@ -172,10 +172,7 @@ func (t *Timer) restoreRunningLocked(s Snapshot, now time.Time) {
 	elapsed := now.Sub(startedAt)
 	remaining := t.phaseDurationLocked(s.Engine.State) - elapsed
 	if remaining <= 0 {
-		// A phase whose duration was already served comes back complete, and a
-		// meeting is credited for the length it was given rather than for the
-		// downtime that outlasted it.
-		t.completePeriodLocked(t.phaseDurationLocked(s.Engine.State))
+		t.completePeriodLocked()
 		return
 	}
 	t.startPhaseFromLocked(startedAt, remaining)
@@ -210,7 +207,7 @@ func (t *Timer) restorePausedLocked(s Snapshot, now time.Time) {
 		t.pausedElapsed = 0
 		t.pausedRemaining = 0
 		t.engine.Resume()
-		t.completePeriodLocked(s.PausedElapsed)
+		t.completePeriodLocked()
 		return
 	}
 	t.pausedRemaining = remaining
@@ -338,7 +335,7 @@ func (t *Timer) CompletePeriod() {
 	defer t.notifyChange()
 	defer t.mu.Unlock()
 	defer t.transitionLocked()
-	t.completePeriodLocked(t.elapsedSincePhaseStartLocked())
+	t.completePeriodLocked()
 }
 
 func (t *Timer) Confirm() {
@@ -416,7 +413,7 @@ func (t *Timer) Resume() bool {
 	t.pausedRemaining = 0
 	t.pausedElapsed = 0
 	if d <= 0 {
-		t.completePeriodLocked(elapsed)
+		t.completePeriodLocked()
 		return true
 	}
 	t.startPhaseFromLocked(t.now().Add(-elapsed), d)
@@ -455,8 +452,7 @@ func (t *Timer) Skip() (engine.State, bool) {
 		defer t.notifyChange()
 		defer t.mu.Unlock()
 		defer t.transitionLocked()
-		elapsed := t.elapsedSincePhaseStartLocked()
-		t.completePeriodLocked(elapsed)
+		t.endMeetingLocked(t.elapsedSincePhaseStartLocked())
 		return skipped, true
 	}
 	if !t.engine.SkipPhase() {
@@ -546,22 +542,33 @@ func (t *Timer) elapsedSincePhaseStartLocked() time.Duration {
 	return elapsed
 }
 
-// completePeriodLocked ends the phase in flight, given how much of it was
-// spent. Every phase but a meeting is credited by its own rules, which need no
-// elapsed time at all; a meeting is credited by the minute, and the callers
-// that complete a phase from a pause have already cleared the fields it could
-// otherwise be read from. Passing it in makes each caller say what it knows
-// rather than leaving one of them to discover it is zero.
-func (t *Timer) completePeriodLocked(elapsed time.Duration) {
+// completePeriodLocked ends a phase that has served its time. A meeting is
+// credited for the length it was given rather than for a fresh measurement of
+// the wall clock: reaching here is what it means to have served that length,
+// and measuring instead would let a late timer or a slow restore decide the
+// credit.
+func (t *Timer) completePeriodLocked() {
+	if t.engine.State() == engine.Meeting {
+		t.endMeetingLocked(t.meetingDuration)
+		return
+	}
+	t.clearRunningPhaseLocked()
+	t.engine.MarkPeriodComplete()
+}
+
+// endMeetingLocked ends a meeting, crediting the time given as spent in it.
+func (t *Timer) endMeetingLocked(spent time.Duration) {
+	t.clearRunningPhaseLocked()
+	t.engine.CompleteMeeting(spent)
+}
+
+// clearRunningPhaseLocked stops the phase clock and forgets what it was
+// counting, leaving the engine to say what the phase now is.
+func (t *Timer) clearRunningPhaseLocked() {
 	t.stopTimerLocked()
 	t.phaseStartedAt = time.Time{}
 	t.phaseEndAt = time.Time{}
 	t.endPauseLocked()
-	if t.engine.State() == engine.Meeting {
-		t.engine.CompleteMeeting(elapsed)
-		return
-	}
-	t.engine.MarkPeriodComplete()
 }
 
 // startPhaseTimerLocked runs a phase of length d that begins now.
@@ -578,7 +585,7 @@ func (t *Timer) startPhaseFromLocked(startedAt time.Time, d time.Duration) {
 	t.phaseEndAt = t.now().Add(d)
 	t.periodTimer = t.after(d, func() {
 		t.mu.Lock()
-		t.completePeriodLocked(t.elapsedSincePhaseStartLocked())
+		t.completePeriodLocked()
 		t.transitionLocked()
 		t.mu.Unlock()
 		t.notifyChange()

@@ -71,10 +71,9 @@ func (t *Timer) rederiveRunningLocked(state engine.State) {
 	if t.phaseStartedAt.IsZero() {
 		return
 	}
-	elapsed := t.elapsedSincePhaseStartLocked()
-	remaining := t.phaseDurationLocked(state) - elapsed
+	remaining := t.phaseDurationLocked(state) - t.elapsedSincePhaseStartLocked()
 	if remaining <= 0 {
-		t.completePeriodLocked(elapsed)
+		t.completePeriodLocked()
 		return
 	}
 	t.startPhaseFromLocked(t.phaseStartedAt, remaining)
@@ -83,8 +82,7 @@ func (t *Timer) rederiveRunningLocked(state engine.State) {
 // rederivePausedLocked keeps a paused phase paused with its re-derived
 // remainder, or ends it when the new duration has already been served.
 func (t *Timer) rederivePausedLocked() {
-	elapsed := t.pausedElapsed
-	remaining := t.phaseDurationLocked(t.engine.Snapshot().PausedFrom) - elapsed
+	remaining := t.phaseDurationLocked(t.engine.Snapshot().PausedFrom) - t.pausedElapsed
 	if remaining > 0 {
 		t.pausedRemaining = remaining
 		return
@@ -92,7 +90,7 @@ func (t *Timer) rederivePausedLocked() {
 	t.pausedRemaining = 0
 	t.pausedElapsed = 0
 	t.engine.Resume()
-	t.completePeriodLocked(elapsed)
+	t.completePeriodLocked()
 }
 
 func (t *Timer) phaseDurationLocked(state engine.State) time.Duration {

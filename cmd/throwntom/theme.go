@@ -55,6 +55,8 @@ func emojiStateIcon(state engine.State) string {
 		return "\U0001F33F"
 	case engine.Lunch:
 		return "\U0001F37D\uFE0F"
+	case engine.Meeting:
+		return "\U0001F3A7"
 	case engine.Idle:
 		return "\U0001F331"
 	case engine.Paused:
@@ -68,7 +70,9 @@ func emojiStateIcon(state engine.State) string {
 
 func asciiStateIcon(state engine.State) string {
 	switch state {
-	case engine.Work:
+	// A meeting is worked time, so it takes work's mark: the ASCII set groups
+	// states by what they are, the way every rest shares `~`.
+	case engine.Work, engine.Meeting:
 		return "*"
 	case engine.ShortBreak, engine.LongBreak, engine.Lunch:
 		return "~"
@@ -92,7 +96,9 @@ func morningIcon(emoji bool) string {
 
 func stateStyle(state engine.State) lipgloss.Style {
 	switch state {
-	case engine.Work:
+	// A meeting is credited work, so it wears work's orange rather than a
+	// seventh hue DESIGN.md has no room for; the state text names it.
+	case engine.Work, engine.Meeting:
 		return lipgloss.NewStyle().Foreground(colorOrange)
 	case engine.ShortBreak:
 		return lipgloss.NewStyle().Foreground(colorTeal)

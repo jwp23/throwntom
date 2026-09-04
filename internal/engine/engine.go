@@ -107,6 +107,11 @@ type Engine struct {
 	// It is what lets blockBoundaryCrossed tell a block that was completed
 	// from one that was jumped clean over, which a count on its own cannot.
 	lastCredit int
+	// lastMeetingMinutes is how long the meeting behind lastPhase actually
+	// ran. lastCredit is what that time was worth in pomodoros; this is the
+	// time itself, which the credit's rounding has thrown away and the event
+	// log records as focus time.
+	lastMeetingMinutes int
 }
 
 func New(workMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery int) *Engine {
@@ -287,6 +292,7 @@ func (e *Engine) CompleteMeeting(elapsed time.Duration) {
 	credits := MeetingCredits(elapsed, e.workMinutes)
 	e.skipped = false
 	e.lastCredit = credits
+	e.lastMeetingMinutes = int(elapsed.Minutes())
 	e.completedToday += credits
 	e.workSessionsBlock += credits
 	e.lastPhase = Meeting
@@ -438,6 +444,9 @@ type Snapshot struct {
 	// LastCredit is how many pomodoros the phase in LastPhase credited to the
 	// block, which is what decides whether the block's long break is owed.
 	LastCredit int `json:"last_credit"`
+	// LastMeetingMinutes is how long the meeting in LastPhase ran, which the
+	// event log records as focus time.
+	LastMeetingMinutes int `json:"last_meeting_minutes"`
 }
 
 func (e *Engine) Snapshot() Snapshot {
@@ -452,6 +461,8 @@ func (e *Engine) Snapshot() Snapshot {
 		WorkDate:       e.workDate,
 		Skipped:        e.skipped,
 		LastCredit:     e.lastCredit,
+
+		LastMeetingMinutes: e.lastMeetingMinutes,
 	}
 }
 
@@ -506,6 +517,7 @@ func (e *Engine) Restore(s Snapshot) {
 	e.workDate = s.WorkDate
 	e.skipped = s.Skipped
 	e.lastCredit = s.LastCredit
+	e.lastMeetingMinutes = s.LastMeetingMinutes
 }
 
 func IsSameDay(a, b time.Time) bool {

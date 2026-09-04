@@ -27,6 +27,7 @@ func (c *Core) buildCommandHandlers() map[string]commandHandler {
 		"start":      c.handleStart,
 		"new-cycle":  c.handleNewCycle,
 		"lunch":      c.handleLunch,
+		"meeting":    c.handleMeeting,
 		"pause":      c.handlePause,
 		"resume":     c.handleResume,
 		"stop":       c.handleStop,
@@ -102,6 +103,22 @@ func (c *Core) handleLunch(_ []string) commandResult {
 	return commandResult{message: "Lunch started -- a fresh block when you're back."}
 }
 
+// handleMeeting takes the user into a meeting of the length they name. Like
+// lunch it needs no state to be in and refuses nothing but a length it cannot
+// read, and a phase waiting to be confirmed is still credited on the way past.
+//
+// Unlike lunch it is worked time: the block it interrupts is still the block
+// it returns to, and the time spent is credited as pomodoros when it ends.
+func (c *Core) handleMeeting(parts []string) commandResult {
+	parsed, err := parseDurationArg(parts, "meeting")
+	if err != nil {
+		return commandResult{err: err}
+	}
+	before := c.timer.StartMeeting(parsed)
+	c.logDisplacedCompletion(before)
+	return commandResult{message: fmt.Sprintf("Meeting started -- %s. It counts toward your day.", parsed)}
+}
+
 func (c *Core) handlePause(_ []string) commandResult {
 	if !c.timer.Pause() {
 		return commandResult{err: errNotRunning}
@@ -137,13 +154,22 @@ func (c *Core) handleStop(_ []string) commandResult {
 
 // handleSkip moves the cycle on early. The skipped phase is not credited, so
 // the event is a skip rather than a completion.
+//
+// A meeting is the exception, and it is not really a skip at all: the time
+// spent in it is credited, so the phase reaches the same boundary having
+// earned something. Its completion is logged where every other completion is,
+// at the confirm that follows, and calling it skipped here would both record a
+// discard that did not happen and tell the user their meeting was thrown away.
 func (c *Core) handleSkip(_ []string) commandResult {
-	skipped, ok := c.timer.Skip()
+	ended, ok := c.timer.Skip()
 	if !ok {
 		return commandResult{err: errNothingToSkip}
 	}
-	c.logEvent("skipped", map[string]any{"phase": skipped.String()})
 	next, _, _ := c.nextStageLocked()
+	if ended == engine.Meeting {
+		return commandResult{message: fmt.Sprintf("Meeting ended -- %s next", FriendlyStateName(next))}
+	}
+	c.logEvent("skipped", map[string]any{"phase": ended.String()})
 	return commandResult{message: fmt.Sprintf("Skipped -- %s next", FriendlyStateName(next))}
 }
 
@@ -158,7 +184,7 @@ func (c *Core) handleConfirm(_ []string) commandResult {
 		return commandResult{err: errNothingToConfirm}
 	}
 	if !snap.Engine.Skipped {
-		c.logConfirmCompletion(snap.Engine.LastPhase)
+		c.logConfirmCompletion(snap.Engine)
 	}
 	c.timer.Confirm()
 	state := c.timer.State()
@@ -176,14 +202,22 @@ func (c *Core) handleConfirm(_ []string) commandResult {
 // and is credited to nobody.
 func (c *Core) logDisplacedCompletion(before engine.Snapshot) {
 	if before.State == engine.AwaitingConfirm && !before.Skipped {
-		c.logConfirmCompletion(before.LastPhase)
+		c.logConfirmCompletion(before)
 	}
 }
 
-func (c *Core) logConfirmCompletion(lastPhase engine.State) {
-	switch lastPhase {
+func (c *Core) logConfirmCompletion(snap engine.Snapshot) {
+	switch snap.LastPhase {
 	case engine.Work:
 		c.logEvent("pomodoro_completed", nil)
+	// A meeting is neither a pomodoro nor a break: one event carries the whole
+	// credit its length earned, so the log says a meeting happened rather than
+	// claiming pomodoros nobody sat.
+	case engine.Meeting:
+		c.logEvent("meeting_completed", map[string]any{
+			"pomodoros": snap.LastCredit,
+			"minutes":   snap.LastMeetingMinutes,
+		})
 	case engine.ShortBreak:
 		c.logEvent("break_completed", map[string]any{"kind": "short"})
 	case engine.LongBreak:
@@ -209,7 +243,7 @@ func (c *Core) logPhaseStart(newState engine.State) {
 }
 
 func (c *Core) handleSnooze(parts []string) commandResult {
-	parsed, err := parseSnoozeDuration(parts)
+	parsed, err := parseDurationArg(parts, "snooze")
 	if err != nil {
 		return commandResult{err: err}
 	}
@@ -256,9 +290,13 @@ func (c *Core) handleQuit(_ []string) commandResult {
 	return commandResult{message: "See you next time!", exit: true}
 }
 
-func parseSnoozeDuration(parts []string) (time.Duration, error) {
+// parseDurationArg reads the duration a verb was given. A bare number means
+// minutes, which is how a duration is spoken about here; anything else is read
+// the way Go reads a duration. The verb names itself in every message so a
+// refusal says which command was refused.
+func parseDurationArg(parts []string, verb string) (time.Duration, error) {
 	if len(parts) < 2 {
-		return 0, fmt.Errorf("usage: snooze <duration>")
+		return 0, fmt.Errorf("usage: %s <duration>", verb)
 	}
 	raw := parts[1]
 	if _, err := strconv.ParseFloat(raw, 64); err == nil {
@@ -269,7 +307,7 @@ func parseSnoozeDuration(parts []string) (time.Duration, error) {
 		return 0, fmt.Errorf("invalid duration: %v", err)
 	}
 	if d <= 0 {
-		return 0, fmt.Errorf("snooze duration must be positive")
+		return 0, fmt.Errorf("%s duration must be positive", verb)
 	}
 	return d, nil
 }
@@ -280,6 +318,7 @@ func Help() string {
 		"  start              start a pomodoro, or take the phase you are owed",
 		"  new-cycle          start a fresh cycle",
 		"  lunch              take the lunch break; the pomodoro after it starts a fresh block",
+		"  meeting <duration> attend a meeting; its time counts as pomodoros (e.g., meeting 30)",
 		"  pause              pause the timer",
 		"  resume             resume the timer",
 		"  stop               suspend the cycle; start again to resume the owed phase",

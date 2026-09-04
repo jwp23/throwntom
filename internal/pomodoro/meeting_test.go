@@ -54,14 +54,16 @@ func TestEndingAMeetingEarlyCreditsTheTimeSpent(t *testing.T) {
 	a.setClock(clock)
 	a.StartMeeting(60 * time.Minute)
 
-	clock.Advance(40 * time.Minute)
+	// Twenty of the sixty minutes were spent, which is worth one pomodoro; the
+	// full hour would have been worth two.
+	clock.Advance(20 * time.Minute)
 	ended, ok := a.Skip()
 
 	if !ok || ended != engine.Meeting {
 		t.Fatalf("skip reported %s/%v, want meeting/true", ended, ok)
 	}
-	if got := a.Snapshot().Engine.CompletedToday; got != 2 {
-		t.Fatalf("completed today is %d, want 2 -- 40 minutes rounds to 2 pomodoros", got)
+	if got := a.Snapshot().Engine.CompletedToday; got != 1 {
+		t.Fatalf("completed today is %d, want 1 -- only the 20 minutes spent count", got)
 	}
 	if a.Snapshot().Engine.Skipped {
 		t.Fatal("an ended meeting is marked skipped, so its credit will not be logged")
