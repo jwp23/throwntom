@@ -164,7 +164,9 @@ func TestExecuteClassifiesErrors(t *testing.T) {
 		{"unknown task subcommand", "task bogus", ErrorUsage},
 		{"pause while idle", "pause", ErrorRefused},
 		{"resume while idle", "resume", ErrorRefused},
-		{"focus outside work session", "task focus 1", ErrorRefused},
+		// No timer state refuses focus any more, so the only thing left to get
+		// wrong is naming a task that is not there.
+		{"focus on a task that does not exist", "task focus 1", ErrorUsage},
 		{"successful command", "status", ErrorNone},
 	}
 	for _, tt := range tests {

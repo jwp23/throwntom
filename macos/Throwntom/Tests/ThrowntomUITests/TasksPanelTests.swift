@@ -13,12 +13,30 @@ final class TasksPanelTests: XCTestCase {
   /// line through text is silent. Found while auditing the window for what it says only in ink;
   /// no bead covered it.
   func testARowSaysInWordsWhatItOtherwiseOnlyDraws() {
-    XCTAssertEqual(TaskRow(task: makeTask(id: 1, description: "write"), focused: false).label, "write")
-    XCTAssertEqual(TaskRow(task: makeTask(id: 2, description: "write"), focused: true).label, "write, focused")
-    XCTAssertEqual(
-      TaskRow(task: makeTask(id: 3, description: "write", done: true), focused: false).label,
-      "write, completed",
-    )
+    XCTAssertEqual(makeRow(id: 1, description: "write", focused: false).label, "write")
+    XCTAssertEqual(makeRow(id: 2, description: "write", focused: true).label, "write, focused")
+    XCTAssertEqual(makeRow(id: 3, description: "write", done: true, focused: false).label, "write, completed")
+  }
+
+  /// The panel's hint is the one place a reader who has never opened a context menu learns that
+  /// ⌘F is a toggle, so it has to word itself for the row the key would act on.
+  func testTheHintNamesUnfocusWhenTheSelectedRowIsFocused() throws {
+    let panel = try makePanel()
+    panel.model.sync(tasks: TaskList(active: [makeTask(id: 1), makeTask(id: 2)], completed: []), focusedTaskIDs: [2])
+
+    panel.model.selectedID = 1
+    XCTAssertEqual(panel.hintLine, TaskHints.line(focused: false))
+
+    panel.model.selectedID = 2
+    XCTAssertEqual(panel.hintLine, TaskHints.line(focused: true))
+  }
+
+  /// The rows sit on the panel, so their star takes the panel's text colour rather than a tint of
+  /// its own; `PaletteTests` is what holds that colour to 4.5:1.
+  func testTheRowMarkTakesThePanelsOwnTextColour() throws {
+    let scheme = Palette.scheme(for: .idle)
+    let panel = TasksPanel(environment: AppEnvironment(transport: try StubTransport(states: [])), scheme: scheme)
+    XCTAssertEqual(panel.markColor, scheme.panelTaskMark)
   }
 
   func testEmptyStateNamesTheShortcutThatAddsATask() {
@@ -99,6 +117,14 @@ final class TasksPanelTests: XCTestCase {
       }
     }
     return nil
+  }
+
+  private func makeRow(id: Int, description: String = "task", done: Bool = false, focused: Bool) -> TaskRow {
+    TaskRow(
+      task: makeTask(id: id, description: description, done: done),
+      focused: focused,
+      markColor: Palette.scheme(for: .work).panelTaskMark,
+    )
   }
 
   private func makePanel() throws -> TasksPanel {

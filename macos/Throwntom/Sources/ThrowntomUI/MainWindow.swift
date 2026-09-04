@@ -62,16 +62,13 @@ struct MainWindow: View {
       // Snoozing withdraws the reminder banner, so without this line an active snooze has no
       // representation on screen at all.
       if let snoozeNote = content.snoozeNote {
-        // The window's second live countdown, read the same way as the headline: a steady name with
-        // the minutes left as its value.
-        Text(snoozeNote).font(.caption)
-          .liveValue(label: "Snoozed", value: content.snoozeRemaining)
+        SnoozedLine(note: snoozeNote, remaining: content.snoozeRemaining)
       }
       ServiceChip(content: content, client: environment.client)
         .padding(.top, Self.serviceChipGap)
       CommandChips(environment: environment, scheme: content.scheme)
       WindowNotes(error: content.error, notice: content.notice, responder: environment.responder)
-      FocusSection(tasks: content.focused)
+      FocusSection(tasks: content.focused, scheme: content.scheme)
       if content.panel == .tasks {
         TasksPanel(environment: environment, scheme: content.scheme)
       }

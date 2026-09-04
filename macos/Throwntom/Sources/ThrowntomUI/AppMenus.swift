@@ -68,10 +68,26 @@ struct AppMenus: Commands {
 
   /// The timer verbs. Their key equivalents fire whether or not the menu is open, which is why
   /// enablement here matters as much as it does in the window: a disabled item binds nothing.
+  ///
+  /// Confirm is bound to bare Return, and a main menu's key equivalent is offered a keystroke
+  /// before whatever has focus ever sees it — so it gives the key up while anything in front of it
+  /// is using it. Three surfaces are: the inline new-task row, the custom-snooze duration field,
+  /// and the shortcuts sheet, whose Done button is the default action.
+  ///
+  /// The snooze field needs this in exactly the state it opens from — `awaiting_confirm` offers
+  /// Confirm and Snooze at once, so without it the Return that should have committed a typed
+  /// duration confirmed the stage instead, answering the very reminder the user was deferring. The
+  /// sheet is worse for being opaque: it covers the window, so a stage confirmed behind it happens
+  /// out of sight.
+  ///
+  /// A guard, not a rebinding. Confirm keeps bare Return and hands it back the moment the surface
+  /// in front closes.
   var timerMenu: MenuModel<TimerAction> {
     MenuModel.timer(
       state: environment.client.state,
-      isEditing: environment.model.isEditing,
+      isEditing: environment.model.isEditing
+        || environment.windowModel.isEnteringSnooze
+        || environment.windowModel.showsShortcuts,
       daemonAvailable: daemonAvailable,
     )
   }

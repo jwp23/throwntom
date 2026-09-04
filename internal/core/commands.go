@@ -15,13 +15,12 @@ var (
 	errNothingToSkip    = errors.New("nothing to skip: timer is not running")
 	errNothingToConfirm = errors.New("nothing to confirm: no phase is waiting")
 	errNotPaused        = errors.New("nothing to resume: timer is not paused")
-	errNotWorkSession   = errors.New("only available during a work session")
 	errAlreadyFocused   = errors.New("is already focused")
 )
 
 // refusals are the sentinels for commands the current state does not allow;
 // classifyError maps them to ErrorRefused.
-var refusals = []error{errNotRunning, errNothingToSkip, errNothingToConfirm, errNotPaused, errNotWorkSession, errAlreadyFocused, errNoReminder, errNoSnooze}
+var refusals = []error{errNotRunning, errNothingToSkip, errNothingToConfirm, errNotPaused, errAlreadyFocused, errNoReminder, errNoSnooze}
 
 func (c *Core) buildCommandHandlers() map[string]commandHandler {
 	return map[string]commandHandler{
@@ -284,8 +283,8 @@ func Help() string {
 		"  task list           show active tasks",
 		"  task completed      show completed tasks",
 		"  task clear          clear completed tasks",
-		"  task focus <n>      focus on a task (work session)",
-		"  task unfocus <n>    remove focus (work session)",
+		"  task focus <n>      focus on a task",
+		"  task unfocus <n>    remove focus",
 		"  task up <n>         move focused task up",
 		"  task down <n>       move focused task down",
 	}, "\n")

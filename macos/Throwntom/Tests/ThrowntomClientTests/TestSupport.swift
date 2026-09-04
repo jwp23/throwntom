@@ -310,5 +310,7 @@ func makeClientState(
     reminderRings: 0,
     dayEnded: dayEnded,
     floatWindowWhenWaiting: false,
+    pausedTooLong: false,
+    bounceDockWhenPaused: true,
   )
 }

@@ -10,6 +10,6 @@ final class ShortcutHintTests: XCTestCase {
   }
 
   func testHintBodyBuilds() {
-    _ = ShortcutHint(TaskHints.line).body
+    _ = ShortcutHint(TaskHints.line(focused: false)).body
   }
 }
