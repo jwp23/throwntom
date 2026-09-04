@@ -6,6 +6,9 @@ public enum TimerActions {
   /// where it does exactly what `confirm` does, and offering both would put two chips on one screen
   /// for one outcome. Every verb listed here is one the daemon accepts; the converse is not claimed.
   ///
+  /// A meeting is offered in every state, and it is the one verb that is: a user does not choose
+  /// when they are called into one, so there is no state in which the answer is "not now".
+  ///
   /// Ending the day comes last in every state rather than only while idle: `handleSkipToday` has
   /// no state guard, and a user who is finished mid-pomodoro needs to be able to say so without
   /// first pausing or waiting out the phase.
@@ -15,11 +18,11 @@ public enum TimerActions {
       // Not once the day is already ended: that screen is what the verb produces, and a chip
       // that re-ends an ended day does nothing.
       if state.dayEnded {
-        [.start, .newCycle]
+        [.start, .newCycle, .meeting]
       } else if state.morningPending {
-        [.start, .newCycle, .snooze, .skipToday]
+        [.start, .newCycle, .snooze, .meeting, .skipToday]
       } else {
-        [.start, .newCycle, .skipToday]
+        [.start, .newCycle, .meeting, .skipToday]
       }
 
     // Skip ends the running phase, so it is on offer only while one is running.
@@ -27,13 +30,20 @@ public enum TimerActions {
          .shortBreak,
          .longBreak,
          .lunch:
-      [.pause, .skip, .skipToday]
+      [.pause, .skip, .meeting, .skipToday]
+
+    // A running meeting has no Skip of its own: ending it is what the meeting chip does while
+    // one is running, and two chips for one outcome is what the start/confirm note above rules
+    // out. Ending a meeting is also not a discard — the time is credited — so the chip that
+    // says so is the one that belongs on screen.
+    case .meeting:
+      [.pause, .meeting, .skipToday]
 
     case .paused:
-      [.resume, .skipToday]
+      [.resume, .meeting, .skipToday]
 
     case .awaitingConfirm:
-      [.confirm, .snooze, .newCycle, .skipToday]
+      [.confirm, .snooze, .newCycle, .meeting, .skipToday]
     }
   }
 

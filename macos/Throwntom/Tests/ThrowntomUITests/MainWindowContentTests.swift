@@ -75,7 +75,7 @@ final class MainWindowContentTests: XCTestCase {
     XCTAssertEqual(c.countdown, "12:34")
     XCTAssertEqual(c.nextStage, "Next: Short break 5 min")
     XCTAssertEqual(c.garden, TomatoGarden(completedToday: 5, inBlock: 1, every: 4))
-    XCTAssertEqual(c.chips, [.pause, .skip, .skipToday])
+    XCTAssertEqual(c.chips, [.pause, .skip, .meeting, .skipToday])
     XCTAssertNil(c.primaryChip)
   }
 
@@ -92,7 +92,7 @@ final class MainWindowContentTests: XCTestCase {
   func testIdleHasNoCountdownAndStartIsPrimary() {
     let c = content(makeState(phase: .idle))
     XCTAssertNil(c.countdown)
-    XCTAssertEqual(c.chips, [.start, .newCycle, .skipToday])
+    XCTAssertEqual(c.chips, [.start, .newCycle, .meeting, .skipToday])
     XCTAssertEqual(c.primaryChip, .start)
   }
 
@@ -394,7 +394,7 @@ extension MainWindowContentTests {
     XCTAssertNotEqual(refused.scheme, idle.scheme, "the idle ground says the service is up")
     XCTAssertNotEqual(refused.pose, idle.pose)
     XCTAssertNotEqual(refused.title, idle.title)
-    XCTAssertEqual(idle.chips, [.start, .newCycle, .skipToday], "idle's verbs are live affordances")
+    XCTAssertEqual(idle.chips, [.start, .newCycle, .meeting, .skipToday], "idle's verbs are live affordances")
     XCTAssertEqual(refused.chips, [], "and none of them are true here")
   }
 

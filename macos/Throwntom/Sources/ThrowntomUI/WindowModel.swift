@@ -72,6 +72,9 @@ final class WindowModel {
   /// Whether the snooze chip's "Custom…" duration field is open. Closed on every launch, and
   /// closed again the moment a duration is accepted or abandoned.
   var isEnteringSnooze = false
+  /// Whether the meeting chip's "Custom…" length field is open. Closed on every launch, and
+  /// closed again the moment a length is accepted or abandoned.
+  var isEnteringMeeting = false
 
   func toggle(_ panel: WindowPanel) {
     self.panel = self.panel == panel ? nil : panel
@@ -86,6 +89,10 @@ final class WindowModel {
   func dismiss(panelIsShown: Bool) -> Bool {
     if isEnteringSnooze {
       isEnteringSnooze = false
+      return true
+    }
+    if isEnteringMeeting {
+      isEnteringMeeting = false
       return true
     }
     if showsShortcuts {

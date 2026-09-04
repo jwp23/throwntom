@@ -17,14 +17,18 @@ struct ActionChips: View {
     }
   }
 
-  /// Snooze is the one verb with a duration to choose and an undo to offer, so it is a pull-down
-  /// rather than a plain button. Everything else is one click and done. Built as its own method,
-  /// free of `ForEach`'s trailing closure, for the same testability reason as `chip(for:)`.
+  /// Snooze and meeting are the two verbs with a duration to choose and a way out to offer, so
+  /// each is a pull-down rather than a plain button. Everything else is one click and done. Built
+  /// as its own method, free of `ForEach`'s trailing closure, for the same testability reason as
+  /// `chip(for:)`.
   @ViewBuilder
   func row(for action: TimerAction) -> some View {
-    if action == .snooze {
+    switch action {
+    case .snooze:
       SnoozeChip(content: content, client: client, model: model)
-    } else {
+    case .meeting:
+      MeetingChip(content: content, client: client, model: model)
+    default:
       chip(for: action)
     }
   }

@@ -65,6 +65,7 @@ final class MascotSnapshotTests: XCTestCase {
 
   private static let phases: [(name: String, phase: DaemonState.Phase?, pausedFrom: DaemonState.Phase)] = [
     ("work", .work, .idle),
+    ("meeting", .meeting, .idle),
     ("short-break", .shortBreak, .idle),
     ("long-break", .longBreak, .idle),
     ("lunch", .lunch, .idle),

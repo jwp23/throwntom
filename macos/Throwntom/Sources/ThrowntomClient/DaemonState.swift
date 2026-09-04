@@ -12,6 +12,9 @@ public struct DaemonState: Codable, Equatable, Sendable {
     /// The break the user chooses rather than earns. No transition leads to it; only the `lunch`
     /// verb does (`internal/engine/engine.go`).
     case lunch
+    /// Time away from the timer but still at work. Chosen rather than earned, like lunch, but
+    /// credited as pomodoros when it ends (`internal/engine/engine.go`).
+    case meeting
     case awaitingConfirm = "awaiting_confirm"
     case paused
 
@@ -25,6 +28,7 @@ public struct DaemonState: Codable, Equatable, Sendable {
       case .shortBreak: "Short break"
       case .longBreak: "Long break"
       case .lunch: "Lunch"
+      case .meeting: "Meeting"
       case .awaitingConfirm: "Confirm"
       case .paused: "Paused"
       }

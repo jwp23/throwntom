@@ -52,7 +52,7 @@ struct SnoozeEntryRow: View {
   /// 4.5:1 — the same call `WindowNotes` makes — and this is the line a user reads *because* the
   /// duration they typed was refused.
   var rule: some View {
-    Text("1 to \(SnoozeDraft.maximumMinutes) minutes")
+    Text("1 to \(Minutes.maximum) minutes")
       .font(.caption)
   }
 
@@ -60,7 +60,7 @@ struct SnoozeEntryRow: View {
   /// typo can be corrected rather than retyped. Takes the entry rather than reading the field, so
   /// the decision can be exercised without a view hierarchy to hold the field's state.
   func submit(_ entry: String) {
-    guard let minutes = SnoozeDraft.minutes(from: entry) else {
+    guard let minutes = Minutes.parse(entry) else {
       alert()
       return
     }

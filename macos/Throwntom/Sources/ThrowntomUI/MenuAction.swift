@@ -26,3 +26,7 @@ extension ServiceAction: MenuAction { }
 // MARK: - SnoozeAction + MenuAction
 
 extension SnoozeAction: MenuAction { }
+
+// MARK: - MeetingAction + MenuAction
+
+extension MeetingAction: MenuAction { }

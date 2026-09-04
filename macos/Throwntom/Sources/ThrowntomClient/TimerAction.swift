@@ -9,6 +9,7 @@ public enum TimerAction: CaseIterable, Sendable {
   case skipToday
   case newCycle
   case lunch
+  case meeting
 
   // MARK: Public
 
@@ -23,6 +24,7 @@ public enum TimerAction: CaseIterable, Sendable {
     case .skipToday: "Done for Today"
     case .newCycle: "New Cycle"
     case .lunch: "Lunch"
+    case .meeting: "Meeting"
     }
   }
 
@@ -42,7 +44,8 @@ public enum TimerAction: CaseIterable, Sendable {
     case .snooze: "⌘⇧S"
     case .skipToday,
          .newCycle,
-         .lunch: ""
+         .lunch,
+         .meeting: ""
     }
   }
 
@@ -68,6 +71,8 @@ public enum TimerAction: CaseIterable, Sendable {
     case .skipToday,
          .newCycle,
          .lunch: ""
+    // A meeting can be started in any state, so there is no condition to state.
+    case .meeting: ""
     }
   }
 
@@ -80,7 +85,8 @@ public enum TimerAction: CaseIterable, Sendable {
     }
   }
 
-  /// nil for snooze, which posts to /v1/timer/snooze with a minutes body instead.
+  /// nil for the two actions that carry a length — snooze and meeting — each of which posts a
+  /// minutes body to a route of its own instead of taking a bare verb path.
   public var verb: TimerVerb? {
     switch self {
     case .start: .start
@@ -91,7 +97,8 @@ public enum TimerAction: CaseIterable, Sendable {
     case .skipToday: .skipToday
     case .newCycle: .newCycle
     case .lunch: .lunch
-    case .snooze: nil
+    case .snooze,
+         .meeting: nil
     }
   }
 }

@@ -180,12 +180,27 @@ public final class DaemonClient {
     }
   }
 
-  /// Runs a timer action: every action but snooze is a verb path with no body.
+  /// Runs a timer action. Two of them carry a length rather than a bare verb — snooze and
+  /// meeting — and each posts a minutes body to a route of its own; the rest are a verb path with
+  /// no body. The cases are enumerated rather than keyed off a nil verb so that a third
+  /// length-carrying action cannot silently inherit whichever of the two the fallback named.
   public func perform(_ action: TimerAction) async throws {
-    if let verb = action.verb {
-      try await timer(verb)
-    } else {
-      try await snooze(minutes: TimerActions.defaultSnoozeMinutes)
+    switch action {
+    case .snooze:
+      try await snooze(minutes: SnoozeActions.defaultMinutes)
+    case .meeting:
+      try await meeting(minutes: MeetingActions.defaultMinutes)
+    case .start,
+         .confirm,
+         .pause,
+         .resume,
+         .skip,
+         .skipToday,
+         .newCycle,
+         .lunch:
+      if let verb = action.verb {
+        try await timer(verb)
+      }
     }
   }
 
@@ -193,6 +208,22 @@ public final class DaemonClient {
     switch request {
     case .snooze(let minutes): try await snooze(minutes: minutes)
     case .cancel: try await timer(.unsnooze)
+    }
+  }
+
+  /// Ending a meeting is the daemon's `skip`: it reaches the boundary a skip reaches, and the
+  /// daemon credits the time spent rather than discarding it (`internal/core/commands.go`).
+  public func perform(_ request: MeetingRequest) async throws {
+    switch request {
+    case .start(let minutes): try await meeting(minutes: minutes)
+    case .end: try await timer(.skip)
+    }
+  }
+
+  public func meeting(minutes: Int) async throws {
+    try await runCommand {
+      let body = try JSONSerialization.data(withJSONObject: ["minutes": minutes])
+      _ = try await post(DaemonAPI.meeting, body: body)
     }
   }
 
@@ -389,6 +420,7 @@ private enum DaemonAPI {
   static let events = "/v1/events"
   static let stats = "/v1/stats"
   static let snooze = "/v1/timer/snooze"
+  static let meeting = "/v1/timer/meeting"
 
   static func timer(_ verb: TimerVerb) -> String {
     "/v1/timer/\(verb.rawValue)"

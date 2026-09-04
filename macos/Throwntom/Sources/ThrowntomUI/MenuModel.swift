@@ -70,7 +70,30 @@ extension MenuModel where Action == TimerAction {
         // verb unconditionally (`Core.handleLunch`), and starting a lunch already running would
         // only restart the hour. It binds no key; throwntom-bxd.17 owns what is bound.
         item(.lunch, nil, isEnabled: daemonAvailable && state != nil && state?.state != .lunch),
+        // Meeting is in the chip row, so `available` does answer for it; the menu bar carries it
+        // too because the menu bar is the complete command list. Unlike lunch it stays enabled
+        // during a meeting, where the same item is the way out of one.
+        item(.meeting, nil, isEnabled: daemonAvailable && state != nil),
       ],
+    ])
+  }
+}
+
+extension MenuModel where Action == MeetingAction {
+  /// The meeting lifecycle as one menu: how long to be away, a way to say a length the presets do
+  /// not cover, and the way out. It is the whole feature in one place for the reason the snooze
+  /// menu is — the control the user reaches for is one control.
+  ///
+  /// The lengths stay enabled while a meeting runs: a meeting that overruns is restarted at a new
+  /// length rather than ended and begun again, and the daemon takes the verb from any state.
+  static func meeting(canStart: Bool, isMeeting: Bool) -> MenuModel {
+    func item(_ action: MeetingAction, isEnabled: Bool) -> MenuItem<MeetingAction> {
+      MenuItem(action: action, shortcut: nil, isEnabled: isEnabled)
+    }
+    return MenuModel(groups: [
+      MeetingActions.presets.map { item(.start(minutes: $0), isEnabled: canStart) }
+        + [item(.custom, isEnabled: canStart)],
+      [item(.end, isEnabled: isMeeting)],
     ])
   }
 }

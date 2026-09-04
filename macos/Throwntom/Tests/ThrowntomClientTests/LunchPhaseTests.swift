@@ -32,6 +32,6 @@ final class LunchPhaseTests: XCTestCase {
 
   /// A running lunch offers what every other running phase offers.
   func testLunchOffersTheRunningPhaseVerbs() {
-    XCTAssertEqual(TimerActions.available(for: makeClientState(phase: .lunch)), [.pause, .skip, .skipToday])
+    XCTAssertEqual(TimerActions.available(for: makeClientState(phase: .lunch)), [.pause, .skip, .meeting, .skipToday])
   }
 }

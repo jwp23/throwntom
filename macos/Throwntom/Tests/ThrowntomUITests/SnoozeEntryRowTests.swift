@@ -72,7 +72,7 @@ final class SnoozeEntryRowTests: XCTestCase {
   /// duration wrong. Drawn against plain caption text, it has to be the same picture.
   func testTheRuleIsCaptionTextInTheWindowsOwnColourRatherThanDimmed() throws {
     let (row, _, _, _) = try makeRow()
-    let plain = Text("1 to \(SnoozeDraft.maximumMinutes) minutes").font(.caption)
+    let plain = Text("1 to \(Minutes.maximum) minutes").font(.caption)
     for appearance in AppearanceRender.appearances {
       let drawn = try AppearanceRender.bitmap(
         AppearanceRender.onGround(row.rule, scheme: scheme, width: 140, height: 20),

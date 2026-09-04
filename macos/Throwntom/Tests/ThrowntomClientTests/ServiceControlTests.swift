@@ -157,7 +157,7 @@ final class EndOfDayActionTests: XCTestCase {
   func testEndingTheDayIsNotOfferedOnceTheDayHasEnded() {
     let available = TimerActions.available(for: makeClientState(phase: .idle, dayEnded: true))
     XCTAssertFalse(available.contains(.skipToday))
-    XCTAssertEqual(available, [.start, .newCycle])
+    XCTAssertEqual(available, [.start, .newCycle, .meeting])
   }
 
   func testAnEndedDayIsReadableFromTheDaemonState() {
