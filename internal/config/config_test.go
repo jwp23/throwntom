@@ -90,6 +90,22 @@ func TestFloatWindowWhenWaitingDefaultsOffAndCanBeEnabled(t *testing.T) {
 	}
 }
 
+// On by default: the bounce is what tells a user a pause has been forgotten,
+// so a config that says nothing keeps it, unlike float_window_when_waiting
+// above.
+func TestBounceDockWhenPausedDefaultsOnAndCanBeDisabled(t *testing.T) {
+	if !Default().BounceDockWhenPaused {
+		t.Fatal("expected bounce_dock_when_paused to default to true")
+	}
+	cfg, err := LoadBytes([]byte(`bounce_dock_when_paused = false`))
+	if err != nil {
+		t.Fatalf(fmtUnexpectedErr, err)
+	}
+	if cfg.BounceDockWhenPaused {
+		t.Fatal("expected bounce_dock_when_paused to be false when explicitly set")
+	}
+}
+
 func TestEmojiDefaultsTrueAndCanBeDisabled(t *testing.T) {
 	cfg, err := LoadBytes([]byte(`emoji = false`))
 	if err != nil {
@@ -414,5 +430,28 @@ func TestLoadBytesParsesRepeatLimit(t *testing.T) {
 func TestLoadRejectsNonPositiveRepeatLimit(t *testing.T) {
 	if _, err := LoadBytes([]byte("repeat_limit_secs = 0")); err == nil {
 		t.Fatal("expected repeat_limit_secs validation error")
+	}
+}
+
+func TestDefaultPausedTooLongMinutes(t *testing.T) {
+	cfg := Default()
+	if cfg.PausedTooLongMinutes != 10 {
+		t.Fatalf("expected a default of 10 minutes before a pause is too long, got %d", cfg.PausedTooLongMinutes)
+	}
+}
+
+func TestLoadBytesParsesPausedTooLongMinutes(t *testing.T) {
+	cfg, err := LoadBytes([]byte("paused_too_long_minutes = 25"))
+	if err != nil {
+		t.Fatalf(fmtUnexpectedErr, err)
+	}
+	if cfg.PausedTooLongMinutes != 25 {
+		t.Fatalf("expected paused_too_long_minutes 25, got %d", cfg.PausedTooLongMinutes)
+	}
+}
+
+func TestLoadRejectsNonPositivePausedTooLongMinutes(t *testing.T) {
+	if _, err := LoadBytes([]byte("paused_too_long_minutes = 0")); err == nil {
+		t.Fatal("expected paused_too_long_minutes validation error")
 	}
 }

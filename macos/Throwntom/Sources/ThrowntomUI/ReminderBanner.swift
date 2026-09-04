@@ -15,6 +15,10 @@ protocol ReminderPresenter {
   func withdrawReminder()
   /// Draws the eye to the app without taking focus: on macOS, the Dock icon bounces.
   func requestAttention()
+  /// Stops the Dock bouncing. Activating the app cancels the request too, but the daemon can stop
+  /// wanting the user's eye without them ever coming to the app — a reminder answered from the
+  /// terminal, a pause resumed there — and the bounce must not outlive the reason for it.
+  func cancelAttention()
   /// Raises the window so it can be read, without activating the app and without taking key
   /// focus. This is a reply to something the user just pressed — what a reminder button does when
   /// there is no timer service to answer it, so the window can say why instead of the button

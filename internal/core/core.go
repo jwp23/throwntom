@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync"
@@ -40,9 +41,16 @@ type Core struct {
 	eventWriter         *eventlog.Writer
 	eventsPath          string
 	longBreakEvery      int
+	// warnOut is where session warnings go. It defaults to os.Stderr; tests
+	// point it at a buffer so they can assert on a warning's content instead
+	// of letting it leak into the test run's own output.
+	warnOut io.Writer
 	// floatWindowWhenWaiting is carried for clients, not acted on here. See
 	// the field of the same name on State.
 	floatWindowWhenWaiting bool
+	// bounceDockWhenPaused is carried for clients, not acted on here. See the
+	// field of the same name on State.
+	bounceDockWhenPaused bool
 	// morningPending is the config's answer to whether today's morning
 	// reminder is still owed at start-up.
 	morningPending bool
@@ -85,8 +93,11 @@ func newCore(cfg config.Config, n notifier.Notifier) *Core {
 		morningPending:         cfg.MorningReminderPending,
 		longBreakEvery:         cfg.Pomodoro.LongBreakEvery,
 		floatWindowWhenWaiting: cfg.FloatWindowWhenWaiting,
+		bounceDockWhenPaused:   cfg.BounceDockWhenPaused,
 		subscribers:            make(map[chan State]struct{}),
+		warnOut:                os.Stderr,
 	}
+	c.timer.SetPausedTooLongAfter(pausedTooLongAfter(cfg))
 	c.handlers = c.buildCommandHandlers()
 	c.timer.SetOnChange(c.publishAsync)
 	c.timer.SetOnTransition(c.onTransition)

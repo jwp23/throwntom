@@ -55,17 +55,20 @@ final class SystemReminderPresenter: ReminderPresenter {
     // Activating the app cancels an attention request too, but an answer given without
     // activating (a notification button, or a reminder that lapses unanswered) must not leave
     // the Dock icon bouncing forever.
-    if let attentionRequest {
-      NSApp.cancelUserAttentionRequest(attentionRequest)
-      self.attentionRequest = nil
-    }
+    cancelAttention()
   }
 
   /// Idempotent: a second call while a request is still outstanding would leak the first
-  /// identifier, leaving `withdrawReminder()` able to cancel only the newer one.
+  /// identifier, leaving `cancelAttention()` able to cancel only the newer one.
   func requestAttention() {
     guard attentionRequest == nil else { return }
     attentionRequest = NSApp.requestUserAttention(.criticalRequest)
+  }
+
+  func cancelAttention() {
+    guard let attentionRequest else { return }
+    NSApp.cancelUserAttentionRequest(attentionRequest)
+    self.attentionRequest = nil
   }
 
   /// `orderFrontRegardless` is the whole implementation, and the two calls it is not are the

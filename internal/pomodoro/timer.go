@@ -43,6 +43,20 @@ type Timer struct {
 	// paused. A pause stops the clock, so elapsed can no longer be read from
 	// phaseStartedAt.
 	pausedElapsed time.Duration
+	// pausedAt is when the current pause began, and is set only while the
+	// engine is paused. A pause freezes the phase but not the wall clock, so
+	// this is the one time the Timer keeps that the phase's own clock cannot
+	// give back.
+	pausedAt time.Time
+	// pausedTooLongAfter is how long a pause may last before the Timer calls
+	// it forgotten. Zero means never, which is what a Timer built without one
+	// has.
+	pausedTooLongAfter time.Duration
+	// pauseWatchdog publishes the moment the pause in flight becomes too
+	// long. Nothing about the answer depends on it firing — PausedTooLong is
+	// derived from the clock — but without it the threshold passes with no
+	// change for anyone to observe.
+	pauseWatchdog stopper
 	onChange      func()
 	// onTransition runs inside the Timer lock, before the verb returns, every
 	// time the engine's state is set: by a verb, by a countdown ending or by
@@ -101,6 +115,9 @@ type Snapshot struct {
 	PhaseEndAt      time.Time       `json:"phase_end_at"`
 	PausedRemaining time.Duration   `json:"paused_remaining"`
 	PausedElapsed   time.Duration   `json:"paused_elapsed"`
+	// PausedAt is when the pause began, so a pause survives a restart with
+	// its age rather than starting it over.
+	PausedAt time.Time `json:"paused_at"`
 }
 
 func (t *Timer) Snapshot() Snapshot {
@@ -112,6 +129,7 @@ func (t *Timer) Snapshot() Snapshot {
 		PhaseEndAt:      t.phaseEndAt,
 		PausedRemaining: t.pausedRemaining,
 		PausedElapsed:   t.pausedElapsed,
+		PausedAt:        t.pausedAt,
 	}
 }
 
@@ -126,7 +144,7 @@ func (t *Timer) Restore(s Snapshot, now time.Time) error {
 	case engine.Work, engine.ShortBreak, engine.LongBreak:
 		t.restoreRunningLocked(s, now)
 	case engine.Paused:
-		t.restorePausedLocked(s)
+		t.restorePausedLocked(s, now)
 	}
 	return nil
 }
@@ -160,11 +178,14 @@ func phaseStartOnRestore(s Snapshot, now time.Time) time.Time {
 }
 
 // restorePausedLocked brings back a paused phase. Its elapsed time is frozen,
-// so only the duration it is measured against can have changed.
-func (t *Timer) restorePausedLocked(s Snapshot) {
+// so only the duration it is measured against can have changed. The pause
+// itself keeps ageing across the outage, which is the whole point of a pause
+// that has been forgotten: the clock it is measured against is the wall's.
+func (t *Timer) restorePausedLocked(s Snapshot, now time.Time) {
 	t.pausedElapsed = s.PausedElapsed
 	if s.PausedElapsed == 0 {
 		t.pausedRemaining = s.PausedRemaining
+		t.beginPauseLocked(pauseStartOnRestore(s, now))
 		return
 	}
 	remaining := t.phaseDurationLocked(s.Engine.PausedFrom) - s.PausedElapsed
@@ -176,6 +197,7 @@ func (t *Timer) restorePausedLocked(s Snapshot) {
 		return
 	}
 	t.pausedRemaining = remaining
+	t.beginPauseLocked(pauseStartOnRestore(s, now))
 }
 
 func (t *Timer) AdvanceDay(now time.Time) {
@@ -306,6 +328,7 @@ func (t *Timer) Pause() bool {
 	t.stopTimerLocked()
 	t.phaseStartedAt = time.Time{}
 	t.phaseEndAt = time.Time{}
+	t.beginPauseLocked(t.now())
 	return true
 }
 
@@ -320,6 +343,7 @@ func (t *Timer) Resume() bool {
 	defer t.notifyChange()
 	defer t.mu.Unlock()
 	defer t.transitionLocked()
+	t.endPauseLocked()
 	elapsed := t.pausedElapsed
 	d := t.pausedRemaining
 	if d <= 0 {
@@ -439,6 +463,7 @@ func (t *Timer) clearPhaseLocked() {
 	t.phaseEndAt = time.Time{}
 	t.pausedRemaining = 0
 	t.pausedElapsed = 0
+	t.endPauseLocked()
 }
 
 // elapsedSincePhaseStartLocked reports how much of the running phase has been
@@ -458,6 +483,7 @@ func (t *Timer) completePeriodLocked() {
 	t.stopTimerLocked()
 	t.phaseStartedAt = time.Time{}
 	t.phaseEndAt = time.Time{}
+	t.endPauseLocked()
 	t.engine.MarkPeriodComplete()
 }
 

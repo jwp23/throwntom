@@ -55,29 +55,48 @@ struct TasksPanel: View {
 
   // MARK: Private
 
+  /// `NewTaskRow`'s scroll identity. Never a real task id — the daemon numbers tasks from 1.
+  private static let newTaskRowID = -1
+
   @State private var showCompleted = false
 
+  /// The id `taskList` should be scrolled to, so a row that just became first is never left
+  /// clipped under the header. `List` keeps the scroll offset it had before a row was inserted
+  /// above the old top row rather than resetting it, so without this the new top row opens
+  /// partly hidden.
+  private var topRowID: Int? {
+    model.isEditing ? Self.newTaskRowID : model.tasks.active.first?.id
+  }
+
   private var taskList: some View {
-    List(selection: $model.selectedID) {
-      if model.isEditing {
-        NewTaskRow(model: model) { line in DaemonDispatch.send(line, to: environment.client) }
-      }
-      ForEach(model.tasks.active) { task in
-        TaskRow(task: task, focused: model.focusedIDs.contains(task.id), markColor: markColor)
-          .tag(task.id)
-          .contextMenu { TaskContextMenu(task: task, environment: environment) }
-      }
-      if !model.tasks.completed.isEmpty {
-        DisclosureGroup(model.completedSectionTitle, isExpanded: $showCompleted) {
-          ForEach(model.tasks.completed) { task in
-            TaskRow(task: task, focused: false, markColor: markColor)
+    ScrollViewReader { proxy in
+      List(selection: $model.selectedID) {
+        if model.isEditing {
+          NewTaskRow(model: model) { line in DaemonDispatch.send(line, to: environment.client) }
+            .id(Self.newTaskRowID)
+        }
+        ForEach(model.tasks.active) { task in
+          TaskRow(task: task, focused: model.focusedIDs.contains(task.id), markColor: markColor)
+            .tag(task.id)
+            .contextMenu { TaskContextMenu(task: task, environment: environment) }
+        }
+        if !model.tasks.completed.isEmpty {
+          DisclosureGroup(model.completedSectionTitle, isExpanded: $showCompleted) {
+            ForEach(model.tasks.completed) { task in
+              TaskRow(task: task, focused: false, markColor: markColor)
+            }
           }
         }
       }
+      .listStyle(.plain)
+      .scrollContentBackground(.hidden)
+      .frame(minHeight: 160, maxHeight: 280)
+      .onChange(of: topRowID, initial: true) { _, id in
+        if let id {
+          proxy.scrollTo(id, anchor: .top)
+        }
+      }
     }
-    .listStyle(.plain)
-    .scrollContentBackground(.hidden)
-    .frame(minHeight: 160, maxHeight: 280)
   }
 
 }

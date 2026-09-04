@@ -1,3 +1,5 @@
+import AppKit
+import SwiftUI
 import ThrowntomClient
 import XCTest
 @testable import ThrowntomUI
@@ -67,7 +69,55 @@ final class TasksPanelTests: XCTestCase {
     _ = panel.body
   }
 
+  /// A row inserted above the current top row left the list scrolled to where it was before the
+  /// insertion, clipping the top of whatever row that scroll position now landed on — the bug
+  /// UAT saw as the first task half-hidden under the header. `NewTaskRow` opening above the
+  /// existing tasks is the concrete trigger: reproduce it by hosting the real AppKit-backed list
+  /// (`List` doesn't render through `ImageRenderer`, so this measures the scroll clip view's
+  /// bounds directly rather than rendering a comparable image) and asserting the visible area
+  /// still starts at the list's true top once the editor row opens.
+  func testOpeningTheEditorLeavesTheListScrolledToTheTop() throws {
+    let panel = try makePanel()
+    panel.model.sync(
+      tasks: TaskList(active: [makeTask(id: 1, description: "first"), makeTask(id: 2, description: "second")], completed: []),
+      focusedTaskIDs: [],
+    )
+    let hosting = NSHostingView(rootView: panel.frame(width: 300))
+    hosting.frame = NSRect(x: 0, y: 0, width: 300, height: 400)
+    let window = NSWindow(
+      contentRect: hosting.frame,
+      styleMask: [.titled, .closable, .fullSizeContentView],
+      backing: .buffered,
+      defer: false,
+    )
+    window.titlebarAppearsTransparent = true
+    window.titleVisibility = .hidden
+    window.contentView = hosting
+    hosting.layoutSubtreeIfNeeded()
+
+    panel.model.beginNewTask()
+    hosting.rootView = panel.frame(width: 300)
+    hosting.layoutSubtreeIfNeeded()
+
+    let clipView = try XCTUnwrap(Self.findScrollClipView(in: hosting), "no scroll clip view found under the tasks list")
+    XCTAssertEqual(clipView.bounds.origin.y, 0, "the editor row must not open scrolled out from under the header")
+  }
+
   // MARK: Private
+
+  /// Walks the AppKit view tree `List` builds to find its scroll clip view. Matched by class-name
+  /// substring rather than the private SwiftUI type itself, since that type is not public API.
+  private static func findScrollClipView(in view: NSView) -> NSView? {
+    if "\(type(of: view))".contains("ClipView") {
+      return view
+    }
+    for subview in view.subviews {
+      if let found = findScrollClipView(in: subview) {
+        return found
+      }
+    }
+    return nil
+  }
 
   private func makeRow(id: Int, description: String = "task", done: Bool = false, focused: Bool) -> TaskRow {
     TaskRow(

@@ -249,6 +249,32 @@ final class ReminderPostingTests: XCTestCase {
     XCTAssertEqual(presenter.chimes, afterTheWait)
   }
 
+  /// A pause is easy to walk away from. The daemon says when one has been going too long; the
+  /// bounce is what the app does about it.
+  func testAForgottenPauseBouncesTheDock() async throws {
+    let presenter = StubReminderPresenter()
+    let responder = try makeResponder(presenter)
+
+    await responder.present(makeState(phase: .paused, pausedFrom: .work))
+    await responder.present(makeState(phase: .paused, pausedFrom: .work, pausedTooLong: true))
+
+    XCTAssertEqual(presenter.attentionRequests, 1)
+    XCTAssertTrue(presenter.posts.isEmpty)
+  }
+
+  /// `.criticalRequest` bounces until the app is activated, and resuming from the menu bar or the
+  /// terminal never activates it. Nothing else would ever stop the Dock.
+  func testResumingAForgottenPauseStopsTheBounce() async throws {
+    let presenter = StubReminderPresenter()
+    let responder = try makeResponder(presenter)
+
+    await responder.present(makeState(phase: .paused, pausedFrom: .work, pausedTooLong: true))
+    await responder.present(makeState(phase: .work))
+
+    XCTAssertEqual(presenter.attentionRequests, 1)
+    XCTAssertEqual(presenter.attentionCancels, 1)
+  }
+
   func testAWaitingPhaseBouncesTheDockEvenWhenNotificationsAreDenied() async throws {
     let presenter = StubReminderPresenter()
     presenter.refusal = notificationsNotAllowed
