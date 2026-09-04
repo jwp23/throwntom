@@ -14,6 +14,15 @@ import XCTest
 /// back as SwiftUI's unrenderable placeholder (flat yellow, red hatching) instead of its chrome. That
 /// is not a limitation to work around here; it is the signal. A surface that renders as its own
 /// palette is a surface SwiftUI drew and the system appearance cannot reach.
+///
+/// Which of the two knobs below carries the coverage was measured, because they do not both work.
+/// Varying `scheme` alone changes what comes out of the renderer; varying `appearance` alone
+/// changes nothing — not for a system colour, and not for an AppKit-drawn control, which renders
+/// as the placeholder under either. `ImageRenderer` reads SwiftUI's environment and not
+/// `NSAppearance.currentDrawingAppearance`, so `colorScheme` is the axis a test here is actually
+/// sweeping, and `AppearanceRenderTests` is the negative control that keeps that true. The
+/// appearance is still set, because it costs nothing and is what the AppKit half would read if a
+/// future renderer ever drew it; nothing should be claimed on its behalf until it does.
 @MainActor
 enum AppearanceRender {
 
