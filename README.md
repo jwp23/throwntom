@@ -109,6 +109,7 @@ through its tasks panel.
 - `start` - start work period, or take the phase you are owed (at the end of a phase it does what `confirm` does)
 - `new-cycle` - start a fresh cycle now (reset cycle progress, keep today's total; a finished phase is still counted)
 - `lunch` - take the lunch break (`lunch_minutes`, default 60); it starts from any state and the pomodoro after it begins a fresh block
+- `meeting <duration>` - attend a meeting of the length you name (example: `meeting 30`); it starts from any state and the time spent in it is credited as pomodoros
 - `pause` - pause the active pomodoro or break timer
 - `resume` - resume a paused pomodoro or break timer
 - `skip` - end the running phase now and move to the next stage (the skipped phase is not counted)
@@ -138,7 +139,18 @@ offered by the timer itself. Taking it ends the current block — the count
 toward the long break starts again, while the day's total stands — so the
 pomodoro you come back to is the first of a fresh block.
 
-`stop` is a suspend, not an abandon — for stepping into a meeting, not for ending
+`meeting` is chosen rather than earned too, but it is not a break: it is worked
+time you spend away from the timer. When it ends, its length is credited as
+pomodoros — rounded to the nearest, with half rounding up, so a 60-minute meeting
+is worth 2 at the default 25-minute pomodoro and a 10-minute one is worth none.
+Those credits count toward the day's total and toward the long break alike, so a
+meeting can complete the block you were part-way through: the long break follows
+if it does, and otherwise you go back to work, because sitting in a meeting is
+not the rest a finished pomodoro earns. `skip` ends a meeting early and still
+credits the time actually spent in it, which is what separates ending a meeting
+from skipping a pomodoro.
+
+`stop` is a suspend, not an abandon — for stepping away without ending
 the day. It returns the timer to idle but keeps the phase you were owed, your
 progress toward the long break, and your focused tasks, so `start` picks the cycle
 back up: stop after finishing a pomodoro and the next `start` gives you the break
