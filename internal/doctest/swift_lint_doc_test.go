@@ -13,6 +13,7 @@ import (
 // that drops the mechanism fails here before the prose is even read.
 var swiftLintSelfHeal = []string{
 	"CACHE_DIR=",
+	"resolve_tool()",
 	"download_tool()",
 	"SWIFTFORMAT_SHA256=",
 	"SWIFTLINT_SHA256=",
@@ -39,6 +40,7 @@ func TestDocsSaySwiftLintFetchesItsOwnPinnedTools(t *testing.T) {
 		want   string
 	}{
 		{"macos/README.md", "when the installed version doesn't match, `swift-lint.sh` downloads the pinned release itself"},
+		{"macos/README.md", "against the checksum `ci.yml` uses"},
 		{"macos/README.md", "caches it under `macos/.swift-lint-cache`"},
 		{"CLAUDE.md", "the script downloads and checksum-verifies the pinned release itself"},
 	} {
