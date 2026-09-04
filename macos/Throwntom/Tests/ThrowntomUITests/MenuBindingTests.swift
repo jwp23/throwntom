@@ -49,6 +49,8 @@ final class MenuBindingTests: XCTestCase {
     XCTAssertEqual(MenuShortcut(key: "r", modifiers: .command).hint, "⌘R")
     XCTAssertEqual(MenuShortcut(key: "s", modifiers: [.command, .shift]).hint, "⌘⇧S")
     XCTAssertEqual(MenuShortcut(key: .return, modifiers: []).hint, "⏎")
+    XCTAssertEqual(MenuShortcut(key: .return, modifiers: .shift).hint, "⇧⏎")
+    XCTAssertEqual(MenuShortcut(key: .escape, modifiers: []).hint, "⎋")
     XCTAssertEqual(MenuShortcut(key: .delete, modifiers: .command).hint, "⌘⌫")
     XCTAssertEqual(MenuShortcut(key: .upArrow, modifiers: .option).hint, "⌥↑")
     XCTAssertEqual(MenuShortcut(key: ",", modifiers: .command).hint, "⌘,")
@@ -79,8 +81,41 @@ final class MenuBindingTests: XCTestCase {
   private static let phases: [DaemonState.Phase?] =
     [nil, .idle, .work, .shortBreak, .longBreak, .awaitingConfirm, .paused]
 
-  /// AppKit binds Quit itself, so no menu model of ours may claim it.
-  private static let reserved = [MenuShortcut(key: "q", modifiers: .command): "Quit Throwntom"]
+  /// The key equivalents no menu model of ours may claim, because something outside them already
+  /// answers the keystroke.
+  ///
+  /// Two kinds, and the second is why this list is worth having. AppKit and SwiftUI install the
+  /// first without being asked — Quit, Hide, Close, Minimize, Full Screen and the whole Edit menu
+  /// arrive in every app, and a second claim on one of them is resolved arbitrarily. The rest are
+  /// conventions the platform has trained the user with rather than items we are handed: Find,
+  /// which any window holding a list is expected to answer, and Print. Those two are how ⌘F and ⌘P
+  /// reached a user — this file compared our bindings only against each other, so a collision with
+  /// the platform was invisible to it by construction and no test could have caught either.
+  ///
+  /// Escape is ours rather than the system's, and is here for the same reason: `MainWindow` and the
+  /// cheat sheet both answer it (`WindowModel.dismiss`), so a menu item that bound it would take
+  /// the key away from the dismissal it is the only route to.
+  ///
+  /// ⌘, is deliberately absent. `CommandGroup(replacing: .appSettings)` takes AppKit's Settings
+  /// item out and puts ours in its place, so the key is ours and there is nothing left to collide
+  /// with — which is the shape of an intended match rather than a collision.
+  private static let reserved: [MenuShortcut: String] = [
+    MenuShortcut(key: "q", modifiers: .command): "Quit Throwntom",
+    MenuShortcut(key: "h", modifiers: .command): "Hide Throwntom",
+    MenuShortcut(key: "h", modifiers: [.command, .option]): "Hide Others",
+    MenuShortcut(key: "w", modifiers: .command): "Close Window",
+    MenuShortcut(key: "m", modifiers: .command): "Minimize",
+    MenuShortcut(key: "f", modifiers: [.command, .control]): "Enter Full Screen",
+    MenuShortcut(key: "z", modifiers: .command): "Undo",
+    MenuShortcut(key: "z", modifiers: [.command, .shift]): "Redo",
+    MenuShortcut(key: "x", modifiers: .command): "Cut",
+    MenuShortcut(key: "c", modifiers: .command): "Copy",
+    MenuShortcut(key: "v", modifiers: .command): "Paste",
+    MenuShortcut(key: "a", modifiers: .command): "Select All",
+    MenuShortcut(key: "f", modifiers: .command): "Find",
+    MenuShortcut(key: "p", modifiers: .command): "Print",
+    MenuShortcut(key: .escape, modifiers: []): "Dismiss",
+  ]
 
   /// Timer 7 + snooze 6 + service 1 + Tasks 6 + View 3 + config 1. Asserting the exact number
   /// keeps these tests from passing vacuously: an empty list would satisfy every loop below while
