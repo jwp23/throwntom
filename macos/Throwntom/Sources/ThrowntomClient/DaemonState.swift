@@ -2,7 +2,9 @@ import Foundation
 
 /// The daemon's DaemonState document (GET /v1/state and every SSE frame).
 public struct DaemonState: Codable, Equatable, Sendable {
-  public enum Phase: String, Codable, Sendable {
+  /// `CaseIterable` so a test can sweep every phase rather than restate the list: a phase added
+  /// here then has to answer the questions the existing ones do instead of quietly skipping them.
+  public enum Phase: String, CaseIterable, Codable, Sendable {
     case idle
     case work
     case shortBreak = "short_break"

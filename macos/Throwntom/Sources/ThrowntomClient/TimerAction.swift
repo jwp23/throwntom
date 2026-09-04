@@ -43,6 +43,30 @@ public enum TimerAction: CaseIterable, Sendable {
     }
   }
 
+  /// When this verb is on offer, in words, for a cheat sheet that lists it whether or not it can
+  /// fire this second. The sheet dims what is unavailable, and a dim on its own says only "not
+  /// now"; this says when, so the row still teaches on the screen the reader happens to be on.
+  ///
+  /// It states the timer's condition and not the service's. Every verb here is a command line for
+  /// the daemon, so every one of them also needs a timer service, and repeating that on six rows
+  /// would bury the part that differs between them.
+  ///
+  /// Pause and Resume are one row, one key and two faces (`TimerActions.pauseOrResume`), so the
+  /// wording covers both: running is what Pause wants and paused is what Resume wants.
+  /// `ShortcutConditionTests` holds each of these against `TimerActions.available(for:)`.
+  public var availability: String {
+    switch self {
+    case .start: "while idle"
+    case .confirm: "when a phase has ended"
+    case .pause,
+         .resume: "while a phase is running or paused"
+    case .skip: "while a phase is running"
+    case .snooze: "while a reminder is waiting"
+    case .skipToday,
+         .newCycle: ""
+    }
+  }
+
   /// Tooltip text: the title, and the shortcut in parentheses when the action has one.
   public var helpText: String {
     if shortcutHint.isEmpty {

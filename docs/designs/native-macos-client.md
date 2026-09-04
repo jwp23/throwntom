@@ -297,7 +297,9 @@ shortcut:
   shortcut), then Start/Stop Timer Service below a divider — also
   unbound, so a stray keystroke cannot take the daemon down.
 - *View menu*: Tasks `⌘T`, Stats `⌘⇧I`, Keyboard Shortcuts `⌘/` (a
-  sheet listing everything). `Esc` closes an open panel or sheet.
+  sheet listing everything, `Esc` included, each row saying when it
+  applies and dimmed while its command cannot fire). `Esc` closes an
+  open panel or sheet.
 - *Tasks menu*: New Task `⌘N` (inserts an editable row at the top; `⏎`
   commits, `Esc` cancels), Complete `⌘⏎`, Delete `⌘⌫`, Focus `⌘⇧F`, Move
   Up/Down `⌥↑/⌥↓`. `↑/↓` move the selection. Focus reads `Unfocus` on a

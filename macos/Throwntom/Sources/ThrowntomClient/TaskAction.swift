@@ -32,6 +32,19 @@ public enum TaskAction: CaseIterable, Sendable {
     }
   }
 
+  /// When this verb is on offer, in words, for the cheat sheet — see `TimerAction.availability`.
+  /// New Task is the one verb that needs no row to act on, so it names no condition.
+  public var availability: String {
+    switch self {
+    case .newTask: ""
+    case .complete,
+         .delete,
+         .focus,
+         .moveDown,
+         .moveUp: "with a task selected"
+    }
+  }
+
   /// Focus is a toggle, so on an already-focused task the verb is the undo. Every other verb
   /// reads the same whatever the task's focus state.
   public func title(focused: Bool) -> String {
