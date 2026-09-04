@@ -159,6 +159,29 @@ func TestARestoredPauseWithNoRecordedStartAgesFromTheRestore(t *testing.T) {
 	}
 }
 
+// A pause that began in the future is a clock that moved backwards, not a
+// pause the user has already forgotten: it counts as just begun rather than
+// handing out the skew. The same reading phaseStartOnRestore gives a phase.
+func TestARestoredPauseStartedInTheFutureAgesFromTheRestore(t *testing.T) {
+	a := New(25, 5, 15, 4)
+	clk := newFakeClock(time.Date(2026, 9, 3, 10, 0, 0, 0, time.UTC))
+	a.setClock(clk)
+	a.SetPausedTooLongAfter(10 * time.Minute)
+
+	if err := a.Restore(pausedSnapshot(clk.Now().Add(time.Hour)), clk.Now()); err != nil {
+		t.Fatal(err)
+	}
+
+	clk.Advance(9 * time.Minute)
+	if a.PausedTooLong() {
+		t.Fatal("a pause dated in the future was called too long before its own threshold")
+	}
+	clk.Advance(time.Minute)
+	if !a.PausedTooLong() {
+		t.Fatal("a pause dated in the future never became too long: the skew was handed out as extra pause")
+	}
+}
+
 // A shortened threshold applies to the pause already in flight, the way an
 // edited phase duration applies to the phase already running.
 func TestAShortenedThresholdAppliesToThePauseInFlight(t *testing.T) {
