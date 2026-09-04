@@ -18,21 +18,31 @@ struct SnoozeEntryRow: View {
     VStack(alignment: .leading, spacing: 2) {
       HStack(spacing: 6) {
         Text("Snooze for")
-        TextField("minutes", text: $text)
-          .textFieldStyle(.roundedBorder)
-          .frame(width: 70)
-          .focused($isFocused)
-          .accessibilityLabel("Snooze duration in minutes")
-          .onAppear { isFocused = true }
-          .onSubmit { submit(text) }
-          .onExitCommand { model.isEnteringSnooze = false }
+        field
         Text("minutes")
       }
-      // Stating the rule beats a beep that leaves the user guessing which part was wrong.
-      Text("1 to \(SnoozeDraft.maximumMinutes) minutes")
-        .foregroundStyle(.secondary)
+      rule
     }
     .font(.caption)
+  }
+
+  /// Built as its own property, out of the stack, so what it is drawn in can be asserted on its
+  /// own rather than only through the (untestable) rendering pass.
+  var field: some View {
+    TextField("minutes", text: $text)
+      .textFieldStyle(.roundedBorder)
+      .frame(width: 70)
+      .focused($isFocused)
+      .accessibilityLabel("Snooze duration in minutes")
+      .onAppear { isFocused = true }
+      .onSubmit { submit(text) }
+      .onExitCommand { model.isEnteringSnooze = false }
+  }
+
+  /// Stating the rule beats a beep that leaves the user guessing which part was wrong.
+  var rule: some View {
+    Text("1 to \(SnoozeDraft.maximumMinutes) minutes")
+      .foregroundStyle(.secondary)
   }
 
   /// Commits a typed duration, or refuses it and leaves the field open with the text intact so a
