@@ -16,9 +16,10 @@ struct MenuModel<Action: MenuAction> {
 
 extension MenuModel where Action == TimerAction {
   /// The Timer menu for a daemon snapshot. A verb is enabled when it is one this state offers
-  /// (`TimerActions.available(for:)`), except that Confirm gives up the Return key while the
-  /// inline new-task row is open. Start is worded for the phase it would begin, the way the
-  /// play/pause item is worded for what pressing it does.
+  /// (`TimerActions.available(for:)`), except that Confirm gives up the Return key while the user
+  /// is typing into a field — the inline new-task row or the custom-snooze duration, which is what
+  /// `isEditing` covers. Start is worded for the phase it would begin, the way the play/pause item
+  /// is worded for what pressing it does.
   ///
   /// `daemonAvailable` is asked separately from the snapshot because the client goes on holding
   /// that snapshot after the service is gone — the cheat sheet and the focus list read it, and

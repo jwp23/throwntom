@@ -68,10 +68,17 @@ struct AppMenus: Commands {
 
   /// The timer verbs. Their key equivalents fire whether or not the menu is open, which is why
   /// enablement here matters as much as it does in the window: a disabled item binds nothing.
+  ///
+  /// Both of the app's text fields are counted as editing, because Confirm is bound to bare Return
+  /// and a main menu's key equivalent is offered a keystroke before the focused field ever sees it.
+  /// The custom-snooze field needs that as much as the new-task row does, and needs it in exactly
+  /// the state it opens from: `awaiting_confirm` offers Confirm and Snooze at once, so without this
+  /// the Return that should have committed a typed duration confirmed the stage instead —
+  /// answering the very reminder the user was deferring.
   var timerMenu: MenuModel<TimerAction> {
     MenuModel.timer(
       state: environment.client.state,
-      isEditing: environment.model.isEditing,
+      isEditing: environment.model.isEditing || environment.windowModel.isEnteringSnooze,
       daemonAvailable: daemonAvailable,
     )
   }
