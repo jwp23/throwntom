@@ -79,9 +79,11 @@ retries the registration.
 
 The configs in `Throwntom/.swiftformat` and `Throwntom/.swiftlint.yml` are copied
 verbatim from [airbnb/swift](https://github.com/airbnb/swift) at the newest revision
-the pinned SwiftFormat release understands; the script refuses to run under any other
-tool version so a developer machine and CI cannot disagree. `brew install swiftformat
-swiftlint` provides both.
+the pinned SwiftFormat release understands. `brew install swiftformat swiftlint` gets
+you close, but a brew upgrade can drift past the pin; when the installed version
+doesn't match, `swift-lint.sh` downloads the pinned release itself, verifies it
+against the checksum `ci.yml` uses, and caches it under `macos/.swift-lint-cache`
+(gitignored) so that only happens once per machine.
 
 `DaemonClient` and the transport are tested against a real `throwntomd`,
 built by the tests with `go build` and run with `HOME` under `/tmp`.
