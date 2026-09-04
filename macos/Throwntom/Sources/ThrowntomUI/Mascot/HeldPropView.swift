@@ -79,19 +79,30 @@ enum HeldProps {
     path.circle(units, 93.5, 88, 0.9)
   }
 
-  /// A sandwich held between both hands: a triangle of bread with the filling along the cut.
+  /// A sandwich held between both hands: two slices of bread with the filling between them.
+  /// Stacked rather than cut on the diagonal, which read as a pizza slice.
   static let sandwichBread = DesignShape { path, units in
-    path.polygon(units, [(44, 90), (56, 70), (68, 90)])
+    path.polygon(units, [(44, 78), (68, 78), (68, 84), (44, 84)])
+    path.polygon(units, [(44, 88), (68, 88), (68, 94), (44, 94)])
   }
 
+  /// Zigzagged so the filling is a filling and not a third slice.
   static let sandwichFilling = DesignShape { path, units in
-    path.move(units, 48, 82)
-    path.line(units, 64, 82)
+    path.move(units, 45, 86)
+    path.line(units, 49, 84.8)
+    path.line(units, 53, 87.2)
+    path.line(units, 57, 84.8)
+    path.line(units, 61, 87.2)
+    path.line(units, 65, 84.8)
+    path.line(units, 67, 86)
   }
 
+  /// The baked crust: the top of the upper slice and the base of the lower one.
   static let sandwichCrust = DesignShape { path, units in
-    path.move(units, 45, 89)
-    path.line(units, 67, 89)
+    path.move(units, 45, 78.8)
+    path.line(units, 67, 78.8)
+    path.move(units, 45, 93.2)
+    path.line(units, 67, 93.2)
   }
 
   /// The "!" beside a raised hand.
