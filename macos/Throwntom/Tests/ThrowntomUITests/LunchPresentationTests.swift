@@ -64,24 +64,24 @@ final class LunchPresentationTests: XCTestCase {
   /// while it is already running, where starting it again would only restart the hour.
   func testTheTimerMenuOffersLunchInEveryStateButLunch() throws {
     for phase in [DaemonState.Phase.idle, .work, .shortBreak, .longBreak, .awaitingConfirm, .paused] {
-      let menu = MenuModel.timer(state: makeState(phase: phase), isEditing: false, daemonAvailable: true)
+      let menu = MenuModel.timer(state: makeState(phase: phase), returnIsTaken: false, daemonAvailable: true)
       XCTAssertTrue(try XCTUnwrap(menu.item(for: .lunch)).isEnabled, "\(phase)")
     }
-    let atLunch = MenuModel.timer(state: makeState(phase: .lunch), isEditing: false, daemonAvailable: true)
+    let atLunch = MenuModel.timer(state: makeState(phase: .lunch), returnIsTaken: false, daemonAvailable: true)
     XCTAssertFalse(try XCTUnwrap(atLunch.item(for: .lunch)).isEnabled)
   }
 
   func testLunchIsWithdrawnWithTheDaemon() throws {
-    let gone = MenuModel.timer(state: makeState(phase: .idle), isEditing: false, daemonAvailable: false)
+    let gone = MenuModel.timer(state: makeState(phase: .idle), returnIsTaken: false, daemonAvailable: false)
     XCTAssertFalse(try XCTUnwrap(gone.item(for: .lunch)).isEnabled)
-    let noState = MenuModel.timer(state: nil, isEditing: false, daemonAvailable: true)
+    let noState = MenuModel.timer(state: nil, returnIsTaken: false, daemonAvailable: true)
     XCTAssertFalse(try XCTUnwrap(noState.item(for: .lunch)).isEnabled)
   }
 
   /// Lunch sits with the other verbs that discard where the cycle was, below the separator, and
   /// binds no key: throwntom-bxd.17's shortcut audit owns what is bound.
   func testLunchSitsWithTheCycleVerbsAndBindsNoKey() throws {
-    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false, daemonAvailable: true)
+    let menu = MenuModel.timer(state: makeState(phase: .idle), returnIsTaken: false, daemonAvailable: true)
 
     XCTAssertEqual(menu.groups.last?.map(\.action), [.skipToday, .newCycle, .lunch])
     XCTAssertNil(try XCTUnwrap(menu.item(for: .lunch)).shortcut)

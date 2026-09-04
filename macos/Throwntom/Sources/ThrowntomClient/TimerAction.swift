@@ -66,7 +66,8 @@ public enum TimerAction: CaseIterable, Sendable {
     case .skip: "while a phase is running"
     case .snooze: "while a reminder is waiting"
     case .skipToday,
-         .newCycle: ""
+         .newCycle,
+         .lunch: ""
     }
   }
 

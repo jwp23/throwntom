@@ -72,8 +72,8 @@ final class ShortcutConditionTests: XCTestCase {
   private static let claims: [(wording: String, actions: Set<TimerAction>, phases: Set<DaemonState.Phase>)] = [
     ("while idle", [.start], [.idle]),
     ("when a phase has ended", [.confirm], [.awaitingConfirm]),
-    ("while a phase is running or paused", [.pause, .resume], [.work, .shortBreak, .longBreak, .paused]),
-    ("while a phase is running", [.skip], [.work, .shortBreak, .longBreak]),
+    ("while a phase is running or paused", [.pause, .resume], [.work, .shortBreak, .longBreak, .lunch, .paused]),
+    ("while a phase is running", [.skip], [.work, .shortBreak, .longBreak, .lunch]),
     ("while a reminder is waiting", [.snooze], [.idle, .awaitingConfirm]),
   ]
 
