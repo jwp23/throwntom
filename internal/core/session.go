@@ -42,7 +42,7 @@ func (c *Core) loadSession() error {
 		return nil
 	}
 	if reason := data.Timer.Engine.Invalid(); reason != "" {
-		fmt.Fprintf(os.Stderr, "warning: discarding inconsistent session: %s\n", reason)
+		fmt.Fprintf(c.warnOut, "warning: discarding inconsistent session: %s\n", reason)
 		return nil
 	}
 	if err := c.timer.Restore(data.Timer, c.now()); err != nil {
