@@ -340,6 +340,8 @@ A row whose command cannot fire right now is drawn at 55% opacity. This is the o
 
 The dim is about this second and the third column is not, which is why there are both: a dim says only "not now", and the condition says when — `while idle`, `with a task selected`, `while a phase is running or paused` — so a row the reader cannot use still teaches what it is for. The condition names the timer's state rather than the service's, because every daemon-backed verb needs a service and repeating that on every row would bury what differs between them.
 
+A dimmed row also says "unavailable" aloud after its title, because the dim is drawn and nothing else on the row carries it: a meaning here rests on no more paint than any other in this document.
+
 The sheet answers for the window behind it rather than for itself. ⌘/ and Confirm are both withheld while the sheet is up — one opens what is already open, the other would lose its key to the Done button — and the reader is a keypress from closing it, so answering for the sheet's own presence would leave those two rows dim on the only screen they ever appear on.
 
 ### Screens without a timer service (macOS)

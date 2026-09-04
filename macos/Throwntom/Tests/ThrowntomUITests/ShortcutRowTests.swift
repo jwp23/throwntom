@@ -26,6 +26,14 @@ final class ShortcutRowTests: XCTestCase {
     )
   }
 
+  /// The dim is the row's whole answer to "can I press this now", and it is drawn — a reader who
+  /// cannot see it is told nothing at all. `DESIGN.md` does not let a meaning rest on how something
+  /// is painted, so the row says it in the title cell, the way a task row says "focused" aloud.
+  func testAnUnavailableRowSaysSoAloud() {
+    XCTAssertEqual(ShortcutRow(entry: Self.entry(isEnabled: true)).spokenTitle, "Pause")
+    XCTAssertEqual(ShortcutRow(entry: Self.entry(isEnabled: false)).spokenTitle, "Pause, unavailable")
+  }
+
   /// Why the constant is 0.55 and not lower. `DESIGN.md` bans dimming a shortcut because a dimmed
   /// hint stops clearing 4.5:1, and the exception it records for this sheet is only defensible
   /// while the dimmed row still clears it. Both surfaces the sheet is drawn on are checked: a light
@@ -55,18 +63,19 @@ final class ShortcutRowTests: XCTestCase {
     return HexColor(String(format: "#%02X%02X%02X", bytes[0], bytes[1], bytes[2]))
   }
 
-  /// One row, in a `Grid` because that is what a `GridRow` lays itself out in. The words are the
-  /// same in both renders, so nothing but the dim can move the ink.
+  /// The same row either way round, so nothing but `isEnabled` can differ between two of them.
+  private static func entry(isEnabled: Bool) -> ShortcutList.Entry {
+    ShortcutList.Entry(
+      title: "Pause",
+      hint: "⌘⇧P",
+      condition: "while a phase is running or paused",
+      isEnabled: isEnabled,
+    )
+  }
+
+  /// One row, in a `Grid` because that is what a `GridRow` lays itself out in.
   private func row(isEnabled: Bool) -> some View {
-    Grid {
-      ShortcutRow(entry: ShortcutList.Entry(
-        title: "Pause",
-        hint: "⌘⇧P",
-        condition: "while a phase is running or paused",
-        isEnabled: isEnabled,
-      ))
-    }
-    .frame(width: 400)
+    Grid { ShortcutRow(entry: Self.entry(isEnabled: isEnabled)) }.frame(width: 400)
   }
 
   /// How much the drawing paints, summed over every pixel's alpha. Drawing the same words at half
