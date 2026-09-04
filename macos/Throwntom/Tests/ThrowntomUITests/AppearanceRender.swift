@@ -33,7 +33,7 @@ enum AppearanceRender {
   ) throws -> NSBitmapImageRep {
     var rendered: NSBitmapImageRep?
     NSAppearance(named: appearance)?.performAsCurrentDrawingAppearance {
-      let renderer = ImageRenderer(content: AnyView(view.environment(\.colorScheme, scheme)))
+      let renderer = ImageRenderer(content: view.environment(\.colorScheme, scheme))
       renderer.scale = 1
       rendered = renderer.nsImage
         .flatMap(\.tiffRepresentation)
@@ -81,7 +81,7 @@ enum AppearanceRender {
   /// The size the view lays itself out at, which is how a text style's size is measured: `.body`
   /// draws taller than `.caption` and there is no other way to read a font back off a built view.
   static func size(_ view: some View) throws -> CGSize {
-    let renderer = ImageRenderer(content: AnyView(view))
+    let renderer = ImageRenderer(content: view)
     renderer.scale = 1
     return try XCTUnwrap(renderer.nsImage).size
   }
