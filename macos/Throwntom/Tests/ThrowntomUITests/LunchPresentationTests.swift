@@ -22,10 +22,10 @@ final class LunchPresentationTests: XCTestCase {
   func testLunchHasItsOwnPose() {
     let pose = MascotPose.pose(for: .lunch, pausedFrom: .idle)
 
-    XCTAssertEqual(pose.held, .sandwich)
+    XCTAssertEqual(pose.held, .burger)
     XCTAssertNil(pose.furniture)
     XCTAssertNotEqual(pose, MascotPose.pose(for: .longBreak, pausedFrom: .idle))
-    XCTAssertEqual(MascotPose.pose(for: .paused, pausedFrom: .lunch).held, .sandwich)
+    XCTAssertEqual(MascotPose.pose(for: .paused, pausedFrom: .lunch).held, .burger)
     XCTAssertEqual(MascotPose.pose(for: .paused, pausedFrom: .lunch).eyes, .closed)
   }
 

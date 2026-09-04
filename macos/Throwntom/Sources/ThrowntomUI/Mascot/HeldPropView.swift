@@ -79,30 +79,43 @@ enum HeldProps {
     path.circle(units, 93.5, 88, 0.9)
   }
 
-  /// A sandwich held between both hands: two slices of bread with the filling between them.
-  /// Stacked rather than cut on the diagonal, which read as a pizza slice.
-  static let sandwichBread = DesignShape { path, units in
-    path.polygon(units, [(44, 78), (68, 78), (68, 84), (44, 84)])
-    path.polygon(units, [(44, 88), (68, 88), (68, 94), (44, 94)])
+  /// A cheeseburger held between both hands. A domed bun over a flat base is a silhouette
+  /// nothing else in the set has, which is what a stack of bread slices lacked: at mascot size
+  /// the outline is all that survives, and a sandwich's outline is a rectangle.
+  static let burgerTopBun = DesignShape { path, units in
+    path.move(units, 44, 85)
+    path.curve(units, 44, 71, 69, 71, 69, 85)
+    path.line(units, 44, 85)
   }
 
-  /// Zigzagged so the filling is a filling and not a third slice.
-  static let sandwichFilling = DesignShape { path, units in
-    path.move(units, 45, 86)
-    path.line(units, 49, 84.8)
-    path.line(units, 53, 87.2)
-    path.line(units, 57, 84.8)
-    path.line(units, 61, 87.2)
-    path.line(units, 65, 84.8)
-    path.line(units, 67, 86)
+  static let burgerSeeds = DesignShape { path, units in
+    path.circle(units, 51, 77.5, 1.1)
+    path.circle(units, 57, 75.5, 1.1)
+    path.circle(units, 63, 78, 1.1)
   }
 
-  /// The baked crust: the top of the upper slice and the base of the lower one.
-  static let sandwichCrust = DesignShape { path, units in
-    path.move(units, 45, 78.8)
-    path.line(units, 67, 78.8)
-    path.move(units, 45, 93.2)
-    path.line(units, 67, 93.2)
+  /// Cheese, with the corners drooping past the patty so the edge is ragged, not straight.
+  static let burgerCheese = DesignShape { path, units in
+    path.polygon(units, [
+      (43.5, 85),
+      (69.5, 85),
+      (69.5, 88),
+      (66, 91.5),
+      (63, 88),
+      (57, 88),
+      (54, 91.5),
+      (51, 88),
+      (47, 88),
+      (43.5, 88),
+    ])
+  }
+
+  static let burgerPatty = DesignShape { path, units in
+    path.polygon(units, [(44.5, 88), (68.5, 88), (68.5, 92), (44.5, 92)])
+  }
+
+  static let burgerBottomBun = DesignShape { path, units in
+    path.polygon(units, [(45.5, 92), (67.5, 92), (67.5, 97), (45.5, 97)])
   }
 
   /// The "!" beside a raised hand.
@@ -167,7 +180,7 @@ struct HeldPropView: View {
       case .book: book
       case .yoyo: yoyo
       case .cable: cable
-      case .sandwich: sandwich
+      case .burger: burger
       case .exclamation:
         HeldProps.exclamation.stroke(Palette.cream.color, style: StrokeStyle(lineWidth: 4 * unit, lineCap: .round))
       }
@@ -214,18 +227,17 @@ struct HeldPropView: View {
     }
   }
 
-  private var sandwich: some View {
+  private var burger: some View {
     ZStack {
-      HeldProps.sandwichBread.fill(Palette.cream.color)
-      HeldProps.sandwichFilling.stroke(
-        MascotPalette.leafLight.color,
-        style: StrokeStyle(lineWidth: 3 * unit, lineCap: .round),
-      )
-      HeldProps.sandwichCrust.stroke(
-        MascotPalette.wood.color,
-        style: StrokeStyle(lineWidth: 3 * unit, lineCap: .round),
-      )
-      HeldProps.sandwichBread.stroke(outline, style: StrokeStyle(lineWidth: 2 * unit, lineJoin: .round))
+      HeldProps.burgerBottomBun.fill(MascotPalette.wood.color)
+      HeldProps.burgerBottomBun.stroke(outline, style: StrokeStyle(lineWidth: 2 * unit, lineJoin: .round))
+      HeldProps.burgerPatty.fill(MascotPalette.wood.darkened(by: 0.15).color)
+      HeldProps.burgerPatty.stroke(outline, style: StrokeStyle(lineWidth: 2 * unit, lineJoin: .round))
+      HeldProps.burgerCheese.fill(MascotPalette.cheese.color)
+      HeldProps.burgerCheese.stroke(outline, style: StrokeStyle(lineWidth: 2 * unit, lineJoin: .round))
+      HeldProps.burgerTopBun.fill(MascotPalette.wood.color)
+      HeldProps.burgerTopBun.stroke(outline, style: StrokeStyle(lineWidth: 2 * unit, lineJoin: .round))
+      HeldProps.burgerSeeds.fill(Palette.cream.color)
     }
   }
 

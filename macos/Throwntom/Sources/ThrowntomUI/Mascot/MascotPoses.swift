@@ -44,13 +44,13 @@ extension MascotPose {
     motions: [.breathe],
   )
 
-  /// A sandwich held in both hands, eyes shut over it.
+  /// A cheeseburger held in both hands, eyes shut over it.
   static let lunch = MascotPose(
     eyes: .closed,
     mouth: .smile,
     leftArm: Arm(shoulder: leftShoulder, 16, 80, 24, 88, 40, 89),
     rightArm: Arm(shoulder: rightShoulder, 84, 80, 78, 88, 71, 89),
-    held: .sandwich,
+    held: .burger,
     furniture: nil,
     rotation: -12,
     scale: 1,
