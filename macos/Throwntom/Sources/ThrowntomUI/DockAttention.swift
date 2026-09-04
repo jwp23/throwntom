@@ -24,7 +24,7 @@ enum DockAttention: Equatable {
     if ReminderBanner.wantsAttention(from: previous, to: current) {
       return .request
     }
-    if current.pausedTooLong, previous?.pausedTooLong != true {
+    if current.pausedTooLong, current.bounceDockWhenPaused, previous?.pausedTooLong != true {
       return .request
     }
     // The request outstanding is still wanted, whether it was made for this reason or not: at most
@@ -39,8 +39,11 @@ enum DockAttention: Equatable {
 
   /// Whether the daemon wanted the user's eye in this state. A state the app cannot read is not an
   /// answer to anything, so the caller keeps the last one it could read rather than passing nil.
+  /// `bounceDockWhenPaused` is read from the same state as `pausedTooLong`, so a live reload that
+  /// turns it off is read from `current` here and, through `wanted(previous)` on the request that
+  /// state made when it was `current`, cancels a bounce already in progress.
   private static func wanted(_ state: DaemonState?) -> Bool {
     guard let state else { return false }
-    return ReminderBanner.isWaiting(state) || state.pausedTooLong
+    return ReminderBanner.isWaiting(state) || (state.pausedTooLong && state.bounceDockWhenPaused)
   }
 }
