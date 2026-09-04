@@ -104,3 +104,23 @@ func TestAMeetingEventWithoutItsCreditIsHarmless(t *testing.T) {
 		t.Fatalf("today's focus minutes is %d, want 0", dash.Today.FocusMinutes)
 	}
 }
+
+// A number too large to be a count of anything is a corrupt line, not a day's
+// work. Converting it would be undefined, and what comes out the other side is
+// a dashboard reporting a total nobody can explain.
+func TestAMeetingEventWithAnImpossibleCreditIsIgnored(t *testing.T) {
+	now := time.Date(2026, 9, 4, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		makeEventWithData("meeting_completed", time.Date(2026, 9, 4, 11, 0, 0, 0, time.Local),
+			map[string]any{"pomodoros": 1e30, "minutes": 1e30}),
+	}
+
+	dash := Compute(events, now)
+
+	if dash.Today.Pomodoros != 0 {
+		t.Fatalf("today's pomodoros is %d, want 0", dash.Today.Pomodoros)
+	}
+	if dash.Today.FocusMinutes != 0 {
+		t.Fatalf("today's focus minutes is %d, want 0", dash.Today.FocusMinutes)
+	}
+}

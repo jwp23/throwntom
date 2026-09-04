@@ -177,13 +177,23 @@ func (a *accumulator) processMeeting(ev eventlog.Event, dayKey string, periods [
 // hand-edited or truncated line may hold anything at all, so a value that is
 // not a number counts as absent rather than as a reason to fail the whole
 // dashboard.
+//
+// A number too large to be a count of anything counts as absent too. Converting
+// one is undefined in Go, and what it actually produces is a saturated int that
+// then sums into every total on the dashboard — a day of work nobody can
+// account for, which is worse than the line being ignored.
 func intFromData(data map[string]any, key string) int {
 	value, ok := data[key].(float64)
-	if !ok {
+	if !ok || value < 0 || value > maxCredit {
 		return 0
 	}
 	return int(value)
 }
+
+// maxCredit is the largest count an event may claim. A day holds 1440 minutes,
+// so nothing honest comes close; the bound exists to keep a corrupt line from
+// deciding what the dashboard says.
+const maxCredit = 1_000_000
 
 func addToActive(periods []*PeriodStats, active [3]bool, fn func(*PeriodStats)) {
 	for i, p := range periods {
