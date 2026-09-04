@@ -1,6 +1,7 @@
 package core
 
 import (
+	"io"
 	"time"
 
 	"github.com/jwp23/throwntom/v3/internal/task"
@@ -31,6 +32,14 @@ func (c *Core) setClock(clk *fakeClock) {
 	c.now = clk.Now
 	c.reminder.now = clk.Now
 	c.reminder.after = clk.After
+}
+
+// setWarnOut redirects session warnings under the Core lock, so a test can
+// capture and assert on one instead of letting it leak to stderr.
+func (c *Core) setWarnOut(w io.Writer) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.warnOut = w
 }
 
 // setFocused replaces the focused task list under the Core lock, so tests can
