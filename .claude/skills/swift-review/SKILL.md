@@ -19,9 +19,15 @@ Swift files this branch touches:
 1. **Style:** `macos/swift-lint.sh`. Red means fix (`--fix`, then hand-fix the rest); never
    loosen `.swiftformat`/`.swiftlint.yml` and never skip the hook.
 2. **Review:** invoke the `swiftui-pro:swiftui-pro` skill over the **diff only** —
-   `git diff origin/main -- 'macos/Throwntom/*.swift'` — never the whole package.
+   `git diff origin/main...HEAD -- 'macos/Throwntom/*.swift'` — never the whole package.
    What costs tokens is reading files the branch did not change: a full-package pass reads
    ~4k lines, a typical branch a few hundred. Test files count; they are Swift too.
+   The three dots are load-bearing: they diff against the merge base, so you see only what
+   this branch did. Two dots diff against the tip of `origin/main`, which shows commits that
+   landed on main after the branch was cut — inverted, as if the branch had reverted them.
+   A reviewer once read a sibling's merged fix that way and nearly "restored" the bug it had
+   just removed. Under a branch-per-task workflow main moves constantly, so two dots are
+   wrong far more often than they are right.
 3. **Findings:** fix in this branch when the change is small and inside the branch's scope;
    otherwise file a bead (`bd create`) under the branch's bead and say so in the report.
    A finding that is neither fixed nor filed is a finding you hid.
