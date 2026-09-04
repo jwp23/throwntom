@@ -37,6 +37,23 @@ final class AppEnvironment {
   let model = TaskWindowModel()
   let windowModel = WindowModel()
 
+  /// Whether a surface in front of the timer has Return: the inline new-task row, the custom-snooze
+  /// duration field, or the cheat sheet, whose Done button is the default action. Confirm's key
+  /// equivalent is offered to a main menu before whatever has focus ever sees it, so the surfaces
+  /// have to be named for it to be handed back (`MenuModel.timer`).
+  var returnIsTaken: Bool {
+    returnIsTakenInTheWindow || windowModel.showsShortcuts
+  }
+
+  /// The same question with the cheat sheet left out of it, which is how the sheet asks it: the
+  /// sheet is itself the surface in front for as long as anyone is reading it, and the reader is
+  /// about to close it, so a Confirm withheld on the sheet's own account would be dim in the only
+  /// place its row is ever seen. What the reader is going back to is a window that may still have
+  /// a field open in it, and that much the sheet must still report.
+  var returnIsTakenInTheWindow: Bool {
+    model.isEditing || windowModel.isEnteringSnooze
+  }
+
   /// What the app launches with: the daemon's Unix socket at its well-known path, and the one
   /// intent store that outlives the process — this is the single place persistence is asked for,
   /// so nothing built for a test can write a stopped service into the user's defaults.

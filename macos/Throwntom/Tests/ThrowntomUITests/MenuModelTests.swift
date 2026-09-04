@@ -10,27 +10,27 @@ final class TimerMenuModelTests: XCTestCase {
   // MARK: Internal
 
   func testWithoutDaemonStateEverythingIsDisabled() {
-    let menu = MenuModel.timer(state: nil, isEditing: false, daemonAvailable: true)
+    let menu = MenuModel.timer(state: nil, returnIsTaken: false, daemonAvailable: true)
 
     XCTAssertFalse(menu.items.isEmpty)
     XCTAssertTrue(menu.items.allSatisfy { !$0.isEnabled })
   }
 
   func testIdleEnablesTheVerbsTheDaemonAccepts() {
-    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false, daemonAvailable: true)
+    let menu = MenuModel.timer(state: makeState(phase: .idle), returnIsTaken: false, daemonAvailable: true)
 
     XCTAssertEqual(enabledActions(menu), [.start, .skipToday, .newCycle])
   }
 
   func testMorningPendingAlsoEnablesSnooze() {
-    let menu = MenuModel.timer(state: makeState(phase: .idle, morningPending: true), isEditing: false, daemonAvailable: true)
+    let menu = MenuModel.timer(state: makeState(phase: .idle, morningPending: true), returnIsTaken: false, daemonAvailable: true)
 
     XCTAssertEqual(enabledActions(menu), [.start, .snooze, .skipToday, .newCycle])
   }
 
   func testWorkOffersPauseAndPausedOffersResume() {
-    let working = MenuModel.timer(state: makeState(phase: .work), isEditing: false, daemonAvailable: true)
-    let paused = MenuModel.timer(state: makeState(phase: .paused), isEditing: false, daemonAvailable: true)
+    let working = MenuModel.timer(state: makeState(phase: .work), returnIsTaken: false, daemonAvailable: true)
+    let paused = MenuModel.timer(state: makeState(phase: .paused), returnIsTaken: false, daemonAvailable: true)
 
     XCTAssertEqual(enabledActions(working), [.pause, .skip, .skipToday])
     XCTAssertEqual(enabledActions(paused), [.resume, .skipToday])
@@ -40,28 +40,28 @@ final class TimerMenuModelTests: XCTestCase {
 
   func testConfirmYieldsTheReturnKeyToTheNewTaskRow() throws {
     let state = makeState(phase: .awaitingConfirm)
-    let idle = MenuModel.timer(state: state, isEditing: false, daemonAvailable: true)
-    let editing = MenuModel.timer(state: state, isEditing: true, daemonAvailable: true)
+    let idle = MenuModel.timer(state: state, returnIsTaken: false, daemonAvailable: true)
+    let editing = MenuModel.timer(state: state, returnIsTaken: true, daemonAvailable: true)
 
     XCTAssertTrue(try XCTUnwrap(idle.item(for: .confirm)).isEnabled)
     XCTAssertFalse(try XCTUnwrap(editing.item(for: .confirm)).isEnabled)
   }
 
   func testEditingDoesNotDisableTheOtherVerbs() {
-    let menu = MenuModel.timer(state: makeState(phase: .awaitingConfirm), isEditing: true, daemonAvailable: true)
+    let menu = MenuModel.timer(state: makeState(phase: .awaitingConfirm), returnIsTaken: true, daemonAvailable: true)
 
     XCTAssertEqual(enabledActions(menu), [.snooze, .skipToday, .newCycle])
   }
 
   func testCycleVerbsSitBelowTheirOwnSeparator() {
-    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false, daemonAvailable: true)
+    let menu = MenuModel.timer(state: makeState(phase: .idle), returnIsTaken: false, daemonAvailable: true)
 
     XCTAssertEqual(menu.groups.count, 2)
     XCTAssertEqual(menu.groups.last?.map(\.action), [.skipToday, .newCycle])
   }
 
   func testTimedVerbsCarryTheirShortcutsAndCycleVerbsDoNot() throws {
-    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false, daemonAvailable: true)
+    let menu = MenuModel.timer(state: makeState(phase: .idle), returnIsTaken: false, daemonAvailable: true)
 
     XCTAssertEqual(try XCTUnwrap(menu.item(for: .start)?.shortcut), MenuShortcut(key: "r", modifiers: .command))
     XCTAssertEqual(try XCTUnwrap(menu.item(for: .snooze)?.shortcut), MenuShortcut(key: "s", modifiers: [.command, .shift]))
@@ -71,7 +71,7 @@ final class TimerMenuModelTests: XCTestCase {
   }
 
   func testItemTitlesComeFromTheAction() throws {
-    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false, daemonAvailable: true)
+    let menu = MenuModel.timer(state: makeState(phase: .idle), returnIsTaken: false, daemonAvailable: true)
 
     XCTAssertEqual(try XCTUnwrap(menu.item(for: .start)).title, TimerAction.start.title)
   }
@@ -80,7 +80,7 @@ final class TimerMenuModelTests: XCTestCase {
   /// ⌘R must not be labelled Start in the menu bar while the chip beside it names a short break.
   func testTheTimerMenuNamesThePhaseStartWouldBegin() throws {
     let owing = makeState(phase: .idle, owedStage: DaemonState.Stage(state: .shortBreak, duration: 300))
-    let menu = MenuModel.timer(state: owing, isEditing: false, daemonAvailable: true)
+    let menu = MenuModel.timer(state: owing, returnIsTaken: false, daemonAvailable: true)
 
     XCTAssertEqual(try XCTUnwrap(menu.items.first { $0.action == .start }).title, "Start Short break")
   }
@@ -93,12 +93,12 @@ final class TimerMenuModelTests: XCTestCase {
     let paused = makeState(phase: .paused)
 
     XCTAssertEqual(
-      try XCTUnwrap(MenuModel.timer(state: paused, isEditing: false, daemonAvailable: true).items
+      try XCTUnwrap(MenuModel.timer(state: paused, returnIsTaken: false, daemonAvailable: true).items
         .first { $0.action == .resume }).title,
       TimerAction.resume.title,
       "with a service, a paused timer really does offer Resume",
     )
-    let gone = MenuModel.timer(state: paused, isEditing: false, daemonAvailable: false)
+    let gone = MenuModel.timer(state: paused, returnIsTaken: false, daemonAvailable: false)
     XCTAssertNil(gone.items.first { $0.action == .resume }, "no daemon, no phase to resume")
     XCTAssertEqual(
       try XCTUnwrap(gone.items.first { $0.action == .pause }).title,
@@ -111,7 +111,7 @@ final class TimerMenuModelTests: XCTestCase {
   /// stopped telling.
   func testAMenuWithNoServiceDoesNotNameAPhaseFromTheDeadDaemon() throws {
     let owing = makeState(phase: .idle, owedStage: DaemonState.Stage(state: .shortBreak, duration: 300))
-    let menu = MenuModel.timer(state: owing, isEditing: false, daemonAvailable: false)
+    let menu = MenuModel.timer(state: owing, returnIsTaken: false, daemonAvailable: false)
     let start = try XCTUnwrap(menu.items.first { $0.action == .start })
 
     XCTAssertEqual(start.title, "Start")
@@ -221,15 +221,13 @@ final class TaskMenuModelTests: XCTestCase {
 final class ViewMenuModelTests: XCTestCase {
 
   func testViewMenuListsPanelsAndShortcutSheet() throws {
-    let model = WindowModel()
-    let menu = MenuModel.view(model: model, daemonAvailable: true)
+    let menu = MenuModel.view(showsShortcuts: false, daemonAvailable: true)
     XCTAssertEqual(menu.items.map(\.title), ["Tasks", "Stats", "Keyboard Shortcuts"])
     XCTAssertEqual(menu.item(for: .tasks)?.shortcut, MenuShortcut(key: "t", modifiers: .command))
     XCTAssertEqual(menu.item(for: .stats)?.shortcut, MenuShortcut(key: "i", modifiers: [.command, .shift]))
     XCTAssertEqual(menu.item(for: .shortcuts)?.shortcut, MenuShortcut(key: "/", modifiers: .command))
     XCTAssertTrue(menu.items.allSatisfy(\.isEnabled))
-    model.showsShortcuts = true
-    XCTAssertFalse(try XCTUnwrap(MenuModel.view(model: model, daemonAvailable: true).item(for: .shortcuts)?.isEnabled))
+    XCTAssertFalse(try XCTUnwrap(MenuModel.view(showsShortcuts: true, daemonAvailable: true).item(for: .shortcuts)?.isEnabled))
   }
 
   func testViewActionHintsMatchShortcuts() {
@@ -237,7 +235,7 @@ final class ViewMenuModelTests: XCTestCase {
   }
 
   func testOpenConfigBelongsToTheAppMenuNotTheViewMenu() {
-    let menu = MenuModel.view(model: WindowModel(), daemonAvailable: true)
+    let menu = MenuModel.view(showsShortcuts: false, daemonAvailable: true)
 
     XCTAssertFalse(menu.items.contains { $0.action == .openConfig }, "the View menu keeps its three items")
     XCTAssertEqual(MenuModel.appConfig().items.map(\.title), ["Open Config File…"])
@@ -262,18 +260,18 @@ final class ViewMenuModelTests: XCTestCase {
 final class MenuGroupsTests: XCTestCase {
 
   func testBodyBuilds() {
-    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false, daemonAvailable: true)
+    let menu = MenuModel.timer(state: makeState(phase: .idle), returnIsTaken: false, daemonAvailable: true)
     _ = MenuGroups(menu: menu) { item in Text(item.title) }.body
   }
 
   func testFirstGroupHasNoLeadingDivider() {
-    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false, daemonAvailable: true)
+    let menu = MenuModel.timer(state: makeState(phase: .idle), returnIsTaken: false, daemonAvailable: true)
     let groups = MenuGroups(menu: menu) { item in Text(item.title) }
     _ = groups.groupView(index: 0, group: menu.groups[0])
   }
 
   func testLaterGroupsGetADivider() {
-    let menu = MenuModel.timer(state: makeState(phase: .idle), isEditing: false, daemonAvailable: true)
+    let menu = MenuModel.timer(state: makeState(phase: .idle), returnIsTaken: false, daemonAvailable: true)
     XCTAssertGreaterThan(menu.groups.count, 1, "the divider branch needs a second group to exercise")
     let groups = MenuGroups(menu: menu) { item in Text(item.title) }
     _ = groups.groupView(index: 1, group: menu.groups[1])

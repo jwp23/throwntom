@@ -16,10 +16,10 @@ struct MenuModel<Action: MenuAction> {
 
 extension MenuModel where Action == TimerAction {
   /// The Timer menu for a daemon snapshot. A verb is enabled when it is one this state offers
-  /// (`TimerActions.available(for:)`), except that Confirm gives up the Return key while something
-  /// in front of it is using it — a text field the user is typing in, or a sheet whose default
-  /// button is Return. Which surfaces those are is the caller's to know (`AppMenus.timerMenu`);
-  /// `isEditing` is the answer, not the question. Start is worded for the phase it would begin,
+  /// (`TimerActions.available(for:)`), except that Confirm gives up its key while something in
+  /// front of it is using it — a text field the user is typing in, or a sheet whose default button
+  /// is Return. Which surfaces those are is the caller's to know (`AppEnvironment.returnIsTaken`);
+  /// `returnIsTaken` is the answer, not the question. Start is worded for the phase it would begin,
   /// the way the play/pause item is worded for what pressing it does.
   ///
   /// `daemonAvailable` is asked separately from the snapshot because the client goes on holding
@@ -27,7 +27,7 @@ extension MenuModel where Action == TimerAction {
   /// blanking it to dress the menus would blank those too. Reading enablement from the retained
   /// state alone is what left ⌘P and ⌘K firing into a dead daemon with no control on screen to
   /// look wrong.
-  static func timer(state: DaemonState?, isEditing: Bool, daemonAvailable: Bool) -> MenuModel {
+  static func timer(state: DaemonState?, returnIsTaken: Bool, daemonAvailable: Bool) -> MenuModel {
     let available = daemonAvailable ? state.map(TimerActions.available(for:)) ?? [] : []
     func item(
       _ action: TimerAction,
@@ -52,7 +52,7 @@ extension MenuModel where Action == TimerAction {
         item(
           .confirm,
           MenuShortcut(key: .return, modifiers: .shift),
-          isEnabled: available.contains(.confirm) && !isEditing,
+          isEnabled: available.contains(.confirm) && !returnIsTaken,
         ),
         item(
           TimerActions.pauseOrResume(for: daemonAvailable ? state?.state : nil),
@@ -157,8 +157,12 @@ extension MenuModel where Action == ViewAction {
   /// list is fetched and its rows dispatch, the stats summary is fetched — so with no daemon they
   /// open onto nothing. The cheat sheet is local and stays useful; taking it away would punish the
   /// reader for the outage they are trying to understand.
-  @MainActor
-  static func view(model: WindowModel, daemonAvailable: Bool) -> MenuModel {
+  ///
+  /// `showsShortcuts` arrives as a plain answer rather than as the model holding it, because the
+  /// cheat sheet asks this menu what would fire once the sheet is out of the way: ⌘/ is the one
+  /// command withheld by the sheet's own presence, and the sheet is the only place a reader ever
+  /// sees the row for it.
+  static func view(showsShortcuts: Bool, daemonAvailable: Bool) -> MenuModel {
     MenuModel(groups: [[
       MenuItem(action: .tasks, shortcut: MenuShortcut(key: "t", modifiers: .command), isEnabled: daemonAvailable),
       MenuItem(
@@ -169,7 +173,7 @@ extension MenuModel where Action == ViewAction {
       MenuItem(
         action: .shortcuts,
         shortcut: MenuShortcut(key: "/", modifiers: .command),
-        isEnabled: !model.showsShortcuts,
+        isEnabled: !showsShortcuts,
       ),
     ]])
   }
@@ -185,6 +189,8 @@ extension MenuModel where Action == ViewAction {
   /// group, so a new user reaches the panels, the cheat sheet and the config without the menu bar.
   @MainActor
   static func windowCommands(model: WindowModel, daemonAvailable: Bool) -> MenuModel {
-    MenuModel(groups: [view(model: model, daemonAvailable: daemonAvailable).items + appConfig().items])
+    MenuModel(groups: [
+      view(showsShortcuts: model.showsShortcuts, daemonAvailable: daemonAvailable).items + appConfig().items
+    ])
   }
 }

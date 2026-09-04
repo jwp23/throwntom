@@ -18,7 +18,11 @@ final class ServiceDownMenuTests: XCTestCase {
   /// to be told the service is gone rather than infer it from an empty state.
   func testTheTimerMenuOffersNothingOnAnyScreenWithoutADaemon() {
     for status in Self.absent {
-      let menu = MenuModel.timer(state: makeState(phase: .work), isEditing: false, daemonAvailable: status.offersDaemonCommands)
+      let menu = MenuModel.timer(
+        state: makeState(phase: .work),
+        returnIsTaken: false,
+        daemonAvailable: status.offersDaemonCommands,
+      )
 
       XCTAssertFalse(menu.items.isEmpty, "\(status)")
       XCTAssertTrue(menu.items.allSatisfy { !$0.isEnabled }, "\(status): ⌘P and ⌘K would fire into nothing")
@@ -26,7 +30,7 @@ final class ServiceDownMenuTests: XCTestCase {
   }
 
   func testTheTimerMenuIsUntouchedWhileTheDaemonIsMerelyBeingDialled() {
-    let dialling = MenuModel.timer(state: makeState(phase: .work), isEditing: false, daemonAvailable: true)
+    let dialling = MenuModel.timer(state: makeState(phase: .work), returnIsTaken: false, daemonAvailable: true)
 
     XCTAssertEqual(enabled(dialling), [.pause, .skip, .skipToday])
   }
@@ -53,7 +57,7 @@ final class ServiceDownMenuTests: XCTestCase {
   /// outage they are trying to understand.
   func testTheViewMenuKeepsItsLocalCommandAndDropsTheDaemonBackedOnes() throws {
     for status in Self.absent {
-      let menu = MenuModel.view(model: WindowModel(), daemonAvailable: status.offersDaemonCommands)
+      let menu = MenuModel.view(showsShortcuts: false, daemonAvailable: status.offersDaemonCommands)
 
       XCTAssertFalse(try XCTUnwrap(menu.item(for: .tasks)).isEnabled, "\(status)")
       XCTAssertFalse(try XCTUnwrap(menu.item(for: .stats)).isEnabled, "\(status)")

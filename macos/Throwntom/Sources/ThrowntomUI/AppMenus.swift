@@ -45,7 +45,7 @@ struct AppMenus: Commands {
       }
     }
     CommandMenu("View") {
-      MenuGroups(menu: MenuModel.view(model: environment.windowModel, daemonAvailable: daemonAvailable)) { item in
+      MenuGroups(menu: viewMenu) { item in
         Button(item.title) { show(item.action) }
           .keyboardShortcut(item.shortcut?.keyboardShortcut)
           .disabled(!item.isEnabled)
@@ -88,11 +88,15 @@ struct AppMenus: Commands {
   var timerMenu: MenuModel<TimerAction> {
     MenuModel.timer(
       state: environment.client.state,
-      isEditing: environment.model.isEditing
-        || environment.windowModel.isEnteringSnooze
-        || environment.windowModel.showsShortcuts,
+      returnIsTaken: environment.returnIsTaken,
       daemonAvailable: daemonAvailable,
     )
+  }
+
+  /// The two panels and the cheat sheet. ⌘/ is withheld while the sheet is already up, so the menu
+  /// has to be told whether it is.
+  var viewMenu: MenuModel<ViewAction> {
+    MenuModel.view(showsShortcuts: environment.windowModel.showsShortcuts, daemonAvailable: daemonAvailable)
   }
 
   /// The durations behind the Timer menu's Snooze, read twice per build: once for the items and

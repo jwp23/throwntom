@@ -32,12 +32,12 @@ enum ShortcutList {
       Section(
         name: "Timer",
         entries: entries(
-          MenuModel.timer(state: nil, isEditing: false, daemonAvailable: true)
+          MenuModel.timer(state: nil, returnIsTaken: false, daemonAvailable: true)
         ) { $0.shortcutHint },
       ),
       Section(
         name: "View",
-        entries: entries(MenuModel.view(model: environment.windowModel, daemonAvailable: true)) { $0.shortcutHint },
+        entries: entries(MenuModel.view(showsShortcuts: false, daemonAvailable: true)) { $0.shortcutHint },
       ),
       Section(
         name: "Tasks",

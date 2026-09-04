@@ -12,13 +12,13 @@ final class MenuBindingTests: XCTestCase {
 
   func testNoTwoCommandsShareAKeyEquivalent() {
     for phase in Self.phases {
-      for isEditing in [false, true] {
-        let commands = commands(phase: phase, isEditing: isEditing)
+      for returnIsTaken in [false, true] {
+        let commands = commands(phase: phase, returnIsTaken: returnIsTaken)
         assertEveryMenuContributed(commands, phase: phase)
         var owner = Self.reserved
         for command in commands.compactMap(Bound.init) {
           if let taken = owner[command.shortcut] {
-            let context = "phase \(String(describing: phase)), editing \(isEditing)"
+            let context = "phase \(String(describing: phase)), Return taken \(returnIsTaken)"
             XCTFail("\(command.shortcut.hint) is bound to both \(taken) and \(command.title) (\(context))")
           }
           owner[command.shortcut] = command.title
@@ -33,10 +33,10 @@ final class MenuBindingTests: XCTestCase {
   /// no key at all must advertise none, or the cheat sheet invents one.
   func testEveryDisplayedHintMatchesTheKeyItIsBoundTo() {
     for phase in Self.phases {
-      // Both editing states, for the same reason as the collision test: editing changes which
-      // verbs are enabled, and this asserts that it never changes what any of them advertises.
-      for isEditing in [false, true] {
-        let commands = commands(phase: phase, isEditing: isEditing)
+      // Both answers to `returnIsTaken`, for the same reason as the collision test: it changes
+      // which verbs are enabled, and this asserts it never changes what any of them advertises.
+      for returnIsTaken in [false, true] {
+        let commands = commands(phase: phase, returnIsTaken: returnIsTaken)
         assertEveryMenuContributed(commands, phase: phase)
         for command in commands {
           XCTAssertEqual(command.displayedHint, command.shortcut?.hint ?? "", command.title)
@@ -124,18 +124,18 @@ final class MenuBindingTests: XCTestCase {
 
   /// Every command the app offers for one snapshot: the four menu models, with the task menu given
   /// a selected task so none of its verbs is withheld.
-  private func commands(phase: DaemonState.Phase?, isEditing: Bool) -> [Command] {
+  private func commands(phase: DaemonState.Phase?, returnIsTaken: Bool) -> [Command] {
     let model = TaskWindowModel()
     model.sync(tasks: TaskList(active: [makeTask(id: 1)], completed: []), focusedTaskIDs: [])
     let state = phase.map { makeState(phase: $0, morningPending: true) }
-    return collect(MenuModel.timer(state: state, isEditing: isEditing, daemonAvailable: true)) { $0.shortcutHint }
+    return collect(MenuModel.timer(state: state, returnIsTaken: returnIsTaken, daemonAvailable: true)) { $0.shortcutHint }
       // The snooze submenu binds no keys, and that is the claim worth holding it to: its
       // durations are pointer-driven so they cannot collide with anything, and ⌘⇧S stays on
       // the Timer menu's own Snooze.
       + collect(MenuModel.snooze(state: state, daemonAvailable: true)) { _ in "" }
       + collect(MenuModel.service(status: .running)) { $0.shortcutHint }
       + collect(MenuModel.tasks(model: model, daemonAvailable: true)) { $0.shortcutHint }
-      + collect(MenuModel.view(model: WindowModel(), daemonAvailable: true)) { $0.shortcutHint }
+      + collect(MenuModel.view(showsShortcuts: false, daemonAvailable: true)) { $0.shortcutHint }
       + collect(MenuModel.appConfig()) { $0.shortcutHint }
   }
 
