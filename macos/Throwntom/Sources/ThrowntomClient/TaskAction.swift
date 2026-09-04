@@ -19,14 +19,29 @@ public enum TaskAction: CaseIterable, Sendable {
     }
   }
 
+  /// Focus carries a shift the other verbs do not: ⌘F is Find, and this window holds a list, which
+  /// is the surface a user reaches for Find on.
   public var shortcutHint: String {
     switch self {
     case .newTask: "⌘N"
     case .complete: "⌘⏎"
     case .delete: "⌘⌫"
-    case .focus: "⌘F"
+    case .focus: "⌘⇧F"
     case .moveUp: "⌥↑"
     case .moveDown: "⌥↓"
+    }
+  }
+
+  /// When this verb is on offer, in words, for the cheat sheet — see `TimerAction.availability`.
+  /// New Task is the one verb that needs no row to act on, so it names no condition.
+  public var availability: String {
+    switch self {
+    case .newTask: ""
+    case .complete,
+         .delete,
+         .focus,
+         .moveDown,
+         .moveUp: "with a task selected"
     }
   }
 

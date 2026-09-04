@@ -10,7 +10,7 @@ enum TaskHints {
   /// is a task to run the other verbs on.
   static let empty = "No tasks — \(TaskAction.newTask.shortcutHint) to add one"
 
-  /// Worded for the row ⌘F would act on. Focus is a toggle, so on a focused task the hint is the
+  /// Worded for the row ⌘⇧F would act on. Focus is a toggle, so on a focused task the hint is the
   /// undo — and until it said so, nothing a reader could see said a focused task could be
   /// unfocused at all: the star is a state, not a control, and the context menu that offers
   /// Unfocus has to be guessed at before it can be opened.

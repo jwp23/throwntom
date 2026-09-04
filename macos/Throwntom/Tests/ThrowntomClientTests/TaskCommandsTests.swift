@@ -35,7 +35,7 @@ final class TaskCommandsTests: XCTestCase {
     XCTAssertEqual(TaskAction.newTask.shortcutHint, "⌘N")
     XCTAssertEqual(TaskAction.complete.shortcutHint, "⌘⏎")
     XCTAssertEqual(TaskAction.delete.shortcutHint, "⌘⌫")
-    XCTAssertEqual(TaskAction.focus.shortcutHint, "⌘F")
+    XCTAssertEqual(TaskAction.focus.shortcutHint, "⌘⇧F")
     XCTAssertEqual(TaskAction.moveUp.shortcutHint, "⌥↑")
     XCTAssertEqual(TaskAction.moveDown.shortcutHint, "⌥↓")
     XCTAssertEqual(TaskAction.newTask.title, "New Task")

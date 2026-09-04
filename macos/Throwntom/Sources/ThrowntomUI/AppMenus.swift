@@ -45,7 +45,7 @@ struct AppMenus: Commands {
       }
     }
     CommandMenu("View") {
-      MenuGroups(menu: MenuModel.view(model: environment.windowModel, daemonAvailable: daemonAvailable)) { item in
+      MenuGroups(menu: viewMenu) { item in
         Button(item.title) { show(item.action) }
           .keyboardShortcut(item.shortcut?.keyboardShortcut)
           .disabled(!item.isEnabled)
@@ -69,10 +69,13 @@ struct AppMenus: Commands {
   /// The timer verbs. Their key equivalents fire whether or not the menu is open, which is why
   /// enablement here matters as much as it does in the window: a disabled item binds nothing.
   ///
-  /// Confirm is bound to bare Return, and a main menu's key equivalent is offered a keystroke
-  /// before whatever has focus ever sees it — so it gives the key up while anything in front of it
-  /// is using it. Three surfaces are: the inline new-task row, the custom-snooze duration field,
-  /// and the shortcuts sheet, whose Done button is the default action.
+  /// Confirm is bound to ⇧⏎, and a main menu's key equivalent is offered a keystroke before
+  /// whatever has focus ever sees it — so it gives the key up while anything in front of it is
+  /// using it. Three surfaces are: the inline new-task row, the custom-snooze duration field, and
+  /// the shortcuts sheet, whose Done button is the default action. The shift does not retire this:
+  /// a field editor answers Shift-Return too, and a main menu is offered the keystroke first either
+  /// way, so what the shift buys is that Confirm no longer sits on the key a default button and a
+  /// committing field are *always* on — not any change in the order macOS asks in.
   ///
   /// The snooze field needs this in exactly the state it opens from — `awaiting_confirm` offers
   /// Confirm and Snooze at once, so without it the Return that should have committed a typed
@@ -80,16 +83,20 @@ struct AppMenus: Commands {
   /// sheet is worse for being opaque: it covers the window, so a stage confirmed behind it happens
   /// out of sight.
   ///
-  /// A guard, not a rebinding. Confirm keeps bare Return and hands it back the moment the surface
-  /// in front closes.
+  /// The guard outlived the rebinding it once stood in for. Confirm keeps ⇧⏎ and hands it back the
+  /// moment the surface in front closes.
   var timerMenu: MenuModel<TimerAction> {
     MenuModel.timer(
       state: environment.client.state,
-      isEditing: environment.model.isEditing
-        || environment.windowModel.isEnteringSnooze
-        || environment.windowModel.showsShortcuts,
+      returnIsTaken: environment.returnIsTaken,
       daemonAvailable: daemonAvailable,
     )
+  }
+
+  /// The two panels and the cheat sheet. ⌘/ is withheld while the sheet is already up, so the menu
+  /// has to be told whether it is.
+  var viewMenu: MenuModel<ViewAction> {
+    MenuModel.view(showsShortcuts: environment.windowModel.showsShortcuts, daemonAvailable: daemonAvailable)
   }
 
   /// The durations behind the Timer menu's Snooze, read twice per build: once for the items and

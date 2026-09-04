@@ -292,18 +292,27 @@ discoverable in the menu bar; the commands a new user needs to find
 first are also chips in the window. Only some actions have a direct
 shortcut:
 
-- *Timer menu*: Start `⌘R`, Confirm `⏎`, Pause/Resume `⌘P`, Snooze
+- *Timer menu*: Start `⌘R`, Confirm `⇧⏎`, Pause/Resume `⌘⇧P`, Snooze
   `⌘⇧S`, Done for Today, New Cycle (the last two deliberately have no
   shortcut), then Start/Stop Timer Service below a divider — also
   unbound, so a stray keystroke cannot take the daemon down.
 - *View menu*: Tasks `⌘T`, Stats `⌘⇧I`, Keyboard Shortcuts `⌘/` (a
-  sheet listing everything). `Esc` closes an open panel or sheet.
+  sheet listing everything, `Esc` included, each row saying when it
+  applies and dimmed while its command cannot fire). `Esc` closes an
+  open panel or sheet.
 - *Tasks menu*: New Task `⌘N` (inserts an editable row at the top; `⏎`
-  commits, `Esc` cancels), Complete `⌘⏎`, Delete `⌘⌫`, Focus `⌘F`, Move
+  commits, `Esc` cancels), Complete `⌘⏎`, Delete `⌘⌫`, Focus `⌘⇧F`, Move
   Up/Down `⌥↑/⌥↓`. `↑/↓` move the selection. Focus reads `Unfocus` on a
   task that is already focused.
 - *Application menu*: Open Config File… `⌘,`, Launch at Login (toggle),
   Open Notification Settings…, Open Login Items Settings…, Quit `⌘Q`.
+
+Three of those carry a shift for the platform's sake rather than ours:
+`⌘F` is Find, which a window holding a list is expected to answer;
+`⌘P` is Print; and bare Return belongs to whatever default button or
+committing field is in front. `MenuBindingTests` holds our bindings
+against the keys the system supplies as well as against each other,
+which is what nothing did while `⌘F` and `⌘P` were ours.
 
 Each Timer action calls its dedicated `POST /v1/timer/{verb}` route.
 Each Tasks action but New Task (which only opens the inline editor)

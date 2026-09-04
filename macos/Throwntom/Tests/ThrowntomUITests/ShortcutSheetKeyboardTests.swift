@@ -5,12 +5,13 @@ import XCTest
 /// Who owns the Return key while the keyboard-shortcuts sheet is open.
 ///
 /// The same clash as the duration field, one surface over: the sheet's Done button is the default
-/// action, which is bare Return, and Confirm is bound to bare Return in the Timer menu. A main
-/// menu's key equivalent is offered the keystroke first, so Return confirmed the stage behind a
-/// sheet the user was only reading — and behind a sheet, where they could not see it happen.
+/// action, which is bare Return, and a main menu's key equivalent is offered the keystroke first,
+/// so Return confirmed the stage behind a sheet the user was only reading — and behind a sheet,
+/// where they could not see it happen.
 ///
-/// This is a guard, not a rebinding: Confirm keeps bare Return and gives it up for as long as
-/// something in front of it is using the key.
+/// Confirm has since moved to ⇧⏎, which is not the default button's key, and the guard stays: a
+/// field editor answers Shift-Return too, and the menu is still asked before it. Confirm gives its
+/// key up for as long as something in front of it is up, and takes it back when that closes.
 @MainActor
 final class ShortcutSheetKeyboardTests: XCTestCase {
 

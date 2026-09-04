@@ -41,9 +41,9 @@ final class ChipTests: XCTestCase {
 
   func testChipBodiesBuild() throws {
     let scheme = Palette.scheme(for: .work)
-    _ = Chip(title: "Pause", hint: "⌘P", isPrimary: false, scheme: scheme) { }.body
+    _ = Chip(title: "Pause", hint: "⌘⇧P", isPrimary: false, scheme: scheme) { }.body
     _ = Chip(title: "Skip Today", hint: "", isPrimary: false, scheme: scheme) { }.body
-    _ = ChipLabel(title: "Pause", hint: "⌘P", style: ChipStyle.style(primary: false, scheme: scheme)).body
+    _ = ChipLabel(title: "Pause", hint: "⌘⇧P", style: ChipStyle.style(primary: false, scheme: scheme)).body
     _ = ChipLabel(title: "Skip Today", hint: "", style: ChipStyle.style(primary: false, scheme: scheme)).body
     let environment = AppEnvironment(transport: try StubTransport(states: []))
     let content = MainWindowContent(

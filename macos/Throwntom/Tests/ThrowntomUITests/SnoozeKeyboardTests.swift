@@ -4,11 +4,11 @@ import XCTest
 
 /// Who owns the Return key while the custom-snooze field is open.
 ///
-/// Confirm is bound to bare Return in the Timer menu, and a main menu's key equivalent is offered
-/// the keystroke before the focused text field ever sees it. The Timer menu already gives Return up
-/// for the inline new-task row; the duration field needs the same, and needs it in exactly the state
-/// it is opened from — `awaiting_confirm` offers Confirm and Snooze together, so both verbs are live
-/// while the user is typing a number into the field.
+/// Confirm is bound to ⇧⏎ in the Timer menu, and a main menu's key equivalent is offered the
+/// keystroke before the focused text field ever sees it — Shift-Return included. The Timer menu
+/// already gives the key up for the inline new-task row; the duration field needs the same, and
+/// needs it in exactly the state it is opened from — `awaiting_confirm` offers Confirm and Snooze
+/// together, so both verbs are live while the user is typing a number into the field.
 @MainActor
 final class SnoozeKeyboardTests: XCTestCase {
 

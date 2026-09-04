@@ -39,6 +39,18 @@ enum ViewAction: CaseIterable, Sendable {
     }
   }
 
+  /// When this command is on offer, in words, for the cheat sheet — see `TimerAction.availability`.
+  /// Both panels are daemon-backed and open onto nothing without one; the cheat sheet and the
+  /// config file are local, so they name no condition and are the two rows never dimmed.
+  var availability: String {
+    switch self {
+    case .tasks,
+         .stats: "while the timer service is running"
+    case .shortcuts,
+         .openConfig: ""
+    }
+  }
+
   var panel: WindowPanel? {
     switch self {
     case .tasks: .tasks

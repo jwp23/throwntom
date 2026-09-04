@@ -48,6 +48,7 @@ struct MenuShortcut: Hashable {
   private static func glyph(for key: KeyEquivalent) -> String {
     switch key.character {
     case KeyEquivalent.return.character: "⏎"
+    case KeyEquivalent.escape.character: "⎋"
     case KeyEquivalent.delete.character: "⌫"
     case KeyEquivalent.upArrow.character: "↑"
     case KeyEquivalent.downArrow.character: "↓"

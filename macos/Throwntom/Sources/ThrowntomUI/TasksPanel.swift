@@ -26,7 +26,7 @@ struct TasksPanel: View {
     model.tasks.active.isEmpty && model.tasks.completed.isEmpty && !model.isEditing
   }
 
-  /// The hint under the list, worded for the row the keys would act on: ⌘F reads as its own undo
+  /// The hint under the list, worded for the row the keys would act on: ⌘⇧F reads as its own undo
   /// on a task already focused.
   var hintLine: String {
     TaskHints.line(focused: model.isSelectedFocused)
