@@ -25,6 +25,7 @@ var documentedKeys = []string{
 	"morning_reminder_pending",
 	"emoji",
 	"float_window_when_waiting",
+	"paused_too_long_minutes",
 	"tier_low",
 	"tier_mid",
 }

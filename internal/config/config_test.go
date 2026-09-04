@@ -416,3 +416,26 @@ func TestLoadRejectsNonPositiveRepeatLimit(t *testing.T) {
 		t.Fatal("expected repeat_limit_secs validation error")
 	}
 }
+
+func TestDefaultPausedTooLongMinutes(t *testing.T) {
+	cfg := Default()
+	if cfg.PausedTooLongMinutes != 10 {
+		t.Fatalf("expected a default of 10 minutes before a pause is too long, got %d", cfg.PausedTooLongMinutes)
+	}
+}
+
+func TestLoadBytesParsesPausedTooLongMinutes(t *testing.T) {
+	cfg, err := LoadBytes([]byte("paused_too_long_minutes = 25"))
+	if err != nil {
+		t.Fatalf(fmtUnexpectedErr, err)
+	}
+	if cfg.PausedTooLongMinutes != 25 {
+		t.Fatalf("expected paused_too_long_minutes 25, got %d", cfg.PausedTooLongMinutes)
+	}
+}
+
+func TestLoadRejectsNonPositivePausedTooLongMinutes(t *testing.T) {
+	if _, err := LoadBytes([]byte("paused_too_long_minutes = 0")); err == nil {
+		t.Fatal("expected paused_too_long_minutes validation error")
+	}
+}

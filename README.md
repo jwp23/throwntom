@@ -233,6 +233,7 @@ sound_command = ["paplay", "/usr/share/sounds/freedesktop/stereo/bell.oga"]
 morning_reminder_pending = true
 emoji = true
 float_window_when_waiting = false
+paused_too_long_minutes = 10
 
 [pomodoro]
 work_minutes = 25
@@ -274,6 +275,19 @@ the window cannot interrupt what you are typing — it can only appear in front
 of it. The daemon raises no window of its own: it reloads this setting and
 publishes it in its state for the macOS app to read. The terminal UI has no
 window to raise.
+
+### `paused_too_long_minutes`
+
+Ten minutes by default. A pause is easy to walk away from and hard to notice
+you are still in, so once one has lasted this long the daemon publishes it as
+`paused_too_long` and the macOS app bounces its Dock icon. Resuming before the
+threshold passes does nothing at all.
+
+The daemon keeps the clock and nothing else: what to do about a forgotten
+pause is the client's, the way every other reminder is
+(`docs/adr/003-clients-own-user-facing-notification.md`). The pause keeps its
+age across a daemon restart, so restarting is not a way to get the ten minutes
+back. The terminal UI does not use this setting.
 
 ### `sound_command`
 
@@ -322,7 +336,8 @@ already be over. A file that does not parse is reported on the daemon's
 stderr and ignored; the config in force stays in force.
 
 Reloading covers `[pomodoro]`, `[[schedule]]`, `repeat_secs`,
-`repeat_limit_secs` and `float_window_when_waiting`. The rest needs a restart
+`repeat_limit_secs`, `float_window_when_waiting` and
+`paused_too_long_minutes`. The rest needs a restart
 of whichever process reads it:
 
 - `sound_command` — `throwntomd` plays no sound at all (see above), and the

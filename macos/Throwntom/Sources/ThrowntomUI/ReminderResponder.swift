@@ -77,8 +77,15 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
       return
     }
     chimeForNewRings(in: state)
-    if ReminderBanner.wantsAttention(from: shownState, to: state) {
+    switch DockAttention.decide(from: shownState, to: state) {
+    case .request:
       presenter.requestAttention()
+
+    case .cancel:
+      presenter.cancelAttention()
+
+    case .unchanged:
+      break
     }
     let banner = ReminderBanner.decide(from: shownState, to: state, authorization: authorization)
     shownState = state

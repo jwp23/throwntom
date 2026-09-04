@@ -93,6 +93,7 @@ func newCore(cfg config.Config, n notifier.Notifier) *Core {
 		subscribers:            make(map[chan State]struct{}),
 		warnOut:                os.Stderr,
 	}
+	c.timer.SetPausedTooLongAfter(pausedTooLongAfter(cfg))
 	c.handlers = c.buildCommandHandlers()
 	c.timer.SetOnChange(c.publishAsync)
 	c.timer.SetOnTransition(c.onTransition)

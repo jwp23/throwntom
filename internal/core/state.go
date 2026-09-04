@@ -45,6 +45,11 @@ type State struct {
 	// daemon neither reads nor enforces it; presentation is the client's
 	// (ADR-003).
 	FloatWindowWhenWaiting bool `json:"float_window_when_waiting"`
+	// PausedTooLong is true once the pause in flight has outlasted
+	// `paused_too_long_minutes`. The daemon keeps the clock and says only
+	// that the pause has been forgotten; asking for the user's attention is
+	// the client's (ADR-003).
+	PausedTooLong bool `json:"paused_too_long"`
 }
 
 func (c *Core) State() State {
@@ -69,6 +74,7 @@ func (c *Core) stateLocked() State {
 		FocusedTaskIDs:         c.focusedIDs(),
 		ReminderRings:          c.reminder.ringCount(),
 		FloatWindowWhenWaiting: c.floatWindowWhenWaiting,
+		PausedTooLong:          c.timer.PausedTooLong(),
 	}
 	if !snap.PhaseEndAt.IsZero() {
 		end := snap.PhaseEndAt
