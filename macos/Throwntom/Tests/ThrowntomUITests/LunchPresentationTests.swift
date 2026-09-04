@@ -39,14 +39,21 @@ final class LunchPresentationTests: XCTestCase {
     XCTAssertEqual(content.scheme, Palette.scheme(for: .longBreak))
   }
 
-  /// The daemon zeroes work_sessions_in_block when lunch begins, so a day that had six pomodoros
-  /// draws the block lunch cut short as its own group rather than as progress toward a long break
-  /// that is no longer coming.
+  /// The daemon zeroes work_sessions_in_block when lunch begins, and what that buys is drawn
+  /// here: the same six pomodoros group differently either side of the reset. Un-taken, the
+  /// second block is padded with dim slots promising a long break two pomodoros away; once lunch
+  /// has closed the block, those slots are gone, because that long break is no longer coming.
   func testTheGardenClosesTheBlockLunchEnded() {
-    XCTAssertEqual(
-      TomatoGarden(completedToday: 6, inBlock: 0, every: 4).blocks,
-      [[true, true, true, true], [true, true]],
-    )
+    let afterLunch = TomatoGarden(completedToday: 6, inBlock: 0, every: 4).blocks
+    let hadLunchNotBeenTaken = TomatoGarden(completedToday: 6, inBlock: 2, every: 4).blocks
+
+    XCTAssertEqual(afterLunch, [[true, true, true, true], [true, true]])
+    XCTAssertEqual(hadLunchNotBeenTaken, [[true, true, true, true], [true, true, false, false]])
+    XCTAssertNotEqual(afterLunch, hadLunchNotBeenTaken)
+  }
+
+  /// The first pomodoro back opens a block of its own, rather than resuming the one lunch closed.
+  func testTheFirstPomodoroBackOpensAFreshBlock() {
     XCTAssertEqual(
       TomatoGarden(completedToday: 7, inBlock: 1, every: 4).blocks,
       [[true, true, true, true], [true, true], [true, false, false, false]],

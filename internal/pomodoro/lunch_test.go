@@ -90,6 +90,55 @@ func TestApplyDurationsShorterThanTheLunchServedEndsIt(t *testing.T) {
 	}
 }
 
+// An hour is long enough that a daemon restart lands inside it more readily
+// than inside any other phase, so a restored lunch has to come back counting
+// down against the time it has already served, not sitting on a dead clock.
+func TestRestoreResumesALunchInFlight(t *testing.T) {
+	start := time.Date(2026, 8, 29, 12, 0, 0, 0, time.UTC)
+	now := start.Add(20 * time.Minute)
+	a := New(minutes(25, 5, 15, 4))
+	a.setClock(newFakeClock(now))
+
+	err := a.Restore(Snapshot{
+		Engine:         engine.Snapshot{State: engine.Lunch, LastPhase: engine.Lunch, WorkDayStarted: true},
+		PhaseStartedAt: start,
+	}, now)
+
+	if err != nil {
+		t.Fatalf("restore failed: %v", err)
+	}
+	if got := a.State(); got != engine.Lunch {
+		t.Fatalf("state is %s, want lunch", got)
+	}
+	if remaining := a.Snapshot().PhaseEndAt.Sub(now); remaining != 40*time.Minute {
+		t.Fatalf("the restored lunch has %s left, want 40m", remaining)
+	}
+}
+
+// A lunch paused when the daemon went down is measured against lunch's own
+// length on the way back, not the work period's.
+func TestRestoreMeasuresAPausedLunchAgainstTheLunchDuration(t *testing.T) {
+	now := time.Date(2026, 8, 29, 12, 30, 0, 0, time.UTC)
+	a := New(minutes(25, 5, 15, 4))
+	a.setClock(newFakeClock(now))
+
+	err := a.Restore(Snapshot{
+		Engine: engine.Snapshot{
+			State: engine.Paused, PausedFrom: engine.Lunch,
+			LastPhase: engine.Lunch, WorkDayStarted: true,
+		},
+		PausedElapsed: 20 * time.Minute,
+		PausedAt:      now,
+	}, now)
+
+	if err != nil {
+		t.Fatalf("restore failed: %v", err)
+	}
+	if got := a.Snapshot().PausedRemaining; got != 40*time.Minute {
+		t.Fatalf("the paused lunch has %s left, want 40m", got)
+	}
+}
+
 func TestStatusLineNamesLunch(t *testing.T) {
 	a := New(minutes(25, 5, 15, 4))
 	clock := newFakeClock(time.Date(2026, 8, 29, 12, 0, 0, 0, time.UTC))
