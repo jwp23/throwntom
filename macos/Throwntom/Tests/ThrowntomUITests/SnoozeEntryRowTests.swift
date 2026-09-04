@@ -1,3 +1,4 @@
+import SwiftUI
 import ThrowntomClient
 import XCTest
 @testable import ThrowntomUI
@@ -44,12 +45,76 @@ final class SnoozeEntryRowTests: XCTestCase {
     _ = SnoozeEntryRow(client: environment.client, model: environment.windowModel).body
   }
 
+  /// A field the system draws takes the *system appearance's* background while the text on it stays
+  /// this window's ink — black on black in Dark Mode (throwntom-bxd.3). The field has to be painted
+  /// in the app's own paper instead, which is a thing that can be looked for in the pixels: a
+  /// system-drawn control comes back from the renderer as a placeholder, never as this colour.
+  func testTheFieldIsPaintedInTheAppsOwnPaper() throws {
+    let (row, _, _, _) = try makeRow()
+    for appearance in AppearanceRender.appearances {
+      let drawn = try AppearanceRender.bitmap(
+        AppearanceRender.onGround(row.field, scheme: scheme, width: 120, height: 40),
+        appearance: appearance.appearance,
+        scheme: appearance.scheme,
+      )
+      let paper = try AppearanceRender.swatch(
+        Palette.cream,
+        appearance: appearance.appearance,
+        scheme: appearance.scheme,
+      )
+      XCTAssertGreaterThan(AppearanceRender.pixels(of: paper, in: drawn), 200, appearance.name)
+    }
+  }
+
+  /// The rule is a caption, not a dimmed one. `.secondary` drops it well under the 4.5:1 every
+  /// other line on these grounds clears (`PaletteTests`, and the same call `WindowNotes` makes for
+  /// the sentences under the chips), and it is the line a user reads *because* they got the
+  /// duration wrong. Drawn against plain caption text, it has to be the same picture.
+  func testTheRuleIsCaptionTextInTheWindowsOwnColourRatherThanDimmed() throws {
+    let (row, _, _, _) = try makeRow()
+    let plain = Text("1 to \(SnoozeDraft.maximumMinutes) minutes").font(.caption)
+    for appearance in AppearanceRender.appearances {
+      let drawn = try AppearanceRender.bitmap(
+        AppearanceRender.onGround(row.rule, scheme: scheme, width: 140, height: 20),
+        appearance: appearance.appearance,
+        scheme: appearance.scheme,
+      )
+      let reference = try AppearanceRender.bitmap(
+        AppearanceRender.onGround(plain, scheme: scheme, width: 140, height: 20),
+        appearance: appearance.appearance,
+        scheme: appearance.scheme,
+      )
+      // Two blank pictures are also identical, so the reference has to be shown to be a line of
+      // text. Counted against an empty box rather than by ink pixels: caption glyphs are thin
+      // enough that antialiasing leaves only a handful at the full colour.
+      let blank = try AppearanceRender.bitmap(
+        AppearanceRender.onGround(Color.clear, scheme: scheme, width: 140, height: 20),
+        appearance: appearance.appearance,
+        scheme: appearance.scheme,
+      )
+      XCTAssertNotEqual(
+        reference.representation(using: .png, properties: [:]),
+        blank.representation(using: .png, properties: [:]),
+        appearance.name,
+      )
+      XCTAssertEqual(
+        drawn.representation(using: .png, properties: [:]),
+        reference.representation(using: .png, properties: [:]),
+        appearance.name,
+      )
+    }
+  }
+
   // MARK: Private
 
   /// A counter the row can report a refusal into, so the beep is observable.
   private final class RefusalLog {
     var count = 0
   }
+
+  /// The row only ever opens over a phase ground, since the snooze chip that opens it is only
+  /// offered for a state that can snooze.
+  private let scheme = Palette.scheme(for: .awaitingConfirm)
 
   private func makeRow() throws -> (SnoozeEntryRow, StubTransport, WindowModel, RefusalLog) {
     let transport = try StubTransport(states: [])

@@ -1,3 +1,4 @@
+import SwiftUI
 import ThrowntomClient
 import XCTest
 @testable import ThrowntomUI
@@ -88,7 +89,46 @@ final class SnoozeChipTests: XCTestCase {
     XCTAssertEqual(try makeChip(snoozeUntil: Date().addingTimeInterval(600)).hint, "")
   }
 
+  /// The snooze control is a pull-down, but it has to be a chip first. A menu style that hands its
+  /// label to AppKit gets AppKit's own tinting painted over `ChipLabel`, so the chip came out in
+  /// brown text on the phase ground while every button beside it wore the fill (throwntom-bxd.2).
+  /// Drawn against the chip it sits next to, the two have to be the same picture — in both system
+  /// appearances, because a window painted in its own palette does not change with the system's.
+  func testTheChipIsDrawnExactlyLikeThePlainChipsBesideIt() throws {
+    let chip = try makeChip(snoozeUntil: nil)
+    let plain = Chip(title: chip.title, hint: chip.hint, isPrimary: false, scheme: chip.content.scheme) { }
+    for appearance in AppearanceRender.appearances {
+      let drawn = try AppearanceRender.bitmap(
+        framed(chip.body, scheme: chip.content.scheme),
+        appearance: appearance.appearance,
+        scheme: appearance.scheme,
+      )
+      let reference = try AppearanceRender.bitmap(
+        framed(plain, scheme: chip.content.scheme),
+        appearance: appearance.appearance,
+        scheme: appearance.scheme,
+      )
+      // Two blank pictures are also identical, so the reference has to be shown to be a chip first.
+      let fill = try AppearanceRender.swatch(
+        chip.content.scheme.secondaryChip,
+        appearance: appearance.appearance,
+        scheme: appearance.scheme,
+      )
+      XCTAssertGreaterThan(AppearanceRender.pixels(of: fill, in: reference), 500, appearance.name)
+      XCTAssertEqual(
+        drawn.representation(using: .png, properties: [:]),
+        reference.representation(using: .png, properties: [:]),
+        appearance.name,
+      )
+    }
+  }
+
   // MARK: Private
+
+  /// The chip in its own box on the phase ground, the way the window draws the row.
+  private func framed(_ view: some View, scheme: PhaseScheme) -> some View {
+    AppearanceRender.onGround(view, scheme: scheme, width: 200, height: 44)
+  }
 
   private func makeChip(snoozeUntil: Date?) throws -> SnoozeChip {
     let environment = try AppEnvironment(transport: StubTransport(states: []))

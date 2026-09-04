@@ -86,6 +86,15 @@ enum AppearanceRender {
     return try XCTUnwrap(renderer.nsImage).size
   }
 
+  /// A piece of the window as the window draws it: on the phase's ground, in the phase's text
+  /// colour, in a fixed box so two of them can be compared pixel for pixel.
+  static func onGround(_ view: some View, scheme: PhaseScheme, width: CGFloat, height: CGFloat) -> some View {
+    view
+      .frame(width: width, height: height)
+      .background(scheme.ground.color)
+      .foregroundStyle(scheme.text.color)
+  }
+
   // MARK: Private
 
   private static func hex(_ colour: NSColor?) -> String {
