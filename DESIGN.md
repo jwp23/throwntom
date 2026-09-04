@@ -235,7 +235,7 @@ are the dark-terminal variants; `-light` variants carry the light-terminal value
 
 The dashboard (`cmd/throwntom/stats_handler.go`) reuses three of these for pomodoro counts:
 teal above `tier_mid` (default 5), tomato above `tier_low` (default 2), grey otherwise —
-each paired with a glyph (● / ◐ / ○) so the tier reads without colour. The macOS client's task rows use `macos-ink` for text and the system yellow star for focus.
+each paired with a glyph (● / ◐ / ○) so the tier reads without colour. The macOS client's task rows use `macos-ink` for text on a ground and `macos-cream` in a panel, and the star that marks a task focused takes that same colour rather than a tint of its own: those are the two values `PaletteTests` holds to 4.5:1 on the surfaces they sit on, and a mark is read like the words beside it. The system yellow the star used to carry never went through that gate — it lands at 1.8:1 on the idle ground and shifts with the system appearance, where the rest of the window looks the same in both — and the mark never rested on its colour anyway: a filled star against an open circle.
 
 ## Typography
 
@@ -243,7 +243,7 @@ Omitted (see front matter). Two things are still fixed in code and worth knowing
 
 - The TUI's only "type styles" are foreground colour; there is no bold, italic, or underline
   anywhere in `theme.go`.
-- The macOS window uses `.largeTitle` bold for the phase name, `.title2` with monospaced digits for the countdown, `.body` for the next-stage line, tasks, the garden summary and the shortcut hints (hints monospaced), `.caption` for section labels and notes. Notes are sentences that say what to do, so they wrap rather than truncate. Nothing in the window truncates: the phase name wraps to as many lines as it needs, like the notes and hints below it and the chip rows beside them. At the 320pt minimum width the longest titles — `Pomodoro (reconnecting)`, `Done for today (reconnecting)`, `Timer service isn’t answering` — already need two lines at the default text size, and four at twice that size, so a fixed line cap has no headroom for a longer phase name, a reworded wait, a translation or an enlarged text size. The title is the part read from across the room, so it is the last thing that may be cut off.
+- The macOS window uses `.largeTitle` bold for the phase name, `.title2` with monospaced digits for the countdown, `.body` for the next-stage line, tasks, the garden summary, the notes under the chips and the shortcut hints (hints monospaced, focus rows medium weight), `.caption` for section labels. Notes are sentences that say what to do, so they wrap rather than truncate, and they are body-sized rather than the smallest type in the window: a note is the only account on screen of a refused command or a service the user stopped, while the title above goes on naming the phase. Notice and fault share that one register — a notice enlarged past the faults below it would give the window a second headline. Nothing in the window truncates: the phase name wraps to as many lines as it needs, like the notes and hints below it and the chip rows beside them. At the 320pt minimum width the longest titles — `Pomodoro (reconnecting)`, `Done for today (reconnecting)`, `Timer service isn’t answering` — already need two lines at the default text size, and four at twice that size, so a fixed line cap has no headroom for a longer phase name, a reworded wait, a translation or an enlarged text size. The title is the part read from across the room, so it is the last thing that may be cut off.
 - A panel's or sheet's shortcut hint (`ShortcutHint`) is monospaced `.body` at medium weight in that surface's own text colour — never `.secondary` and never smaller — and it wraps rather than truncating, because the shortcut is the part a new user opened the panel to read.
 
 ## Layout
@@ -307,9 +307,12 @@ each line clamped.
 
 ### Task row (macOS)
 
-`star.fill` in system yellow when focused, otherwise a `circle` in the panel's inherited
-text colour; description in that same inherited colour, struck through (never dimmed) when
-done.
+`star.fill` when focused, otherwise a `circle`, both in the surface's own text colour —
+`macos-ink` on a ground, `macos-cream` in a panel; description in that same colour, struck
+through (never dimmed) when done. Under the list the hint line words ⌘F for the selected
+row — `focus` on an unfocused task, `unfocus` on a focused one — so the undo is on screen
+rather than only in the context menu that offers it: the star is a state, not a control, and
+a menu has to be guessed at before it can be opened.
 
 ### Mascot (macOS)
 

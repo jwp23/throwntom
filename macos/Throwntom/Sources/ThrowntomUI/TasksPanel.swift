@@ -26,6 +26,17 @@ struct TasksPanel: View {
     model.tasks.active.isEmpty && model.tasks.completed.isEmpty && !model.isEditing
   }
 
+  /// The hint under the list, worded for the row the keys would act on: ⌘F reads as its own undo
+  /// on a task already focused.
+  var hintLine: String {
+    TaskHints.line(focused: model.isSelectedFocused)
+  }
+
+  /// The colour of a row's focus mark on this panel (see `PhaseScheme.panelTaskMark`).
+  var markColor: HexColor {
+    scheme.panelTaskMark
+  }
+
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
       Text("Tasks").font(.caption).textCase(.uppercase)
@@ -34,7 +45,7 @@ struct TasksPanel: View {
           .frame(maxWidth: .infinity, minHeight: 160, alignment: .center)
       } else {
         taskList
-        ShortcutHint(TaskHints.line)
+        ShortcutHint(hintLine)
       }
     }
     .padding(10)
@@ -52,14 +63,14 @@ struct TasksPanel: View {
         NewTaskRow(model: model) { line in DaemonDispatch.send(line, to: environment.client) }
       }
       ForEach(model.tasks.active) { task in
-        TaskRow(task: task, focused: model.focusedIDs.contains(task.id))
+        TaskRow(task: task, focused: model.focusedIDs.contains(task.id), markColor: markColor)
           .tag(task.id)
           .contextMenu { TaskContextMenu(task: task, environment: environment) }
       }
       if !model.tasks.completed.isEmpty {
         DisclosureGroup(model.completedSectionTitle, isExpanded: $showCompleted) {
           ForEach(model.tasks.completed) { task in
-            TaskRow(task: task, focused: false)
+            TaskRow(task: task, focused: false, markColor: markColor)
           }
         }
       }

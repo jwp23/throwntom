@@ -71,7 +71,7 @@ struct MainWindow: View {
         .padding(.top, Self.serviceChipGap)
       CommandChips(environment: environment, scheme: content.scheme)
       WindowNotes(error: content.error, notice: content.notice, responder: environment.responder)
-      FocusSection(tasks: content.focused)
+      FocusSection(tasks: content.focused, scheme: content.scheme)
       if content.panel == .tasks {
         TasksPanel(environment: environment, scheme: content.scheme)
       }

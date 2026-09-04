@@ -28,6 +28,23 @@ final class PaletteTests: XCTestCase {
     }
   }
 
+  /// The star marking a focused task is the one mark on the ground that used to carry a colour of
+  /// its own — `Color.yellow` — instead of the surface's. It reads as text, so it clears the text
+  /// bar (throwntom-bxd.15).
+  func testTheFocusStarClearsEverySurfaceItSitsOn() {
+    for (name, s) in Palette.schemes {
+      XCTAssertGreaterThanOrEqual(Contrast.ratio(s.taskMark, s.ground), 4.5, "\(name) task mark on ground")
+      XCTAssertGreaterThanOrEqual(Contrast.ratio(s.panelTaskMark, s.panel), 4.5, "\(name) task mark on panel")
+    }
+  }
+
+  /// Why the star gave up its tint: system yellow never went through the gate above, and the idle
+  /// ground is where it lands worst. Pinned as a number so the sentence in DESIGN.md has something
+  /// behind it, and so a future tint has to be measured rather than eyeballed.
+  func testSystemYellowWouldNotClearTheIdleGround() {
+    XCTAssertLessThan(Contrast.ratio(HexColor("#FFCC00"), Palette.scheme(for: .idle).ground), 2)
+  }
+
   func testContrastRatioMatchesWCAGReference() {
     XCTAssertEqual(Contrast.ratio(HexColor("#FFFFFF"), HexColor("#000000")), 21, accuracy: 0.01)
     XCTAssertEqual(Contrast.ratio(HexColor("#F68C31"), HexColor("#000000")), 8.71, accuracy: 0.05)
