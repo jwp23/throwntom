@@ -486,14 +486,14 @@ func TestSessionSavedAfterMidnightResetsOnReload(t *testing.T) {
 	if err := c2.loadSession(); err != nil {
 		t.Fatalf(fmtLoadSession, err)
 	}
-	// Stop's AdvanceDay rolled the saved snapshot into the new day before it
-	// was written: that clears work_day_started and last_phase but leaves
-	// state at awaiting_confirm, which Invalid() rejects. The reload discards
-	// the session outright rather than performing a live reset, which is why
-	// today's count below comes back zero.
-	wantWarning := "warning: discarding inconsistent session: work_day_started is false but state/last_phase is not idle\n"
-	if got := warnings.String(); got != wantWarning {
-		t.Fatalf("expected discard warning %q, got %q", wantWarning, got)
+	// A rollover with a phase in flight keeps that phase, so the snapshot the
+	// reload sees is reachable and is restored in place: only the day's totals
+	// reset, which is why today's count below comes back zero.
+	if got := warnings.String(); got != "" {
+		t.Fatalf("expected the session to be restored, not discarded, got warning %q", got)
+	}
+	if got := c2.timer.State(); got != engine.AwaitingConfirm {
+		t.Fatalf("expected the paused work period to survive the rollover, got %v", got)
 	}
 
 	status, _, _ := c2.Status()
