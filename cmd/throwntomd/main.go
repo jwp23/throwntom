@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -56,8 +57,19 @@ func main() {
 	defer stop()
 	if err := daemon.Run(ctx, cfg, daemonNotifier(), paths, configBytes); err != nil {
 		fmt.Fprintf(os.Stderr, "throwntomd: %v\n", err)
-		os.Exit(1)
+		os.Exit(exitCode(err))
 	}
+}
+
+// exitCode maps the end of Run onto a process status launchd can read. Losing the
+// single-instance lock is a clean stand-down, not a crash: another throwntomd already
+// owns the socket and is serving it. Reporting that as a failure would tell launchd the
+// job died, and the agent's KeepAlive would respawn it into the same losing race forever.
+func exitCode(err error) int {
+	if err == nil || errors.Is(err, daemon.ErrAlreadyRunning) {
+		return 0
+	}
+	return 1
 }
 
 // daemonNotifier is the daemon's whole side of reminder sound: none of it.
