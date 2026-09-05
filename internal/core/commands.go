@@ -103,6 +103,15 @@ func (c *Core) handleLunch(_ []string) commandResult {
 	return commandResult{message: "Lunch started -- a fresh block when you're back."}
 }
 
+// MaxMeetingDuration is the longest meeting that can be started. A day is
+// already far past any real meeting, so a longer one is a typo — and one taken
+// at face value parks the timer in a phase that outlives the session file and
+// has to be noticed before it can be undone.
+//
+// Every way in enforces it: the command line here, and the daemon's own route,
+// which reads its minutes bound from this rather than restating it.
+const MaxMeetingDuration = 24 * time.Hour
+
 // handleMeeting takes the user into a meeting of the length they name. Like
 // lunch it needs no state to be in and refuses nothing but a length it cannot
 // read, and a phase waiting to be confirmed is still credited on the way past.
@@ -114,7 +123,7 @@ func (c *Core) handleMeeting(parts []string) commandResult {
 	if err != nil {
 		return commandResult{err: err}
 	}
-	if parsed > 24*time.Hour {
+	if parsed > MaxMeetingDuration {
 		return commandResult{err: errors.New("meeting duration must be one day or less")}
 	}
 	before := c.timer.StartMeeting(parsed)

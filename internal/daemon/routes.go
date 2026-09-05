@@ -57,13 +57,12 @@ func (s *server) postSnooze(w http.ResponseWriter, r *http.Request) {
 	s.runCommand(w, "snooze "+strconv.Itoa(body.Minutes))
 }
 
-// maxMeetingMinutes is the longest meeting the daemon will start. A day is
-// already far past any real meeting, so a longer one is a typo — and one taken
-// at face value parks the timer in a phase that outlives the session file and
-// has to be noticed before it can be undone. The macOS client refuses the same
-// length before asking, but a client's rule is not the daemon's: this is the
-// trust boundary, and it holds the bound.
-const maxMeetingMinutes = 1440
+// maxMeetingMinutes is the longest meeting this route will start, in the
+// minutes the body speaks in. It is derived from the one rule rather than
+// restating it, so the route and the command line cannot drift apart. The
+// macOS client refuses the same length before asking, but a client's rule is
+// not the daemon's: this is the trust boundary, and it holds the bound too.
+var maxMeetingMinutes = int(core.MaxMeetingDuration.Minutes())
 
 // postMeeting starts a meeting of the minutes given. Like snooze it takes a
 // body rather than a bare verb, because a meeting with no length has nothing
