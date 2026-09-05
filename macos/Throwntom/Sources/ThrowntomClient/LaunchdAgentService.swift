@@ -39,15 +39,23 @@ public struct LaunchdAgentService: LaunchAgentService {
   /// Takes the bundle's URL rather than the `Bundle`: this type is `Sendable`, and `Bundle` is a
   /// reference type that is not. The URL is all the agent needs, and a test can point it at one
   /// it made itself.
+  ///
+  /// `launchctl` is injected for the same reason: what matters here is the order the job is torn
+  /// down and loaded in, and a test can only watch that if it can stand in for the process.
   public init(
     bundleURL: URL = Bundle.main.bundleURL,
     home: URL = FileManager.default.homeDirectoryForCurrentUser,
+    launchctl: @escaping Launchctl = LaunchdAgentService.runLaunchctl,
   ) {
     self.bundleURL = bundleURL
     self.home = home
+    self.launchctl = launchctl
   }
 
   // MARK: Public
+
+  /// Runs launchctl with the given arguments and returns its exit status.
+  public typealias Launchctl = @Sendable ([String]) -> Int32
 
   public var status: AgentStatus {
     guard let daemonPath = try? daemonPath() else {
@@ -60,49 +68,8 @@ public struct LaunchdAgentService: LaunchAgentService {
     )
   }
 
-  /// Writes the plist for this bundle's daemon and loads it. The bootout first makes this safe
-  /// to call over an agent that is already loaded — including one left pointing at the bundle an
-  /// upgrade replaced, which is the case that has to end with launchd running the new daemon.
-  public func register() throws {
-    let plist = LaunchdAgentPlist(programPath: try daemonPath())
-    try FileManager.default.createDirectory(
-      at: plistURL.deletingLastPathComponent(),
-      withIntermediateDirectories: true,
-    )
-    try plist.data().write(to: plistURL)
-    _ = Self.launchctl(["bootout", serviceTarget])
-    try runLaunchctl(["bootstrap", domainTarget, plistURL.path])
-  }
-
-  /// Unloads the agent and removes its plist, so nothing reloads the daemon at the next login.
-  public func unregister() throws {
-    _ = Self.launchctl(["bootout", serviceTarget])
-    try? FileManager.default.removeItem(at: plistURL)
-  }
-
-  // MARK: Private
-
-  private let bundleURL: URL
-  private let home: URL
-
-  private var plistURL: URL {
-    LaunchdAgentPlist.url(inHome: home)
-  }
-
-  private var domainTarget: String {
-    "gui/\(getuid())"
-  }
-
-  private var serviceTarget: String {
-    "\(domainTarget)/\(LaunchdAgentPlist.label)"
-  }
-
-  private var isLoaded: Bool {
-    Self.launchctl(["print", serviceTarget]) == 0
-  }
-
-  @discardableResult
-  private static func launchctl(_ arguments: [String]) -> Int32 {
+  /// The real process call, used unless a test substitutes for it.
+  public static func runLaunchctl(_ arguments: [String]) -> Int32 {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
     process.arguments = arguments
@@ -117,6 +84,48 @@ public struct LaunchdAgentService: LaunchAgentService {
     return process.terminationStatus
   }
 
+  /// Writes the plist for this bundle's daemon and loads it. The bootout first makes this safe
+  /// to call over an agent that is already loaded — including one left pointing at the bundle an
+  /// upgrade replaced, which is the case that has to end with launchd running the new daemon.
+  public func register() throws {
+    let plist = LaunchdAgentPlist(programPath: try daemonPath())
+    try FileManager.default.createDirectory(
+      at: plistURL.deletingLastPathComponent(),
+      withIntermediateDirectories: true,
+    )
+    try plist.data().write(to: plistURL)
+    _ = launchctl(["bootout", serviceTarget])
+    try run(["bootstrap", domainTarget, plistURL.path])
+  }
+
+  /// Unloads the agent and removes its plist, so nothing reloads the daemon at the next login.
+  public func unregister() throws {
+    _ = launchctl(["bootout", serviceTarget])
+    try? FileManager.default.removeItem(at: plistURL)
+  }
+
+  // MARK: Private
+
+  private let bundleURL: URL
+  private let home: URL
+  private let launchctl: Launchctl
+
+  private var plistURL: URL {
+    LaunchdAgentPlist.url(inHome: home)
+  }
+
+  private var domainTarget: String {
+    "gui/\(getuid())"
+  }
+
+  private var serviceTarget: String {
+    "\(domainTarget)/\(LaunchdAgentPlist.label)"
+  }
+
+  private var isLoaded: Bool {
+    launchctl(["print", serviceTarget]) == 0
+  }
+
   private func daemonPath() throws -> String {
     let path = bundleURL.appendingPathComponent("Contents/MacOS/throwntomd").path
     guard FileManager.default.isExecutableFile(atPath: path) else {
@@ -125,8 +134,8 @@ public struct LaunchdAgentService: LaunchAgentService {
     return path
   }
 
-  private func runLaunchctl(_ arguments: [String]) throws {
-    let status = Self.launchctl(arguments)
+  private func run(_ arguments: [String]) throws {
+    let status = launchctl(arguments)
     guard status == 0 else {
       throw LaunchdAgentError.launchctlFailed(command: arguments.first ?? "", status: status)
     }
