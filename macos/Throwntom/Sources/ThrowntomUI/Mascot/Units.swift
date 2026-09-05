@@ -76,6 +76,25 @@ extension Path {
     addPath(Path(ellipseIn: CGRect(x: -rx, y: -ry, width: 2 * rx, height: 2 * ry)).applying(transform))
   }
 
+  /// A rounded rectangle centred at (cx, cy), rotated `rotation` degrees about its centre. A
+  /// corner radius of the half-height makes a capsule — a bar with round ends.
+  mutating func roundedRect(
+    _ units: Units,
+    _ cx: Double,
+    _ cy: Double,
+    _ halfWidth: Double,
+    _ halfHeight: Double,
+    radius: Double,
+    rotation: Double = 0,
+  ) {
+    let centre = units.point(cx, cy)
+    let transform = CGAffineTransform(translationX: centre.x, y: centre.y)
+      .rotated(by: rotation * .pi / 180)
+      .scaledBy(x: units.scale, y: units.scale)
+    let bounds = CGRect(x: -halfWidth, y: -halfHeight, width: 2 * halfWidth, height: 2 * halfHeight)
+    addPath(Path(roundedRect: bounds, cornerRadius: radius).applying(transform))
+  }
+
   mutating func polygon(_ units: Units, _ points: [(Double, Double)]) {
     guard let first = points.first else { return }
     move(units, first.0, first.1)

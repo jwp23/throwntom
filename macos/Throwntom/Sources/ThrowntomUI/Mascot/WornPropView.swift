@@ -40,8 +40,14 @@ enum WornProps {
     path.curve(units, 80.5, 64, 78, 69, 74, 71.5)
   }
 
+  /// How far the capsule is tilted off horizontal, in degrees. Named because it is the angle of
+  /// the boom's descent, and a test measures the bar's own proportions by undoing it.
+  static let headsetMicTilt = -30.0
+
+  /// The capsule: a bar rather than a dot, tilted along the boom's descent so it points at the
+  /// mouth. A circle here read as a spot that happened to be on the cheek.
   static let headsetMic = DesignShape { path, units in
-    path.circle(units, 73.5, 72, 2.6)
+    path.roundedRect(units, 74, 71.8, 3.1, 1.8, radius: 1.8, rotation: headsetMicTilt)
   }
 }
 
@@ -81,8 +87,10 @@ struct WornPropView: View {
     ZStack {
       WornProps.headsetBand.stroke(outline, style: StrokeStyle(lineWidth: 5.5 * unit, lineCap: .round))
       WornProps.headsetBand.stroke(MascotPalette.propDark.color, style: StrokeStyle(lineWidth: 3.5 * unit, lineCap: .round))
-      WornProps.headsetBoom.stroke(outline, style: StrokeStyle(lineWidth: 3.5 * unit, lineCap: .round))
-      WornProps.headsetBoom.stroke(MascotPalette.propDark.color, style: StrokeStyle(lineWidth: 2 * unit, lineCap: .round))
+      // Drawn as heavily as the band it comes off: a hairline boom left the capsule looking
+      // unattached, and the line from ear to mouth is what says the capsule is a microphone.
+      WornProps.headsetBoom.stroke(outline, style: StrokeStyle(lineWidth: 5 * unit, lineCap: .round))
+      WornProps.headsetBoom.stroke(MascotPalette.propDark.color, style: StrokeStyle(lineWidth: 3 * unit, lineCap: .round))
       // The capsule wears the cups' shell rather than the band's dark: a dark blob this close to
       // the body outline reads as part of the outline, which is what stopped it saying microphone.
       WornProps.headsetMic.fill(MascotPalette.propLight.color)

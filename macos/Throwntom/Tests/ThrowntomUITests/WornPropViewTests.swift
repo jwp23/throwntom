@@ -75,6 +75,24 @@ final class WornPropViewTests: XCTestCase {
     XCTAssertLessThan(mic.maxX, rim - 2, "the capsule is sitting on the body outline")
   }
 
+  /// A circle reads as a dot; a bar reads as a microphone. The capsule is elongated and lies
+  /// along the boom's descent, so the eye runs down the line from the ear and finds a shape
+  /// pointing at the mouth rather than a spot that happens to be there.
+  func testTheMicIsACapsuleLyingAlongTheBoom() {
+    let drawn = WornProps.headsetMic.path(in: canvas)
+    // Measured with the capsule's own tilt undone: an axis-aligned box drawn round a tilted bar
+    // is nearly square whatever the bar's real proportions are, so it cannot answer this.
+    let centre = CGPoint(x: drawn.boundingRect.midX, y: drawn.boundingRect.midY)
+    let upright = drawn
+      .applying(CGAffineTransform(translationX: -centre.x, y: -centre.y))
+      .applying(CGAffineTransform(rotationAngle: -WornProps.headsetMicTilt * .pi / 180))
+      .boundingRect
+
+    XCTAssertGreaterThan(upright.width, upright.height * 1.3, "the capsule is too round to read as a mic")
+    // Tilted rather than lying flat: a level bar would point across the face rather than at it.
+    XCTAssertNotEqual(WornProps.headsetMicTilt, 0)
+  }
+
   /// A pair of ears is a pair: two cups painted differently read as a mistake rather than as
   /// perspective, so each carries the same pad in the same colours, sized to its own cup.
   func testBothCupsCarryAPadSizedToThatCup() {
