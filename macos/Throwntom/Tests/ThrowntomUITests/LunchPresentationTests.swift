@@ -83,7 +83,7 @@ final class LunchPresentationTests: XCTestCase {
   func testLunchSitsWithTheCycleVerbsAndBindsNoKey() throws {
     let menu = MenuModel.timer(state: makeState(phase: .idle), returnIsTaken: false, daemonAvailable: true)
 
-    XCTAssertEqual(menu.groups.last?.map(\.action), [.skipToday, .newCycle, .lunch])
+    XCTAssertEqual(menu.groups.last?.map(\.action), [.skipToday, .newCycle, .lunch, .meeting])
     XCTAssertNil(try XCTUnwrap(menu.item(for: .lunch)).shortcut)
   }
 

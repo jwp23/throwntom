@@ -67,11 +67,29 @@ enum ViewAction: CaseIterable, Sendable {
 @Observable
 @MainActor
 final class WindowModel {
+  /// One of the inline length fields under the chips.
+  enum Entry {
+    case snooze
+    case meeting
+  }
+
   var panel: WindowPanel?
   var showsShortcuts = false
   /// Whether the snooze chip's "Custom…" duration field is open. Closed on every launch, and
   /// closed again the moment a duration is accepted or abandoned.
   var isEnteringSnooze = false
+  /// Whether the meeting chip's "Custom…" length field is open. Closed on every launch, and
+  /// closed again the moment a length is accepted or abandoned.
+  var isEnteringMeeting = false
+
+  /// Opens one length field and closes the other. Only one can be open at a time: they occupy
+  /// the same place under the chips and each takes the keyboard as it appears, so two open at
+  /// once leaves the user typing into whichever won the focus — and Escape, which answers the
+  /// innermost thing first, closing the one they are not looking at.
+  func beginEntry(_ entry: Entry) {
+    isEnteringSnooze = entry == .snooze
+    isEnteringMeeting = entry == .meeting
+  }
 
   func toggle(_ panel: WindowPanel) {
     self.panel = self.panel == panel ? nil : panel
@@ -86,6 +104,10 @@ final class WindowModel {
   func dismiss(panelIsShown: Bool) -> Bool {
     if isEnteringSnooze {
       isEnteringSnooze = false
+      return true
+    }
+    if isEnteringMeeting {
+      isEnteringMeeting = false
       return true
     }
     if showsShortcuts {

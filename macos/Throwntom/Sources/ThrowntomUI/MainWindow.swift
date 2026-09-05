@@ -59,6 +59,9 @@ struct MainWindow: View {
       if environment.windowModel.isEnteringSnooze {
         SnoozeEntryRow(client: environment.client, model: environment.windowModel)
       }
+      if environment.windowModel.isEnteringMeeting {
+        MeetingEntryRow(client: environment.client, model: environment.windowModel)
+      }
       // Snoozing withdraws the reminder banner, so without this line an active snooze has no
       // representation on screen at all.
       if let snoozeNote = content.snoozeNote {
@@ -97,6 +100,15 @@ struct MainWindow: View {
     .onChange(of: content.chips.contains(.snooze)) { _, canSnooze in
       if !canSnooze {
         environment.windowModel.isEnteringSnooze = false
+      }
+    }
+    // The meeting chip is offered in every state, so unlike the snooze field this one cannot be
+    // orphaned by the chip leaving the row. What does withdraw it is the daemon going away, which
+    // blanks the row entirely: a length typed into a field with nothing to send it to would be
+    // answered by a beep the user has no way to explain.
+    .onChange(of: content.chips.contains(.meeting)) { _, canMeet in
+      if !canMeet {
+        environment.windowModel.isEnteringMeeting = false
       }
     }
     .onChange(of: environment.client.tasks, initial: true) { syncModel() }

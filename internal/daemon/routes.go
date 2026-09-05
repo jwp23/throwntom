@@ -10,12 +10,13 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/core"
 )
 
-// Snooze is absent: it carries a body and has a route of its own. Unsnooze
-// takes no argument, so it is an ordinary verb.
+// Snooze and meeting are absent: each carries a body and has a route of its
+// own. Unsnooze takes no argument, so it is an ordinary verb.
 var timerVerbs = map[string]bool{"start": true, "confirm": true, "pause": true, "resume": true, "skip": true, "skip-today": true, "new-cycle": true, "lunch": true, "unsnooze": true}
 
 func (s *server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/timer/snooze", s.postSnooze)
+	mux.HandleFunc("POST /v1/timer/meeting", s.postMeeting)
 	mux.HandleFunc("POST /v1/timer/{verb}", s.postTimerVerb)
 	mux.HandleFunc("GET /v1/tasks", s.getTasks)
 	mux.HandleFunc("POST /v1/tasks", s.postTask)
@@ -54,6 +55,27 @@ func (s *server) postSnooze(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.runCommand(w, "snooze "+strconv.Itoa(body.Minutes))
+}
+
+// maxMeetingMinutes is the longest meeting this route will start, in the
+// minutes the body speaks in. It is derived from the one rule rather than
+// restating it, so the route and the command line cannot drift apart. The
+// macOS client refuses the same length before asking, but a client's rule is
+// not the daemon's: this is the trust boundary, and it holds the bound too.
+var maxMeetingMinutes = int(core.MaxMeetingDuration.Minutes())
+
+// postMeeting starts a meeting of the minutes given. Like snooze it takes a
+// body rather than a bare verb, because a meeting with no length has nothing
+// to run for.
+func (s *server) postMeeting(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Minutes int `json:"minutes"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Minutes <= 0 || body.Minutes > maxMeetingMinutes {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("minutes must be between 1 and %d", maxMeetingMinutes))
+		return
+	}
+	s.runCommand(w, "meeting "+strconv.Itoa(body.Minutes))
 }
 
 func (s *server) getTasks(w http.ResponseWriter, _ *http.Request) {

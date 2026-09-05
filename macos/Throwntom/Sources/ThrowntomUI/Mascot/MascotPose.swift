@@ -18,6 +18,14 @@ enum HeldProp: Hashable {
   }
 }
 
+// MARK: - WornProp
+
+/// Something the tomato wears; drawn inside the body transform, so it turns and breathes with the
+/// body rather than staying put the way `Furniture` does.
+enum WornProp: Hashable, CaseIterable {
+  case headset
+}
+
 // MARK: - Furniture
 
 /// Something the tomato sits at or on; drawn in canvas coordinates, unmoved by the body transform.
@@ -51,6 +59,7 @@ struct MascotPose: Equatable {
   var leftArm: Arm
   var rightArm: Arm
   var held: HeldProp?
+  var worn: WornProp?
   var furniture: Furniture?
   var rotation: Double
   var scale: Double

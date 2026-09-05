@@ -51,9 +51,14 @@ func (t *Timer) ApplyDurations(d Durations) {
 	t.longBreakDuration = time.Duration(d.LongBreakMinutes) * time.Minute
 	t.lunchDuration = time.Duration(d.LunchMinutes) * time.Minute
 	t.engine.SetLongBreakEvery(d.LongBreakEvery)
+	t.engine.SetWorkMinutes(d.WorkMinutes)
 
 	switch state {
-	case engine.Work, engine.ShortBreak, engine.LongBreak, engine.Lunch:
+	// A meeting is re-derived with the rest although no field here can have
+	// changed its length: it was given one at the moment it started rather
+	// than taking one from the config. Leaving it out would only mean the one
+	// running phase that does not re-derive, and it re-derives to itself.
+	case engine.Work, engine.ShortBreak, engine.LongBreak, engine.Lunch, engine.Meeting:
 		t.rederiveRunningLocked(state)
 	case engine.Paused:
 		t.rederivePausedLocked()
@@ -98,6 +103,10 @@ func (t *Timer) phaseDurationLocked(state engine.State) time.Duration {
 		return t.longBreakDuration
 	case engine.Lunch:
 		return t.lunchDuration
+	// A meeting's length is the one the user gave it, kept on the Timer
+	// because no config field holds it.
+	case engine.Meeting:
+		return t.meetingDuration
 	default:
 		return 0
 	}

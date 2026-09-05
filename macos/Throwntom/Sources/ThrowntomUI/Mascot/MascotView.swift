@@ -6,6 +6,7 @@ import SwiftUI
 enum CharacterLayer: Hashable {
   case body
   case face
+  case worn(WornProp)
   case arms
   case hands
   case held(HeldProp)
@@ -45,7 +46,11 @@ struct MascotCharacterView: View {
 
   /// Returns the ordered layers drawn for the given pose.
   static func layers(for pose: MascotPose) -> [CharacterLayer] {
-    var result: [CharacterLayer] = [.body, .face, .arms]
+    var result: [CharacterLayer] = [.body, .face]
+    if let worn = pose.worn {
+      result.append(.worn(worn))
+    }
+    result.append(.arms)
     if let held = pose.held, held.drawnBehindHands {
       result.append(.held(held))
     }
@@ -84,6 +89,8 @@ struct MascotCharacterView: View {
       HandsView(left: pose.leftArm, right: pose.rightArm, unit: unit)
     case .held(let prop):
       HeldPropView(prop: prop, yoyoDrop: frame.yoyoDrop, unit: unit)
+    case .worn(let prop):
+      WornPropView(prop: prop, unit: unit)
     }
   }
 

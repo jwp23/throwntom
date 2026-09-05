@@ -72,7 +72,9 @@ final class ShortcutConditionTests: XCTestCase {
   private static let claims: [(wording: String, actions: Set<TimerAction>, phases: Set<DaemonState.Phase>)] = [
     ("while idle", [.start], [.idle]),
     ("when a phase has ended", [.confirm], [.awaitingConfirm]),
-    ("while a phase is running or paused", [.pause, .resume], [.work, .shortBreak, .longBreak, .lunch, .paused]),
+    ("while a phase is running or paused", [.pause, .resume], [.work, .shortBreak, .longBreak, .lunch, .meeting, .paused]),
+    // Skip is absent from a meeting deliberately: ending one is what the meeting chip does, and
+    // it credits the time rather than discarding it (`TimerActions.available(for:)`).
     ("while a phase is running", [.skip], [.work, .shortBreak, .longBreak, .lunch]),
     ("while a reminder is waiting", [.snooze], [.idle, .awaitingConfirm]),
   ]

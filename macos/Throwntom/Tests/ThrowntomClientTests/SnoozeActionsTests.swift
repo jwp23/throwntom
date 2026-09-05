@@ -26,20 +26,20 @@ final class SnoozeActionsTests: XCTestCase {
   }
 
   func testABareNumberIsMinutes() {
-    XCTAssertEqual(SnoozeDraft.minutes(from: "45"), 45)
-    XCTAssertEqual(SnoozeDraft.minutes(from: " 45 "), 45)
+    XCTAssertEqual(Minutes.parse("45"), 45)
+    XCTAssertEqual(Minutes.parse(" 45 "), 45)
   }
 
   func testNonPositiveAndUnreadableEntriesAreRefused() {
     for entry in ["0", "-5", "", "   ", "abc", "1.5", "10m"] {
-      XCTAssertNil(SnoozeDraft.minutes(from: entry), entry)
+      XCTAssertNil(Minutes.parse(entry), entry)
     }
   }
 
   func testAnAbsurdlyLongSnoozeIsRefused() {
     // A whole day of silence is a typo, not an intention; the daemon would take it.
-    XCTAssertEqual(SnoozeDraft.minutes(from: "1440"), 1440)
-    XCTAssertNil(SnoozeDraft.minutes(from: "1441"))
+    XCTAssertEqual(Minutes.parse("1440"), 1440)
+    XCTAssertNil(Minutes.parse("1441"))
   }
 
 }

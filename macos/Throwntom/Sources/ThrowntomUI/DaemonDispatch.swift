@@ -35,6 +35,17 @@ enum DaemonDispatch {
     }
   }
 
+  @MainActor
+  static func perform(_ request: MeetingRequest, on client: DaemonClient) {
+    Task {
+      do {
+        try await client.perform(request)
+      } catch {
+        report("send a meeting request", error)
+      }
+    }
+  }
+
   /// Service lifecycle goes straight to launchd rather than over the socket, so unlike a timer
   /// verb it is synchronous and reports through the client's own error properties.
   @MainActor

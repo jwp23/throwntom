@@ -213,7 +213,7 @@ are the dark-terminal variants; `-light` variants carry the light-terminal value
 
 - **Work (#B94A0E light / #F68C31 dark):** The icon's orange, darkened for light terminals.
   The brand colour and the colour of a running pomodoro. Use it only for the status line while in
-  `Work`; it must not be used for hints, prompts, or decoration, or it stops meaning "you
+  `Work` or `Meeting`; it must not be used for hints, prompts, or decoration, or it stops meaning "you
   are on the clock".
 - **Short break (#0E6F73 / #3FC1C9):** Teal. Rest. Never used for success messages — the
   TUI has no success colour; plain text is the default.
@@ -225,6 +225,13 @@ are the dark-terminal variants; `-light` variants carry the light-terminal value
   room for another hue that is still separable for deuteranopes, and green is
   ruled out above. The phase name is what tells the two blues apart, so a
   surface that paints lunch must also name it.
+- **Meeting (#B94A0E / #F68C31):** Work's orange, reused rather than joined by an
+  eighth hue. A meeting is worked time — it is credited in pomodoros when it
+  ends — so the colour that already means "you are on the clock" is the honest
+  one, and the ground has to carry dark ink at 4.5:1, which leaves no room for
+  another hue that is still separable for deuteranopes. The phase name is what
+  tells the two oranges apart, so a surface that paints a meeting must also name
+  it; on the macOS window the mascot's headset separates them a second time.
 - **Idle (#6B5E00 / #E6C84A):** Olive / straw yellow. The timer is ready but nothing is
   running. This is also the default for any unknown state.
 - **Paused (#6B6B6B / #9A9A9A):** Grey. The only muted colour; also reused for the lowest
@@ -238,7 +245,7 @@ are the dark-terminal variants; `-light` variants carry the light-terminal value
 
 **macOS grounds.** `macos-work`, `macos-short-break`, `macos-long-break`, `macos-idle`, `macos-paused` and `macos-awaiting-confirm` are mid-tone, saturated versions of the same six hues and fill the entire window; lunch takes `macos-long-break` too, for the reason the TUI does. `macos-disconnected` is a dark brown used whenever there is no phase to show: before the first connection, after the user stops the service, or once launchd has refused to launch it. A reconnect that still holds a phase keeps that phase's ground and goes on naming it, because the timer it names is still running; the phase name gains `(reconnecting)` so the window is not claiming a connection it does not have, but the ground does not change, because what changed is the client's reach, not the phase. A refusal has no such timer behind it, so the window drops the phase rather than keep a colour that says one is going. All text on a ground is `macos-ink` (cream on disconnected). `macos-cream` is the label of the primary chip, the paper of the snooze duration field, and the mascot's glint, page edges and drink; `macos-outline`, the icon's outline brown, is the primary chip. Each `*-chip` token is its ground under 55% black and carries white text, except `macos-disconnected-chip`, which is cream with `macos-outline` text because the service chip carries this ground's only weight — Start while stopped or refused, Stop while on its way up — and either reading has to look right. `PaletteTests` asserts text on ground and label on chip at 4.5:1 and chip on ground at 3:1; `DesignTokensTests` asserts these values equal `Palette.swift`. The look is the same in light and dark system appearance, which holds only because nothing is left to a system-drawn control to colour: the snooze pull-down wears the same chip the buttons wear, and the duration field is painted in cream under ink rather than taking the system's bezel. `SnoozeChipTests` and `SnoozeEntryRowTests` draw both offscreen in either appearance.
 
-**Mascot.** The `mascot-*` tokens are the character's own paint and never appear elsewhere: `mascot-body-light` → `mascot-body` → `mascot-body-dark` is the body's radial gradient (centre upper-left, dark at the rim); `mascot-leaf-light` → `mascot-leaf-dark` the leaf gradient; `mascot-blush` the cheeks; `mascot-prop-light`/`-dark` the laptop; `mascot-wood` the book; `mascot-sky` the drink, screen and yo-yo; `mascot-cheese` the cheese in the lunch burger, whose buns are `mascot-wood`. The sofa is painted in the phase's tones: back `*-panel`, arms the ground under 19% black, seat the ground under 10% black, so it belongs to the room it is in. Hands are `mascot-body`; every outline is `macos-outline`.
+**Mascot.** The `mascot-*` tokens are the character's own paint and never appear elsewhere: `mascot-body-light` → `mascot-body` → `mascot-body-dark` is the body's radial gradient (centre upper-left, dark at the rim); `mascot-leaf-light` → `mascot-leaf-dark` the leaf gradient; `mascot-blush` the cheeks; `mascot-prop-light`/`-dark` the laptop and the meeting headset; `mascot-wood` the book; `mascot-sky` the drink, screen and yo-yo; `mascot-cheese` the cheese in the lunch burger, whose buns are `mascot-wood`. The sofa is painted in the phase's tones: back `*-panel`, arms the ground under 19% black, seat the ground under 10% black, so it belongs to the room it is in. Hands are `mascot-body`; every outline is `macos-outline`.
 
 The dashboard (`cmd/throwntom/stats_handler.go`) reuses three of these for pomodoro counts:
 teal above `tier_mid` (default 5), tomato above `tier_low` (default 2), grey otherwise —
@@ -283,6 +290,7 @@ macOS squircle, plus an unmasked square; the `.icns` is built from the masked on
 | State | Emoji | ASCII |
 |---|---|---|
 | Work | 🍅 | `*` |
+| Meeting | 🎧 | `*` |
 | Short / long break | ☕ / 🌿 | `~` |
 | Lunch | 🍽️ | `~` |
 | Idle | 🌱 | `-` |
@@ -290,8 +298,11 @@ macOS squircle, plus an unmasked square; the `.icns` is built from the masked on
 | Awaiting confirm | 🔔 | `!` |
 | Morning reminder pending (appended) | 🔔 | `[!]` |
 
-The ASCII set must stay short plain ASCII — one or two characters for a state, three for
-the bracketed reminder marker — so the frame never depends on terminal font coverage. The emoji set is the icon's personality leaking into the terminal
+The ASCII set groups states by what they are rather than giving each one a mark: every rest
+wears `~`, and a meeting wears work's `*` because a meeting is worked time. The state text
+beside the icon is what names it. The set must stay short plain ASCII — one or two characters
+for a state, three for the bracketed reminder marker — so the frame never depends on terminal
+font coverage. The emoji set is the icon's personality leaking into the terminal
 and is the only place the product uses emoji.
 
 ### Next-stage line
@@ -324,7 +335,7 @@ a menu has to be guessed at before it can be opened.
 
 ### Mascot (macOS)
 
-The README tomato drawn in code on a 100×100 canvas scaled to 200pt: a radial-gradient body with a 2-unit `macos-outline` stroke, stem and two gradient leaves, a cream glint, two blush cheeks, eyes with a white catchlight, a mouth, and two thin line arms (3-unit `macos-outline`) that hang from one shoulder per side, ending in round `mascot-body` hands. The whole character is rotated 12° counter-clockwise and the face is drawn three-quarter, features shifted toward the near side, so it reads as turned slightly away like the README sticker. One pose per phase — laptop for work, cold drink for short break, reading on a sofa for long break, a cheeseburger in both hands for lunch, a yo-yo for idle, arms up for awaiting confirm, eyes closed and still for paused, a yanked cable for disconnected — with props always drawn so the tomato faces them, not the viewer. Lunch and the long break share a ground, so the pose is the second thing that separates them after the name. `docs/designs/mascot-screenshots/` holds the rendered poses, regenerated by `tools/mascot-snap.sh`. Idle motion (blink, ±2° breathing bob, the yo-yo's drop and return, a jump on awaiting confirm) is small and off under Reduce Motion.
+The README tomato drawn in code on a 100×100 canvas scaled to 200pt: a radial-gradient body with a 2-unit `macos-outline` stroke, stem and two gradient leaves, a cream glint, two blush cheeks, eyes with a white catchlight, a mouth, and two thin line arms (3-unit `macos-outline`) that hang from one shoulder per side, ending in round `mascot-body` hands. The whole character is rotated 12° counter-clockwise and the face is drawn three-quarter, features shifted toward the near side, so it reads as turned slightly away like the README sticker. One pose per phase — laptop for work, the same laptop and a worn headset for a meeting, cold drink for short break, reading on a sofa for long break, a cheeseburger in both hands for lunch, a yo-yo for idle, arms up for awaiting confirm, eyes closed and still for paused, a yanked cable for disconnected — with props always drawn so the tomato faces them, not the viewer. Lunch and the long break share a ground, so the pose is the second thing that separates them after the name, and a meeting and work share one the same way. A worn prop is neither a held prop nor furniture: it is drawn inside the character transform, so it turns and breathes with the body, where furniture stays put in canvas coordinates. `docs/designs/mascot-screenshots/` holds the rendered poses, regenerated by `tools/mascot-snap.sh`. Idle motion (blink, ±2° breathing bob, the yo-yo's drop and return, a jump on awaiting confirm) is small and off under Reduce Motion.
 
 ### Chip (macOS)
 
@@ -332,7 +343,7 @@ The README tomato drawn in code on a 100×100 canvas scaled to 200pt: a radial-g
 
 Three rows of chips sit under the timer: the timer verbs valid right now; the single service chip, which starts or stops the timer service itself; then the command chips (Tasks, Stats, Keyboard Shortcuts, Open Config File…), which are always secondary so the timer's primary verb keeps the only strong chip on screen. The command row exists so nothing is reachable only from the menu bar; the menu bar remains the complete command list, and the row carries only the commands that show something, never every menu item.
 
-Snooze is the one chip that is a pull-down rather than a button, because it is the one verb with a duration to choose. A plain click takes the default; pressing and holding opens 10, 15, 30 and 60 minutes, a `Custom…` field, and `Cancel Snooze`. While a snooze is running that same chip reads `Cancel Snooze` and a plain click ends it: the undo belongs on the control that caused the snooze, not somewhere else. Being a pull-down changes nothing about how it looks: it wears the same secondary chip as the buttons beside it, because a control that reads as a different kind of thing than its neighbours is a control the eye has to stop at. `Custom…` opens a one-line `Snooze for [ ] minutes` field under the chips, which takes a whole number of minutes, commits on Return and closes on Escape. The field is `macos-cream` paper under `macos-ink`, painted by the app so it reads the same whatever the system appearance is set to, and the row around it is body text like the rest of the window. It carries its own `1 to 1440 minutes` caption, in the ground's full text colour rather than dimmed — this is the line a user reads *because* what they typed was refused — so a rejected entry says what the rule is instead of only beeping.
+Snooze and Meeting are the two chips that are pull-downs rather than buttons, because they are the two verbs with a duration to choose. A plain click takes the default; pressing and holding opens the durations, a `Custom…` field, and the way out. Snooze offers 10, 15, 30 and 60 minutes and `Cancel Snooze`; Meeting offers 30 and 60 minutes and `End Meeting`, two lengths rather than four because these are the two a calendar actually books. While a snooze is running that same chip reads `Cancel Snooze` and a plain click ends it; while a meeting is running its chip reads `End Meeting` the same way. The undo belongs on the control that caused the thing, not somewhere else — which is also why a running meeting withdraws the Skip chip beside it: ending a meeting credits the time spent rather than discarding it, so `End Meeting` is the true wording, and two chips for one outcome is what the Start/Confirm rule already rules out. Being a pull-down changes nothing about how either looks: each wears the same secondary chip as the buttons beside it, because a control that reads as a different kind of thing than its neighbours is a control the eye has to stop at. Meeting is secondary in every state, never the window's primary verb: a meeting is something that happens to the user rather than the thing the window is asking them to press. `Custom…` opens a one-line `Snooze for [ ] minutes` or `Meeting for [ ] minutes` field under the chips, which takes a whole number of minutes, commits on Return and closes on Escape. The field is `macos-cream` paper under `macos-ink`, painted by the app so it reads the same whatever the system appearance is set to, and the row around it is body text like the rest of the window. It carries its own `1 to 1440 minutes` caption, in the ground's full text colour rather than dimmed — this is the line a user reads *because* what they typed was refused — so a rejected entry says what the rule is instead of only beeping.
 
 The Start chip reads `Start <Phase>` — `Start Pomodoro`, `Start Short break` — naming the phase pressing it would begin, and the Timer menu's ⌘R item is worded the same way, the way the play/pause item is worded for what pressing it does. Stopping the timer suspends rather than discards, so an idle timer can owe the break it earned: a bare Start under an `Idle` title cannot say which phase it starts, and the daemon is the only thing that knows (`owed_stage`). The daemon owes a phase whenever it is idle, so a Start chip on screen always names one; the plain verb is what a window with no daemon state to read falls back to, which is every screen with no timer service.
 

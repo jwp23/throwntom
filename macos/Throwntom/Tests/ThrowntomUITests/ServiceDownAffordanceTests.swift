@@ -32,7 +32,7 @@ final class ServiceDownMenuTests: XCTestCase {
   func testTheTimerMenuIsUntouchedWhileTheDaemonIsMerelyBeingDialled() {
     let dialling = MenuModel.timer(state: makeState(phase: .work), returnIsTaken: false, daemonAvailable: true)
 
-    XCTAssertEqual(enabled(dialling), [.pause, .skip, .skipToday, .lunch])
+    XCTAssertEqual(enabled(dialling), [.pause, .skip, .skipToday, .lunch, .meeting])
   }
 
   /// Every task verb is a command line for the daemon (`TaskActionDispatch.run`), including the

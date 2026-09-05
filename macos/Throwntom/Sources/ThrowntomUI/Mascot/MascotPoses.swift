@@ -9,12 +9,22 @@ extension MascotPose {
     leftArm: Arm(shoulder: leftShoulder, 25.5, 83.5, 32.1, 91.1, 47.2, 92.2),
     rightArm: Arm(shoulder: rightShoulder, 77.2, 90.4, 76, 96.3, 70.7, 97.2),
     held: nil,
+    worn: nil,
     furniture: .laptop,
     rotation: -12,
     scale: 1,
     offset: CGSize(width: -10, height: 0),
     motions: [.blink, .breathe],
   )
+
+  /// The work pose in a headset. A meeting takes work's ground and keeps the laptop and the hands
+  /// on the keyboard, because a meeting is still work; the headset is the whole of what separates
+  /// the two on screen.
+  static let meeting: MascotPose = {
+    var pose = work
+    pose.worn = .headset
+    return pose
+  }()
 
   /// Both hands on a cold drink, eyes closed.
   static let shortBreak = MascotPose(
@@ -23,6 +33,7 @@ extension MascotPose {
     leftArm: Arm(shoulder: leftShoulder, 16, 80, 22, 86, 35, 85),
     rightArm: Arm(shoulder: rightShoulder, 88, 74, 84, 80, 71, 80),
     held: .drink,
+    worn: nil,
     furniture: nil,
     rotation: -12,
     scale: 1,
@@ -37,6 +48,7 @@ extension MascotPose {
     leftArm: Arm(shoulder: leftShoulder, 16, 74, 22, 86, 34, 82),
     rightArm: Arm(shoulder: rightShoulder, 84, 74, 78, 86, 66, 82),
     held: .book,
+    worn: nil,
     furniture: .sofa,
     rotation: -10,
     scale: 0.8,
@@ -51,6 +63,7 @@ extension MascotPose {
     leftArm: Arm(shoulder: leftShoulder, 16, 80, 24, 88, 40, 89),
     rightArm: Arm(shoulder: rightShoulder, 84, 80, 78, 88, 71, 89),
     held: .burger,
+    worn: nil,
     furniture: nil,
     rotation: -12,
     scale: 1,
@@ -65,6 +78,7 @@ extension MascotPose {
     leftArm: Arm(shoulder: leftShoulder, 10, 70, 11.8, 80.6, 24.6, 83.3),
     rightArm: Arm(shoulder: rightShoulder, 82.1, 77.2, 84.3, 85.8, 77, 91.4),
     held: .yoyo,
+    worn: nil,
     furniture: nil,
     rotation: -12,
     scale: 1,
@@ -79,6 +93,7 @@ extension MascotPose {
     leftArm: Arm(shoulder: leftShoulder, 10, 54, 10, 40, 20, 29),
     rightArm: Arm(shoulder: rightShoulder, 90, 54, 90, 40, 80, 29),
     held: .exclamation,
+    worn: nil,
     furniture: nil,
     rotation: -12,
     scale: 1,
@@ -93,6 +108,7 @@ extension MascotPose {
     leftArm: Arm(shoulder: leftShoulder, 16, 80, 22, 86, 35, 85),
     rightArm: Arm(shoulder: rightShoulder, 84, 80, 78, 86, 65, 85),
     held: .cable,
+    worn: nil,
     furniture: nil,
     rotation: -12,
     scale: 1,
@@ -105,6 +121,7 @@ extension MascotPose {
   static func pose(for phase: DaemonState.Phase?, pausedFrom: DaemonState.Phase) -> MascotPose {
     switch phase {
     case .work: work
+    case .meeting: meeting
     case .shortBreak: shortBreak
     case .longBreak: longBreak
     case .lunch: lunch

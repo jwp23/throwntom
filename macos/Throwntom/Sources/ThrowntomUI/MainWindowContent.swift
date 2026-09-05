@@ -71,6 +71,7 @@ struct MainWindowContent: Equatable {
     let snoozeRemaining = shown?.snoozeUntil.map { Countdown.formatRemaining($0.timeIntervalSince(now)) }
     self.snoozeRemaining = snoozeRemaining
     snoozeNote = snoozeRemaining.map { Self.snoozeNote(remaining: $0) }
+    isMeeting = shown?.state == .meeting
     chips = shown.map(TimerActions.available(for:)) ?? []
     startTitle = TimerActions.startTitle(for: shown)
     primaryChip = [TimerAction.confirm, .start, .resume].first(where: chips.contains)
@@ -99,6 +100,11 @@ struct MainWindowContent: Equatable {
   /// The moving half of `snoozeNote`, on its own, so the line can be read out as a steady name
   /// with a value that changes under it rather than as a new label every second.
   let snoozeRemaining: String?
+  /// Whether a meeting is running, which is what turns the meeting chip into the way out of one.
+  /// Read from the phase the window is showing rather than from the daemon state again, so the
+  /// chip's face can never disagree with the ground and title around it — a client that has lost
+  /// the daemon draws no phase, and must not go on offering to end a meeting it cannot end.
+  let isMeeting: Bool
   let chips: [TimerAction]
   let primaryChip: TimerAction?
   /// Start or Stop for the timer service itself, which is offered whatever the timer is doing.
@@ -146,7 +152,8 @@ struct MainWindowContent: Equatable {
     case .work,
          .shortBreak,
          .longBreak,
-         .lunch:
+         .lunch,
+         .meeting:
       state.phaseEndAt.map { Countdown.formatRemaining($0.timeIntervalSince(now)) }
     case .paused:
       Countdown.formatRemaining(TimeInterval(state.pausedRemaining))

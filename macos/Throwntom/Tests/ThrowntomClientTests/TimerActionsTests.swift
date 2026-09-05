@@ -6,13 +6,16 @@ final class TimerActionsTests: XCTestCase {
   // MARK: Internal
 
   func testIdleOffersStartSkipTodayAndSnoozeOnlyWhenMorningPending() {
-    XCTAssertEqual(TimerActions.available(for: state(.idle)), [.start, .newCycle, .skipToday])
-    XCTAssertEqual(TimerActions.available(for: state(.idle, morningPending: true)), [.start, .newCycle, .snooze, .skipToday])
+    XCTAssertEqual(TimerActions.available(for: state(.idle)), [.start, .newCycle, .meeting, .skipToday])
+    XCTAssertEqual(
+      TimerActions.available(for: state(.idle, morningPending: true)),
+      [.start, .newCycle, .snooze, .meeting, .skipToday],
+    )
   }
 
   func testRunningPhasesOfferPauseSkipAndEndingTheDay() {
     for phase in [DaemonState.Phase.work, .shortBreak, .longBreak, .lunch] {
-      XCTAssertEqual(TimerActions.available(for: state(phase)), [.pause, .skip, .skipToday], "\(phase)")
+      XCTAssertEqual(TimerActions.available(for: state(phase)), [.pause, .skip, .meeting, .skipToday], "\(phase)")
     }
   }
 
@@ -24,13 +27,13 @@ final class TimerActionsTests: XCTestCase {
   }
 
   func testPausedOffersResumeAndEndingTheDay() {
-    XCTAssertEqual(TimerActions.available(for: state(.paused)), [.resume, .skipToday])
+    XCTAssertEqual(TimerActions.available(for: state(.paused)), [.resume, .meeting, .skipToday])
   }
 
   func testAwaitingConfirmOffersConfirmSnoozeNewCycleAndEndingTheDay() {
     XCTAssertEqual(
       TimerActions.available(for: state(.awaitingConfirm)),
-      [.confirm, .snooze, .newCycle, .skipToday],
+      [.confirm, .snooze, .newCycle, .meeting, .skipToday],
     )
   }
 

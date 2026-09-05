@@ -133,7 +133,7 @@ func TestParseSnoozeDurationBareNumber(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseSnoozeDuration(tt.input)
+			got, err := parseDurationArg(tt.input, "snooze")
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")

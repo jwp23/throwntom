@@ -1,0 +1,323 @@
+package engine
+
+import (
+	"encoding/json"
+	"testing"
+	"time"
+)
+
+// A meeting is time the user spends away from the timer but still at work, so
+// unlike lunch it credits pomodoros rather than ending the block. These tests
+// pin the credit arithmetic and the block crossover the credits can cause.
+
+func TestMeetingStateRoundTripsThroughItsName(t *testing.T) {
+	data, err := json.Marshal(Meeting)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if string(data) != `"meeting"` {
+		t.Fatalf("marshalled as %s, want \"meeting\"", data)
+	}
+	var back State
+	if err := json.Unmarshal(data, &back); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if back != Meeting {
+		t.Fatalf("round-tripped to %v, want Meeting", back)
+	}
+}
+
+func TestStartMeetingEntersMeetingFromAnyState(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		setup func(*Engine)
+	}{
+		{"idle", func(*Engine) {}},
+		{"work", func(e *Engine) { e.StartWork() }},
+		{"short break", func(e *Engine) { e.StartWork(); e.MarkPeriodComplete(); e.ConfirmNext() }},
+		{"lunch", func(e *Engine) { e.StartLunch() }},
+		{"paused", func(e *Engine) { e.StartWork(); e.Pause() }},
+		{"awaiting confirm", func(e *Engine) { e.StartWork(); e.MarkPeriodComplete() }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := New(25, 5, 15, 4)
+			tc.setup(e)
+			e.StartMeeting()
+			if e.State() != Meeting {
+				t.Fatalf("state is %v, want Meeting", e.State())
+			}
+		})
+	}
+}
+
+// The credit a meeting earns is its length in pomodoros, rounded to the
+// nearest with a half rounding up. A 60-minute meeting on a 25-minute
+// pomodoro is 2.4 pomodoros and credits 2, which is the ruling this whole
+// feature was specified against.
+func TestMeetingCreditsRoundToTheNearestPomodoro(t *testing.T) {
+	for _, tc := range []struct {
+		elapsed     time.Duration
+		workMinutes int
+		want        int
+	}{
+		{60 * time.Minute, 25, 2},
+		{30 * time.Minute, 25, 1},
+		{40 * time.Minute, 25, 2},
+		{10 * time.Minute, 25, 0},
+		{75 * time.Minute, 25, 3},
+		// Exactly half a pomodoro rounds up, and a hair under it rounds down.
+		{5 * time.Minute, 10, 1},
+		{299 * time.Second, 10, 0},
+		{0, 25, 0},
+	} {
+		if got := MeetingCredits(tc.elapsed, tc.workMinutes); got != tc.want {
+			t.Errorf("MeetingCredits(%v, %d) = %d, want %d", tc.elapsed, tc.workMinutes, got, tc.want)
+		}
+	}
+}
+
+func TestCompletedMeetingAwaitsConfirm(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartMeeting()
+	e.CompleteMeeting(30 * time.Minute)
+	if e.State() != AwaitingConfirm {
+		t.Fatalf("state is %v, want AwaitingConfirm", e.State())
+	}
+}
+
+func TestCompletedMeetingCreditsTheDayAndTheBlock(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartMeeting()
+	e.CompleteMeeting(60 * time.Minute)
+	if got := e.CompletedToday(); got != 2 {
+		t.Fatalf("completed today is %d, want 2", got)
+	}
+	if got := e.WorkSessionsInBlock(); got != 2 {
+		t.Fatalf("work sessions in block is %d, want 2", got)
+	}
+}
+
+// A meeting earns the break its credits are worth, exactly as the same work
+// done at the timer would have: a meeting mid-block earns the short break.
+func TestMeetingIsFollowedByTheBreakItsCreditsEarn(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartWork()
+	e.StartMeeting()
+	e.CompleteMeeting(30 * time.Minute)
+	if next := e.NextPhase(); next != ShortBreak {
+		t.Fatalf("next phase is %v, want ShortBreak", next)
+	}
+	e.ConfirmNext()
+	if e.State() != ShortBreak {
+		t.Fatalf("state is %v, want ShortBreak", e.State())
+	}
+}
+
+// The break a meeting earns is the longest one its credits allow, which is the
+// rule a worked pomodoro already follows -- so a meeting and the same time
+// spent at the timer lead to the same place.
+//
+// Up to a whole block. Past one they legitimately part company: a worked run
+// stops at the boundary and takes its long break on the way through, so the
+// pomodoro after it has earned only the short one, while a meeting that spans
+// the boundary in a single stride has not had that long break yet and is owed
+// it at the end. `TestMeetingCreditsCrossingTheBlockBoundaryEarnTheLongBreak`
+// is that case.
+func TestAMeetingEarnsTheSameBreakTheSameWorkWouldHave(t *testing.T) {
+	every := 4
+	for credits := 1; credits <= every; credits++ {
+		// The control arm stops on the boundary the meeting stops on: the Nth
+		// pomodoro finished and its break not yet taken.
+		worked := New(25, 5, 15, every)
+		worked.StartWork()
+		for i := range credits {
+			if i > 0 {
+				worked.ConfirmNext()
+				worked.MarkPeriodComplete()
+				worked.ConfirmNext()
+			}
+			worked.MarkPeriodComplete()
+		}
+
+		met := New(25, 5, 15, every)
+		met.StartMeeting()
+		met.CompleteMeeting(time.Duration(credits) * 25 * time.Minute)
+
+		if got, want := met.NextPhase(), worked.NextPhase(); got != want {
+			t.Fatalf("%d credits: a meeting leads to %v, the same work to %v", credits, got, want)
+		}
+	}
+}
+
+// The crossover ruling: three pomodoros done in a block of four, then a
+// 60-minute meeting credits two. The fourth completes the block, so the long
+// break follows, and the fifth carries into the next block as its first — the
+// next worked pomodoro is that block's second.
+func TestMeetingCreditsCrossingTheBlockBoundaryEarnTheLongBreak(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartWork()
+	for range 3 {
+		workAndRest(e)
+	}
+	if got := e.WorkSessionsInBlock(); got != 3 {
+		t.Fatalf("work sessions in block is %d, want 3 before the meeting", got)
+	}
+
+	e.StartMeeting()
+	e.CompleteMeeting(60 * time.Minute)
+	if got := e.WorkSessionsInBlock(); got != 5 {
+		t.Fatalf("work sessions in block is %d, want 5 after the meeting", got)
+	}
+	if next := e.NextPhase(); next != LongBreak {
+		t.Fatalf("next phase is %v, want LongBreak", next)
+	}
+
+	e.ConfirmNext()
+	e.MarkPeriodComplete()
+	e.ConfirmNext()
+	if e.State() != Work {
+		t.Fatalf("state after the long break is %v, want Work", e.State())
+	}
+	e.MarkPeriodComplete()
+	if got := e.WorkSessionsInBlock(); got != 6 {
+		t.Fatalf("work sessions in block is %d, want 6 -- the second of the new block", got)
+	}
+	if next := e.NextPhase(); next != ShortBreak {
+		t.Fatalf("next phase is %v, want ShortBreak -- the block is not done again yet", next)
+	}
+}
+
+// A meeting whose credits land exactly on the boundary ends the block too;
+// nothing about the boundary requires being jumped over rather than hit.
+func TestMeetingCreditsLandingOnTheBoundaryEarnTheLongBreak(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartWork()
+	for range 2 {
+		workAndRest(e)
+	}
+	e.StartMeeting()
+	e.CompleteMeeting(50 * time.Minute)
+	if got := e.WorkSessionsInBlock(); got != 4 {
+		t.Fatalf("work sessions in block is %d, want 4", got)
+	}
+	if next := e.NextPhase(); next != LongBreak {
+		t.Fatalf("next phase is %v, want LongBreak", next)
+	}
+}
+
+// A meeting too short to credit anything leaves the count where it was, and
+// the user goes back to work.
+func TestMeetingTooShortToCreditChangesNoCount(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartWork()
+	workAndRest(e)
+	e.StartMeeting()
+	e.CompleteMeeting(5 * time.Minute)
+	if got := e.CompletedToday(); got != 1 {
+		t.Fatalf("completed today is %d, want 1", got)
+	}
+	if got := e.WorkSessionsInBlock(); got != 1 {
+		t.Fatalf("work sessions in block is %d, want 1", got)
+	}
+	// A break still follows: the user was in a meeting, and the block is no
+	// further on than it was, so the short break is what they are allowed.
+	if next := e.NextPhase(); next != ShortBreak {
+		t.Fatalf("next phase is %v, want ShortBreak", next)
+	}
+}
+
+// A meeting does not end the block the way lunch does: the pomodoros done
+// before it still count toward the long break.
+func TestMeetingKeepsTheBlockLunchWouldEnd(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartWork()
+	for range 2 {
+		workAndRest(e)
+	}
+	e.StartMeeting()
+	if got := e.WorkSessionsInBlock(); got != 2 {
+		t.Fatalf("work sessions in block is %d, want 2 -- a meeting keeps the block", got)
+	}
+}
+
+// A stop during a meeting suspends the cycle like any other phase, and the
+// phase it owes on the way back is what the meeting's credits earned.
+func TestOwedPhaseAfterAMeetingFollowsItsCredits(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartWork()
+	for range 3 {
+		workAndRest(e)
+	}
+	e.StartMeeting()
+	e.CompleteMeeting(60 * time.Minute)
+	e.Stop()
+	if owed := e.OwedPhase(); owed != LongBreak {
+		t.Fatalf("owed phase is %v, want LongBreak", owed)
+	}
+}
+
+// Only a meeting can be completed as one. The guard is what stops a stray
+// call crediting a pomodoro's worth of meeting time to a phase that was never
+// a meeting, which would inflate the day's total from nowhere.
+func TestCompletingAMeetingThatIsNotRunningChangesNothing(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartWork()
+	before := e.Snapshot()
+
+	e.CompleteMeeting(60 * time.Minute)
+
+	if e.Snapshot() != before {
+		t.Fatalf("completing a meeting during %s changed the engine", before.State)
+	}
+}
+
+func TestMeetingCanBePausedAndResumed(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartMeeting()
+	if !e.Pause() {
+		t.Fatal("a running meeting refused to pause")
+	}
+	if !e.Resume() {
+		t.Fatal("a paused meeting refused to resume")
+	}
+	if e.State() != Meeting {
+		t.Fatalf("state is %v, want Meeting", e.State())
+	}
+}
+
+// Both boundaries a meeting can reach have to survive a restore, or the
+// session file is discarded and the meeting in flight is lost.
+func TestSnapshotsReachedThroughAMeetingAreValid(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartMeeting()
+	if reason := e.Snapshot().Invalid(); reason != "" {
+		t.Fatalf("a running meeting is invalid: %s", reason)
+	}
+	e.Pause()
+	if reason := e.Snapshot().Invalid(); reason != "" {
+		t.Fatalf("a paused meeting is invalid: %s", reason)
+	}
+	e.Resume()
+	e.CompleteMeeting(30 * time.Minute)
+	if reason := e.Snapshot().Invalid(); reason != "" {
+		t.Fatalf("a meeting awaiting confirm is invalid: %s", reason)
+	}
+}
+
+// Restoring has to bring back the credits the meeting earned, so the break the
+// far side of a restart is the one the meeting bought.
+func TestRestoreKeepsWhatAMeetingCredited(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.StartWork()
+	for range 3 {
+		workAndRest(e)
+	}
+	e.StartMeeting()
+	e.CompleteMeeting(60 * time.Minute)
+
+	restored := New(25, 5, 15, 4)
+	restored.Restore(e.Snapshot())
+	if next := restored.NextPhase(); next != LongBreak {
+		t.Fatalf("next phase after restore is %v, want LongBreak", next)
+	}
+}

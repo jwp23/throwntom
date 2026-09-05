@@ -105,7 +105,14 @@ enum Palette {
 
   static func scheme(for phase: DaemonState.Phase?) -> PhaseScheme {
     switch phase {
-    case .work: jewel(ground: "#D9651A", secondaryChip: "#622D0C", panel: "#9C4913")
+    // Meeting takes work's orange for the reason lunch takes the long break's blue, and with the
+    // same consequence: a meeting is worked time — it is credited in pomodoros — so the colour
+    // that already means "you are on the clock" is the honest one, and the narrow band of
+    // luminance that will carry dark ink at 4.5:1 has no room for an eighth ground anyway. The
+    // phase name and the mascot's headset are what tell the two oranges apart, so a surface that
+    // paints a meeting must also name it.
+    case .work,
+         .meeting: jewel(ground: "#D9651A", secondaryChip: "#622D0C", panel: "#9C4913")
     case .shortBreak: jewel(ground: "#1E9AA3", secondaryChip: "#0D4549", panel: "#166F75")
     // Lunch takes the long break's blue rather than a seventh ground. Every ground carries dark
     // ink at 4.5:1, which confines them to one narrow band of luminance, and rest is already

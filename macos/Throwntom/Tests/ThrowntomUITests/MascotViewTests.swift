@@ -15,6 +15,7 @@ final class MascotViewTests: XCTestCase {
   func testEveryPoseBuildsAtEveryScale() {
     let poses: [MascotPose] = [
       .work,
+      .meeting,
       .shortBreak,
       .longBreak,
       .lunch,
@@ -41,6 +42,7 @@ final class MascotViewTests: XCTestCase {
     XCTAssertEqual(MascotCharacterView.layers(for: .longBreak), [.body, .face, .arms, .held(.book), .hands])
     XCTAssertEqual(MascotCharacterView.layers(for: .shortBreak), [.body, .face, .arms, .hands, .held(.drink)])
     XCTAssertEqual(MascotCharacterView.layers(for: .work), [.body, .face, .arms, .hands])
+    XCTAssertEqual(MascotCharacterView.layers(for: .meeting), [.body, .face, .worn(.headset), .arms, .hands])
   }
 
   func testPoseChangesDoNotAnimateUnderReduceMotion() {
@@ -49,7 +51,7 @@ final class MascotViewTests: XCTestCase {
   }
 
   func testLayersAreUniqueSoIdentityIsStable() {
-    let poses: [MascotPose] = [.work, .shortBreak, .longBreak, .lunch, .idle, .awaitingConfirm, .disconnected]
+    let poses: [MascotPose] = [.work, .meeting, .shortBreak, .longBreak, .lunch, .idle, .awaitingConfirm, .disconnected]
     for pose in poses {
       let layers = MascotCharacterView.layers(for: pose)
       XCTAssertEqual(Set(layers).count, layers.count)

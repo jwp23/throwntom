@@ -120,7 +120,7 @@ final class MenuBindingTests: XCTestCase {
   /// Timer 8 + snooze 6 + service 1 + Tasks 6 + View 3 + config 1. Asserting the exact number
   /// keeps these tests from passing vacuously: an empty list would satisfy every loop below while
   /// checking nothing.
-  private static let commandCount = 25
+  private static let commandCount = 26
 
   /// Every command the app offers for one snapshot: the four menu models, with the task menu given
   /// a selected task so none of its verbs is withheld.

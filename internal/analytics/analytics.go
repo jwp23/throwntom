@@ -102,6 +102,8 @@ func (a *accumulator) processEvent(ev eventlog.Event, b periodBounds) {
 		a.hasStart = true
 	case "pomodoro_completed":
 		a.processCompletion(ev, dayKey, periods, active)
+	case "meeting_completed":
+		a.processMeeting(ev, dayKey, periods, active)
 	case "stopped",
 		"skipped":
 		// A pomodoro that was stopped or skipped was never finished, so the
@@ -136,6 +138,62 @@ func (a *accumulator) processCompletion(ev eventlog.Event, dayKey string, period
 		a.hasStart = false
 	}
 }
+
+// processMeeting credits a finished meeting: the pomodoros its length was
+// worth, and the minutes spent in it as focus time. One event carries the
+// whole credit rather than the log repeating a completion per pomodoro, which
+// would claim the user sat pomodoros they did not.
+//
+// A meeting also closes whatever pomodoro was open, the way a stop or a skip
+// does. The user left the timer to attend it, so the time it took is the
+// meeting's and must not be charged again to the next completion.
+func (a *accumulator) processMeeting(ev eventlog.Event, dayKey string, periods []*PeriodStats, active [3]bool) {
+	a.hasStart = false
+
+	pomodoros := intFromData(ev.Data, "pomodoros")
+	minutes := intFromData(ev.Data, "minutes")
+
+	if minutes > 0 {
+		a.dash.AllTime.FocusMinutes += minutes
+		addToActive(periods, active, func(p *PeriodStats) { p.FocusMinutes += minutes })
+	}
+	if pomodoros <= 0 {
+		return
+	}
+	a.dash.AllTime.Pomodoros += pomodoros
+	a.pomDays[dayKey] += pomodoros
+	a.hourCounts[ev.Timestamp.Hour()] += pomodoros
+	wd := ev.Timestamp.Weekday()
+	a.wdCounts[wd] += pomodoros
+	if a.wdDays[wd] == nil {
+		a.wdDays[wd] = make(map[string]bool)
+	}
+	a.wdDays[wd][dayKey] = true
+	addToActive(periods, active, func(p *PeriodStats) { p.Pomodoros += pomodoros })
+}
+
+// intFromData reads a whole number written into an event's data. The log is
+// read back from disk, where every number arrives as a float64 and a
+// hand-edited or truncated line may hold anything at all, so a value that is
+// not a number counts as absent rather than as a reason to fail the whole
+// dashboard.
+//
+// A number too large to be a count of anything counts as absent too. Converting
+// one is undefined in Go, and what it actually produces is a saturated int that
+// then sums into every total on the dashboard — a day of work nobody can
+// account for, which is worse than the line being ignored.
+func intFromData(data map[string]any, key string) int {
+	value, ok := data[key].(float64)
+	if !ok || value < 0 || value > maxCredit {
+		return 0
+	}
+	return int(value)
+}
+
+// maxCredit is the largest count an event may claim. A day holds 1440 minutes,
+// so nothing honest comes close; the bound exists to keep a corrupt line from
+// deciding what the dashboard says.
+const maxCredit = 1_000_000
 
 func addToActive(periods []*PeriodStats, active [3]bool, fn func(*PeriodStats)) {
 	for i, p := range periods {
