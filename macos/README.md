@@ -32,12 +32,17 @@ afterwards.
 
 ## First launch
 
-On first launch the app registers its bundled launchd agent
-(`com.jwp23.throwntom.daemon`), which starts `throwntomd` and keeps it alive.
-macOS shows a "Background item added" notification; nothing to approve. The
-agent appears in System Settings → General → Login Items. Until the socket
-answers — up to about half a minute after registration — the window shows
-"Starting timer…" with the disconnected mascot.
+On first launch the app writes a launchd agent
+(`~/Library/LaunchAgents/com.jwp23.throwntom.daemon.plist`) naming the
+`throwntomd` inside its own bundle, and loads it; launchd starts the daemon and
+keeps it alive. Until the socket answers — up to about half a minute after
+registration — the window shows "Starting timer…" with the disconnected mascot.
+
+The agent names an absolute path rather than being registered through
+SMAppService, which is what makes an upgrade work: a registered agent is pinned
+to the designated requirement of the signature it was registered with, and an
+ad-hoc build's requirement is its cdhash, so a rebuilt daemon failed the launch
+constraint and never started again (`docs/adr/012-the-daemon-runs-from-a-plain-launch-agent.md`).
 
 The window is phase-coloured throughout, so its ground follows the current
 phase as it changes. When a reminder is outstanding — a phase awaiting
@@ -71,9 +76,9 @@ Press ⌘/ for the keyboard shortcut sheet (Esc or Done closes it); it lists
 every shortcut currently bound, generated from the same menu models the
 app's menus use, so it can't drift out of sync.
 
-If the agent is enabled in Login Items but launchd has no job for it (after a
-`bootout`, or a rebuild), the app unregisters and re-registers it after three
-failed connection attempts; the window's header shows "Starting timer…" meanwhile.
+If launchd has no job for the agent (after a `bootout`), or its plist names the
+bundle an upgrade replaced, the app rewrites and reloads it after three failed
+connection attempts; the window's header shows "Starting timer…" meanwhile.
 If launchd refuses outright the header reads "Timer service can't launch" and the
 note under it names launchd and points at the **Start Timer Service** chip, which
 retries the registration.
