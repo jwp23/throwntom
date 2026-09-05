@@ -86,19 +86,22 @@ func (s *stageTally) add(next, owed bool) {
 	s.owed = s.owed || owed
 }
 
-// The verb refuses nothing. Each state is reached the way a user reaches it,
-// then lunch is taken from it.
-func TestReadmeSaysLunchIsAvailableFromAnyState(t *testing.T) {
-	readmeLunch(t)
-	every := config.Default().Pomodoro.LongBreakEvery
+// lunchStart is a state lunch has to be available from, and the way a user
+// reaches it. `from` names the state the setup must actually land in, so a
+// setup that stops short is caught rather than quietly testing idle eight
+// times.
+type lunchStart struct {
+	name  string
+	from  engine.State
+	reach func(*Core)
+}
 
-	// from names the state each setup must actually reach, so a setup that
-	// stops short is caught rather than quietly testing idle eight times.
-	for _, tc := range []struct {
-		name  string
-		from  engine.State
-		reach func(*Core)
-	}{
+// lunchStarts is every state the timer can be sitting in, built apart from the
+// test that sweeps them: the setups carry loops of their own, and inlining
+// them left the test reading as one long method rather than as the one claim
+// it makes.
+func lunchStarts(every int) []lunchStart {
+	return []lunchStart{
 		{"idle", engine.Idle, func(*Core) {}},
 		{"a pomodoro", engine.Work, func(c *Core) { c.execute(cmdStart) }},
 		{"a pomodoro waiting to be confirmed", engine.AwaitingConfirm, func(c *Core) {
@@ -127,7 +130,15 @@ func TestReadmeSaysLunchIsAvailableFromAnyState(t *testing.T) {
 		}},
 		{"the day ended", engine.Idle, func(c *Core) { c.execute("skip-today") }},
 		{"lunch itself", engine.Lunch, func(c *Core) { c.execute(cmdLunch) }},
-	} {
+	}
+}
+
+// The verb refuses nothing. Each state is reached the way a user reaches it,
+// then lunch is taken from it.
+func TestReadmeSaysLunchIsAvailableFromAnyState(t *testing.T) {
+	readmeLunch(t)
+
+	for _, tc := range lunchStarts(config.Default().Pomodoro.LongBreakEvery) {
 		t.Run(tc.name, func(t *testing.T) {
 			c := lunchlessCore(t)
 			tc.reach(c)
