@@ -36,8 +36,14 @@ public struct LaunchdAgentService: LaunchAgentService {
 
   // MARK: Lifecycle
 
-  public init(bundle: Bundle = .main, home: URL = FileManager.default.homeDirectoryForCurrentUser) {
-    self.bundle = bundle
+  /// Takes the bundle's URL rather than the `Bundle`: this type is `Sendable`, and `Bundle` is a
+  /// reference type that is not. The URL is all the agent needs, and a test can point it at one
+  /// it made itself.
+  public init(
+    bundleURL: URL = Bundle.main.bundleURL,
+    home: URL = FileManager.default.homeDirectoryForCurrentUser,
+  ) {
+    self.bundleURL = bundleURL
     self.home = home
   }
 
@@ -76,7 +82,7 @@ public struct LaunchdAgentService: LaunchAgentService {
 
   // MARK: Private
 
-  private let bundle: Bundle
+  private let bundleURL: URL
   private let home: URL
 
   private var plistURL: URL {
@@ -112,7 +118,7 @@ public struct LaunchdAgentService: LaunchAgentService {
   }
 
   private func daemonPath() throws -> String {
-    let path = bundle.bundleURL.appendingPathComponent("Contents/MacOS/throwntomd").path
+    let path = bundleURL.appendingPathComponent("Contents/MacOS/throwntomd").path
     guard FileManager.default.isExecutableFile(atPath: path) else {
       throw LaunchdAgentError.daemonMissingFromBundle
     }

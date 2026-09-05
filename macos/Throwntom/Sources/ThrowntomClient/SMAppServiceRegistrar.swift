@@ -30,7 +30,7 @@ public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
     case .enabled: "Timer agent enabled"
     case .requiresApproval: "Timer agent needs approval in Login Items"
     case .notRegistered: "Timer agent not registered"
-    case .notFound: "Timer agent plist not found in bundle"
+    case .notFound: "Timer daemon missing from the app bundle"
     case .unknown: "Timer agent status unknown"
     }
   }

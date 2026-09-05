@@ -62,7 +62,7 @@ final class SMAppServiceRegistrarTests: XCTestCase {
       (.enabled, "Timer agent enabled"),
       (.requiresApproval, "Timer agent needs approval in Login Items"),
       (.notRegistered, "Timer agent not registered"),
-      (.notFound, "Timer agent plist not found in bundle"),
+      (.notFound, "Timer daemon missing from the app bundle"),
       (.unknown, "Timer agent status unknown"),
     ]
     for (status, text) in descriptions {
