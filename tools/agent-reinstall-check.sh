@@ -40,7 +40,10 @@ reset_to_healthy() {
   sleep 1
   open "$HOME/Applications/Throwntom.app" >/dev/null 2>&1
   sleep "$SETTLE"
-  [[ "$(launchctl list | awk -v l="$LABEL" '$3 == l {print $2}')" == "0" ]]
+  if [[ "$(launchctl list | awk -v l="$LABEL" '$3 == l {print $2}')" == "0" ]]; then
+    return 0
+  fi
+  return 1
 }
 
 for pass in $(seq 1 "$PASSES"); do
