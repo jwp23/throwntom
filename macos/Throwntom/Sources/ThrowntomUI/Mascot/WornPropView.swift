@@ -21,20 +21,27 @@ enum WornProps {
     path.ellipse(units, 81, 50, 6.5, 8.5)
   }
 
-  /// The plate on the near cup: the one light note in an otherwise dark accessory, so the cup does
-  /// not read as a hole in the silhouette.
-  static let headsetNearCupPlate = DesignShape { path, units in
-    path.ellipse(units, 81, 50, 3, 4.5)
+  /// The pads, one per cup, each half its own cup across. A pair of ears is a pair: two cups
+  /// painted differently read as a mistake rather than as perspective, so both carry the same
+  /// mark and only the size differs, which is what the three-quarter turn actually changes.
+  static let headsetFarCupPad = DesignShape { path, units in
+    path.ellipse(units, 19, 52, 2.5, 3.5)
   }
 
-  /// The boom, leaving the near cup and curving forward to the near corner of the mouth.
+  static let headsetNearCupPad = DesignShape { path, units in
+    path.ellipse(units, 81, 50, 3.25, 4.25)
+  }
+
+  /// The boom, leaving the near cup and curving down the jaw to the open cheek. It stops short of
+  /// the mouth, which a capsule held against the smile merges with, and short of the body rim,
+  /// where one disappears into the outline it is sitting on.
   static let headsetBoom = DesignShape { path, units in
-    path.move(units, 80, 57)
-    path.curve(units, 79, 64, 75, 68, 69, 69)
+    path.move(units, 80, 58)
+    path.curve(units, 80.5, 64, 78, 69, 74, 71.5)
   }
 
   static let headsetMic = DesignShape { path, units in
-    path.circle(units, 69, 69, 2.6)
+    path.circle(units, 73.5, 72, 2.6)
   }
 }
 
@@ -76,13 +83,19 @@ struct WornPropView: View {
       WornProps.headsetBand.stroke(MascotPalette.propDark.color, style: StrokeStyle(lineWidth: 3.5 * unit, lineCap: .round))
       WornProps.headsetBoom.stroke(outline, style: StrokeStyle(lineWidth: 3.5 * unit, lineCap: .round))
       WornProps.headsetBoom.stroke(MascotPalette.propDark.color, style: StrokeStyle(lineWidth: 2 * unit, lineCap: .round))
-      WornProps.headsetMic.fill(MascotPalette.propDark.color)
+      // The capsule wears the cups' shell rather than the band's dark: a dark blob this close to
+      // the body outline reads as part of the outline, which is what stopped it saying microphone.
+      WornProps.headsetMic.fill(MascotPalette.propLight.color)
       WornProps.headsetMic.stroke(outline, lineWidth: 1.5 * unit)
-      WornProps.headsetFarCup.fill(MascotPalette.propDark.color)
+      // The cups are the laptop's pairing the same way round — the light shell carries the dark
+      // pad — so the headset belongs to the same set of hardware the tomato already owns, and
+      // reads against the red body rather than sinking into its own outline.
+      WornProps.headsetFarCup.fill(MascotPalette.propLight.color)
       WornProps.headsetFarCup.stroke(outline, style: edge)
-      WornProps.headsetNearCup.fill(MascotPalette.propDark.color)
+      WornProps.headsetFarCupPad.fill(MascotPalette.propDark.color)
+      WornProps.headsetNearCup.fill(MascotPalette.propLight.color)
       WornProps.headsetNearCup.stroke(outline, style: edge)
-      WornProps.headsetNearCupPlate.fill(MascotPalette.propLight.color)
+      WornProps.headsetNearCupPad.fill(MascotPalette.propDark.color)
     }
   }
 
