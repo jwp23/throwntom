@@ -1,0 +1,129 @@
+import Foundation
+
+// MARK: - LaunchdAgentState
+
+/// Whether launchd is running the daemon this bundle ships, decided from what can be observed:
+/// the plist on disk and whether the job is loaded. Kept apart from the process calls below so
+/// the rule can be tested without registering an agent on the machine running the tests.
+public enum LaunchdAgentState {
+  public static func status(
+    installedProgramPath: String?,
+    expectedProgramPath: String,
+    isLoaded: Bool,
+  ) -> AgentStatus {
+    guard installedProgramPath == expectedProgramPath, isLoaded else {
+      return .notRegistered
+    }
+    return .enabled
+  }
+}
+
+// MARK: - LaunchdAgentError
+
+public enum LaunchdAgentError: Error {
+  /// launchctl refused the job. The status is its exit code; its output is deliberately not
+  /// carried, so nothing the user typed or named can reach a log through an error message.
+  case launchctlFailed(command: String, status: Int32)
+  case daemonMissingFromBundle
+}
+
+// MARK: - LaunchdAgentService
+
+/// The launchd agent that owns throwntomd, driven as a plain LaunchAgent naming an absolute
+/// path (ADR-012). Every call here changes the machine's launchd state, so this wrapper is
+/// deliberately thin; `tools/agent-reinstall-check.sh` is what exercises it end to end.
+public struct LaunchdAgentService: LaunchAgentService {
+
+  // MARK: Lifecycle
+
+  public init(bundle: Bundle = .main, home: URL = FileManager.default.homeDirectoryForCurrentUser) {
+    self.bundle = bundle
+    self.home = home
+  }
+
+  // MARK: Public
+
+  public var status: AgentStatus {
+    guard let daemonPath = try? daemonPath() else {
+      return .notFound
+    }
+    return LaunchdAgentState.status(
+      installedProgramPath: LaunchdAgentPlist.programPath(inPlistAt: plistURL),
+      expectedProgramPath: daemonPath,
+      isLoaded: isLoaded,
+    )
+  }
+
+  /// Writes the plist for this bundle's daemon and loads it. The bootout first makes this safe
+  /// to call over an agent that is already loaded — including one left pointing at the bundle an
+  /// upgrade replaced, which is the case that has to end with launchd running the new daemon.
+  public func register() throws {
+    let plist = LaunchdAgentPlist(programPath: try daemonPath())
+    try FileManager.default.createDirectory(
+      at: plistURL.deletingLastPathComponent(),
+      withIntermediateDirectories: true,
+    )
+    try plist.data().write(to: plistURL)
+    _ = Self.launchctl(["bootout", serviceTarget])
+    try runLaunchctl(["bootstrap", domainTarget, plistURL.path])
+  }
+
+  /// Unloads the agent and removes its plist, so nothing reloads the daemon at the next login.
+  public func unregister() throws {
+    _ = Self.launchctl(["bootout", serviceTarget])
+    try? FileManager.default.removeItem(at: plistURL)
+  }
+
+  // MARK: Private
+
+  private let bundle: Bundle
+  private let home: URL
+
+  private var plistURL: URL {
+    LaunchdAgentPlist.url(inHome: home)
+  }
+
+  private var domainTarget: String {
+    "gui/\(getuid())"
+  }
+
+  private var serviceTarget: String {
+    "\(domainTarget)/\(LaunchdAgentPlist.label)"
+  }
+
+  private var isLoaded: Bool {
+    Self.launchctl(["print", serviceTarget]) == 0
+  }
+
+  @discardableResult
+  private static func launchctl(_ arguments: [String]) -> Int32 {
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+    process.arguments = arguments
+    process.standardOutput = FileHandle.nullDevice
+    process.standardError = FileHandle.nullDevice
+    do {
+      try process.run()
+    } catch {
+      return -1
+    }
+    process.waitUntilExit()
+    return process.terminationStatus
+  }
+
+  private func daemonPath() throws -> String {
+    let path = bundle.bundleURL.appendingPathComponent("Contents/MacOS/throwntomd").path
+    guard FileManager.default.isExecutableFile(atPath: path) else {
+      throw LaunchdAgentError.daemonMissingFromBundle
+    }
+    return path
+  }
+
+  private func runLaunchctl(_ arguments: [String]) throws {
+    let status = Self.launchctl(arguments)
+    guard status == 0 else {
+      throw LaunchdAgentError.launchctlFailed(command: arguments.first ?? "", status: status)
+    }
+  }
+
+}
