@@ -76,9 +76,19 @@ Installing and upgrading leave a working timer service, verified by
 installs a genuinely different binary. Four passes in a row pass where the
 previous arrangement failed every pass that changed the binary.
 
-The daemon no longer appears in System Settings → General → Login Items, and
-macOS no longer shows "Background item added". Anything that stopped or started
-the agent through Login Items must use the app or `launchctl` instead.
+The daemon still starts at login: everything in `~/Library/LaunchAgents` is
+loaded into the user's session, and the plist sets `RunAtLoad`.
+
+It also still appears in System Settings → General → Login Items, because
+Background Task Management tracks plain launch agents too — as a *legacy agent*
+named after the app rather than as a registered one
+(`registerLaunchItem: … type=legacy agent, disposition=[enabled, allowed…]`).
+What changed is who owns the record: launchd resolves the job from the plist's
+absolute path, not from a BTM bookmark into the bundle, which is the part that
+could not survive the bundle being replaced.
+
+The app's own "open at login" setting is untouched. That is the app itself, not
+the agent, and it stays on `SMAppService`.
 
 `macos/agent.sh`'s development job now lives in the same auto-loading directory
 as the real agent. Installing it removes the app's agent rather than racing it,

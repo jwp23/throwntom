@@ -44,6 +44,12 @@ to the designated requirement of the signature it was registered with, and an
 ad-hoc build's requirement is its cdhash, so a rebuilt daemon failed the launch
 constraint and never started again (`docs/adr/012-the-daemon-runs-from-a-plain-launch-agent.md`).
 
+The daemon starts again at every login — everything in `~/Library/LaunchAgents`
+is loaded into the session and the plist sets `RunAtLoad` — and it still appears
+in System Settings → General → Login Items, listed under "Allow in the
+Background" as a legacy agent. Turning it off there stops it starting at login.
+Whether the *app* opens at login is a separate setting the app owns.
+
 The window is phase-coloured throughout, so its ground follows the current
 phase as it changes. When a reminder is outstanding — a phase awaiting
 confirmation, or the morning nudge — the app also posts a notification (it
