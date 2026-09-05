@@ -82,6 +82,24 @@ func TestMeetingOfNoLengthIsRefused(t *testing.T) {
 	}
 }
 
+// The daemon route rejects a meeting over a day as a typo; the command path
+// must refuse it too, or a user typing minutes where the route expects them
+// is stuck with a 69-day meeting they have to notice and undo.
+func TestMeetingOverADayIsRefused(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+
+	result := c.execute("meeting 100000")
+
+	if result.err == nil {
+		t.Fatal("a meeting over a day long was accepted")
+	}
+	if c.timer.State() == engine.Meeting {
+		t.Fatal("a refused meeting started anyway")
+	}
+}
+
 // The credit a meeting earns has to reach the event log, or the dashboard
 // silently disagrees with the count in the window.
 func TestAFinishedMeetingLogsTheCreditItEarned(t *testing.T) {

@@ -114,6 +114,9 @@ func (c *Core) handleMeeting(parts []string) commandResult {
 	if err != nil {
 		return commandResult{err: err}
 	}
+	if parsed > 24*time.Hour {
+		return commandResult{err: errors.New("meeting duration must be one day or less")}
+	}
 	before := c.timer.StartMeeting(parsed)
 	c.logDisplacedCompletion(before)
 	return commandResult{message: fmt.Sprintf("Meeting started -- %s. It counts toward your day.", parsed)}

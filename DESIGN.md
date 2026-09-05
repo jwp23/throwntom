@@ -213,7 +213,7 @@ are the dark-terminal variants; `-light` variants carry the light-terminal value
 
 - **Work (#B94A0E light / #F68C31 dark):** The icon's orange, darkened for light terminals.
   The brand colour and the colour of a running pomodoro. Use it only for the status line while in
-  `Work`; it must not be used for hints, prompts, or decoration, or it stops meaning "you
+  `Work` or `Meeting`; it must not be used for hints, prompts, or decoration, or it stops meaning "you
   are on the clock".
 - **Short break (#0E6F73 / #3FC1C9):** Teal. Rest. Never used for success messages — the
   TUI has no success colour; plain text is the default.

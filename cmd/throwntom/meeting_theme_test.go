@@ -23,7 +23,7 @@ func TestMeetingHasItsOwnEmojiIcon(t *testing.T) {
 	if icon == "" {
 		t.Fatal("meeting has no emoji icon")
 	}
-	for _, other := range []engine.State{engine.Work, engine.ShortBreak, engine.LongBreak, engine.Lunch, engine.Idle} {
+	for _, other := range []engine.State{engine.Work, engine.ShortBreak, engine.LongBreak, engine.Lunch, engine.Idle, engine.Paused, engine.AwaitingConfirm} {
 		if icon == stateIcon(other, true) {
 			t.Fatalf("meeting shares the %s emoji, so the two states read alike", other)
 		}
