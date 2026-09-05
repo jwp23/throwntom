@@ -99,9 +99,22 @@ public struct LaunchdAgentService: LaunchAgentService {
   }
 
   /// Unloads the agent and removes its plist, so nothing reloads the daemon at the next login.
+  ///
+  /// Neither failure may be swallowed: this is the user's explicit Stop, and a silent failure
+  /// leaves the timer running behind a window that says it stopped, or leaves a `RunAtLoad`
+  /// plist that starts it again at the next login — a stopped service must stay stopped
+  /// (ADR-010).
   public func unregister() throws {
-    _ = launchctl(["bootout", serviceTarget])
-    try? FileManager.default.removeItem(at: plistURL)
+    // Booting out a job launchd does not have exits non-zero, and that is not a failure here:
+    // what matters is that the agent is unloaded afterwards, not that this call did it.
+    let status = launchctl(["bootout", serviceTarget])
+    guard !isLoaded else {
+      throw LaunchdAgentError.launchctlFailed(command: "bootout", status: status)
+    }
+    guard FileManager.default.fileExists(atPath: plistURL.path) else {
+      return
+    }
+    try FileManager.default.removeItem(at: plistURL)
   }
 
   // MARK: Private

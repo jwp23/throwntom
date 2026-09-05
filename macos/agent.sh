@@ -24,6 +24,13 @@ case "${1:-}" in
     # rather than fighting: whichever daemon lost would sit there failing to bind the socket.
     if [[ -f "$APP_PLIST" ]]; then
       launchctl bootout "$DOMAIN/$APP_LABEL" 2>/dev/null || true
+      # A bootout for a job that was not loaded fails, which is fine; one that leaves the job
+      # loaded is not. Removing the plist and bootstrapping anyway would leave the app's daemon
+      # holding the lock and this one standing down on every spawn, looking installed but dead.
+      if launchctl print "$DOMAIN/$APP_LABEL" >/dev/null 2>&1; then
+        echo "could not unload $APP_LABEL; quit Throwntom.app and try again" >&2
+        exit 1
+      fi
       rm -f "$APP_PLIST"
       echo "removed the app's agent ($APP_LABEL); open Throwntom.app to restore it"
     fi

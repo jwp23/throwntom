@@ -42,11 +42,34 @@ final class LaunchdAgentServiceTests: XCTestCase {
   }
 
   func testUnregisterUnloadsTheJobAndRemovesThePlist() throws {
-    let service = makeService()
+    // print non-zero means launchd no longer has the job, which is what a bootout should leave.
+    let service = makeService { $0.first == "print" ? 1 : 0 }
     try service.register()
     try service.unregister()
-    XCTAssertEqual(calls.last?.first, "bootout")
     XCTAssertFalse(FileManager.default.fileExists(atPath: LaunchdAgentPlist.url(inHome: home).path))
+  }
+
+  /// Stop is a user action. Reporting success while launchd still has the job would leave the
+  /// timer running behind a UI that says it stopped.
+  func testUnregisterReportsWhenTheJobIsStillLoadedAfterwards() throws {
+    let service = makeService { $0.first == "print" ? 0 : 1 }
+    try makeService { $0.first == "print" ? 1 : 0 }.register()
+    XCTAssertThrowsError(try service.unregister())
+  }
+
+  // ADR-010: a stopped timer service stays stopped. The plist has RunAtLoad, so leaving it
+  // behind would start the daemon again at the next login.
+  func testUnregisterLeavesNothingToReloadTheDaemonAtLogin() throws {
+    let service = makeService { $0.first == "print" ? 1 : 0 }
+    try service.register()
+    XCTAssertTrue(FileManager.default.fileExists(atPath: LaunchdAgentPlist.url(inHome: home).path))
+    try service.unregister()
+    XCTAssertNil(LaunchdAgentPlist.programPath(inPlistAt: LaunchdAgentPlist.url(inHome: home)))
+  }
+
+  /// Stopping a service that is already stopped is not a failure, and there is no plist to remove.
+  func testUnregisterIsFineWhenNothingWasRegistered() {
+    XCTAssertNoThrow(try makeService { $0.first == "print" ? 1 : 0 }.unregister())
   }
 
   func testABundleWithNoDaemonCannotBeRegistered() {

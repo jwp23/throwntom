@@ -27,6 +27,7 @@ SOCK="$HOME/.config/throwntom/daemon.sock"
 # broken one time to show itself rather than being read while merely slow.
 SETTLE=15
 failures=0
+previous_cdhash=""
 
 # Put the service back in the state a pass is supposed to start from: registered and
 # answering. Without this a single broken pass poisons every pass after it, and a fix that
@@ -67,13 +68,24 @@ for pass in $(seq 1 "$PASSES"); do
   runs=$(launchctl print "gui/$(id -u)/$LABEL" 2>/dev/null | awk '/^[[:space:]]*runs =/ {print $3}')
   http=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 \
     --unix-socket "$SOCK" http://localhost/v1/tasks 2>/dev/null)
-  identity=$(codesign -dvvv "$HOME/Applications/Throwntom.app/Contents/MacOS/throwntomd" 2>&1 |
-    awk -F= '/^Identifier=/ {print $2}')
+  cdhash=$(codesign -dvvv "$HOME/Applications/Throwntom.app/Contents/MacOS/throwntomd" 2>&1 |
+    awk -F= '/^CDHash=/ {print $2}')
+
+  # A pass only means something if this install actually replaced the daemon's code identity.
+  # Reinstalling the same bytes leaves launchd's cached launch constraint matching, so the
+  # check would go green for a reason that has nothing to do with the fix being present.
+  if [[ -n "$previous_cdhash" && "$cdhash" == "$previous_cdhash" ]]; then
+    echo "pass $pass: INCONCLUSIVE - daemon CDHash unchanged ($cdhash), nothing was upgraded"
+    failures=$((failures + 1))
+    previous_cdhash="$cdhash"
+    continue
+  fi
+  previous_cdhash="$cdhash"
 
   if [[ "$status" == "0" && "$http" == "200" ]]; then
-    echo "pass $pass: OK (status=$status runs=$runs http=$http id=$identity)"
+    echo "pass $pass: OK (status=$status runs=$runs http=$http cdhash=${cdhash:0:12})"
   else
-    echo "pass $pass: BROKEN (status=$status runs=$runs http=$http id=$identity)"
+    echo "pass $pass: BROKEN (status=$status runs=$runs http=$http cdhash=${cdhash:0:12})"
     failures=$((failures + 1))
   fi
 done
