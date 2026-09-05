@@ -40,9 +40,11 @@ func TestMeetingEndsOnItsOwnDeadlineAndCredits(t *testing.T) {
 	if got := a.Snapshot().Engine.CompletedToday; got != 2 {
 		t.Fatalf("completed today is %d, want 2", got)
 	}
+	// Two pomodoros' worth of credit mid-block earns the short break, exactly as
+	// two worked pomodoros would.
 	next, duration := a.NextStage()
-	if next != engine.Work || duration != 25*time.Minute {
-		t.Fatalf("next stage is %s for %s, want work for 25m", next, duration)
+	if next != engine.ShortBreak || duration != 5*time.Minute {
+		t.Fatalf("next stage is %s for %s, want short_break for 5m", next, duration)
 	}
 }
 

@@ -162,10 +162,10 @@ func (e *Engine) OwedPhase() State {
 // NextPhase's requirement that the engine be sitting in AwaitingConfirm.
 func (e *Engine) owedPhase() State {
 	switch e.lastPhase {
-	case Work:
+	// A meeting is worked time, so it earns a break exactly as the same work
+	// done at the timer would: the longest one its credits allow.
+	case Work, Meeting:
 		return e.breakAfterWork()
-	case Meeting:
-		return e.nextAfterMeeting()
 	case ShortBreak, LongBreak, Lunch:
 		return Work
 	default:
@@ -173,11 +173,15 @@ func (e *Engine) owedPhase() State {
 	}
 }
 
-// breakAfterWork reports which break a work period earns. Only a completed one
-// can earn the long break: a skipped period left the block count untouched, so
-// the count either stands at zero or still describes the block whose long
-// break has already been taken. Either way the remainder lies, and the honest
-// answer is the short break.
+// breakAfterWork reports which break a work period earns -- the longest one the
+// block allows. Only a completed period can earn the long break: a skipped one
+// left the block count untouched, so the count either stands at zero or still
+// describes the block whose long break has already been taken. Either way the
+// remainder lies, and the honest answer is the short break.
+//
+// A meeting is measured by the same rule. Its credits can be worth several
+// pomodoros at once, so the boundary they reach may be one they jumped rather
+// than landed on, but what they earn at it is the same.
 func (e *Engine) breakAfterWork() State {
 	if e.skipped {
 		return ShortBreak
@@ -186,18 +190,6 @@ func (e *Engine) breakAfterWork() State {
 		return LongBreak
 	}
 	return ShortBreak
-}
-
-// nextAfterMeeting reports the phase a finished meeting leads to. A meeting is
-// credited work rather than rest, so the user goes back to work after one
-// instead of taking the short break a pomodoro earns. The long break is the
-// exception: it belongs to the block rather than to the pomodoro before it, so
-// credits that carry the block over its boundary earn it like any others.
-func (e *Engine) nextAfterMeeting() State {
-	if e.blockBoundaryCrossed() {
-		return LongBreak
-	}
-	return Work
 }
 
 // blockBoundaryCrossed reports whether the credits of the phase behind
@@ -330,10 +322,8 @@ func (e *Engine) NextPhase() State {
 		return Idle
 	}
 	switch e.lastPhase {
-	case Work:
+	case Work, Meeting:
 		return e.breakAfterWork()
-	case Meeting:
-		return e.nextAfterMeeting()
 	default:
 		return Work
 	}

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -24,8 +25,9 @@ const readmeMeetingCreditClaim = "When it ends, its length is credited as pomodo
 	"10-minute one is worth none."
 
 const readmeMeetingBlockClaim = "Those credits count toward the day's total and toward the long break alike, " +
-	"so a meeting can complete the block you were part-way through: the long break follows if it does, and " +
-	"otherwise you go back to work, because sitting in a meeting is not the rest a finished pomodoro earns."
+	"so a meeting earns the break the same work done at the timer would have: the longest one its credits " +
+	"allow. A meeting that completes the block you were part-way through — or spans a block boundary " +
+	"outright — is followed by the long break; one that lands mid-block is followed by the short one."
 
 const readmeMeetingSkipClaim = "`skip` ends a meeting early and still credits the time actually spent in it, " +
 	"which is what separates ending a meeting from skipping a pomodoro."
@@ -77,32 +79,40 @@ func TestReadmeStatesTheRoundingAMeetingsCreditUses(t *testing.T) {
 	}
 }
 
-// The block claim: credits carrying the count over the boundary earn the long
-// break, and a meeting that does not carry it over leads back to work rather
-// than to the short break a pomodoro would have earned.
+// The block claim: a break always follows, and which one is whatever the
+// credits earned -- the long break when they complete or span the block, the
+// short one when they land inside it.
 func TestReadmeStatesWhatFollowsAMeetingAndItDoes(t *testing.T) {
 	readmeMeeting(t)
 	every := config.Default().Pomodoro.LongBreakEvery
 
-	crossing := lunchlessCore(t)
-	crossing.execute(cmdStart)
+	completing := lunchlessCore(t)
+	completing.execute(cmdStart)
 	for range every - 1 {
-		crossing.timer.CompletePeriod()
-		crossing.execute("confirm")
-		crossing.timer.CompletePeriod()
-		crossing.execute("confirm")
+		completing.timer.CompletePeriod()
+		completing.execute("confirm")
+		completing.timer.CompletePeriod()
+		completing.execute("confirm")
 	}
-	crossing.execute("meeting 60")
-	crossing.timer.CompletePeriod()
-	if next, _, _ := crossing.nextStageLocked(); next != engine.LongBreak {
-		t.Fatalf("a meeting completing the block leads to %s, but the README says the long break follows", next)
+	completing.execute("meeting 60")
+	completing.timer.CompletePeriod()
+	if next, _, _ := completing.nextStageLocked(); next != engine.LongBreak {
+		t.Fatalf("a meeting completing the block leads to %s, but the README says the long break", next)
 	}
 
-	plain := lunchlessCore(t)
-	plain.execute("meeting 30")
-	plain.timer.CompletePeriod()
-	if next, _, _ := plain.nextStageLocked(); next != engine.Work {
-		t.Fatalf("a meeting mid-block leads to %s, but the README says you go back to work", next)
+	// Spanning the boundary outright, from a block with nothing in it.
+	spanning := lunchlessCore(t)
+	spanning.execute(fmt.Sprintf("meeting %d", (every+1)*config.Default().Pomodoro.WorkMinutes))
+	spanning.timer.CompletePeriod()
+	if next, _, _ := spanning.nextStageLocked(); next != engine.LongBreak {
+		t.Fatalf("a meeting spanning the block leads to %s, but the README says the long break", next)
+	}
+
+	midBlock := lunchlessCore(t)
+	midBlock.execute("meeting 30")
+	midBlock.timer.CompletePeriod()
+	if next, _, _ := midBlock.nextStageLocked(); next != engine.ShortBreak {
+		t.Fatalf("a meeting mid-block leads to %s, but the README says the short break", next)
 	}
 }
 

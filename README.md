@@ -144,9 +144,10 @@ time you spend away from the timer. When it ends, its length is credited as
 pomodoros — rounded to the nearest, with half rounding up, so a 60-minute meeting
 is worth 2 at the default 25-minute pomodoro and a 10-minute one is worth none.
 Those credits count toward the day's total and toward the long break alike, so a
-meeting can complete the block you were part-way through: the long break follows
-if it does, and otherwise you go back to work, because sitting in a meeting is
-not the rest a finished pomodoro earns. `skip` ends a meeting early and still
+meeting earns the break the same work done at the timer would have: the longest
+one its credits allow. A meeting that completes the block you were part-way
+through — or spans a block boundary outright — is followed by the long break;
+one that lands mid-block is followed by the short one. `skip` ends a meeting early and still
 credits the time actually spent in it, which is what separates ending a meeting
 from skipping a pomodoro.
 

@@ -97,19 +97,55 @@ func TestCompletedMeetingCreditsTheDayAndTheBlock(t *testing.T) {
 	}
 }
 
-// A meeting is worked time, not rested time, so the phase after it is work
-// again rather than the break a finished pomodoro earns.
-func TestMeetingIsFollowedByWork(t *testing.T) {
+// A meeting earns the break its credits are worth, exactly as the same work
+// done at the timer would have: a meeting mid-block earns the short break.
+func TestMeetingIsFollowedByTheBreakItsCreditsEarn(t *testing.T) {
 	e := New(25, 5, 15, 4)
 	e.StartWork()
 	e.StartMeeting()
 	e.CompleteMeeting(30 * time.Minute)
-	if next := e.NextPhase(); next != Work {
-		t.Fatalf("next phase is %v, want Work", next)
+	if next := e.NextPhase(); next != ShortBreak {
+		t.Fatalf("next phase is %v, want ShortBreak", next)
 	}
 	e.ConfirmNext()
-	if e.State() != Work {
-		t.Fatalf("state is %v, want Work", e.State())
+	if e.State() != ShortBreak {
+		t.Fatalf("state is %v, want ShortBreak", e.State())
+	}
+}
+
+// The break a meeting earns is the longest one its credits allow, which is the
+// rule a worked pomodoro already follows -- so a meeting and the same time
+// spent at the timer lead to the same place.
+//
+// Up to a whole block. Past one they legitimately part company: a worked run
+// stops at the boundary and takes its long break on the way through, so the
+// pomodoro after it has earned only the short one, while a meeting that spans
+// the boundary in a single stride has not had that long break yet and is owed
+// it at the end. `TestMeetingCreditsCrossingTheBlockBoundaryEarnTheLongBreak`
+// is that case.
+func TestAMeetingEarnsTheSameBreakTheSameWorkWouldHave(t *testing.T) {
+	every := 4
+	for credits := 1; credits <= every; credits++ {
+		// The control arm stops on the boundary the meeting stops on: the Nth
+		// pomodoro finished and its break not yet taken.
+		worked := New(25, 5, 15, every)
+		worked.StartWork()
+		for i := range credits {
+			if i > 0 {
+				worked.ConfirmNext()
+				worked.MarkPeriodComplete()
+				worked.ConfirmNext()
+			}
+			worked.MarkPeriodComplete()
+		}
+
+		met := New(25, 5, 15, every)
+		met.StartMeeting()
+		met.CompleteMeeting(time.Duration(credits) * 25 * time.Minute)
+
+		if got, want := met.NextPhase(), worked.NextPhase(); got != want {
+			t.Fatalf("%d credits: a meeting leads to %v, the same work to %v", credits, got, want)
+		}
 	}
 }
 
@@ -183,8 +219,10 @@ func TestMeetingTooShortToCreditChangesNoCount(t *testing.T) {
 	if got := e.WorkSessionsInBlock(); got != 1 {
 		t.Fatalf("work sessions in block is %d, want 1", got)
 	}
-	if next := e.NextPhase(); next != Work {
-		t.Fatalf("next phase is %v, want Work", next)
+	// A break still follows: the user was in a meeting, and the block is no
+	// further on than it was, so the short break is what they are allowed.
+	if next := e.NextPhase(); next != ShortBreak {
+		t.Fatalf("next phase is %v, want ShortBreak", next)
 	}
 }
 
