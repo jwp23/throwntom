@@ -3,13 +3,18 @@ import ServiceManagement
 
 // MARK: - SMAppServiceRegistrar
 
-/// Registers the bundled launchd agent and toggles the app's own login item.
+/// Registers the launchd agent that owns the daemon and toggles the app's own login item.
+///
+/// The two halves use different mechanisms on purpose. The login item is the app itself, which
+/// SMAppService handles well. The agent is a plain LaunchAgent naming an absolute path, because
+/// an SMAppService agent is pinned to the designated requirement of the signature it was
+/// registered with, and an ad-hoc build's requirement changes with the code (ADR-012).
 public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
 
   // MARK: Lifecycle
 
   public init(
-    agent: LaunchAgentService = BundledAgentService(),
+    agent: LaunchAgentService = LaunchdAgentService(),
     mainApp: MainAppService = BundledMainAppService(),
   ) {
     self.agent = agent
@@ -19,14 +24,13 @@ public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
   // MARK: Public
 
   public static let bundleIdentifier = "com.jwp23.throwntom"
-  public static let agentPlistName = "com.jwp23.throwntom.daemon.plist"
 
   public var agentStatusDescription: String {
     switch agent.status {
     case .enabled: "Timer agent enabled"
     case .requiresApproval: "Timer agent needs approval in Login Items"
     case .notRegistered: "Timer agent not registered"
-    case .notFound: "Timer agent plist not found in bundle"
+    case .notFound: "Timer daemon missing from the app bundle"
     case .unknown: "Timer agent status unknown"
     }
   }

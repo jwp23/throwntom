@@ -83,12 +83,18 @@ func TestDaemonSingleInstanceAndShutdown(t *testing.T) {
 		t.Fatalf("expected 200, got %d", resp.StatusCode)
 	}
 
+	// Losing the lock is a clean stand-down, not a crash. The agent's KeepAlive revives the
+	// daemon only when it fails, so a non-zero exit here would tell launchd the job died and
+	// respawn it straight back into the race it just lost (ADR-012).
 	second := exec.Command(binPath, "--config", configPath)
 	second.Env = append(os.Environ(), "HOME="+home)
 	var secondStderr strings.Builder
 	second.Stderr = &secondStderr
-	if err := second.Run(); err == nil {
-		t.Fatal("expected second instance to exit non-zero")
+	if err := second.Run(); err != nil {
+		t.Fatalf("expected second instance to exit 0, got: %v (stderr: %s)", err, secondStderr.String())
+	}
+	if code := second.ProcessState.ExitCode(); code != 0 {
+		t.Fatalf("expected second instance to exit 0, got %d", code)
 	}
 	if !strings.Contains(secondStderr.String(), "already running") {
 		t.Fatalf("expected \"already running\" on stderr, got: %s", secondStderr.String())
