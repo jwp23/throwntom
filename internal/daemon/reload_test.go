@@ -114,6 +114,7 @@ func TestRunUsesTheGivenBaselineNotAFreshRead(t *testing.T) {
 	}()
 
 	client := unixClient(paths.Socket)
+	defer client.CloseIdleConnections()
 	waitForDaemon(t, client)
 
 	deadline := time.Now().Add(5 * time.Second)
