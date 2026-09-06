@@ -34,7 +34,7 @@ type State struct {
 	// tell an idle timer that is ready to go from one that is done until
 	// tomorrow. Nothing else in this document distinguishes them.
 	DayEnded bool `json:"day_ended"`
-	// SnoozeUntil is the morning-reminder snooze deadline, present only while a snooze is active.
+	// SnoozeUntil is the outstanding reminder's snooze deadline (morning or cycle), present only while a snooze is active.
 	SnoozeUntil    *time.Time `json:"snooze_until"`
 	StatusLine     string     `json:"status_line"`
 	FocusedTaskIDs []int      `json:"focused_task_ids"`
