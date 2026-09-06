@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/jwp23/throwntom/v3/internal/core"
@@ -24,6 +25,19 @@ func postJSONWith(t *testing.T, client *http.Client, url string, body any) *http
 
 func postJSON(t *testing.T, url string, body any) *http.Response {
 	return postJSONWith(t, http.DefaultClient, url, body)
+}
+
+// postRaw posts a body given as literal JSON text rather than marshaled from
+// a Go value, so a test can shape bytes json.Marshal would never produce —
+// such as one padded past the daemon's size cap.
+func postRaw(t *testing.T, url string, body string) *http.Response {
+	t.Helper()
+	resp, err := http.Post(url, "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = resp.Body.Close() })
+	return resp
 }
 
 func decode[T any](t *testing.T, resp *http.Response) T {
