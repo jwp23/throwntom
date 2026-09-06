@@ -40,14 +40,15 @@ enum ViewAction: CaseIterable, Sendable {
   }
 
   /// When this command is on offer, in words, for the cheat sheet — see `TimerAction.availability`.
-  /// Both panels are daemon-backed and open onto nothing without one; the cheat sheet and the
-  /// config file are local, so they name no condition and are the two rows never dimmed.
+  /// Both panels are daemon-backed and open onto nothing without one, so they name a condition; the
+  /// config file is local and names none. The cheat sheet is local too and never dims, but ⌘/ does
+  /// nothing while it is already open, so it names that rather than reading as unconditional.
   var availability: String {
     switch self {
     case .tasks,
          .stats: "while the timer service is running"
-    case .shortcuts,
-         .openConfig: ""
+    case .shortcuts: "opens this sheet"
+    case .openConfig: ""
     }
   }
 

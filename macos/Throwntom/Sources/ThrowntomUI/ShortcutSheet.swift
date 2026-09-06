@@ -18,6 +18,10 @@ struct ShortcutSheet: View {
           }
         }
       }
+      // Confirm and Keyboard Shortcuts read live rather than dim (`ShortcutList.sections`), which
+      // answers for the window behind this sheet rather than for the sheet itself — stated here so
+      // a reader who presses ⇧⏎ at a bright Confirm row and sees nothing happen can reconcile it.
+      Text("Shown for the window behind this sheet").font(.caption).foregroundStyle(.secondary)
       HStack {
         Spacer()
         Button("Done") { close() }.keyboardShortcut(.defaultAction)

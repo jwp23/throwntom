@@ -150,7 +150,7 @@ final class ShortcutSheetTests: XCTestCase {
     XCTAssertEqual(sections[1].entries.map(\.condition), [
       "while the timer service is running",
       "while the timer service is running",
-      "",
+      "opens this sheet",
       "closes what is open",
     ])
     XCTAssertEqual(
