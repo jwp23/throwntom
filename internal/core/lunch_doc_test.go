@@ -21,11 +21,7 @@ const readmeLunchClaim = "`lunch` is the one break you choose rather than earn: 
 // it to the claim this file proves.
 func readmeLunch(t *testing.T) string {
 	t.Helper()
-	raw, err := doctest.Read("README.md")
-	if err != nil {
-		t.Fatalf("read README: %v", err)
-	}
-	readme := doctest.Unwrap(raw)
+	readme := doctest.ReadUnwrapped(t, "README.md")
 	if !strings.Contains(readme, readmeLunchClaim) {
 		t.Fatalf("the README no longer says: %s", readmeLunchClaim)
 	}

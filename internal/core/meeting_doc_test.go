@@ -35,11 +35,7 @@ const readmeMeetingSkipClaim = "`skip` ends a meeting early and still credits th
 // readmeMeeting holds the README to the claims this file proves.
 func readmeMeeting(t *testing.T) {
 	t.Helper()
-	raw, err := doctest.Read("README.md")
-	if err != nil {
-		t.Fatalf("read README: %v", err)
-	}
-	readme := doctest.Unwrap(raw)
+	readme := doctest.ReadUnwrapped(t, "README.md")
 	for _, claim := range []string{readmeMeetingCreditClaim, readmeMeetingBlockClaim, readmeMeetingSkipClaim} {
 		if !strings.Contains(readme, claim) {
 			t.Fatalf("the README no longer says: %s", claim)
