@@ -8,22 +8,38 @@ final class ShortcutRowTests: XCTestCase {
 
   // MARK: Internal
 
-  /// The row is *drawn* at the opacity its own constant names — not merely that the constant holds
-  /// it. Two rows differing in nothing but `isEnabled` are rendered and their ink compared; the
-  /// ratio is the opacity the body applied, so a body that stops applying it, or applies some other
-  /// value, fails here. The expectation is read from the constant, so changing the constant moves
-  /// the expectation with it.
+  /// The title and hint cells are *drawn* at the opacity the constant names — not merely that the
+  /// constant holds it. Two rows differing in nothing but `isEnabled` are rendered and their ink
+  /// compared; the condition column is left out of the fixture (empty string, no ink of its own) so
+  /// the ratio measures only the two cells the row's own state actually dims, not the condition,
+  /// which is dimmed independent of it (see `testTheConditionColumnIsAlwaysDimmedTheSameAmount`).
   func testAnUnavailableRowIsDrawnAtTheOpacityItsConstantNames() throws {
-    let available = try ink(of: row(isEnabled: true))
-    let unavailable = try ink(of: row(isEnabled: false))
+    let available = try ink(of: row(isEnabled: true, condition: ""))
+    let unavailable = try ink(of: row(isEnabled: false, condition: ""))
 
     XCTAssertGreaterThan(available, 0, "nothing was drawn, so there is nothing to compare")
     XCTAssertEqual(
       unavailable / available,
       ShortcutRow.unavailableOpacity,
       accuracy: 0.01,
-      "the row is not drawn at the opacity `unavailableOpacity` names",
+      "the title and hint are not drawn at the opacity `unavailableOpacity` names",
     )
+  }
+
+  /// The condition column reads as a footnote to the title in every row, not only a dimmed one —
+  /// compounding `unavailableOpacity` on top of an already-dimmed row is what fails the contrast
+  /// floor below, so the column carries that opacity once, on its own, whatever `isEnabled` is.
+  /// Two rows differing only in `isEnabled` still paint the same ink for the same condition text.
+  func testTheConditionColumnIsAlwaysDimmedTheSameAmount() throws {
+    let condition = "while a phase is running or paused"
+
+    let enabled = try ink(of: row(isEnabled: true, condition: condition))
+      - ink(of: row(isEnabled: true, condition: ""))
+    let disabled = try ink(of: row(isEnabled: false, condition: condition))
+      - ink(of: row(isEnabled: false, condition: ""))
+
+    XCTAssertGreaterThan(enabled, 0, "nothing was drawn, so there is nothing to compare")
+    XCTAssertEqual(enabled, disabled, accuracy: 0.5, "the condition column dims with the row's own state")
   }
 
   /// The dim is the row's whole answer to "can I press this now", and it is drawn — a reader who
@@ -39,20 +55,42 @@ final class ShortcutRowTests: XCTestCase {
   /// while the dimmed row still clears it. Both surfaces the sheet is drawn on are checked: a light
   /// window, where the label is black on white, and a dark one, where it is white on macOS's
   /// near-black window background.
+  ///
+  /// The condition column is held to the same floor at the same opacity — `unavailableOpacity`
+  /// applied once, never stacked with anything else. `.foregroundStyle(.secondary)` was tried first
+  /// and failed this: `NSColor.secondaryLabelColor` resolves to the same label colour as `.primary`
+  /// at roughly half opacity (measured: 0.498 on aqua, 0.549 on darkAqua), and composited with
+  /// `unavailableOpacity` on top — the way an already-dimmed row would have drawn it — that lands at
+  /// 1.96:1 on the light appearance, nowhere near 4.5:1. Both compositions are asserted below so a
+  /// change that stacks the two dims again fails here before it fails a reader's eyes.
   func testADimmedRowStillClearsTheContrastFloor() {
-    for (name, label, ground) in Self.surfaces {
-      let dimmed = Self.composite(label, over: ground, opacity: ShortcutRow.unavailableOpacity)
+    for (name, label, secondaryAlpha, ground) in Self.surfaces {
+      let title = Self.composite(label, over: ground, opacity: ShortcutRow.unavailableOpacity)
+      let condition = Self.composite(label, over: ground, opacity: ShortcutRow.unavailableOpacity)
+      let secondaryStackedWithTheRowsOwnDim = Self.composite(
+        label,
+        over: ground,
+        opacity: secondaryAlpha * ShortcutRow.unavailableOpacity,
+      )
 
-      XCTAssertGreaterThanOrEqual(Contrast.ratio(dimmed, ground), 4.5, "a dimmed row on a \(name) sheet")
+      XCTAssertGreaterThanOrEqual(Contrast.ratio(title, ground), 4.5, "a dimmed title on a \(name) sheet")
+      XCTAssertGreaterThanOrEqual(Contrast.ratio(condition, ground), 4.5, "the condition column on a \(name) sheet")
+      XCTAssertLessThan(
+        Contrast.ratio(secondaryStackedWithTheRowsOwnDim, ground),
+        4.5,
+        "the rejected `.secondary` design should still fail on a \(name) sheet",
+      )
     }
   }
 
   // MARK: Private
 
-  /// The two window backgrounds the sheet is drawn on, with the label colour macOS puts on each.
-  private static let surfaces: [(name: String, label: HexColor, ground: HexColor)] = [
-    ("light", HexColor("#000000"), HexColor("#FFFFFF")),
-    ("dark", HexColor("#FFFFFF"), HexColor("#1E1E1E")),
+  /// The two window backgrounds the sheet is drawn on, with the label colour macOS puts on each and
+  /// the alpha `.secondary` resolves to there (`NSColor.secondaryLabelColor`, measured as above) —
+  /// kept only to document why that design was rejected.
+  private static let surfaces: [(name: String, label: HexColor, secondaryAlpha: Double, ground: HexColor)] = [
+    ("light", HexColor("#000000"), 0.498, HexColor("#FFFFFF")),
+    ("dark", HexColor("#FFFFFF"), 0.549, HexColor("#1E1E1E")),
   ]
 
   /// `colour` painted over `ground` at `opacity`, which is what `.opacity` leaves on screen.
@@ -64,18 +102,18 @@ final class ShortcutRowTests: XCTestCase {
   }
 
   /// The same row either way round, so nothing but `isEnabled` can differ between two of them.
-  private static func entry(isEnabled: Bool) -> ShortcutList.Entry {
+  private static func entry(isEnabled: Bool, condition: String = "while a phase is running or paused") -> ShortcutList.Entry {
     ShortcutList.Entry(
       title: "Pause",
       hint: "⌘⇧P",
-      condition: "while a phase is running or paused",
+      condition: condition,
       isEnabled: isEnabled,
     )
   }
 
   /// One row, in a `Grid` because that is what a `GridRow` lays itself out in.
-  private func row(isEnabled: Bool) -> some View {
-    Grid { ShortcutRow(entry: Self.entry(isEnabled: isEnabled)) }.frame(width: 400)
+  private func row(isEnabled: Bool, condition: String = "while a phase is running or paused") -> some View {
+    Grid { ShortcutRow(entry: Self.entry(isEnabled: isEnabled, condition: condition)) }.frame(width: 400)
   }
 
   /// How much the drawing paints, summed over every pixel's alpha. Drawing the same words at half
