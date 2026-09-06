@@ -143,6 +143,36 @@ func TestSkipTodayCancelsMorningReminder(t *testing.T) {
 	}
 }
 
+// Done for the Day said at 2am belongs to the day that is still running, so
+// the morning that follows a few hours later still gets its reminder. Under a
+// midnight boundary the same skip silences it, which is the bug ADR-013
+// describes: the worker wakes to a day already declared over.
+func TestSkipTodayInTheSmallHoursLeavesTheMorningOwed(t *testing.T) {
+	for _, tc := range []struct {
+		start    string
+		wantOwed bool
+	}{
+		{"04:00", true},
+		{"00:00", false},
+	} {
+		t.Run(tc.start, func(t *testing.T) {
+			cfg := config.Default()
+			cfg.MorningReminderPending = false
+			cfg.DayStart = tc.start
+			c := newCore(cfg, noopNotifier{})
+			defer c.Stop()
+			c.setClock(mondayAt(2, 0))
+			c.execute("skip-today")
+
+			morning := mondayAt(9, 15).Now()
+			owed := c.reminder.shouldRaiseMorning(morning, c.scheduler.ShouldTrigger(morning), c.dayStart)
+			if owed != tc.wantOwed {
+				t.Fatalf("with a %s day start, the morning reminder owed at 09:15 is %v, want %v", tc.start, owed, tc.wantOwed)
+			}
+		})
+	}
+}
+
 func TestScheduleTickRaisesMorningOnce(t *testing.T) {
 	cfg := config.Default()
 	cfg.MorningReminderPending = false

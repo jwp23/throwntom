@@ -32,7 +32,7 @@ func (c *Core) tickMorning() {
 		return
 	}
 	now := c.now()
-	if c.reminder.shouldRaiseMorning(now, c.scheduler.ShouldTrigger(now)) {
+	if c.reminder.shouldRaiseMorning(now, c.scheduler.ShouldTrigger(now), c.dayStart) {
 		c.reminder.raise(reminderMorning)
 	}
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/jwp23/throwntom/v3/internal/notifier"
 	"github.com/jwp23/throwntom/v3/internal/reminder"
+	"github.com/jwp23/throwntom/v3/internal/workday"
 )
 
 // reminderKind is which nudge is outstanding. At most one is, because the
@@ -176,17 +177,17 @@ func (r *outstandingReminder) cancel() {
 }
 
 // skipToday cancels and marks the morning reminder as already fired today.
-func (r *outstandingReminder) skipToday(now time.Time) {
-	r.markTriggeredToday(now)
+func (r *outstandingReminder) skipToday(now time.Time, dayStart workday.Start) {
+	r.markTriggeredToday(now, dayStart)
 	r.cancel()
 }
 
-// markTriggeredToday records that the morning reminder is owed no more
-// today, without touching whatever reminder is outstanding. Restoring a
-// session that was already past the morning uses it.
-func (r *outstandingReminder) markTriggeredToday(now time.Time) {
+// markTriggeredToday records that the morning reminder is owed no more in the
+// work day now names, without touching whatever reminder is outstanding.
+// Restoring a session that was already past the morning uses it.
+func (r *outstandingReminder) markTriggeredToday(now time.Time, dayStart workday.Start) {
 	r.mu.Lock()
-	r.lastTriggerDay = dayKey(now)
+	r.lastTriggerDay = dayStart.Key(now)
 	r.mu.Unlock()
 }
 
@@ -199,13 +200,13 @@ func (r *outstandingReminder) markTriggeredToday(now time.Time) {
 // schedule names, while a daemon starting up has to ring for a morning it
 // missed entirely, so it asks whether that minute has already passed today.
 // What must not differ is the once-a-day record, which is why it lives here.
-func (r *outstandingReminder) shouldRaiseMorning(now time.Time, scheduleDue bool) bool {
+func (r *outstandingReminder) shouldRaiseMorning(now time.Time, scheduleDue bool, dayStart workday.Start) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if !r.snoozeUntil.IsZero() {
 		return false
 	}
-	key := dayKey(now)
+	key := dayStart.Key(now)
 	if !scheduleDue || key == r.lastTriggerDay {
 		return false
 	}
@@ -304,8 +305,4 @@ func (r *outstandingReminder) ringCount() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.rings
-}
-
-func dayKey(now time.Time) string {
-	return now.Format("2006-01-02")
 }

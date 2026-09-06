@@ -280,7 +280,7 @@ func (c *Core) handleUnsnooze(_ []string) commandResult {
 }
 
 func (c *Core) handleSkipToday(_ []string) commandResult {
-	c.reminder.skipToday(c.now())
+	c.reminder.skipToday(c.now(), c.dayStart)
 	c.timer.SkipToday()
 	c.logEvent("skipped_today", nil)
 	return commandResult{message: "Done for today -- no more reminders until tomorrow."}

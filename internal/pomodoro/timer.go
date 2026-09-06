@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jwp23/throwntom/v3/internal/engine"
+	"github.com/jwp23/throwntom/v3/internal/workday"
 )
 
 // stopper cancels a callback scheduled with afterFunc.
@@ -214,13 +215,13 @@ func (t *Timer) restorePausedLocked(s Snapshot, now time.Time) {
 	t.beginPauseLocked(pauseStartOnRestore(s, now))
 }
 
-func (t *Timer) AdvanceDay(now time.Time) {
+func (t *Timer) AdvanceDay(now time.Time, dayStart workday.Start) {
 	t.mu.Lock()
 	before := t.engine.Snapshot()
-	t.engine.AdvanceDay(now)
+	t.engine.AdvanceDay(now, dayStart)
 	after := t.engine.Snapshot()
 	t.mu.Unlock()
-	if dayRolledOver(before, after) {
+	if dayRolledOver(before, after, dayStart) {
 		t.notifyChange()
 	}
 }
@@ -229,8 +230,8 @@ func (t *Timer) AdvanceDay(now time.Time) {
 // day's counters. Recording the very first work date is not a rollover: nothing
 // an observer can see changes, and notifying on it would make every status read
 // look like a state change.
-func dayRolledOver(before, after engine.Snapshot) bool {
-	return !before.WorkDate.IsZero() && !engine.IsSameDay(before.WorkDate, after.WorkDate)
+func dayRolledOver(before, after engine.Snapshot, dayStart workday.Start) bool {
+	return !before.WorkDate.IsZero() && !dayStart.Same(before.WorkDate, after.WorkDate)
 }
 
 // Start enters the phase the cycle owes and reports the engine state it acted

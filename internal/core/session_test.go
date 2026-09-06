@@ -286,7 +286,7 @@ func TestLoadSessionSuppressesMorningReminder(t *testing.T) {
 	if err := c2.loadSession(); err != nil {
 		t.Fatalf(fmtLoadSession, err)
 	}
-	dayKey := time.Now().Format("2006-01-02")
+	dayKey := defaultDayStart.Key(time.Now())
 	c2.reminder.mu.Lock()
 	gotDay := c2.reminder.lastTriggerDay
 	c2.reminder.mu.Unlock()
@@ -451,12 +451,12 @@ func TestLoadSessionIntoAwaitingConfirmKeepsCycleReminder(t *testing.T) {
 	}
 	waitForSounds(t, rec, 1)
 	morning := mondayAt(9, 15).Now()
-	if c.reminder.shouldRaiseMorning(morning, c.scheduler.ShouldTrigger(morning)) {
+	if c.reminder.shouldRaiseMorning(morning, c.scheduler.ShouldTrigger(morning), c.dayStart) {
 		t.Fatal("expected the morning reminder to still be marked owed for today")
 	}
 }
 
-func TestSessionSavedAfterMidnightResetsOnReload(t *testing.T) {
+func TestSessionSavedAfterTheDayTurnsResetsOnReload(t *testing.T) {
 	dir := t.TempDir()
 	sessPath := filepath.Join(dir, testSessionFile)
 	cfg := config.Default()
@@ -472,8 +472,8 @@ func TestSessionSavedAfterMidnightResetsOnReload(t *testing.T) {
 	c.timer.CompletePeriod()
 	c.Execute("pause")
 
-	afterMidnight := time.Date(2026, 3, 6, 0, 5, 0, 0, time.Local)
-	c.setNow(func() time.Time { return afterMidnight })
+	afterTheBoundary := time.Date(2026, 3, 6, 5, 0, 0, 0, time.Local)
+	c.setNow(func() time.Time { return afterTheBoundary })
 	c.Stop()
 
 	today := time.Date(2026, 3, 6, 9, 0, 0, 0, time.Local)
@@ -498,13 +498,56 @@ func TestSessionSavedAfterMidnightResetsOnReload(t *testing.T) {
 
 	status, _, _ := c2.Status()
 	if !strings.Contains(status, statusTodayPomodoros0) {
-		t.Fatalf("expected today's pomodoros=0 after midnight reload, got %s", status)
+		t.Fatalf("expected today's pomodoros=0 after the day turned, got %s", status)
 	}
 }
 
 // "No more reminders today" has to outlive the daemon, or stopping and
 // starting the service resurrects the reminders the user just dismissed for
 // the day. The engine is idle after skip-today, so only day_ended says so.
+// A shift that runs past midnight is still the same work day, so the session
+// it saved at 11pm is the session it picks back up at 1am — counters, focus
+// and all. Under a midnight boundary the same restore starts from nothing.
+func TestSessionFromLastNightSurvivesIntoTheSmallHours(t *testing.T) {
+	for _, tc := range []struct {
+		start      string
+		wantStatus string
+	}{
+		{"04:00", statusTodayPomodoros1},
+		{"00:00", statusTodayPomodoros0},
+	} {
+		t.Run(tc.start, func(t *testing.T) {
+			sessPath := filepath.Join(t.TempDir(), testSessionFile)
+			cfg := config.Default()
+			cfg.MorningReminderPending = false
+			cfg.DayStart = tc.start
+
+			lastNight := time.Date(2026, 3, 5, 23, 0, 0, 0, time.Local)
+			c := newCore(cfg, noopNotifier{})
+			c.sessionPath = sessPath
+			c.setNow(func() time.Time { return lastNight })
+			defer c.Stop()
+			c.execute(cmdStart)
+			c.timer.CompletePeriod()
+			c.saveSession()
+
+			smallHours := time.Date(2026, 3, 6, 1, 0, 0, 0, time.Local)
+			c2 := newCore(cfg, noopNotifier{})
+			c2.sessionPath = sessPath
+			c2.setNow(func() time.Time { return smallHours })
+			defer c2.Stop()
+			if err := c2.loadSession(); err != nil {
+				t.Fatalf(fmtLoadSession, err)
+			}
+
+			status, _, _ := c2.Status()
+			if !strings.Contains(status, tc.wantStatus) {
+				t.Fatalf("with a %s day start, the status at 1am is %q, want %q in it", tc.start, status, tc.wantStatus)
+			}
+		})
+	}
+}
+
 func TestLoadSessionIntoAnEndedDayOwesNoMorningReminder(t *testing.T) {
 	dir := t.TempDir()
 	sessPath := filepath.Join(dir, testSessionFile)
@@ -533,7 +576,7 @@ func TestLoadSessionIntoAnEndedDayOwesNoMorningReminder(t *testing.T) {
 		t.Fatal("expected the ended day to survive the restore")
 	}
 	morning := mondayAt(9, 15).Now()
-	if c.reminder.shouldRaiseMorning(morning, c.scheduler.ShouldTrigger(morning)) {
+	if c.reminder.shouldRaiseMorning(morning, c.scheduler.ShouldTrigger(morning), c.dayStart) {
 		t.Fatal("expected no morning reminder owed on a day the user ended")
 	}
 }

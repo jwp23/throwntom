@@ -22,8 +22,9 @@ const Template = `# throwntom configuration.
 # it watches this file and picks an edit up within a few seconds, the pomodoro
 # already running included — shortening work_minutes below the time the
 # current pomodoro has already spent ends it. The daemon reloads [pomodoro],
-# [[schedule]], repeat_secs, repeat_limit_secs, float_window_when_waiting,
-# paused_too_long_minutes and bounce_dock_when_paused;
+# [[schedule]], day_start, repeat_secs, repeat_limit_secs,
+# float_window_when_waiting, paused_too_long_minutes and
+# bounce_dock_when_paused;
 # the settings it does not reload say so under their own heading. Running
 # throwntom by itself, without the daemon, reloads nothing at all: it reads
 # this file once as it launches, so there every setting waits for the next
@@ -36,6 +37,16 @@ const Template = `# throwntom configuration.
 # TOML puts a bare key written after a section header inside that section, so
 # repeat_secs moved down there becomes pomodoro.repeat_secs and is rejected
 # as an unknown key.
+
+# When the work day begins, as 24-hour HH:MM. The day runs from this time to
+# the same time the next morning rather than midnight to midnight, so a shift
+# that runs into the small hours is one day: the day's pomodoro count and the
+# long-break cadence carry across midnight instead of resetting mid-shift,
+# and "done for the day" said at 2am clears here rather than lasting until
+# the next midnight. A day that starts and ends between these hours never
+# meets the boundary at all. It is a wall-clock time, so the day a
+# daylight-saving change falls in is simply an hour longer or shorter.
+# day_start = "04:00"
 
 # Seconds between the repeats of an unanswered reminder.
 # repeat_secs = 20

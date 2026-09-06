@@ -110,7 +110,7 @@ func TestOnTransitionSilentForRefusedPauseAndAdvanceDay(t *testing.T) {
 	if a.Pause() {
 		t.Fatal("expected pause to be refused while idle")
 	}
-	a.AdvanceDay(time.Now())
+	a.AdvanceDay(time.Now(), dayStart)
 	a.Start()
 	a.CompletePeriod()
 	before := rec.count()

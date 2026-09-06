@@ -75,22 +75,22 @@ func TestStartingWorkAfterAnEndedDayKeepsTheDaysCount(t *testing.T) {
 	}
 }
 
-// The daemon is usually up when midnight arrives, so the rollover happens in
-// a live engine and is then saved. A snapshot that lands unreachable is
+// The daemon is usually up when the work day turns, so the rollover happens
+// in a live engine and is then saved. A snapshot that lands unreachable is
 // discarded whole on the next start, costing the user the phase in flight and
 // the day's focused tasks; only the day's totals were meant to reset.
-func TestSessionSurvivesAMidnightRollover(t *testing.T) {
+func TestSessionSurvivesADayRollover(t *testing.T) {
 	sessPath := filepath.Join(t.TempDir(), testSessionFile)
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
 	cfg.RepeatSecs = 3600
 
 	c := newCore(cfg, noopNotifier{})
-	c.setClock(newFakeClock(time.Date(2026, 3, 5, 23, 50, 0, 0, time.Local)))
+	c.setClock(newFakeClock(time.Date(2026, 3, 6, 3, 50, 0, 0, time.Local)))
 	c.sessionPath = sessPath
 	c.Execute(cmdStart)
 	c.timer.CompletePeriod()
-	c.setClock(newFakeClock(time.Date(2026, 3, 6, 0, 5, 0, 0, time.Local)))
+	c.setClock(newFakeClock(time.Date(2026, 3, 6, 5, 0, 0, 0, time.Local)))
 	c.Stop()
 
 	restarted := newCore(cfg, noopNotifier{})

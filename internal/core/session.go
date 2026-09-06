@@ -38,7 +38,7 @@ func (c *Core) loadSession() error {
 	if data.SavedAt.IsZero() {
 		return nil
 	}
-	if !engine.IsSameDay(data.SavedAt, c.now()) {
+	if !c.dayStart.Same(data.SavedAt, c.now()) {
 		return nil
 	}
 	if reason := data.Timer.Engine.Invalid(); reason != "" {
@@ -59,9 +59,9 @@ func (c *Core) loadSession() error {
 			}
 		}
 	}
-	c.timer.AdvanceDay(c.now())
+	c.timer.AdvanceDay(c.now(), c.dayStart)
 	if dayUnderway(c.timer.Snapshot().Engine) {
-		c.reminder.markTriggeredToday(c.now())
+		c.reminder.markTriggeredToday(c.now(), c.dayStart)
 	}
 	return nil
 }

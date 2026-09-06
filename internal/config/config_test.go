@@ -483,3 +483,27 @@ func TestLoadRejectsNonPositivePausedTooLongMinutes(t *testing.T) {
 		t.Fatal("expected paused_too_long_minutes validation error")
 	}
 }
+
+func TestDefaultDayStart(t *testing.T) {
+	if got := Default().DayStart; got != "04:00" {
+		t.Fatalf("expected the work day to start at 04:00 by default, got %q", got)
+	}
+}
+
+func TestLoadBytesParsesDayStart(t *testing.T) {
+	cfg, err := LoadBytes([]byte("day_start = \"06:30\"\n"))
+	if err != nil {
+		t.Fatalf(fmtUnexpectedErr, err)
+	}
+	if cfg.DayStart != "06:30" {
+		t.Fatalf("expected day_start 06:30, got %q", cfg.DayStart)
+	}
+}
+
+func TestLoadRejectsInvalidDayStart(t *testing.T) {
+	for _, hhmm := range []string{"", "6:30", "24:00", "06:60", "morning"} {
+		if _, err := LoadBytes([]byte("day_start = \"" + hhmm + "\"\n")); err == nil {
+			t.Errorf("expected day_start %q to be rejected", hhmm)
+		}
+	}
+}

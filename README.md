@@ -184,7 +184,7 @@ throwntom automatically saves session state to `~/.config/throwntom/session.json
 - Completed pomodoro counts for the day
 - Focused task selections
 
-If the saved session is from a different day, it is discarded and throwntom starts fresh. If the timer expired while closed, it transitions to awaiting confirmation. Paused timers remain paused with their remaining duration preserved.
+If the saved session is from a different work day (see [`day_start`](#day_start)), it is discarded and throwntom starts fresh. If the timer expired while closed, it transitions to awaiting confirmation. Paused timers remain paused with their remaining duration preserved.
 
 ### A phase counts through downtime
 
@@ -247,6 +247,7 @@ Example `config.toml`:
 ```toml
 # Settings outside a section must stay above [pomodoro]: TOML puts a bare key
 # written after a section header inside that section.
+day_start = "04:00"
 repeat_secs = 20
 repeat_limit_secs = 300
 sound_command = ["paplay", "/usr/share/sounds/freedesktop/stereo/bell.oga"]
@@ -282,6 +283,20 @@ reminder nobody is around to acknowledge stops on its own rather than ringing
 until you quit. Like `sound_command` it describes the terminal UI: `throwntomd`
 plays nothing to repeat, and on macOS the app chimes on each published ring,
 the first included, until the reminder is answered.
+
+### `day_start`
+
+The work day runs from `day_start` to the same time the next morning, not from
+midnight to midnight. Default `04:00`, written as 24-hour `HH:MM`.
+
+It matters for a shift that runs into the small hours. The day's pomodoro count
+and the progress toward the long break carry across midnight rather than
+resetting mid-shift, and **Done for Today** said at 2am clears at the next
+`day_start` — while you sleep — instead of standing until the following
+midnight. A day worked between these hours never meets the boundary at all.
+
+The boundary is a wall-clock time. A day that a daylight-saving change makes 23
+or 25 hours long is still one work day; nothing here adjusts for the offset.
 
 ### `float_window_when_waiting`
 
@@ -369,7 +384,7 @@ already spent ends that phase immediately — the edit says the phase should
 already be over. A file that does not parse is reported on the daemon's
 stderr and ignored; the config in force stays in force.
 
-Reloading covers `[pomodoro]`, `[[schedule]]`, `repeat_secs`,
+Reloading covers `[pomodoro]`, `[[schedule]]`, `day_start`, `repeat_secs`,
 `repeat_limit_secs`, `float_window_when_waiting`,
 `paused_too_long_minutes` and `bounce_dock_when_paused`. The rest needs a restart
 of whichever process reads it:

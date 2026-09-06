@@ -10,7 +10,13 @@ import (
 
 	"github.com/jwp23/throwntom/v3/internal/config"
 	"github.com/jwp23/throwntom/v3/internal/engine"
+	"github.com/jwp23/throwntom/v3/internal/workday"
 )
+
+// defaultDayStart is the boundary a core built from the default config keeps
+// its day by, so a test that asks the reminder or the timer which day it is
+// asks with the same one the core would.
+var defaultDayStart = workday.MustParseStart(config.Default().DayStart)
 
 const (
 	testSessionFile       = "session.json"

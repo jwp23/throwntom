@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/jwp23/throwntom/v3/internal/workday"
 )
 
 var timePattern = regexp.MustCompile(`^[0-9]{2}:[0-9]{2}$`)
@@ -27,12 +29,17 @@ type Config struct {
 		LunchMinutes      int `toml:"lunch_minutes"`
 		LongBreakEvery    int `toml:"long_break_every"`
 	} `toml:"pomodoro"`
-	Schedule               []ScheduleEntry `toml:"schedule"`
-	RepeatSecs             int             `toml:"repeat_secs"`
-	RepeatLimitSecs        int             `toml:"repeat_limit_secs"`
-	SoundCommand           []string        `toml:"sound_command"`
-	MorningReminderPending bool            `toml:"morning_reminder_pending"`
-	Emoji                  bool            `toml:"emoji"`
+	Schedule []ScheduleEntry `toml:"schedule"`
+	// DayStart is the 24-hour HH:MM at which one work day gives way to the
+	// next. It is not midnight, so a shift that runs into the small hours is
+	// one day: the counters, the long-break cadence and the morning reminder
+	// all turn over here instead (ADR-013).
+	DayStart               string   `toml:"day_start"`
+	RepeatSecs             int      `toml:"repeat_secs"`
+	RepeatLimitSecs        int      `toml:"repeat_limit_secs"`
+	SoundCommand           []string `toml:"sound_command"`
+	MorningReminderPending bool     `toml:"morning_reminder_pending"`
+	Emoji                  bool     `toml:"emoji"`
 	// FloatWindowWhenWaiting asks a client to keep its window above other
 	// applications' windows while a reminder is outstanding. Nothing here acts
 	// on it: it is presentation, which belongs to the client (ADR-003), and
@@ -69,6 +76,7 @@ func Default() Config {
 	cfg.Pomodoro.LongBreakMinutes = 15
 	cfg.Pomodoro.LunchMinutes = 60
 	cfg.Pomodoro.LongBreakEvery = 4
+	cfg.DayStart = "04:00"
 	cfg.RepeatSecs = 20
 	cfg.RepeatLimitSecs = 300
 	cfg.MorningReminderPending = true
@@ -126,20 +134,11 @@ func ScheduleDayTimes(entries []ScheduleEntry) map[string]string {
 }
 
 func validate(cfg Config) error {
-	if cfg.Pomodoro.WorkMinutes <= 0 {
-		return fmt.Errorf("work_minutes must be > 0")
+	if err := validatePomodoro(cfg); err != nil {
+		return err
 	}
-	if cfg.Pomodoro.ShortBreakMinutes <= 0 {
-		return fmt.Errorf("short_break_minutes must be > 0")
-	}
-	if cfg.Pomodoro.LongBreakMinutes <= 0 {
-		return fmt.Errorf("long_break_minutes must be > 0")
-	}
-	if cfg.Pomodoro.LunchMinutes <= 0 {
-		return fmt.Errorf("lunch_minutes must be > 0")
-	}
-	if cfg.Pomodoro.LongBreakEvery <= 0 {
-		return fmt.Errorf("long_break_every must be > 0")
+	if _, err := workday.ParseStart(cfg.DayStart); err != nil {
+		return fmt.Errorf("invalid day_start %q: %w", cfg.DayStart, err)
 	}
 	if cfg.RepeatSecs <= 0 {
 		return fmt.Errorf("repeat_secs must be > 0")
@@ -164,6 +163,27 @@ func validate(cfg Config) error {
 	}
 	if cfg.Stats.TierLow >= cfg.Stats.TierMid {
 		return fmt.Errorf("stats tier_low must be less than tier_mid")
+	}
+	return nil
+}
+
+// validatePomodoro checks the phase lengths and the cycle. Every one of them
+// is a divisor or a countdown somewhere, so none may be zero.
+func validatePomodoro(cfg Config) error {
+	if cfg.Pomodoro.WorkMinutes <= 0 {
+		return fmt.Errorf("work_minutes must be > 0")
+	}
+	if cfg.Pomodoro.ShortBreakMinutes <= 0 {
+		return fmt.Errorf("short_break_minutes must be > 0")
+	}
+	if cfg.Pomodoro.LongBreakMinutes <= 0 {
+		return fmt.Errorf("long_break_minutes must be > 0")
+	}
+	if cfg.Pomodoro.LunchMinutes <= 0 {
+		return fmt.Errorf("lunch_minutes must be > 0")
+	}
+	if cfg.Pomodoro.LongBreakEvery <= 0 {
+		return fmt.Errorf("long_break_every must be > 0")
 	}
 	return nil
 }

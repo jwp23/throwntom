@@ -6,6 +6,7 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/config"
 	"github.com/jwp23/throwntom/v3/internal/reminder"
 	"github.com/jwp23/throwntom/v3/internal/scheduler"
+	"github.com/jwp23/throwntom/v3/internal/workday"
 )
 
 // ApplyConfig puts a reloaded config in force at once, in-flight phase
@@ -26,6 +27,7 @@ func (c *Core) ApplyConfig(cfg config.Config) {
 		return
 	}
 	c.longBreakEvery = cfg.Pomodoro.LongBreakEvery
+	c.dayStart = workday.MustParseStart(cfg.DayStart)
 	c.floatWindowWhenWaiting = cfg.FloatWindowWhenWaiting
 	c.bounceDockWhenPaused = cfg.BounceDockWhenPaused
 	c.timer.SetPausedTooLongAfter(pausedTooLongAfter(cfg))
