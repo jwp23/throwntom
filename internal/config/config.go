@@ -5,16 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
 
 	"github.com/jwp23/throwntom/v3/internal/workday"
 )
-
-var timePattern = regexp.MustCompile(`^[0-9]{2}:[0-9]{2}$`)
 
 type ScheduleEntry struct {
 	Days []string `toml:"days"`
@@ -194,10 +190,7 @@ func validateScheduleEntries(entries []ScheduleEntry) error {
 		if entry.Time == "" {
 			return fmt.Errorf("schedule[%d]: time is required", i)
 		}
-		if !timePattern.MatchString(entry.Time) {
-			return fmt.Errorf("invalid schedule_time %q: expected HH:MM", entry.Time)
-		}
-		if err := validateHHMMRange(entry.Time); err != nil {
+		if _, _, err := workday.ParseHHMM(entry.Time); err != nil {
 			return fmt.Errorf("invalid schedule_time %q: %w", entry.Time, err)
 		}
 		for _, day := range entry.Days {
@@ -219,22 +212,6 @@ func validateSoundCommand(parts []string) error {
 		if strings.TrimSpace(part) == "" {
 			return fmt.Errorf("sound_command[%d] must be a non-empty string", i)
 		}
-	}
-	return nil
-}
-
-func validateHHMMRange(hhmm string) error {
-	parts := strings.Split(hhmm, ":")
-	if len(parts) != 2 {
-		return fmt.Errorf("expected HH:MM")
-	}
-	hour, err := strconv.Atoi(parts[0])
-	if err != nil || hour < 0 || hour > 23 {
-		return fmt.Errorf("hour must be between 00 and 23")
-	}
-	minute, err := strconv.Atoi(parts[1])
-	if err != nil || minute < 0 || minute > 59 {
-		return fmt.Errorf("minute must be between 00 and 59")
 	}
 	return nil
 }

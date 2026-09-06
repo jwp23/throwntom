@@ -1,17 +1,19 @@
-// Package workday says which work day a moment belongs to.
+// Package workday says which work day a moment belongs to, and reads the
+// HH:MM form the config writes every time of day in.
 //
 // A work day runs from a configurable start hour to the next, not from
 // midnight to midnight (ADR-013), so an overnight shift is one day: the
 // counters, the long-break cadence and the once-a-day reminder all hold
 // across midnight and turn over together at the start hour instead. Every
 // part of the program that has to ask which day it is asks here, so the
-// answers cannot drift apart.
+// answers cannot drift apart. Parsing lives here for the same reason: the day
+// start, the schedule times and the validation of both are one format, so
+// they are one parser.
 package workday
 
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -29,22 +31,49 @@ var (
 	errMinute = errors.New("minute must be between 00 and 59")
 )
 
-// ParseStart reads a start hour written as 24-hour HH:MM, the way the config
-// writes every other time of day.
+// ParseHHMM reads a 24-hour HH:MM time of day, which is how the config writes
+// every one of them: the day start here, and the schedule times in
+// internal/config and internal/scheduler. The two digits on each side are
+// required, so "4:00" is as much a format error as "morning" is.
+func ParseHHMM(hhmm string) (hour, minute int, err error) {
+	h, m, found := strings.Cut(hhmm, ":")
+	if !found {
+		return 0, 0, errFormat
+	}
+	hour, ok := twoDigits(h)
+	if !ok {
+		return 0, 0, errFormat
+	}
+	minute, ok = twoDigits(m)
+	if !ok {
+		return 0, 0, errFormat
+	}
+	if hour > 23 {
+		return 0, 0, errHour
+	}
+	if minute > 59 {
+		return 0, 0, errMinute
+	}
+	return hour, minute, nil
+}
+
+// twoDigits reads exactly two digits. Reading them by hand rather than with
+// strconv is what makes the pair strict: Atoi would take "+4" and a single
+// digit alike, and neither is a time of day.
+func twoDigits(s string) (int, bool) {
+	if len(s) != 2 || s[0] < '0' || s[0] > '9' || s[1] < '0' || s[1] > '9' {
+		return 0, false
+	}
+	return int(s[0]-'0')*10 + int(s[1]-'0'), true
+}
+
+// ParseStart reads the hour the work day begins at, written as 24-hour HH:MM.
 func ParseStart(hhmm string) (Start, error) {
-	hour, minute, found := strings.Cut(hhmm, ":")
-	if !found || len(hour) != 2 || len(minute) != 2 {
-		return Start{}, errFormat
+	hour, minute, err := ParseHHMM(hhmm)
+	if err != nil {
+		return Start{}, err
 	}
-	h, err := strconv.Atoi(hour)
-	if err != nil || h < 0 || h > 23 {
-		return Start{}, errHour
-	}
-	m, err := strconv.Atoi(minute)
-	if err != nil || m < 0 || m > 59 {
-		return Start{}, errMinute
-	}
-	return Start{hour: h, minute: m}, nil
+	return Start{hour: hour, minute: minute}, nil
 }
 
 // MustParseStart is ParseStart for a value the config has already validated,

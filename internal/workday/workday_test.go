@@ -1,6 +1,7 @@
 package workday
 
 import (
+	"errors"
 	"testing"
 	"time"
 	// The DST tests need a named zone, and a machine without the system zone
@@ -28,9 +29,54 @@ func TestParseStartAcceptsHHMM(t *testing.T) {
 }
 
 func TestParseStartRejectsAnythingElse(t *testing.T) {
-	for _, hhmm := range []string{"", "4:00", "04:0", "0400", "24:00", "04:60", "-1:00", "aa:bb", "04:00:00"} {
+	for _, hhmm := range []string{"", "4:00", "04:0", "0400", "24:00", "04:60", "-1:00", "+4:00", "aa:bb", "04:00:00"} {
 		if _, err := ParseStart(hhmm); err == nil {
 			t.Errorf("ParseStart(%q) was accepted, want an error", hhmm)
+		}
+	}
+}
+
+// One parser reads every HH:MM the config writes — the day start, and the
+// schedule times through internal/config and internal/scheduler — so the
+// three of them cannot disagree about what a time of day looks like.
+func TestParseHHMMReadsTheTimeOfDay(t *testing.T) {
+	for _, tc := range []struct {
+		hhmm         string
+		hour, minute int
+	}{
+		{"00:00", 0, 0},
+		{fourAM, 4, 0},
+		{"09:15", 9, 15},
+		{"23:59", 23, 59},
+	} {
+		hour, minute, err := ParseHHMM(tc.hhmm)
+		if err != nil {
+			t.Errorf("ParseHHMM(%q): %v", tc.hhmm, err)
+			continue
+		}
+		if hour != tc.hour || minute != tc.minute {
+			t.Errorf("ParseHHMM(%q) = %d:%d, want %d:%d", tc.hhmm, hour, minute, tc.hour, tc.minute)
+		}
+	}
+}
+
+// The error says which of the two things went wrong, because a caller quotes
+// it back at the user: a time that is not HH:MM at all is a different mistake
+// from one whose hour is out of range.
+func TestParseHHMMNamesTheProblem(t *testing.T) {
+	for _, tc := range []struct {
+		hhmm string
+		want error
+	}{
+		{"aa:bb", errFormat},
+		{"+4:00", errFormat},
+		{"0400", errFormat},
+		{"04:00:00", errFormat},
+		{"24:00", errHour},
+		{"04:60", errMinute},
+	} {
+		if _, _, err := ParseHHMM(tc.hhmm); !errors.Is(err, tc.want) {
+			t.Errorf("ParseHHMM(%q) = %v, want %v", tc.hhmm, err, tc.want)
 		}
 	}
 }
