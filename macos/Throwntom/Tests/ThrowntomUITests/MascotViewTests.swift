@@ -5,7 +5,7 @@ import XCTest
 @MainActor
 final class MascotViewTests: XCTestCase {
   func testBlinkClosesOpenEyesOnly() {
-    let blink = MotionFrame(bobDegrees: 0, blinking: true, yoyoDrop: 4, jumpLift: 0)
+    let blink = MotionFrame(bobDegrees: 0, blinking: true, yoyoDrop: 4, jumpLift: 0, zzzPhase: 0)
     XCTAssertEqual(MascotCharacterView.eyes(for: .work, frame: blink), .closed)
     XCTAssertEqual(MascotCharacterView.eyes(for: .work, frame: .still), .open)
     XCTAssertEqual(MascotCharacterView.eyes(for: .awaitingConfirm, frame: blink), .wide)
@@ -21,6 +21,7 @@ final class MascotViewTests: XCTestCase {
       .lunch,
       .idle,
       .awaitingConfirm,
+      .asleep,
       .disconnected,
       MascotPose.work.paused(),
     ]

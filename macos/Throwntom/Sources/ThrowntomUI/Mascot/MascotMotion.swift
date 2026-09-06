@@ -4,12 +4,21 @@ import SwiftUI
 
 /// Where every moving part is at one instant.
 struct MotionFrame: Equatable {
-  static let still = MotionFrame(bobDegrees: 0, blinking: false, yoyoDrop: MascotMotion.yoyoDropRange.lowerBound, jumpLift: 0)
+  static let still = MotionFrame(
+    bobDegrees: 0,
+    blinking: false,
+    yoyoDrop: MascotMotion.yoyoDropRange.lowerBound,
+    jumpLift: 0,
+    zzzPhase: 0,
+  )
 
   var bobDegrees: Double
   var blinking: Bool
   var yoyoDrop: Double
   var jumpLift: Double
+  /// Where the Z's are in their cycle, 0 to 1. `HeldProps` turns the one number into three Z's
+  /// staggered by thirds, so a still frame at 0 is a small-to-large `zZZ` rather than a blank.
+  var zzzPhase: Double
 }
 
 // MARK: - MascotMotion
@@ -24,6 +33,8 @@ enum MascotMotion {
   static let yoyoDropRange: ClosedRange<Double> = 4 ... 18
   static let jumpPeriod: TimeInterval = 1.2
   static let jumpLift: Double = 6
+  /// Longer than a breath, so the two never fall into step and read as one pulse.
+  static let zzzPeriod: TimeInterval = 4
   /// Arms and rotation bend into a new pose at the same pace the ground recolours.
   static let poseChange = Animation.easeOut(duration: 0.25)
 
@@ -41,6 +52,9 @@ enum MascotMotion {
     }
     if motions.contains(.jump) {
       frame.jumpLift = jumpLift * max(0, sin(2 * .pi * seconds / jumpPeriod))
+    }
+    if motions.contains(.zzz) {
+      frame.zzzPhase = seconds.truncatingRemainder(dividingBy: zzzPeriod) / zzzPeriod
     }
     return frame
   }

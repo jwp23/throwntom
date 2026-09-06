@@ -101,6 +101,24 @@ extension MascotPose {
     motions: [.jump],
   )
 
+  /// Asleep in a nightcap under drifting Z's, arms folded low. Worn while a snooze is running,
+  /// which is not a phase — so this is the one pose the daemon's `state` does not choose
+  /// (`MainWindowContent`). It is deliberately the opposite of `awaitingConfirm`, the pose it
+  /// stands in for: a user who has just quieted a reminder must not be shouted at by the window.
+  static let asleep = MascotPose(
+    eyes: .closed,
+    mouth: .smile,
+    leftArm: Arm(shoulder: leftShoulder, 14, 80, 24, 88, 44, 87),
+    rightArm: Arm(shoulder: rightShoulder, 86, 80, 76, 88, 56, 90),
+    held: .nightcap,
+    worn: nil,
+    furniture: nil,
+    rotation: -12,
+    scale: 1,
+    offset: .zero,
+    motions: [.breathe, .zzz],
+  )
+
   /// Holding a pulled-out cable, mouth flat.
   static let disconnected = MascotPose(
     eyes: .open,

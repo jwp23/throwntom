@@ -23,9 +23,15 @@ final class MascotSnapshotTests: XCTestCase {
   }
 
   func testMotionExtremesRenderOffscreen() throws {
-    let yoyoDown = MotionFrame(bobDegrees: 0, blinking: false, yoyoDrop: MascotMotion.yoyoDropRange.upperBound, jumpLift: 0)
-    let jumpPeak = MotionFrame(bobDegrees: 0, blinking: false, yoyoDrop: 0, jumpLift: MascotMotion.jumpLift)
-    let blink = MotionFrame(bobDegrees: MascotMotion.breatheDegrees, blinking: true, yoyoDrop: 0, jumpLift: 0)
+    let yoyoDown = MotionFrame(
+      bobDegrees: 0,
+      blinking: false,
+      yoyoDrop: MascotMotion.yoyoDropRange.upperBound,
+      jumpLift: 0,
+      zzzPhase: 0,
+    )
+    let jumpPeak = MotionFrame(bobDegrees: 0, blinking: false, yoyoDrop: 0, jumpLift: MascotMotion.jumpLift, zzzPhase: 0)
+    let blink = MotionFrame(bobDegrees: MascotMotion.breatheDegrees, blinking: true, yoyoDrop: 0, jumpLift: 0, zzzPhase: 0)
     let extremes: [(name: String, pose: MascotPose, frame: MotionFrame, phase: DaemonState.Phase?)] = [
       ("idle-yoyo-down", .idle, yoyoDown, .idle),
       ("awaiting-confirm-jump", .awaitingConfirm, jumpPeak, .awaitingConfirm),
