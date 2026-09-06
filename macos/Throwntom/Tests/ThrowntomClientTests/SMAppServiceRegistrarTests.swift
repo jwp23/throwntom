@@ -136,7 +136,8 @@ final class SMAppServiceRegistrarTests: XCTestCase {
 
 // MARK: - FakeAgentService
 
-// `calls` is mutated only by the registrar under test on the test actor; LaunchAgentService requires Sendable.
+// `calls` and `mainThreadCalls` are mutated one call at a time, serialized by AgentDriver's own
+// isolation; nothing reads them until the `await` that ran the call has returned.
 // swiftlint:disable:next no_unchecked_sendable
 private final class FakeAgentService: LaunchAgentService, @unchecked Sendable {
 
