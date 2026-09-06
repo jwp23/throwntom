@@ -173,30 +173,90 @@ func TestSkipTodayInTheSmallHoursLeavesTheMorningOwed(t *testing.T) {
 	}
 }
 
+// Nothing but the daemon's own tick is running overnight: clients are
+// push-only and no command arrives while the user sleeps. So the tick is what
+// has to notice the boundary, or a day ended at 2am is still ended at nine
+// (ADR-013). The check reads the timer directly because a status read
+// advances the day by itself, and would hide the very thing under test.
+func TestTheTickRollsTheDayOverWithNoCommand(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+	defer c.Stop()
+	c.setClock(mondayAt(2, 0))
+	// Execute is what a command really goes through, and it records the work
+	// date the tick below has to find changed.
+	c.Execute("skip-today")
+	if !c.timer.Snapshot().Engine.DayEnded {
+		t.Fatal("expected skip-today to end the day")
+	}
+
+	c.setClock(mondayAt(4, 0))
+	c.tick()
+
+	if c.timer.Snapshot().Engine.DayEnded {
+		t.Fatal("expected the tick alone to reopen the day at the start hour")
+	}
+}
+
+// Rolling the day over where nobody can see it is no better than not rolling
+// it over: a push-only client renders the last state it was sent, so the tick
+// has to publish the new day.
+func TestTheTickPublishesTheDayItRollsOver(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+	defer c.Stop()
+	c.setClock(mondayAt(2, 0))
+	c.Execute("skip-today")
+	// Ending the day publishes on its own goroutine. Letting that land before
+	// subscribing leaves the tick as the only thing that can publish next, so
+	// what arrives below is the tick's doing and nothing else's.
+	settle()
+
+	states, unsubscribe := c.Subscribe()
+	defer unsubscribe()
+	if seeded := <-states; !seeded.DayEnded {
+		t.Fatal("expected the subscriber to be seeded with the ended day")
+	}
+
+	c.setClock(mondayAt(4, 0))
+	c.tick()
+
+	select {
+	case published := <-states:
+		if published.DayEnded {
+			t.Fatal("the tick published a state that still says the day is over")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("the tick published nothing when the day rolled over")
+	}
+}
+
 func TestScheduleTickRaisesMorningOnce(t *testing.T) {
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
 	c := newCore(cfg, noopNotifier{})
 	c.setClock(mondayAt(9, 15))
-	c.tickMorning()
+	c.tick()
 	if c.reminder.outstanding() != reminderMorning {
 		t.Fatal("expected the schedule tick to raise the morning reminder")
 	}
 	c.reminder.cancel()
-	c.tickMorning()
+	c.tick()
 	if c.reminder.outstanding() != reminderNone {
 		t.Fatal("expected the schedule not to fire twice in one day")
 	}
 }
 
-func TestTickMorningHoldsCoreLock(t *testing.T) {
+func TestTickHoldsCoreLock(t *testing.T) {
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
 	c := newCore(cfg, noopNotifier{})
 	c.setClock(mondayAt(9, 15))
 
 	c.mu.Lock()
-	go c.tickMorning()
+	go c.tick()
 	settle()
 	if c.reminder.outstanding() != reminderNone {
 		t.Fatal("expected no raise while the core lock is held")
@@ -219,7 +279,7 @@ func TestScheduleTickIgnoresBusyTimer(t *testing.T) {
 	c := newCore(cfg, noopNotifier{})
 	c.setClock(mondayAt(9, 15))
 	c.execute(cmdStart)
-	c.tickMorning()
+	c.tick()
 	if c.reminder.outstanding() != reminderNone {
 		t.Fatal("expected no morning reminder while a pomodoro runs")
 	}

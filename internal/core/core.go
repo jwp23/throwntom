@@ -194,7 +194,7 @@ func (c *Core) Start(ctx context.Context) {
 	c.scheduleDone = done
 	go func() {
 		defer close(done)
-		c.runMorningSchedule(scheduleCtx)
+		c.runTicker(scheduleCtx)
 	}()
 	// A daemon starting up mid-morning rings for the reminder it was not
 	// running to give, so it asks whether the schedule has already struck
@@ -214,9 +214,9 @@ func (c *Core) Start(ctx context.Context) {
 // true: every other publish takes publishMu first, so one already queued
 // cannot slip between them.
 func (c *Core) Stop() {
-	// Stop the schedule tick and wait for it to exit before taking c.mu:
-	// tick takes c.mu itself, so waiting first (rather than while
-	// holding the lock) lets an in-flight tick finish instead of deadlocking.
+	// Stop the tick and wait for it to exit before taking c.mu: tick takes
+	// c.mu itself, so waiting first (rather than while holding the lock) lets
+	// an in-flight tick finish instead of deadlocking.
 	c.mu.Lock()
 	stopSchedule, scheduleDone := c.stopSchedule, c.scheduleDone
 	c.mu.Unlock()
