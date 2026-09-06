@@ -8,7 +8,7 @@ struct ShortcutSheet: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
       Text("Keyboard Shortcuts").font(.title2.weight(.semibold))
-      ForEach(ShortcutList.sections(for: environment), id: \.name) { section in
+      ForEach(ShortcutList.sections(for: environment)) { section in
         VStack(alignment: .leading, spacing: 3) {
           Text(section.name).font(.caption).textCase(.uppercase).foregroundStyle(.secondary)
           Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 2) {

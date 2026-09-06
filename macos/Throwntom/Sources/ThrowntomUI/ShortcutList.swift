@@ -23,9 +23,15 @@ enum ShortcutList {
     }
   }
 
-  struct Section: Equatable {
+  struct Section: Equatable, Identifiable {
     let name: String
     let entries: [Entry]
+
+    /// The name: sections are a fixed, distinct list ("Timer", "View", "Tasks", "App"), so it is
+    /// already unique by construction.
+    var id: String {
+      name
+    }
   }
 
   /// The sheet answers two questions, because a reader arrives with both: what the app binds, and
