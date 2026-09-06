@@ -46,6 +46,29 @@ final class MascotSnapshotTests: XCTestCase {
     }
   }
 
+  /// A snooze is not a phase, so the asleep pose and the ground it wears are rendered on their own
+  /// rather than through the sweep above. Mid-cycle as well as still: the Z's are the one motion
+  /// whose still frame is not simply the absence of the moving one.
+  func testTheSnoozedPoseAndItsHeaderRenderOffscreen() throws {
+    let drifting = MotionFrame(bobDegrees: 0, blinking: false, yoyoDrop: 0, jumpLift: 0, zzzPhase: 0.4)
+    for (name, frame) in [("snoozed", MotionFrame.still), ("snoozed-zzz-drift", drifting)] {
+      let image = try XCTUnwrap(render(pose: .asleep, frame: frame, scheme: Palette.snoozed), name)
+      XCTAssertGreaterThan(image.size.width, 0, name)
+      try write(image, name: name)
+    }
+
+    let content = MainWindowContent(
+      state: makeState(phase: .awaitingConfirm, snoozeUntil: Date(timeIntervalSince1970: 1_000_600)),
+      connection: .connected,
+      status: .running,
+      tasks: TaskList(),
+      error: nil,
+      panel: nil,
+      now: Date(timeIntervalSince1970: 1_000_000),
+    )
+    try write(try XCTUnwrap(snapshot(header(content)), "header-snoozed"), name: "header-snoozed")
+  }
+
   func testHeaderRendersOffscreen() throws {
     for phase in Self.phases {
       let content = MainWindowContent(
@@ -57,12 +80,7 @@ final class MascotSnapshotTests: XCTestCase {
         panel: nil,
         now: Date(timeIntervalSince1970: 1_000_000),
       )
-      let header = TimerHeader(content: content)
-        .padding(16)
-        .frame(width: 400)
-        .background(content.scheme.ground.color)
-        .foregroundStyle(content.scheme.text.color)
-      let image = try XCTUnwrap(snapshot(header), "header-\(phase.name)")
+      let image = try XCTUnwrap(snapshot(header(content)), "header-\(phase.name)")
       try write(image, name: "header-\(phase.name)")
     }
   }
@@ -83,6 +101,14 @@ final class MascotSnapshotTests: XCTestCase {
 
   private var outputDirectory: URL? {
     ProcessInfo.processInfo.environment["MASCOT_SNAPSHOT_DIR"].map { URL(fileURLWithPath: $0) }
+  }
+
+  private func header(_ content: MainWindowContent) -> some View {
+    TimerHeader(content: content)
+      .padding(16)
+      .frame(width: 400)
+      .background(content.scheme.ground.color)
+      .foregroundStyle(content.scheme.text.color)
   }
 
   private func render(pose: MascotPose, frame: MotionFrame, scheme: PhaseScheme) -> NSImage? {

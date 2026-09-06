@@ -93,7 +93,10 @@ final class TimerHeaderTests: XCTestCase {
           )
           for phase in phases {
             for dayEnded in [false, true] {
-              titles.insert(title(state: makeState(phase: phase, dayEnded: dayEnded), connection: connection, status: status))
+              for snoozeUntil in [nil, Date(timeIntervalSince1970: 600)] {
+                let state = makeState(phase: phase, snoozeUntil: snoozeUntil, dayEnded: dayEnded)
+                titles.insert(title(state: state, connection: connection, status: status))
+              }
             }
           }
           titles.insert(title(state: nil, connection: connection, status: status))

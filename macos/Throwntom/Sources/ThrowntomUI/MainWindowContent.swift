@@ -40,8 +40,17 @@ struct MainWindowContent: Equatable {
     // A live connection outranks a stale refusal inside `ServiceStatus.of`, matching
     // `DaemonClient.unresolvedError`, so a note about launchd can never blank a running timer.
     let shown = status.offersDaemonCommands ? state : nil
-    scheme = Palette.scheme(for: shown?.state)
-    pose = MascotPose.pose(for: shown?.state, pausedFrom: shown?.pausedFrom ?? .idle)
+    // A snooze is not a phase: the daemon publishes it beside the state (`internal/core/state.go`),
+    // so while one runs `state` is still awaiting_confirm or idle. Ground, pose and title are asked
+    // this question before they are asked the phase's, because the phase underneath an evening
+    // snooze is the reminder the user has just quieted — and drawn from the phase alone the window
+    // went on shouting it in alarm red with the mascot jumping. Snoozing also withdraws the banner
+    // (`ReminderBanner`) and stops the window floating (`WindowElevation`), which leaves the window
+    // itself as the only thing that can report a snooze at all.
+    let snoozed = shown?.snoozeUntil != nil
+    isSnoozed = snoozed
+    scheme = snoozed ? Palette.snoozed : Palette.scheme(for: shown?.state)
+    pose = snoozed ? .asleep : MascotPose.pose(for: shown?.state, pausedFrom: shown?.pausedFrom ?? .idle)
     // A retained phase is still counting (ADR-008), so the window goes on naming it and keeps its
     // ground and its verbs — but it must not read as a live connection. Unmarked, a client that has
     // lost the daemon draws a window byte-for-byte identical to the connected one, and the only way
@@ -64,13 +73,6 @@ struct MainWindowContent: Equatable {
     spokenHeadline = nextStage.map { "\(title). \($0)" } ?? title
     garden = shown
       .map { TomatoGarden(completedToday: $0.completedToday, inBlock: $0.workSessionsInBlock, every: $0.longBreakEvery) }
-    // Split the way the headline is split, and for the same reason: the minutes left are the part
-    // that moves, so they are the element's value. Left inside the label they would rewrite the
-    // label every second, and VoiceOver reads a changed label as a new element rather than as the
-    // same one counting down — which is the mistake `.updatesFrequently` does not fix.
-    let snoozeRemaining = shown?.snoozeUntil.map { Countdown.formatRemaining($0.timeIntervalSince(now)) }
-    self.snoozeRemaining = snoozeRemaining
-    snoozeNote = snoozeRemaining.map { Self.snoozeNote(remaining: $0) }
     isMeeting = shown?.state == .meeting
     chips = shown.map(TimerActions.available(for:)) ?? []
     startTitle = TimerActions.startTitle(for: shown)
@@ -94,12 +96,9 @@ struct MainWindowContent: Equatable {
   /// countdown, which is carried as the element's value instead (`TimerHeader`).
   let spokenHeadline: String
   let garden: TomatoGarden?
-  /// How much of an active snooze is left, or nil when none is running. Snoozing withdraws the
-  /// reminder banner, so this is the only thing on screen that says a reminder is still owed.
-  let snoozeNote: String?
-  /// The moving half of `snoozeNote`, on its own, so the line can be read out as a steady name
-  /// with a value that changes under it rather than as a new label every second.
-  let snoozeRemaining: String?
+  /// Whether a snooze is running. It is what the ground, the pose and the title above are keyed
+  /// on, and what turns the snooze chip into the way out of one, so all four read one answer.
+  let isSnoozed: Bool
   /// Whether a meeting is running, which is what turns the meeting chip into the way out of one.
   /// Read from the phase the window is showing rather than from the daemon state again, so the
   /// chip's face can never disagree with the ground and title around it — a client that has lost
@@ -131,24 +130,33 @@ struct MainWindowContent: Equatable {
   /// reference to what is bound, not a report of what is live.
   private let startTitle: String
 
-  /// The phase's own name, except while the user has ended the day: the daemon is idle then, and
-  /// "Idle" would read as a timer waiting to be started rather than as a day that is over.
+  /// The phase's own name, except for the two situations the phase does not describe: a snooze,
+  /// which the daemon reports beside the state and which leaves that state naming the reminder it
+  /// silenced, and a day the user has ended, where the daemon is idle and "Idle" would read as a
+  /// timer waiting to be started rather than as a day that is over.
   private static func phaseTitle(for state: DaemonState) -> String {
-    if state.state == .idle, state.dayEnded {
+    if state.snoozeUntil != nil {
+      "Snoozed"
+    } else if state.state == .idle, state.dayEnded {
       "Done for today"
     } else {
       state.state.displayName
     }
   }
 
-  /// Time left rather than the hour it ends, for the same reason the phase shows a countdown:
-  /// "nine minutes" is the question being asked, and it needs no locale to read.
-  private static func snoozeNote(remaining: String) -> String {
-    "Snoozed · \(remaining) left"
+  /// Both of what a snooze owes the reader, in the slot the phase countdown would have used. The
+  /// hour is what gets checked against a calendar — whether the thing in hand fits before the
+  /// reminder comes back — and the minutes left are what gets checked against patience. Neither
+  /// answers the other's question, so the header carries the two.
+  private static func snoozeReturn(until: Date, now: Date) -> String {
+    "Back at \(Countdown.formatTimeOfDay(until)) · \(Countdown.formatRemaining(until.timeIntervalSince(now)))"
   }
 
   private static func countdown(for state: DaemonState, now: Date) -> String? {
-    switch state.state {
+    if let until = state.snoozeUntil {
+      return snoozeReturn(until: until, now: now)
+    }
+    return switch state.state {
     case .work,
          .shortBreak,
          .longBreak,

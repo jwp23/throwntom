@@ -20,6 +20,17 @@ final class WindowSectionBodyTests: XCTestCase {
       )
       _ = TimerHeader(content: content).body
     }
+    let snoozed = MainWindowContent(
+      state: makeState(phase: .awaitingConfirm, snoozeUntil: Date().addingTimeInterval(600)),
+      connection: .connected,
+      status: .running,
+      tasks: TaskList(),
+      error: nil,
+      panel: nil,
+      now: .now,
+    )
+    XCTAssertEqual(snoozed.pose, .asleep)
+    _ = TimerHeader(content: snoozed).body
     let disconnected = MainWindowContent(
       state: nil,
       connection: .connecting,

@@ -62,11 +62,6 @@ struct MainWindow: View {
       if environment.windowModel.isEnteringMeeting {
         MeetingEntryRow(client: environment.client, model: environment.windowModel)
       }
-      // Snoozing withdraws the reminder banner, so without this line an active snooze has no
-      // representation on screen at all.
-      if let snoozeNote = content.snoozeNote {
-        SnoozedLine(note: snoozeNote, remaining: content.snoozeRemaining)
-      }
       ServiceChip(content: content, client: environment.client)
         .padding(.top, Self.serviceChipGap)
       CommandChips(environment: environment, scheme: content.scheme)
