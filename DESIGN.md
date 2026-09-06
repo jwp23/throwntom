@@ -44,6 +44,8 @@ colors:
   macos-paused-chip: "#3E3E40"
   macos-awaiting-confirm: "#E8583A"
   macos-awaiting-confirm-chip: "#68281A"
+  macos-snoozed: "#9385C9"
+  macos-snoozed-chip: "#423C5A"
   macos-disconnected: "#3A2A22"
   macos-disconnected-chip: "#FFF6EA"
   macos-work-panel: "#9C4913"
@@ -52,6 +54,7 @@ colors:
   macos-idle-panel: "#846C16"
   macos-paused-panel: "#636366"
   macos-awaiting-confirm-panel: "#A73F2A"
+  macos-snoozed-panel: "#6A6091"
   macos-disconnected-panel: "#2A1E18"
   mascot-body-light: "#FF6A55"
   mascot-body: "#E23A2E"
@@ -128,6 +131,9 @@ components:
   window-awaiting-confirm:
     backgroundColor: "{colors.macos-awaiting-confirm}"
     textColor: "{colors.macos-ink}"
+  window-snoozed:
+    backgroundColor: "{colors.macos-snoozed}"
+    textColor: "{colors.macos-ink}"
   window-disconnected:
     backgroundColor: "{colors.macos-disconnected}"
     textColor: "{colors.macos-cream}"
@@ -147,6 +153,8 @@ components:
     backgroundColor: "{colors.macos-paused-chip}"
   chip-secondary-awaiting-confirm:
     backgroundColor: "{colors.macos-awaiting-confirm-chip}"
+  chip-secondary-snoozed:
+    backgroundColor: "{colors.macos-snoozed-chip}"
   chip-secondary-disconnected:
     backgroundColor: "{colors.macos-disconnected-chip}"
   panel-work:
@@ -166,6 +174,9 @@ components:
     textColor: "{colors.macos-cream}"
   panel-awaiting-confirm:
     backgroundColor: "{colors.macos-awaiting-confirm-panel}"
+    textColor: "{colors.macos-cream}"
+  panel-snoozed:
+    backgroundColor: "{colors.macos-snoozed-panel}"
     textColor: "{colors.macos-cream}"
   panel-disconnected:
     backgroundColor: "{colors.macos-disconnected-panel}"
@@ -243,9 +254,9 @@ are the dark-terminal variants; `-light` variants carry the light-terminal value
 - **Error (#B3001B / #FF5C5C):** Red, for the message line only when `IsError` is set. It
   never colours the status line; a timer state is never "red".
 
-**macOS grounds.** `macos-work`, `macos-short-break`, `macos-long-break`, `macos-idle`, `macos-paused` and `macos-awaiting-confirm` are mid-tone, saturated versions of the same six hues and fill the entire window; lunch takes `macos-long-break` too, for the reason the TUI does. `macos-disconnected` is a dark brown used whenever there is no phase to show: before the first connection, after the user stops the service, or once launchd has refused to launch it. A reconnect that still holds a phase keeps that phase's ground and goes on naming it, because the timer it names is still running; the phase name gains `(reconnecting)` so the window is not claiming a connection it does not have, but the ground does not change, because what changed is the client's reach, not the phase. A refusal has no such timer behind it, so the window drops the phase rather than keep a colour that says one is going. All text on a ground is `macos-ink` (cream on disconnected). `macos-cream` is the label of the primary chip, the paper of the snooze duration field, and the mascot's glint, page edges and drink; `macos-outline`, the icon's outline brown, is the primary chip. Each `*-chip` token is its ground under 55% black and carries white text, except `macos-disconnected-chip`, which is cream with `macos-outline` text because the service chip carries this ground's only weight — Start while stopped or refused, Stop while on its way up — and either reading has to look right. `PaletteTests` asserts text on ground and label on chip at 4.5:1 and chip on ground at 3:1; `DesignTokensTests` asserts these values equal `Palette.swift`. The look is the same in light and dark system appearance, which holds only because nothing is left to a system-drawn control to colour: the snooze pull-down wears the same chip the buttons wear, and the duration field is painted in cream under ink rather than taking the system's bezel. `SnoozeChipTests` and `SnoozeEntryRowTests` draw both offscreen in either appearance.
+**macOS grounds.** `macos-work`, `macos-short-break`, `macos-long-break`, `macos-idle`, `macos-paused` and `macos-awaiting-confirm` are mid-tone, saturated versions of the same six hues and fill the entire window; lunch takes `macos-long-break` too, for the reason the TUI does. `macos-snoozed` is a dusk violet and is the one ground that is not a phase's: the daemon reports a snooze beside the state rather than as a state, so while one runs the window wears this over whatever phase is underneath. It has to be a ground no phase uses, because the phase underneath an evening snooze is `awaiting_confirm` and a quieted reminder drawn in the reminder's own alarm red is the thing the snoozed look exists to stop; the violet is the hue left over once every ground has to carry dark ink at 4.5:1. `macos-disconnected` is a dark brown used whenever there is no phase to show: before the first connection, after the user stops the service, or once launchd has refused to launch it. A reconnect that still holds a phase keeps that phase's ground and goes on naming it, because the timer it names is still running; the phase name gains `(reconnecting)` so the window is not claiming a connection it does not have, but the ground does not change, because what changed is the client's reach, not the phase. A refusal has no such timer behind it, so the window drops the phase rather than keep a colour that says one is going. All text on a ground is `macos-ink` (cream on disconnected). `macos-cream` is the label of the primary chip, the paper of the snooze duration field, and the mascot's glint, page edges, drink, nightcap and Z's; `macos-outline`, the icon's outline brown, is the primary chip. Each `*-chip` token is its ground under 55% black and carries white text, except `macos-disconnected-chip`, which is cream with `macos-outline` text because the service chip carries this ground's only weight — Start while stopped or refused, Stop while on its way up — and either reading has to look right. `PaletteTests` asserts text on ground and label on chip at 4.5:1 and chip on ground at 3:1; `DesignTokensTests` asserts these values equal `Palette.swift`. The look is the same in light and dark system appearance, which holds only because nothing is left to a system-drawn control to colour: the snooze pull-down wears the same chip the buttons wear, and the duration field is painted in cream under ink rather than taking the system's bezel. `SnoozeChipTests` and `SnoozeEntryRowTests` draw both offscreen in either appearance.
 
-**Mascot.** The `mascot-*` tokens are the character's own paint and never appear elsewhere: `mascot-body-light` → `mascot-body` → `mascot-body-dark` is the body's radial gradient (centre upper-left, dark at the rim); `mascot-leaf-light` → `mascot-leaf-dark` the leaf gradient; `mascot-blush` the cheeks; `mascot-prop-light`/`-dark` the laptop and the meeting headset; `mascot-wood` the book; `mascot-sky` the drink, screen and yo-yo; `mascot-cheese` the cheese in the lunch burger, whose buns are `mascot-wood`. The sofa is painted in the phase's tones: back `*-panel`, arms the ground under 19% black, seat the ground under 10% black, so it belongs to the room it is in. Hands are `mascot-body`; every outline is `macos-outline`.
+**Mascot.** The `mascot-*` tokens are the character's own paint and never appear elsewhere: `mascot-body-light` → `mascot-body` → `mascot-body-dark` is the body's radial gradient (centre upper-left, dark at the rim); `mascot-leaf-light` → `mascot-leaf-dark` the leaf gradient; `mascot-blush` the cheeks; `mascot-prop-light`/`-dark` the laptop and the meeting headset; `mascot-wood` the book; `mascot-sky` the drink, screen, yo-yo and the nightcap's band; `mascot-cheese` the cheese in the lunch burger, whose buns are `mascot-wood`. The sofa is painted in the phase's tones: back `*-panel`, arms the ground under 19% black, seat the ground under 10% black, so it belongs to the room it is in. Hands are `mascot-body`; every outline is `macos-outline`.
 
 The dashboard (`cmd/throwntom/stats_handler.go`) reuses three of these for pomodoro counts:
 teal above `tier_mid` (default 5), tomato above `tier_low` (default 2), grey otherwise —
@@ -335,7 +346,7 @@ a menu has to be guessed at before it can be opened.
 
 ### Mascot (macOS)
 
-The README tomato drawn in code on a 100×100 canvas scaled to 200pt: a radial-gradient body with a 2-unit `macos-outline` stroke, stem and two gradient leaves, a cream glint, two blush cheeks, eyes with a white catchlight, a mouth, and two thin line arms (3-unit `macos-outline`) that hang from one shoulder per side, ending in round `mascot-body` hands. The whole character is rotated 12° counter-clockwise and the face is drawn three-quarter, features shifted toward the near side, so it reads as turned slightly away like the README sticker. One pose per phase — laptop for work, the same laptop and a worn headset for a meeting, cold drink for short break, reading on a sofa for long break, a cheeseburger in both hands for lunch, a yo-yo for idle, arms up for awaiting confirm, eyes closed and still for paused, a yanked cable for disconnected — with props always drawn so the tomato faces them, not the viewer. Lunch and the long break share a ground, so the pose is the second thing that separates them after the name, and a meeting and work share one the same way. A worn prop is neither a held prop nor furniture: it is drawn inside the character transform, so it turns and breathes with the body, where furniture stays put in canvas coordinates. `docs/designs/mascot-screenshots/` holds the rendered poses, regenerated by `tools/mascot-snap.sh`. Idle motion (blink, ±2° breathing bob, the yo-yo's drop and return, a jump on awaiting confirm) is small and off under Reduce Motion.
+The README tomato drawn in code on a 100×100 canvas scaled to 200pt: a radial-gradient body with a 2-unit `macos-outline` stroke, stem and two gradient leaves, a cream glint, two blush cheeks, eyes with a white catchlight, a mouth, and two thin line arms (3-unit `macos-outline`) that hang from one shoulder per side, ending in round `mascot-body` hands. The whole character is rotated 12° counter-clockwise and the face is drawn three-quarter, features shifted toward the near side, so it reads as turned slightly away like the README sticker. One pose per phase — laptop for work, the same laptop and a worn headset for a meeting, cold drink for short break, reading on a sofa for long break, a cheeseburger in both hands for lunch, a yo-yo for idle, arms up for awaiting confirm, eyes closed and still for paused, asleep in a nightcap for a running snooze, a yanked cable for disconnected — with props always drawn so the tomato faces them, not the viewer. Lunch and the long break share a ground, so the pose is the second thing that separates them after the name, and a meeting and work share one the same way. The asleep pose is the one the daemon's phase does not choose — a snooze is reported beside the state — and it is drawn as the opposite of the awaiting-confirm pose it stands in for: eyes shut, the `!` put down, arms folded low, and the jump gone. Its cap leans to the far side of the crown so the stem and both leaves stay showing; a cap over the top of them leaves a red ball with a face on it. A worn prop is neither a held prop nor furniture: it is drawn inside the character transform, so it turns and breathes with the body, where furniture stays put in canvas coordinates. `docs/designs/mascot-screenshots/` holds the rendered poses, regenerated by `tools/mascot-snap.sh`. Idle motion (blink, ±2° breathing bob, the yo-yo's drop and return, a jump on awaiting confirm, three Z's drifting up off the nightcap on a 4-second cycle over the 3-second breath) is small and off under Reduce Motion. The Z's are staggered by thirds of that cycle, so the still frame Reduce Motion draws is a small-to-large `zZZ` rather than a blank space or three of the same Z.
 
 ### Chip (macOS)
 
