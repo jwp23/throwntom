@@ -101,20 +101,6 @@ final class SMAppServiceRegistrarTests: XCTestCase {
     XCTAssertFalse(agent.sawOverlap, "a Stop reached launchd in the middle of a registration")
   }
 
-  func testStatusDescriptionNamesWhatTheUserMustDoNext() {
-    let descriptions: [(status: AgentStatus, text: String)] = [
-      (.enabled, "Timer agent enabled"),
-      (.requiresApproval, "Timer agent needs approval in Login Items"),
-      (.notRegistered, "Timer agent not registered"),
-      (.notFound, "Timer daemon missing from the app bundle"),
-      (.unknown, "Timer agent status unknown"),
-    ]
-    for (status, text) in descriptions {
-      let registrar = SMAppServiceRegistrar(agent: FakeAgentService(status: status))
-      XCTAssertEqual(registrar.agentStatusDescription, text)
-    }
-  }
-
   func testLoginItemEnabledReflectsMainAppStatus() {
     let enabled = SMAppServiceRegistrar(mainApp: FakeMainAppService(status: .enabled))
     XCTAssertTrue(enabled.loginItemEnabled)

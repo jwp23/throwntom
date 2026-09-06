@@ -17,7 +17,6 @@ public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
     agent: LaunchAgentService = LaunchdAgentService(),
     mainApp: MainAppService = BundledMainAppService(),
   ) {
-    self.agent = agent
     self.mainApp = mainApp
     driver = AgentDriver(agent: agent)
   }
@@ -25,16 +24,6 @@ public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
   // MARK: Public
 
   public static let bundleIdentifier = "com.jwp23.throwntom"
-
-  public var agentStatusDescription: String {
-    switch agent.status {
-    case .enabled: "Timer agent enabled"
-    case .requiresApproval: "Timer agent needs approval in Login Items"
-    case .notRegistered: "Timer agent not registered"
-    case .notFound: "Timer daemon missing from the app bundle"
-    case .unknown: "Timer agent status unknown"
-    }
-  }
 
   public var loginItemEnabled: Bool {
     mainApp.status == .enabled
@@ -65,8 +54,11 @@ public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
 
   // MARK: Private
 
-  private let agent: LaunchAgentService
   private let mainApp: MainAppService
+
+  /// The only way to the agent from here. Kept private and unshared on purpose: a second
+  /// reference to the same `LaunchAgentService` would be a way to drive launchd without the
+  /// ordering and the executor hop the actor exists to give.
   private let driver: AgentDriver
 
 }
