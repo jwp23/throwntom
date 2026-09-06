@@ -45,7 +45,7 @@ public struct LaunchdAgentService: LaunchAgentService {
   public init(
     bundleURL: URL = Bundle.main.bundleURL,
     home: URL = FileManager.default.homeDirectoryForCurrentUser,
-    launchctl: @escaping Launchctl = LaunchdAgentService.runLaunchctl,
+    launchctl: @escaping Launchctl = { LaunchdAgentService.runLaunchctl($0) },
   ) {
     self.bundleURL = bundleURL
     self.home = home
