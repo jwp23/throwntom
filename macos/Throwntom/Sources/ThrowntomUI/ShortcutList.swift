@@ -7,7 +7,6 @@ enum ShortcutList {
   // MARK: Internal
 
   struct Entry: Equatable, Identifiable {
-    let id = UUID()
     let title: String
     let hint: String
     /// When this key does something, in words. Static — it is the rule and not this second's
@@ -15,6 +14,13 @@ enum ShortcutList {
     let condition: String
     /// Whether pressing it would do anything once this sheet is out of the way.
     let isEnabled: Bool
+
+    /// The hint, not the title: two commands can share a word in their name, but never a key
+    /// binding, so the hint is the one field already guaranteed unique within a section by
+    /// construction rather than by coincidence.
+    var id: String {
+      hint
+    }
   }
 
   struct Section: Equatable {
