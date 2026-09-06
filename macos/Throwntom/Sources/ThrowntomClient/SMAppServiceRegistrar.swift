@@ -19,6 +19,7 @@ public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
   ) {
     self.agent = agent
     self.mainApp = mainApp
+    driver = AgentDriver(agent: agent)
   }
 
   // MARK: Public
@@ -40,32 +41,14 @@ public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
   }
 
   /// Ensures the launchd agent is registered, reloading if necessary.
-  /// If unregister fails, we defer the error and attempt register anyway, since a stale
-  /// BTM entry may refuse to unregister while register still succeeds. Only throw if both
-  /// unregister and register fail, or if register fails alone.
-  public func ensureAgentRegistered() throws {
-    var unregisterError: Error?
-    for step in AgentRegistrationPlan.steps(for: agent.status) {
-      switch step {
-      case .unregister:
-        do { try agent.unregister() } catch {
-          // Kept for the register below to throw if that fails too, and recorded here because
-          // when register succeeds it is thrown away: a stale entry that refuses to unregister
-          // is the thing to know about, and registering over it stops working eventually.
-          ClientLog.failed("unregister the stale launch agent", in: .service, error: error)
-          unregisterError = error
-        }
-
-      case .register:
-        do { try agent.register() } catch { throw unregisterError ?? error }
-      }
-    }
+  public func ensureAgentRegistered() async throws {
+    try await driver.ensureRegistered()
   }
 
   /// Unregisters the agent, the ServiceManagement equivalent of `launchctl bootout`: launchd
   /// unloads the job and the daemon exits. It stays down until something registers it again.
-  public func stopAgent() throws {
-    try agent.unregister()
+  public func stopAgent() async throws {
+    try await driver.unregister()
   }
 
   public func setLoginItem(_ enabled: Bool) throws {
@@ -84,6 +67,61 @@ public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
 
   private let agent: LaunchAgentService
   private let mainApp: MainAppService
+  private let driver: AgentDriver
+
+}
+
+// MARK: - AgentDriver
+
+/// The agent's launchd calls, run one at a time and away from whoever asked for them.
+///
+/// One actor for two reasons, and the second is easy to miss. These calls used to be synchronous
+/// on the main actor, which made the window wait for launchd — the thing being fixed — but also
+/// kept the calls off each other, since a registration and a user's Stop could not be in flight
+/// together while each held the main actor for its whole run. Ending the wait ends that ordering
+/// too, and launchd needs it: `bootout` and `bootstrap` name one job, and a pair of them
+/// overlapping is not two operations but one undefined one.
+private actor AgentDriver {
+
+  // MARK: Lifecycle
+
+  init(agent: LaunchAgentService) {
+    self.agent = agent
+  }
+
+  // MARK: Internal
+
+  /// Registers the agent, reloading it first if it is already loaded.
+  ///
+  /// If unregister fails, we defer the error and attempt register anyway, since a stale
+  /// BTM entry may refuse to unregister while register still succeeds. Only throw if both
+  /// unregister and register fail, or if register fails alone.
+  func ensureRegistered() throws {
+    var unregisterError: Error?
+    for step in AgentRegistrationPlan.steps(for: agent.status) {
+      switch step {
+      case .unregister:
+        do { try agent.unregister() } catch {
+          // Kept for the register below to throw if that fails too, and recorded here because
+          // when register succeeds it is thrown away: a stale entry that refuses to unregister
+          // is the thing to know about, and registering over it stops working eventually.
+          ClientLog.failed("unregister the stale launch agent", in: .service, error: error)
+          unregisterError = error
+        }
+
+      case .register:
+        do { try agent.register() } catch { throw unregisterError ?? error }
+      }
+    }
+  }
+
+  func unregister() throws {
+    try agent.unregister()
+  }
+
+  // MARK: Private
+
+  private let agent: LaunchAgentService
 
 }
 

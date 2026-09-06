@@ -58,7 +58,7 @@ final class StalledStartTests: XCTestCase {
     defer { client.stop() }
     try await waitUntil("the stalled start to be reported") { client.serviceStatus == .notAnswering }
 
-    client.startService()
+    await client.startService()
 
     XCTAssertFalse(client.startStalled, "the user just asked again; nothing has stalled yet")
   }
@@ -80,22 +80,22 @@ final class BackoffRegistrationCountTests: XCTestCase {
     XCTAssertNil(backoff.failuresSinceRegistration)
   }
 
-  func testARefusedAskStartsNoCount() {
+  func testARefusedAskStartsNoCount() async {
     var backoff = makeBackoff()
     for _ in 0..<3 {
       backoff.recordFailure()
-      backoff.registerAgentIfDue { false }
+      await backoff.registerAgentIfDue { false }
     }
 
     XCTAssertNil(backoff.failuresSinceRegistration, "a refusal is reported as a refusal, not as a silent daemon")
   }
 
-  func testTheDialsAfterAnAcceptedAskAreCounted() {
-    var backoff = acceptedRegistration()
+  func testTheDialsAfterAnAcceptedAskAreCounted() async {
+    var backoff = await acceptedRegistration()
 
     XCTAssertEqual(backoff.failuresSinceRegistration, 0)
     backoff.recordFailure()
-    backoff.registerAgentIfDue {
+    await backoff.registerAgentIfDue {
       XCTFail("at most one accepted ask per outage")
       return true
     }
@@ -104,8 +104,8 @@ final class BackoffRegistrationCountTests: XCTestCase {
     XCTAssertEqual(backoff.failuresSinceRegistration, 2)
   }
 
-  func testAnAnsweringDaemonForgetsTheRegistration() {
-    var backoff = acceptedRegistration()
+  func testAnAnsweringDaemonForgetsTheRegistration() async {
+    var backoff = await acceptedRegistration()
     backoff.recordFailure()
 
     backoff.reset()
@@ -120,11 +120,11 @@ final class BackoffRegistrationCountTests: XCTestCase {
   }
 
   /// A backoff that has failed its way to one accepted registration, which is where the count starts.
-  private func acceptedRegistration() -> ReconnectBackoff {
+  private func acceptedRegistration() async -> ReconnectBackoff {
     var backoff = makeBackoff()
     for _ in 0..<3 {
       backoff.recordFailure()
-      backoff.registerAgentIfDue { true }
+      await backoff.registerAgentIfDue { true }
     }
     return backoff
   }
@@ -174,7 +174,7 @@ final class CancelledRefreshTests: XCTestCase {
     defer { client.stop() }
     try await waitUntil("the task fetch to be in flight") { transport.isParked }
 
-    client.startService()
+    await client.startService()
 
     try await waitUntil("the in-flight fetch to observe its task's cancellation") { transport.wasCancelled }
     transport.releaseAsCancelled()

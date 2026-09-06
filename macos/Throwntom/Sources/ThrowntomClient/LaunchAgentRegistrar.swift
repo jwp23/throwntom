@@ -7,13 +7,18 @@ import Foundation
 /// for it through `stopAgent`. `ensureAgentRegistered` can also unregister-then-register when
 /// recovery finds the agent already `.enabled` (reloading a stale entry), which briefly stops a
 /// still-running daemon as a side effect — see `AgentRegistrationPlan`.
+///
+/// Both verbs are `async` because driving launchd means waiting on subprocesses — a registration
+/// is up to four `launchctl` runs — and the only caller is `@MainActor`. A conformance that
+/// answers on the caller's actor puts that wait where the window is drawn (throwntom-339), so a
+/// conformance has to do its waiting somewhere else.
 public protocol LaunchAgentRegistrar: Sendable {
   /// Makes the agent load (or reload) the daemon; called after repeated connection failures and
   /// whenever the user starts the service by hand.
-  func ensureAgentRegistered() throws
+  func ensureAgentRegistered() async throws
 
   /// Unloads the agent, which is what stops the daemon. Only a user's explicit Stop calls this.
-  func stopAgent() throws
+  func stopAgent() async throws
 }
 
 // MARK: - LaunchAgentService

@@ -125,7 +125,7 @@ final class ReminderResponderTests: XCTestCase {
     let client = DaemonClient(transport: try StubTransport(states: []), registrar: RecordingRegistrar())
     let responder = ReminderResponder(client: client, presenter: presenter)
 
-    client.stopService()
+    await client.stopService()
     await responder.present(client.state)
 
     XCTAssertEqual(client.serviceStatus, .stopped, "the stop has to have taken for the rest to mean anything")

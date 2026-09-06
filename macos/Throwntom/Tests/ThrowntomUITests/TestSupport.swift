@@ -265,11 +265,11 @@ final class RecordingRegistrar: LaunchAgentRegistrar, @unchecked Sendable {
     lock.withLock { recorded }
   }
 
-  func ensureAgentRegistered() throws {
+  func ensureAgentRegistered() async throws {
     lock.withLock { recorded.append(.register) }
   }
 
-  func stopAgent() throws {
+  func stopAgent() async throws {
     lock.withLock { recorded.append(.stop) }
   }
 

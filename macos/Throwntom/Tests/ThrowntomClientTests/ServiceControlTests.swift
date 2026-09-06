@@ -15,7 +15,7 @@ final class ServiceControlTests: XCTestCase {
     client.start()
     try await waitUntil("the initial state to arrive") { client.state != nil }
 
-    client.stopService()
+    await client.stopService()
 
     XCTAssertEqual(registrar.calls, [.stop])
     XCTAssertEqual(client.connection, .stopped)
@@ -29,11 +29,29 @@ final class ServiceControlTests: XCTestCase {
     client.start()
     try await waitUntil("the initial state to arrive") { client.state != nil }
 
-    client.stopService()
+    await client.stopService()
 
     XCTAssertNotEqual(client.connection, .stopped, "a refused stop must not claim the service is stopped")
     XCTAssertNotNil(client.state)
     XCTAssertEqual(client.unresolvedError, "The timer service could not be stopped.")
+  }
+
+  /// The stream is dropped before launchd is asked, so a refused stop has to put it back. The
+  /// daemon is still running, and a client that quietly stopped watching one shows a timer that
+  /// never moves again.
+  func testARefusedStopLeavesTheClientWatchingTheDaemonItDidNotStop() async throws {
+    let transport = CountingStateTransport()
+    let client = DaemonClient(
+      transport: transport,
+      registrar: RecordingRegistrar(stopError: RecordingRegistrar.Denied()),
+    )
+    client.start()
+    defer { client.stop() }
+    try await waitUntil("the initial state to arrive") { client.state != nil }
+
+    await client.stopService()
+
+    try await waitUntil("the client to dial the daemon again") { transport.streamsOpened == 2 }
   }
 
   func testStartServiceRegistersTheAgentAndLeavesTheStoppedState() async throws {
@@ -41,9 +59,9 @@ final class ServiceControlTests: XCTestCase {
     let client = DaemonClient(transport: StubStateTransport(), registrar: registrar)
     client.start()
     try await waitUntil("the initial state to arrive") { client.state != nil }
-    client.stopService()
+    await client.stopService()
 
-    client.startService()
+    await client.startService()
 
     XCTAssertEqual(registrar.calls, [.stop, .register])
     XCTAssertNotEqual(client.connection, .stopped)
@@ -59,12 +77,29 @@ final class ServiceControlTests: XCTestCase {
     client.start()
     try await waitUntil("the initial state to arrive") { client.state != nil }
 
-    client.stopService()
+    await client.stopService()
     try await Task.sleep(for: .milliseconds(300))
 
     XCTAssertEqual(registrar.calls, [.stop], "the loop asked launchd for the daemon again")
     XCTAssertEqual(client.connection, .stopped)
     XCTAssertNil(client.state)
+  }
+
+  /// The same promise across the moment the stop is being made. The whole stop used to hold the
+  /// main actor, so the loop could not run inside it at all; the bootout is awaited now, and a
+  /// loop left dialling across it reaches its third failure and asks launchd for the daemon back.
+  func testAStopIsNotOvertakenByTheLoopAskingLaunchdForTheDaemon() async throws {
+    let registrar = SlowStoppingRegistrar()
+    let client = DaemonClient(transport: VanishingTransport(), registrar: registrar, backoff: [.milliseconds(100)])
+    client.start()
+    // The daemon is gone by the next dial, so from here the loop is failing its way towards the
+    // third failure that asks launchd — and the bootout below outlasts that.
+    try await waitUntil("the initial state to arrive") { client.state != nil }
+
+    await client.stopService()
+
+    XCTAssertEqual(registrar.calls, [.stop], "the loop asked launchd for the service the user stopped")
+    XCTAssertEqual(client.connection, .stopped)
   }
 
   /// ADR-006's central promise: the daemon is deliberately independent of any client, so the
@@ -80,6 +115,40 @@ final class ServiceControlTests: XCTestCase {
     XCTAssertEqual(registrar.calls, [])
     XCTAssertNotEqual(client.connection, .stopped)
   }
+
+}
+
+// MARK: - SlowStoppingRegistrar
+
+/// A launchd stand-in whose bootout takes long enough for a reconnect loop to reach the failure
+/// that asks launchd for the daemon, which is what a real one takes: `bootout` waits for the job
+/// to unload.
+// Every mutable member is read and written under `lock`.
+// swiftlint:disable:next no_unchecked_sendable
+final class SlowStoppingRegistrar: LaunchAgentRegistrar, @unchecked Sendable {
+
+  // MARK: Internal
+
+  /// Long enough to cover four of the 100 ms backoff steps the test dials on.
+  static let bootoutDuration = Duration.milliseconds(400)
+
+  var calls: [RecordingRegistrar.Call] {
+    lock.withLock { recorded }
+  }
+
+  func ensureAgentRegistered() async throws {
+    lock.withLock { recorded.append(.register) }
+  }
+
+  func stopAgent() async throws {
+    try? await Task.sleep(for: Self.bootoutDuration)
+    lock.withLock { recorded.append(.stop) }
+  }
+
+  // MARK: Private
+
+  private let lock = NSLock()
+  private var recorded = [RecordingRegistrar.Call]()
 
 }
 
@@ -125,6 +194,39 @@ struct StubStateTransport: DaemonTransport {
       continuation.yield(frame)
     }
   }
+}
+
+// MARK: - CountingStateTransport
+
+/// `StubStateTransport` with a tally: a daemon that answers every dial, and says how many dials
+/// there have been. That is what tells a client still watching one from a client that has quietly
+/// stopped, which looks identical in every state it publishes.
+// Every mutable member is read and written under `lock`.
+// swiftlint:disable:next no_unchecked_sendable
+final class CountingStateTransport: DaemonTransport, @unchecked Sendable {
+
+  // MARK: Internal
+
+  var streamsOpened: Int {
+    lock.withLock { opened }
+  }
+
+  func request(_: String, _: String, body _: Data?) async throws -> HTTPResponse {
+    HTTPResponse(status: 200, headers: [:], body: Data(#"{"active":[],"done":[]}"#.utf8))
+  }
+
+  func events(_: String) -> AsyncThrowingStream<Data, Error> {
+    lock.withLock { opened += 1 }
+    return AsyncThrowingStream { continuation in
+      continuation.yield(Data(StateDecodingTests.idleJSON.utf8))
+    }
+  }
+
+  // MARK: Private
+
+  private let lock = NSLock()
+  private var opened = 0
+
 }
 
 // MARK: - EndOfDayActionTests
@@ -282,8 +384,8 @@ final class RestartAfterStopTests: XCTestCase {
 
     // Stopping the service really does take the socket away, so the dials that follow fail.
     transport.takeDown()
-    client.stopService()
-    client.startService()
+    await client.stopService()
+    await client.startService()
 
     // The failure is what proves the loop actually dialled and parked, rather than the assertions
     // reading the connection `startService` set on its way in.
@@ -309,7 +411,7 @@ final class RestartAfterStopTests: XCTestCase {
 
     // launchd will take it now; the parked loop must not be what decides when we find out.
     transport.recover()
-    client.startService()
+    await client.startService()
 
     try await waitUntil("the retried start to connect", timeout: 3) { client.connection == .connected }
   }

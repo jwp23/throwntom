@@ -66,12 +66,12 @@ final class RecoveringRegistrar: LaunchAgentRegistrar, @unchecked Sendable {
 
   // MARK: Internal
 
-  func ensureAgentRegistered() throws {
+  func ensureAgentRegistered() async throws {
     transport.recover()
   }
 
   /// Reconnect tests never stop the service; `ServiceControlTests` owns that path.
-  func stopAgent() throws {
+  func stopAgent() async throws {
     XCTFail("the reconnect loop must never stop the timer service")
   }
 
@@ -87,11 +87,11 @@ final class RecoveringRegistrar: LaunchAgentRegistrar, @unchecked Sendable {
 struct RefusingRegistrar: LaunchAgentRegistrar {
   struct Denied: Error { }
 
-  func ensureAgentRegistered() throws {
+  func ensureAgentRegistered() async throws {
     throw Denied()
   }
 
-  func stopAgent() throws {
+  func stopAgent() async throws {
     throw Denied()
   }
 }
