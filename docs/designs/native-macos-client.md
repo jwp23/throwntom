@@ -96,11 +96,11 @@ removed after the lock is won.
 
 `State` document:
 
-See [`internal/core/state.go`](../../internal/core/state.go) (struct type
-`State`, lines 15–59) for the authoritative field list and types. The struct
-comments document when each field is present and its meaning; fields like
-`next_stage`, `owed_stage`, and `snooze_until` are null unless the timer is in a
-specific state. Clients can parse the JSON directly and do not need to
+See the `State` struct in [`internal/core/state.go`](../../internal/core/state.go) for
+the authoritative field list, types, and documentation. The struct comments
+explain which fields are conditionally present (e.g., `next_stage` and
+`owed_stage` are null except in specific states, `snooze_until` is present only
+during an active snooze). Clients can parse the JSON directly and do not need to
 understand Go type syntax.
 
 Errors: `4xx` with `{"error": "..."}`. The core classifies every command

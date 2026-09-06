@@ -13,9 +13,10 @@ type Stage struct {
 }
 
 type State struct {
-	State               engine.State `json:"state"`
-	PhaseEndAt          *time.Time   `json:"phase_end_at"`
-	PausedRemaining     int          `json:"paused_remaining"`
+	State           engine.State `json:"state"`
+	PhaseEndAt      *time.Time   `json:"phase_end_at"`
+	PausedRemaining int          `json:"paused_remaining"`
+	// PausedFrom is the phase the current pause interrupted; idle when the timer is not paused.
 	PausedFrom          engine.State `json:"paused_from"`
 	CompletedToday      int          `json:"completed_today"`
 	WorkSessionsInBlock int          `json:"work_sessions_in_block"`
@@ -32,7 +33,8 @@ type State struct {
 	// DayEnded is true once the user has ended the work day, so a client can
 	// tell an idle timer that is ready to go from one that is done until
 	// tomorrow. Nothing else in this document distinguishes them.
-	DayEnded       bool       `json:"day_ended"`
+	DayEnded bool `json:"day_ended"`
+	// SnoozeUntil is the morning-reminder snooze deadline, present only while a snooze is active.
 	SnoozeUntil    *time.Time `json:"snooze_until"`
 	StatusLine     string     `json:"status_line"`
 	FocusedTaskIDs []int      `json:"focused_task_ids"`
