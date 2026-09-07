@@ -58,6 +58,7 @@ func TestBodiedRoutesRejectOversizedBodies(t *testing.T) {
 	}{
 		{"snooze", "/v1/timer/snooze", `{"minutes":10,"pad":"` + pad + `"}`},
 		{"meeting", "/v1/timer/meeting", `{"minutes":10,"pad":"` + pad + `"}`},
+		{"lunch", "/v1/timer/lunch", `{"minutes":10,"pad":"` + pad + `"}`},
 		{"task", "/v1/tasks", `{"description":"x","pad":"` + pad + `"}`},
 		{"command", "/v1/command", `{"line":"x","pad":"` + pad + `"}`},
 	}
@@ -82,12 +83,14 @@ func TestBodiedRoutesRejectTrailingData(t *testing.T) {
 	valid := map[string]string{
 		"snooze":  `{"minutes":10}`,
 		"meeting": `{"minutes":10}`,
+		"lunch":   `{"minutes":10}`,
 		"task":    `{"description":"x"}`,
 		"command": `{"line":"stats"}`,
 	}
 	urls := map[string]string{
 		"snooze":  "/v1/timer/snooze",
 		"meeting": "/v1/timer/meeting",
+		"lunch":   "/v1/timer/lunch",
 		"task":    "/v1/tasks",
 		"command": "/v1/command",
 	}

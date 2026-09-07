@@ -91,6 +91,76 @@ func TestLunchCreditsThePomodoroItDisplaces(t *testing.T) {
 	}
 }
 
+// Lunch takes an explicit length the way meeting does, but unlike meeting it
+// also has a config default, so it must accept either zero args or one.
+func TestLunchAcceptsAnExplicitLength(t *testing.T) {
+	for _, tc := range []struct {
+		line string
+		want time.Duration
+	}{
+		{"lunch 30", 30 * time.Minute},
+		{"lunch 90m", 90 * time.Minute},
+		{"lunch 1h", time.Hour},
+	} {
+		cfg := config.Default()
+		cfg.MorningReminderPending = false
+		c := newCore(cfg, noopNotifier{})
+
+		result := c.execute(tc.line)
+
+		if result.err != nil {
+			t.Fatalf("%q refused: %v", tc.line, result.err)
+		}
+		assertPhaseLength(t, c, tc.want)
+	}
+}
+
+func TestLunchOfNoLengthIsRefused(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+
+	if result := c.execute("lunch 0"); result.err == nil {
+		t.Fatal("a zero-length lunch was accepted")
+	}
+	if result := c.execute("lunch -10"); result.err == nil {
+		t.Fatal("a negative-length lunch was accepted")
+	}
+}
+
+// The daemon route rejects a lunch over a day as a typo, the same rule
+// meeting is held to; the command path must refuse it too.
+func TestLunchOverADayIsRefused(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+
+	result := c.execute("lunch 100000")
+
+	if result.err == nil {
+		t.Fatal("a lunch over a day long was accepted")
+	}
+	if c.timer.State() == engine.Lunch {
+		t.Fatal("a refused lunch started anyway")
+	}
+}
+
+// A bare lunch still falls back to the configured length -- the explicit
+// form is an override, not a replacement for the default path.
+func TestLunchWithoutALengthKeepsTheConfiguredDefault(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	cfg.Pomodoro.LunchMinutes = 45
+	c := newCore(cfg, noopNotifier{})
+
+	result := c.execute(cmdLunch)
+
+	if result.err != nil {
+		t.Fatalf("lunch refused: %v", result.err)
+	}
+	assertPhaseLength(t, c, 45*time.Minute)
+}
+
 func TestHelpListsLunch(t *testing.T) {
 	if !strings.Contains(Help(), cmdLunch) {
 		t.Fatal("help does not list the lunch command")
