@@ -59,6 +59,7 @@ func TestBodiedRoutesRejectOversizedBodies(t *testing.T) {
 		{"snooze", "/v1/timer/snooze", `{"minutes":10,"pad":"` + pad + `"}`},
 		{"meeting", "/v1/timer/meeting", `{"minutes":10,"pad":"` + pad + `"}`},
 		{"task", "/v1/tasks", `{"description":"x","pad":"` + pad + `"}`},
+		{"command", "/v1/command", `{"line":"x","pad":"` + pad + `"}`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

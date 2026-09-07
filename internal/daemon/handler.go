@@ -44,6 +44,7 @@ func (s *server) getState(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *server) postCommand(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
 	var req commandRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, errors.New("invalid JSON body"))
