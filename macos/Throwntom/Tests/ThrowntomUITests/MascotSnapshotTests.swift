@@ -72,9 +72,10 @@ final class MascotSnapshotTests: XCTestCase {
   /// A plausible time-left for a header screenshot: long enough to read as a real, in-progress phase.
   private static let headerCountdownDuration: TimeInterval = 15 * 60
 
-  /// Phases `MainWindowContent.countdown` shows a value for (`MainWindowContent.swift`); the rest
-  /// show none regardless of `phaseEndAt`, so asserting on them here would be asserting on nothing.
-  private static let countdownPhases: Set<DaemonState.Phase> = [.work, .shortBreak, .longBreak, .lunch, .meeting]
+  /// Phases `MainWindowContent.countdown` shows a value for (`MainWindowContent.swift`): the
+  /// `phaseEndAt`-backed phases below, plus `.paused` from `pausedRemaining`. The rest show none
+  /// regardless of `phaseEndAt`, so asserting on them here would be asserting on nothing.
+  private static let countdownPhases: Set<DaemonState.Phase> = [.work, .shortBreak, .longBreak, .lunch, .meeting, .paused]
 
   private static let phases: [(name: String, phase: DaemonState.Phase?, pausedFrom: DaemonState.Phase)] = [
     ("work", .work, .idle),
