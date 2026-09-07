@@ -29,23 +29,23 @@ final class ServiceChipTests: XCTestCase {
     XCTAssertEqual(chip.style, ChipStyle.style(primary: false, scheme: content.scheme))
   }
 
-  func testTappingStartAsksLaunchdForTheDaemon() {
+  func testTappingStartAsksLaunchdForTheDaemon() async throws {
     let registrar = RecordingRegistrar()
     let chip = ServiceChip(content: serviceContent(connection: .stopped), client: client(registrar)).chip
 
     chip.action()
 
-    XCTAssertEqual(registrar.calls, [.register])
+    try await waitUntil { registrar.calls == [.register] }
   }
 
-  func testTappingStopBootsTheAgentOut() {
+  func testTappingStopBootsTheAgentOut() async throws {
     let registrar = RecordingRegistrar()
     let content = serviceContent(state: makeState(phase: .work), connection: .connected)
     let chip = ServiceChip(content: content, client: client(registrar)).chip
 
     chip.action()
 
-    XCTAssertEqual(registrar.calls, [.stop])
+    try await waitUntil { registrar.calls == [.stop] }
   }
 
   /// throwntom-jtx: a refused launch renders as the failure it is, and the control it points at

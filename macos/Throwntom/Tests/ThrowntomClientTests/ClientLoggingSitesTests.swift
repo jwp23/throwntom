@@ -8,14 +8,14 @@ import XCTest
 @MainActor
 final class ClientLoggingSitesTests: XCTestCase {
 
-  func testARefusedStopRecordsWhyLaunchdSaidNo() throws {
+  func testARefusedStopRecordsWhyLaunchdSaidNo() async throws {
     let recorder = LogRecorder()
     let client = DaemonClient(
       transport: StallingTransport(),
       registrar: RecordingRegistrar(stopError: NSError(domain: "SMAppServiceErrorDomain", code: 1)),
     )
 
-    client.stopService()
+    await client.stopService()
 
     XCTAssertEqual(client.commandError, "The timer service could not be stopped.")
     let entry = try recorder.onlyEntry()
@@ -23,14 +23,14 @@ final class ClientLoggingSitesTests: XCTestCase {
     XCTAssertEqual(entry.message, "stop the timer service failed: SMAppServiceErrorDomain 1")
   }
 
-  func testARefusedRegistrationRecordsWhyLaunchdSaidNo() {
+  func testARefusedRegistrationRecordsWhyLaunchdSaidNo() async {
     let recorder = LogRecorder()
     let client = DaemonClient(
       transport: StallingTransport(),
       registrar: RecordingRegistrar(registerError: NSError(domain: "SMAppServiceErrorDomain", code: 2)),
     )
 
-    client.startService()
+    await client.startService()
     defer { client.stop() }
 
     XCTAssertNotNil(client.registrationError)

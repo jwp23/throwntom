@@ -17,33 +17,78 @@ public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
     agent: LaunchAgentService = LaunchdAgentService(),
     mainApp: MainAppService = BundledMainAppService(),
   ) {
-    self.agent = agent
     self.mainApp = mainApp
+    driver = AgentDriver(agent: agent)
   }
 
   // MARK: Public
 
   public static let bundleIdentifier = "com.jwp23.throwntom"
 
-  public var agentStatusDescription: String {
-    switch agent.status {
-    case .enabled: "Timer agent enabled"
-    case .requiresApproval: "Timer agent needs approval in Login Items"
-    case .notRegistered: "Timer agent not registered"
-    case .notFound: "Timer daemon missing from the app bundle"
-    case .unknown: "Timer agent status unknown"
-    }
-  }
-
   public var loginItemEnabled: Bool {
     mainApp.status == .enabled
   }
 
   /// Ensures the launchd agent is registered, reloading if necessary.
+  public func ensureAgentRegistered() async throws {
+    try await driver.ensureRegistered()
+  }
+
+  /// Unregisters the agent, the ServiceManagement equivalent of `launchctl bootout`: launchd
+  /// unloads the job and the daemon exits. It stays down until something registers it again.
+  public func stopAgent() async throws {
+    try await driver.unregister()
+  }
+
+  public func setLoginItem(_ enabled: Bool) throws {
+    if enabled {
+      try mainApp.register()
+    } else {
+      try mainApp.unregister()
+    }
+  }
+
+  public func openLoginItemsSettings() {
+    SMAppService.openSystemSettingsLoginItems()
+  }
+
+  // MARK: Private
+
+  private let mainApp: MainAppService
+
+  /// The only way to the agent from here. Kept private and unshared on purpose: a second
+  /// reference to the same `LaunchAgentService` would be a way to drive launchd without the
+  /// ordering and the executor hop the actor exists to give.
+  private let driver: AgentDriver
+
+}
+
+// MARK: - AgentDriver
+
+/// The agent's launchd calls, run one at a time and away from whoever asked for them.
+///
+/// One actor for two reasons, and the second is easy to miss. These calls used to be synchronous
+/// on the main actor, which made the window wait for launchd — the thing being fixed — but also
+/// kept the calls off each other, since a registration and a user's Stop could not be in flight
+/// together while each held the main actor for its whole run. Ending the wait ends that ordering
+/// too, and launchd needs it: `bootout` and `bootstrap` name one job, and a pair of them
+/// overlapping is not two operations but one undefined one.
+private actor AgentDriver {
+
+  // MARK: Lifecycle
+
+  init(agent: LaunchAgentService) {
+    self.agent = agent
+  }
+
+  // MARK: Internal
+
+  /// Registers the agent, reloading it first if it is already loaded.
+  ///
   /// If unregister fails, we defer the error and attempt register anyway, since a stale
   /// BTM entry may refuse to unregister while register still succeeds. Only throw if both
   /// unregister and register fail, or if register fails alone.
-  public func ensureAgentRegistered() throws {
+  func ensureRegistered() throws {
     var unregisterError: Error?
     for step in AgentRegistrationPlan.steps(for: agent.status) {
       switch step {
@@ -62,28 +107,13 @@ public struct SMAppServiceRegistrar: LaunchAgentRegistrar {
     }
   }
 
-  /// Unregisters the agent, the ServiceManagement equivalent of `launchctl bootout`: launchd
-  /// unloads the job and the daemon exits. It stays down until something registers it again.
-  public func stopAgent() throws {
+  func unregister() throws {
     try agent.unregister()
-  }
-
-  public func setLoginItem(_ enabled: Bool) throws {
-    if enabled {
-      try mainApp.register()
-    } else {
-      try mainApp.unregister()
-    }
-  }
-
-  public func openLoginItemsSettings() {
-    SMAppService.openSystemSettingsLoginItems()
   }
 
   // MARK: Private
 
   private let agent: LaunchAgentService
-  private let mainApp: MainAppService
 
 }
 

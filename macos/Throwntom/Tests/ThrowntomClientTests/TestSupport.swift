@@ -258,20 +258,26 @@ final class RecordingRegistrar: LaunchAgentRegistrar, @unchecked Sendable {
     lock.withLock { recorded }
   }
 
+  /// Whether each call arrived on the main thread. Driving launchd means waiting on subprocesses,
+  /// and this is what shows that wait is not happening where the window is drawn.
+  var mainThreadCalls: [Bool] {
+    lock.withLock { threads }
+  }
+
   /// How many times the reconnect loop has asked launchd for the daemon.
   var registrations: Int {
     calls.count(where: { $0 == .register })
   }
 
-  func ensureAgentRegistered() throws {
-    lock.withLock { recorded.append(.register) }
+  func ensureAgentRegistered() async throws {
+    record(.register)
     if let registerError {
       throw registerError
     }
   }
 
-  func stopAgent() throws {
-    lock.withLock { recorded.append(.stop) }
+  func stopAgent() async throws {
+    record(.stop)
     if let stopError {
       throw stopError
     }
@@ -283,6 +289,16 @@ final class RecordingRegistrar: LaunchAgentRegistrar, @unchecked Sendable {
   private let stopError: Error?
   private let lock = NSLock()
   private var recorded = [Call]()
+  private var threads = [Bool]()
+
+  /// Read outside the lock: `Thread.isMainThread` is about the caller, not about this recorder.
+  private func record(_ call: Call) {
+    let onMainThread = Thread.isMainThread
+    lock.withLock {
+      recorded.append(call)
+      threads.append(onMainThread)
+    }
+  }
 
 }
 

@@ -47,12 +47,15 @@ enum DaemonDispatch {
   }
 
   /// Service lifecycle goes straight to launchd rather than over the socket, so unlike a timer
-  /// verb it is synchronous and reports through the client's own error properties.
+  /// verb it reports through the client's own error properties rather than a beep. It is awaited
+  /// like the rest: driving launchd means waiting on `launchctl`, and the window may not.
   @MainActor
   static func control(_ action: ServiceAction, on client: DaemonClient) {
-    switch action {
-    case .start: client.startService()
-    case .stop: client.stopService()
+    Task {
+      switch action {
+      case .start: await client.startService()
+      case .stop: await client.stopService()
+      }
     }
   }
 

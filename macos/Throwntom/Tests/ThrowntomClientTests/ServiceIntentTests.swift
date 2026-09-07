@@ -85,7 +85,7 @@ final class PersistedStopTests: XCTestCase {
     client.start()
     try await waitUntil("the initial state to arrive") { client.state != nil }
 
-    client.stopService()
+    await client.stopService()
 
     XCTAssertEqual(intents.saved, [.stopped])
   }
@@ -102,16 +102,16 @@ final class PersistedStopTests: XCTestCase {
     client.start()
     try await waitUntil("the initial state to arrive") { client.state != nil }
 
-    client.stopService()
+    await client.stopService()
 
     XCTAssertEqual(intents.saved, [])
   }
 
-  func testStartingTheServiceRecordsThatItShouldRunAgain() {
+  func testStartingTheServiceRecordsThatItShouldRunAgain() async {
     let intents = FakeIntentStore(.stopped)
     let client = DaemonClient(transport: StubStateTransport(), registrar: RecordingRegistrar(), intents: intents)
 
-    client.startService()
+    await client.startService()
 
     XCTAssertEqual(intents.saved, [.running])
   }
@@ -179,7 +179,7 @@ final class PersistedStopTests: XCTestCase {
     )
     client.start()
 
-    client.startService()
+    await client.startService()
     defer { client.stop() }
 
     try await waitUntil("the restarted client to dial") { transport.streamsOpened > 0 }

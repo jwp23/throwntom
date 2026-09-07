@@ -76,7 +76,7 @@ final class LaunchdAgentServiceTests: XCTestCase {
     let service = LaunchdAgentService(
       bundleURL: home.appendingPathComponent("Absent.app"),
       home: home,
-      launchctl: record,
+      launchctl: { [self] in record($0) },
     )
     XCTAssertEqual(service.status, .notFound)
     XCTAssertThrowsError(try service.register())
