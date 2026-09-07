@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -46,36 +47,73 @@ func (s *server) runNonInteractive(w http.ResponseWriter, line string) {
 	writeCommandOutcome(w, resp)
 }
 
-func (s *server) postSnooze(w http.ResponseWriter, r *http.Request) {
+// maxRequestBodyBytes caps every bodied route's request body before it is
+// decoded, so a body many times larger than any of these routes' fields
+// could ever need is rejected by the reader rather than fully allocated for
+// json.Decode to then refuse. Generous for a task description, which is the
+// largest field these routes take.
+const maxRequestBodyBytes = 64 * 1024
+
+// decodeBody wraps r's body in the shared size cap, decodes exactly one JSON
+// value into dst, and requires nothing to follow it: a second Decode call
+// must hit io.EOF. Without this, a decoder that stops once dst is filled
+// would leave trailing bytes unread, so MaxBytesReader's cap would bound
+// only what the first value needed rather than everything a route accepts.
+// Every bodied route shares this contract, so one reader enforces it for all
+// of them rather than each restating it.
+func decodeBody(w http.ResponseWriter, r *http.Request, dst any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
+	dec := json.NewDecoder(r.Body)
+	if err := dec.Decode(dst); err != nil {
+		return err
+	}
+	var extra json.RawMessage
+	if err := dec.Decode(&extra); err != io.EOF {
+		return errors.New("body must contain exactly one JSON value")
+	}
+	return nil
+}
+
+// maxMeetingMinutes is the longest meeting or snooze this route will accept,
+// in the minutes the body speaks in. It is derived from the one rule rather
+// than restating it, so the routes and the command line cannot drift apart.
+// The macOS client refuses the same length before asking (Minutes.maximum),
+// but a client's rule is not the daemon's: this is the trust boundary, and it
+// holds the bound too.
+var maxMeetingMinutes = int(core.MaxMeetingDuration.Minutes())
+
+// readMinutesBody decodes a {"minutes": N} body shared by snooze and
+// meeting: both ask for nothing but a length, and both refuse the same
+// range for the same reason, so one reader validates for both rather than
+// each restating the rule.
+func readMinutesBody(w http.ResponseWriter, r *http.Request) (int, bool) {
 	var body struct {
 		Minutes int `json:"minutes"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Minutes <= 0 {
-		writeError(w, http.StatusBadRequest, errors.New("minutes must be a positive integer"))
-		return
+	if err := decodeBody(w, r, &body); err != nil || body.Minutes <= 0 || body.Minutes > maxMeetingMinutes {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("minutes must be between 1 and %d", maxMeetingMinutes))
+		return 0, false
 	}
-	s.runCommand(w, "snooze "+strconv.Itoa(body.Minutes))
+	return body.Minutes, true
 }
 
-// maxMeetingMinutes is the longest meeting this route will start, in the
-// minutes the body speaks in. It is derived from the one rule rather than
-// restating it, so the route and the command line cannot drift apart. The
-// macOS client refuses the same length before asking, but a client's rule is
-// not the daemon's: this is the trust boundary, and it holds the bound too.
-var maxMeetingMinutes = int(core.MaxMeetingDuration.Minutes())
+func (s *server) postSnooze(w http.ResponseWriter, r *http.Request) {
+	minutes, ok := readMinutesBody(w, r)
+	if !ok {
+		return
+	}
+	s.runCommand(w, "snooze "+strconv.Itoa(minutes))
+}
 
 // postMeeting starts a meeting of the minutes given. Like snooze it takes a
 // body rather than a bare verb, because a meeting with no length has nothing
 // to run for.
 func (s *server) postMeeting(w http.ResponseWriter, r *http.Request) {
-	var body struct {
-		Minutes int `json:"minutes"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Minutes <= 0 || body.Minutes > maxMeetingMinutes {
-		writeError(w, http.StatusBadRequest, fmt.Errorf("minutes must be between 1 and %d", maxMeetingMinutes))
+	minutes, ok := readMinutesBody(w, r)
+	if !ok {
 		return
 	}
-	s.runCommand(w, "meeting "+strconv.Itoa(body.Minutes))
+	s.runCommand(w, "meeting "+strconv.Itoa(minutes))
 }
 
 func (s *server) getTasks(w http.ResponseWriter, _ *http.Request) {
@@ -86,7 +124,7 @@ func (s *server) postTask(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Description string `json:"description"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeBody(w, r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, errors.New("description is required"))
 		return
 	}
