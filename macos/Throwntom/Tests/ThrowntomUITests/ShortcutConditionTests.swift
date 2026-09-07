@@ -51,8 +51,12 @@ final class ShortcutConditionTests: XCTestCase {
     }
   }
 
-  /// The two panels are the View commands that need a daemon; the cheat sheet and the config file
-  /// are local, and say so by claiming no condition.
+  /// The two panels are the View commands that need a daemon, and say so by claiming that
+  /// condition; the cheat sheet and the config file are local and stay enabled whatever the daemon
+  /// is doing — the cheat sheet's own condition ("opens this sheet") names what withholds ⌘/, not a
+  /// daemon, so "needs a daemon" is read from that specific wording rather than from mere
+  /// non-emptiness, which every `ViewAction` case is swept against with nothing to separately
+  /// maintain.
   func testTheViewConditionIsWhatTheMenuActuallyRequires() {
     let withADaemon = MenuModel.view(showsShortcuts: false, daemonAvailable: true)
     let without = MenuModel.view(showsShortcuts: false, daemonAvailable: false)
@@ -61,7 +65,7 @@ final class ShortcutConditionTests: XCTestCase {
       XCTAssertTrue(item.isEnabled, "\(item.action)")
     }
     for item in without.items {
-      let needsADaemon = !item.action.availability.isEmpty
+      let needsADaemon = item.action.availability == "while the timer service is running"
       XCTAssertEqual(item.isEnabled, !needsADaemon, "\(item.action) with no daemon")
     }
   }
