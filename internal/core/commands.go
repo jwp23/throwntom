@@ -93,23 +93,43 @@ func (c *Core) handleNewCycle(_ []string) commandResult {
 
 // handleLunch takes the user to lunch, whatever the timer was doing. Lunch is
 // the one break nothing earns and no schedule picks, so it needs no state to
-// be in and refuses nothing. A phase that was waiting to be confirmed is still
-// credited on the way past, for the reason new-cycle credits it: the engine
-// counted it the moment it finished.
-func (c *Core) handleLunch(_ []string) commandResult {
-	before := c.timer.StartLunch()
+// be in and refuses nothing but a length it cannot read. A phase that was
+// waiting to be confirmed is still credited on the way past, for the reason
+// new-cycle credits it: the engine counted it the moment it finished.
+//
+// Unlike meeting, lunch also has a config default, so no length at all is not
+// a refusal: it is the configured one, same as before this command took an
+// argument.
+func (c *Core) handleLunch(parts []string) commandResult {
+	if len(parts) < 2 {
+		before := c.timer.StartLunch()
+		c.logDisplacedCompletion(before)
+		c.logPhaseStart(engine.Lunch)
+		return commandResult{message: "Lunch started -- a fresh block when you're back."}
+	}
+	d, err := parseDuration(parts[1], "lunch")
+	if err != nil {
+		return commandResult{err: err}
+	}
+	if d > MaxMeetingDuration {
+		return commandResult{err: errors.New("lunch duration must be one day or less")}
+	}
+	before := c.timer.StartLunchFor(d)
 	c.logDisplacedCompletion(before)
 	c.logPhaseStart(engine.Lunch)
-	return commandResult{message: "Lunch started -- a fresh block when you're back."}
+	return commandResult{message: fmt.Sprintf("Lunch started -- %s. A fresh block when you're back.", d)}
 }
 
-// MaxMeetingDuration is the longest meeting that can be started. A day is
-// already far past any real meeting, so a longer one is a typo — and one taken
-// at face value parks the timer in a phase that outlives the session file and
-// has to be noticed before it can be undone.
+// MaxMeetingDuration is the longest meeting or explicit lunch that can be
+// started. A day is already far past either, so a longer one is a typo — and
+// one taken at face value parks the timer in a phase that outlives the
+// session file and has to be noticed before it can be undone. Lunch shares
+// this rather than getting its own ceiling: the reasoning is the same for
+// both, and a config default already keeps lunch's usual length nowhere near
+// it.
 //
-// Every way in enforces it: the command line here, and the daemon's own route,
-// which reads its minutes bound from this rather than restating it.
+// Every way in enforces it: the command line here, and the daemon's own
+// routes, which read their minutes bound from this rather than restating it.
 const MaxMeetingDuration = 24 * time.Hour
 
 // handleMeeting takes the user into a meeting of the length they name. Like
@@ -302,15 +322,21 @@ func (c *Core) handleQuit(_ []string) commandResult {
 	return commandResult{message: "See you next time!", exit: true}
 }
 
-// parseDurationArg reads the duration a verb was given. A bare number means
-// minutes, which is how a duration is spoken about here; anything else is read
-// the way Go reads a duration. The verb names itself in every message so a
-// refusal says which command was refused.
+// parseDurationArg reads the duration a verb was given, refusing a verb with
+// no argument at all -- the shape every verb but lunch requires, since lunch
+// alone has a config default to fall back on for an absent one.
 func parseDurationArg(parts []string, verb string) (time.Duration, error) {
 	if len(parts) < 2 {
 		return 0, fmt.Errorf("usage: %s <duration>", verb)
 	}
-	raw := parts[1]
+	return parseDuration(parts[1], verb)
+}
+
+// parseDuration reads a single duration argument already known to be
+// present. A bare number means minutes, which is how a duration is spoken
+// about here; anything else is read the way Go reads a duration. The verb
+// names itself in every message so a refusal says which command was refused.
+func parseDuration(raw, verb string) (time.Duration, error) {
 	if _, err := strconv.ParseFloat(raw, 64); err == nil {
 		raw += "m"
 	}

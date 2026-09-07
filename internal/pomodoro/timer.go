@@ -331,6 +331,23 @@ func (t *Timer) StartLunch() engine.Snapshot {
 	return before
 }
 
+// StartLunchFor takes the user to lunch for the given length rather than the
+// configured one, the way StartMeeting does for a meeting: the length is the
+// caller's to pick for this one lunch. t.lunchDuration is left untouched, so
+// the next bare StartLunch still runs for the configured default.
+func (t *Timer) StartLunchFor(d time.Duration) engine.Snapshot {
+	t.mu.Lock()
+	before := t.engine.Snapshot()
+	defer t.notifyChange()
+	defer t.mu.Unlock()
+	defer t.transitionLocked()
+	t.stopTimerLocked()
+	t.clearPhaseLocked()
+	t.engine.StartLunch()
+	t.startPhaseTimerLocked(d)
+	return before
+}
+
 func (t *Timer) CompletePeriod() {
 	t.mu.Lock()
 	defer t.notifyChange()

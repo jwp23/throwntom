@@ -22,6 +22,30 @@ func TestStartLunchRunsForTheLunchDuration(t *testing.T) {
 	}
 }
 
+// StartLunchFor runs for the length it was given rather than the configured
+// one, the way StartMeeting does -- and leaves the configured length alone,
+// so the next bare StartLunch still uses it.
+func TestStartLunchForRunsForTheLengthItWasGiven(t *testing.T) {
+	a := New(minutes(25, 5, 15, 4))
+	clock := newFakeClock(time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC))
+	a.setClock(clock)
+
+	a.StartLunchFor(30 * time.Minute)
+
+	if got := a.State(); got != engine.Lunch {
+		t.Fatalf("state is %s, want lunch", got)
+	}
+	if remaining := a.Snapshot().PhaseEndAt.Sub(clock.Now()); remaining != 30*time.Minute {
+		t.Fatalf("lunch has %s left, want 30m", remaining)
+	}
+
+	a.StartLunch()
+
+	if remaining := a.Snapshot().PhaseEndAt.Sub(clock.Now()); remaining != 60*time.Minute {
+		t.Fatalf("the next bare lunch has %s left, want the configured 60m", remaining)
+	}
+}
+
 func TestLunchEndsOnItsOwnDeadline(t *testing.T) {
 	a := New(minutes(25, 5, 15, 4))
 	clock := newFakeClock(time.Date(2026, 8, 29, 12, 0, 0, 0, time.UTC))
