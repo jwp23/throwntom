@@ -4,6 +4,9 @@ import SwiftUI
 
 /// Props the tomato holds, in body-local design units.
 enum HeldProps {
+
+  // MARK: Internal
+
   /// Cold drink, right hand.
   static let drinkCup = DesignShape { path, units in
     path.polygon(units, [(64, 70), (78, 70), (76, 92), (66, 92)])
@@ -126,6 +129,31 @@ enum HeldProps {
     path.line(units, 88, 22)
   }
 
+  /// The nightcap: a cone standing on its brim, leaning to the far side of the crown so the stem
+  /// and both leaves stay above it. A cap drawn straight over the top would leave a red ball with a
+  /// face on it, and the crown is the whole of what says tomato.
+  static let nightcapCone = DesignShape { path, units in
+    path.move(units, 19, 43)
+    path.curve(units, 16, 32, 14, 22, 13, 16)
+    path.curve(units, 32, 28, 58, 29, 79, 34)
+    path.curve(units, 60, 44, 34, 47, 19, 43)
+    path.closeSubpath()
+  }
+
+  /// The brim, along the bottom edge of the cone and stroked over it, so the band reads as turned
+  /// up rather than as a line ruled across the cap.
+  static let nightcapBrim = DesignShape { path, units in
+    path.move(units, 19, 43)
+    path.curve(units, 34, 47, 60, 44, 79, 34)
+  }
+
+  static let nightcapBobble = DesignShape { path, units in
+    path.circle(units, 11, 13, 4.5)
+  }
+
+  /// How many Z's drift off the cap at once.
+  static let zedCount = 3
+
   static func yoyoEnd(drop: Double) -> CGPoint {
     CGPoint(yoyoHand.x + yoyoDirection.x * drop, yoyoHand.y + yoyoDirection.y * drop)
   }
@@ -160,6 +188,45 @@ enum HeldProps {
       path.line(units, centre.x + across.x, centre.y + across.y)
     }
   }
+
+  /// Where one of the `zedCount` Z's is in its own run, 0 to 1. They share a cycle staggered by
+  /// even fractions of it, so at any instant — a still frame included — one is setting off, one is
+  /// halfway and one is leaving.
+  static func zedProgress(_ index: Int, phase: Double) -> Double {
+    (phase + Double(index) / Double(zedCount)).truncatingRemainder(dividingBy: 1)
+  }
+
+  /// A Z at `progress` through its run: rising away from the cap and growing as it goes, which is
+  /// what reads as drifting off rather than sliding across.
+  static func zed(progress: Double) -> DesignShape {
+    let half = zedHalfSizeRange.lowerBound
+      + (zedHalfSizeRange.upperBound - zedHalfSizeRange.lowerBound) * progress
+    let x = zedStart.x + zedDrift.width * progress
+    let y = zedStart.y + zedDrift.height * progress
+    return DesignShape { path, units in
+      path.move(units, x - half, y - half)
+      path.line(units, x + half, y - half)
+      path.line(units, x - half, y + half)
+      path.line(units, x + half, y + half)
+    }
+  }
+
+  /// A Z dissolves over the last of its run instead of blinking off at the top of it. It is fully
+  /// painted everywhere else, so a still frame keeps all three.
+  static func zedOpacity(progress: Double) -> Double {
+    min(1, (1 - progress) / zedFadeOut)
+  }
+
+  // MARK: Private
+
+  /// Where a Z sets off — clear of the near shoulder, above the cap's brim — and how far it travels
+  /// over its run: up and away from the face, into the corner the "!" used to shout from.
+  private static let zedStart = CGPoint(76, 27)
+  private static let zedDrift = CGSize(width: 16, height: -20)
+  private static let zedHalfSizeRange: ClosedRange<Double> = 2 ... 4.5
+  /// The last fraction of a run, over which the Z fades out.
+  private static let zedFadeOut = 0.25
+
 }
 
 // MARK: - HeldPropView
@@ -171,6 +238,8 @@ struct HeldPropView: View {
   let prop: HeldProp
   /// How far the yo-yo hangs below the hand, in design units; ignored by every other prop.
   let yoyoDrop: Double
+  /// Where the nightcap's Z's are in their cycle, 0 to 1; ignored by every other prop.
+  let zzzPhase: Double
   let unit: CGFloat
 
   var body: some View {
@@ -181,6 +250,7 @@ struct HeldPropView: View {
       case .yoyo: yoyo
       case .cable: cable
       case .burger: burger
+      case .nightcap: nightcap
       case .exclamation:
         HeldProps.exclamation.stroke(Palette.cream.color, style: StrokeStyle(lineWidth: 4 * unit, lineCap: .round))
       }
@@ -238,6 +308,29 @@ struct HeldPropView: View {
       HeldProps.burgerTopBun.fill(MascotPalette.wood.color)
       HeldProps.burgerTopBun.stroke(outline, style: StrokeStyle(lineWidth: 2 * unit, lineJoin: .round))
       HeldProps.burgerSeeds.fill(Palette.cream.color)
+    }
+  }
+
+  /// Cream cap, sky brim, cream Z's: the cap borrows the drink's and the yo-yo's own blue rather
+  /// than introducing a colour, and the Z's are the cream the "!" they replace was drawn in.
+  private var nightcap: some View {
+    ZStack {
+      HeldProps.nightcapCone.fill(Palette.cream.color)
+      HeldProps.nightcapCone.stroke(outline, style: StrokeStyle(lineWidth: 2 * unit, lineJoin: .round))
+      HeldProps.nightcapBrim.stroke(outline, style: StrokeStyle(lineWidth: 6.5 * unit, lineCap: .round))
+      HeldProps.nightcapBrim.stroke(MascotPalette.sky.color, style: StrokeStyle(lineWidth: 4.5 * unit, lineCap: .round))
+      HeldProps.nightcapBobble.fill(Palette.cream.color)
+      HeldProps.nightcapBobble.stroke(outline, lineWidth: 2 * unit)
+      zeds
+    }
+  }
+
+  private var zeds: some View {
+    ForEach(0 ..< HeldProps.zedCount, id: \.self) { index in
+      let progress = HeldProps.zedProgress(index, phase: zzzPhase)
+      HeldProps.zed(progress: progress)
+        .stroke(Palette.cream.color, style: StrokeStyle(lineWidth: 1.6 * unit, lineCap: .round, lineJoin: .round))
+        .opacity(HeldProps.zedOpacity(progress: progress))
     }
   }
 

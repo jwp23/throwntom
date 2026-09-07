@@ -88,7 +88,7 @@ struct MascotCharacterView: View {
     case .hands:
       HandsView(left: pose.leftArm, right: pose.rightArm, unit: unit)
     case .held(let prop):
-      HeldPropView(prop: prop, yoyoDrop: frame.yoyoDrop, unit: unit)
+      HeldPropView(prop: prop, yoyoDrop: frame.yoyoDrop, zzzPhase: frame.zzzPhase, unit: unit)
     case .worn(let prop):
       WornPropView(prop: prop, unit: unit)
     }

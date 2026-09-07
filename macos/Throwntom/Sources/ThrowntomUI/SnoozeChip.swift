@@ -16,7 +16,7 @@ struct SnoozeChip: View {
   let model: WindowModel
 
   var isSnoozed: Bool {
-    content.snoozeNote != nil
+    content.isSnoozed
   }
 
   var title: String {

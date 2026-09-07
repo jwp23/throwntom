@@ -52,6 +52,38 @@ final class PaletteTests: XCTestCase {
     XCTAssertEqual(Contrast.ratio(HexColor("#FFCC00"), Palette.scheme(for: .idle).ground), 1.8, accuracy: 0.1)
   }
 
+  /// A snooze is not a phase — the daemon reports it beside the state — so its ground is a scheme
+  /// of its own rather than an eighth case of `scheme(for:)`. What matters is that it is nobody
+  /// else's ground: while snoozed the window used to wear the alarm red it had just been asked to
+  /// quiet, and any ground it shares with a phase puts it back in that position.
+  func testTheSnoozedGroundBelongsToNoPhase() {
+    for (name, scheme) in Palette.schemes where scheme != Palette.snoozed {
+      XCTAssertNotEqual(scheme.ground, Palette.snoozed.ground, name)
+    }
+    XCTAssertNotEqual(Palette.snoozed, Palette.scheme(for: .awaitingConfirm), "the evening snooze")
+    XCTAssertNotEqual(Palette.snoozed, Palette.scheme(for: .idle), "the morning one")
+  }
+
+  /// The chip and panel are the ground under the same black every phase scheme uses, so the three
+  /// tokens are one colour seen three ways rather than three colours that happen to sit together.
+  func testTheSnoozedChipAndPanelAreItsOwnGroundDarkened() {
+    XCTAssertEqual(Palette.snoozed.secondaryChip.hex, Palette.snoozed.ground.darkened(by: 0.55).hex)
+    XCTAssertEqual(Palette.snoozed.panel.hex, Palette.snoozed.ground.darkened(by: 0.28).hex)
+  }
+
+  /// The measurements the ground was chosen on, pinned as numbers. The gates above sweep every
+  /// scheme and would pass a ground that had drifted to the edge of them; these say where this one
+  /// actually sits, so a nudge to the hue has to be re-measured rather than eyeballed.
+  func testTheSnoozedSchemeSitsWhereItWasMeasured() {
+    let s = Palette.snoozed
+    XCTAssertEqual(Contrast.ratio(s.text, s.ground), 5.57, accuracy: 0.01)
+    XCTAssertEqual(Contrast.ratio(s.primaryChipText, s.primaryChip), 15.60, accuracy: 0.01)
+    XCTAssertEqual(Contrast.ratio(s.secondaryChipText, s.secondaryChip), 10.37, accuracy: 0.01)
+    XCTAssertEqual(Contrast.ratio(s.panelText, s.panel), 5.31, accuracy: 0.01)
+    XCTAssertEqual(Contrast.ratio(s.secondaryChip, s.ground), 3.18, accuracy: 0.01)
+    XCTAssertEqual(Contrast.ratio(s.panel, s.ground), 1.74, accuracy: 0.01)
+  }
+
   func testContrastRatioMatchesWCAGReference() {
     XCTAssertEqual(Contrast.ratio(HexColor("#FFFFFF"), HexColor("#000000")), 21, accuracy: 0.01)
     XCTAssertEqual(Contrast.ratio(HexColor("#F68C31"), HexColor("#000000")), 8.71, accuracy: 0.05)

@@ -38,14 +38,35 @@ final class MascotPoseTests: XCTestCase {
   func testOnlyAwaitingConfirmJumpsAndOnlyIdlePlaysYoyo() {
     XCTAssertEqual(MascotPose.awaitingConfirm.motions, [.jump])
     XCTAssertTrue(MascotPose.idle.motions.contains(.yoyo))
-    for pose in [MascotPose.work, .meeting, .shortBreak, .longBreak, .lunch, .disconnected] {
+    for pose in [MascotPose.work, .meeting, .shortBreak, .longBreak, .lunch, .asleep, .disconnected] {
       XCTAssertFalse(pose.motions.contains(.jump))
       XCTAssertFalse(pose.motions.contains(.yoyo))
     }
   }
 
+  /// A snooze quiets everything, so the pose that means one is the pose that stops shouting: eyes
+  /// shut, the `!` put down, and nothing left jumping. It is what the awaiting-confirm pose was
+  /// asked to stand in for, and it said the opposite of what had just been asked for.
+  func testTheAsleepPoseIsQuietWhereAwaitingConfirmIsLoud() {
+    let asleep = MascotPose.asleep
+
+    XCTAssertEqual(asleep.eyes, .closed)
+    XCTAssertEqual(asleep.held, .nightcap)
+    XCTAssertEqual(asleep.motions, [.breathe, .zzz])
+    XCTAssertEqual(MascotPose.awaitingConfirm.held, .exclamation, "the pose it replaces still holds the shout")
+  }
+
+  /// The arms come down with the eyes. Measured against the shoulders they hang from, so a repose
+  /// cannot quietly put them back over the head where awaiting confirm keeps them.
+  func testTheAsleepArmsFoldBelowTheShouldersRatherThanReachingOverThem() {
+    XCTAssertGreaterThan(MascotPose.asleep.leftArm.hand.y, MascotPose.leftShoulder.y)
+    XCTAssertGreaterThan(MascotPose.asleep.rightArm.hand.y, MascotPose.rightShoulder.y)
+    XCTAssertLessThan(MascotPose.awaitingConfirm.leftArm.hand.y, MascotPose.leftShoulder.y)
+    XCTAssertLessThan(MascotPose.awaitingConfirm.rightArm.hand.y, MascotPose.rightShoulder.y)
+  }
+
   func testClosedEyesNeverBlink() {
-    for pose in [MascotPose.work, .meeting, .shortBreak, .longBreak, .lunch, .idle, .awaitingConfirm, .disconnected] {
+    for pose in [MascotPose.work, .meeting, .shortBreak, .longBreak, .lunch, .idle, .awaitingConfirm, .asleep, .disconnected] {
       if pose.eyes != .open {
         XCTAssertFalse(pose.motions.contains(.blink), "\(pose.held.map { "\($0)" } ?? "laptop")")
       }
@@ -60,7 +81,7 @@ final class MascotPoseTests: XCTestCase {
   }
 
   func testEveryPoseHangsItsArmsFromTheSameShoulders() {
-    for pose in [MascotPose.work, .meeting, .shortBreak, .longBreak, .lunch, .idle, .awaitingConfirm, .disconnected] {
+    for pose in [MascotPose.work, .meeting, .shortBreak, .longBreak, .lunch, .idle, .awaitingConfirm, .asleep, .disconnected] {
       XCTAssertEqual(pose.leftArm.shoulder, MascotPose.leftShoulder, "\(pose.held.map { "\($0)" } ?? "laptop") left")
       XCTAssertEqual(pose.rightArm.shoulder, MascotPose.rightShoulder, "\(pose.held.map { "\($0)" } ?? "laptop") right")
     }

@@ -10,6 +10,8 @@ enum HeldProp: Hashable {
   case cable
   case exclamation
   case burger
+  /// The sleeping cap, worn on the crown, and the Z's drifting off it.
+  case nightcap
 
   /// The book is held in front of the face with the hands over its covers; everything else sits in
   /// front of the hands.
@@ -41,6 +43,8 @@ enum Motion: Hashable {
   case breathe
   case yoyo
   case jump
+  /// The Z's rising off a sleeping tomato.
+  case zzz
 }
 
 // MARK: - MascotPose

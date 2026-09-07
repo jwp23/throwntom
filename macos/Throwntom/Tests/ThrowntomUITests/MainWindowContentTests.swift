@@ -18,31 +18,66 @@ final class MainWindowContentTests: XCTestCase {
     XCTAssertFalse(content(makeState(phase: .idle, morningPending: false)).chips.contains(.snooze))
   }
 
-  /// A snooze takes the reminder banner away (`ReminderBanner.waitingKind`), so without this the
-  /// only evidence a snooze happened is a nudge that never arrives. That is how a stray click
-  /// became ten silent minutes nobody could explain.
-  func testAnActiveSnoozeSaysHowMuchOfItIsLeft() {
-    let c = content(makeState(phase: .awaitingConfirm, snoozeUntil: now.addingTimeInterval(598)))
-    XCTAssertEqual(c.snoozeNote, "Snoozed · 09:58 left")
-  }
-
-  /// The snoozed line is the window's other live countdown, so it is split the same way the
-  /// headline is: the minutes left are held apart from the wording, ready to be the element's
-  /// value. Left inside the label they would rewrite the label every second.
-  func testTheSnoozedLineKeepsItsMovingPartApartFromItsWording() {
+  /// A snooze takes the reminder banner away (`ReminderBanner.waitingKind`) and stops the window
+  /// floating, so the window is the only thing left that can say one is running — and what it used
+  /// to say was the alarm-red `Confirm` screen the user had just quieted. It names the snooze
+  /// instead, on a ground and in a pose that belong to nothing else.
+  func testAnActiveSnoozeNamesItselfRatherThanThePhaseUnderIt() {
     let c = content(makeState(phase: .awaitingConfirm, snoozeUntil: now.addingTimeInterval(598)))
 
-    XCTAssertEqual(c.snoozeRemaining, "09:58")
-    XCTAssertEqual(c.snoozeNote, "Snoozed · 09:58 left", "the line on screen still reads as one sentence")
+    XCTAssertTrue(c.isSnoozed)
+    XCTAssertEqual(c.title, "Snoozed")
+    XCTAssertEqual(c.scheme, Palette.snoozed)
+    XCTAssertEqual(c.pose, .asleep)
   }
 
-  func testNoSnoozeNoNote() {
-    XCTAssertNil(content(makeState(phase: .awaitingConfirm)).snoozeNote)
+  /// The morning nudge is snoozed from an idle timer rather than from a confirmation. It is the
+  /// same act and gets the same window; keying any of this on the phase would give it the idle
+  /// screen, which says nothing about a reminder being owed.
+  func testTheMorningNudgeSnoozeGetsTheSameWindowAsTheEveningOne() {
+    let morning = makeState(phase: .idle, morningPending: true, snoozeUntil: now.addingTimeInterval(598))
+    let evening = makeState(phase: .awaitingConfirm, snoozeUntil: now.addingTimeInterval(598))
+
+    XCTAssertEqual(content(morning).title, content(evening).title)
+    XCTAssertEqual(content(morning).scheme, content(evening).scheme)
+    XCTAssertEqual(content(morning).pose, content(evening).pose)
+    XCTAssertNotEqual(content(morning).scheme, content(makeState(phase: .idle)).scheme)
+  }
+
+  /// Both halves, in the countdown's own slot. They answer different questions — the hour is what
+  /// gets checked against a calendar, the minutes left against the user's patience — and neither
+  /// answers the other's, which is why the header carries the two rather than picking one.
+  func testTheSnoozedHeaderCarriesBothTheReturnTimeAndTheTimeLeft() {
+    let until = now.addingTimeInterval(598)
+    let c = content(makeState(phase: .awaitingConfirm, snoozeUntil: until))
+
+    XCTAssertTrue(c.countdown?.hasSuffix(" · 09:58") ?? false, c.countdown ?? "nil")
+    XCTAssertEqual(c.countdown, "Back at \(Countdown.formatTimeOfDay(until)) · 09:58")
   }
 
   func testASnoozePastItsDeadlineReadsAsNoTimeLeftRatherThanNegative() {
     let c = content(makeState(phase: .awaitingConfirm, snoozeUntil: now.addingTimeInterval(-30)))
-    XCTAssertEqual(c.snoozeNote, "Snoozed · 00:00 left")
+    XCTAssertTrue(c.countdown?.hasSuffix(" · 00:00") ?? false, c.countdown ?? "nil")
+  }
+
+  /// With no snooze running the phase keeps its own window, countdown slot included: awaiting
+  /// confirm counts nothing down, and a snoozed presentation leaking into it would be the same
+  /// mistake in the other direction.
+  func testNoSnoozeLeavesThePhaseItsOwnWindow() {
+    let c = content(makeState(phase: .awaitingConfirm))
+
+    XCTAssertFalse(c.isSnoozed)
+    XCTAssertEqual(c.title, "Confirm")
+    XCTAssertEqual(c.scheme, Palette.scheme(for: .awaitingConfirm))
+    XCTAssertEqual(c.pose, .awaitingConfirm)
+    XCTAssertNil(c.countdown)
+  }
+
+  /// The reconnect mark goes on whatever title the window is showing, and `Snoozed` is one of the
+  /// two that is not a phase name.
+  func testASnoozedTitleTakesTheReconnectMarkLikeAnyOther() {
+    let snoozed = makeState(phase: .awaitingConfirm, snoozeUntil: now.addingTimeInterval(600))
+    XCTAssertEqual(content(snoozed, connection: .reconnecting(attempt: 1)).title, "Snoozed (reconnecting)")
   }
 
   /// The whole window drops its daemon-derived presentation when the service is gone; a snooze
@@ -58,7 +93,9 @@ final class MainWindowContentTests: XCTestCase {
       panel: nil,
       now: now,
     )
-    XCTAssertNil(c.snoozeNote)
+    XCTAssertFalse(c.isSnoozed)
+    XCTAssertNotEqual(c.scheme, Palette.snoozed)
+    XCTAssertNil(c.countdown)
   }
 
   func testWorkShowsCountdownGardenAndPauseChip() {

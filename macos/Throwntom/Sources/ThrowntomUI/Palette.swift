@@ -100,8 +100,18 @@ enum Palette {
     ("macos-idle", scheme(for: .idle)),
     ("macos-paused", scheme(for: .paused)),
     ("macos-awaiting-confirm", scheme(for: .awaitingConfirm)),
+    ("macos-snoozed", snoozed),
     ("macos-disconnected", scheme(for: nil)),
   ]
+
+  /// The ground a running snooze wears, whatever phase is underneath it. A snooze is not a phase —
+  /// the daemon reports it beside the state (`internal/core/state.go`), so it is asked for by name
+  /// here rather than through `scheme(for:)`, and `MainWindowContent` is where the two meet.
+  ///
+  /// Dusk violet: the one hue left in the band of luminance that carries dark ink at 4.5:1, and as
+  /// far as that band goes from the alarm red the evening snooze replaces. A quieted reminder that
+  /// went on wearing the colour of the reminder itself was the whole of the complaint.
+  static let snoozed = jewel(ground: "#9385C9", secondaryChip: "#423C5A", panel: "#6A6091")
 
   static func scheme(for phase: DaemonState.Phase?) -> PhaseScheme {
     switch phase {
