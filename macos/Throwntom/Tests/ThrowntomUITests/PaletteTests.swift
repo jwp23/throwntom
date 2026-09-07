@@ -31,18 +31,25 @@ final class PaletteTests: XCTestCase {
   /// The star marking a focused task is the one mark on the ground that used to carry a colour of
   /// its own — `Color.yellow` — instead of the surface's. It reads as text, so it clears the text
   /// bar (throwntom-bxd.15).
+  ///
+  /// This is an alias-integrity check, not independent contrast coverage: `taskMark` and
+  /// `panelTaskMark` are defined as `text` and `panelText` (see `PhaseScheme.taskMark`), so the
+  /// contrast ratios themselves are already proven by `testTextOnGroundMeetsAA`. What this test
+  /// guards is that the alias holds — that nobody gives the mark a colour of its own again
+  /// without updating this assertion.
   func testTheFocusStarClearsEverySurfaceItSitsOn() {
     for (name, s) in Palette.schemes {
-      XCTAssertGreaterThanOrEqual(Contrast.ratio(s.taskMark, s.ground), 4.5, "\(name) task mark on ground")
-      XCTAssertGreaterThanOrEqual(Contrast.ratio(s.panelTaskMark, s.panel), 4.5, "\(name) task mark on panel")
+      XCTAssertEqual(s.taskMark, s.text, "\(name) task mark should alias text")
+      XCTAssertEqual(s.panelTaskMark, s.panelText, "\(name) panel task mark should alias panel text")
     }
   }
 
-  /// Why the star gave up its tint: system yellow never went through the gate above, and the idle
-  /// ground is where it lands worst. Pinned as a number so the sentence in DESIGN.md has something
-  /// behind it, and so a future tint has to be measured rather than eyeballed.
+  /// Historical documentation, not a regression guard: the star no longer carries `Color.yellow`
+  /// at all, so this exercises no shipped code path. It pins the 1.8:1 number that DESIGN.md's
+  /// prose cites as the reason the star dropped its own tint, so that sentence stays backed by a
+  /// measured value instead of a claim nothing checks.
   func testSystemYellowWouldNotClearTheIdleGround() {
-    XCTAssertLessThan(Contrast.ratio(HexColor("#FFCC00"), Palette.scheme(for: .idle).ground), 2)
+    XCTAssertEqual(Contrast.ratio(HexColor("#FFCC00"), Palette.scheme(for: .idle).ground), 1.8, accuracy: 0.1)
   }
 
   func testContrastRatioMatchesWCAGReference() {
