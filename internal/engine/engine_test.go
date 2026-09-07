@@ -4,7 +4,14 @@ import (
 	"encoding/json"
 	"testing"
 	"time"
+
+	"github.com/jwp23/throwntom/v3/internal/workday"
 )
+
+// dayStart is the boundary these tests turn the day over at: the config
+// default, 04:00, so the times below read as a day that begins in the small
+// hours and ends in them.
+var dayStart = workday.MustParseStart("04:00")
 
 func TestConfirmTransitionWorkToShortBreak(t *testing.T) {
 	e := New(25, 5, 15, 4)
@@ -115,7 +122,7 @@ func TestNextPhaseDoesNotMutateState(t *testing.T) {
 // AdvanceDay is what knows where that boundary is.
 func TestStartAfterDoneForTheDayKeepsTodaysCount(t *testing.T) {
 	e := New(25, 5, 15, 4)
-	e.AdvanceDay(time.Date(2026, 9, 3, 9, 0, 0, 0, time.Local))
+	e.AdvanceDay(time.Date(2026, 9, 3, 9, 0, 0, 0, time.Local), dayStart)
 	e.StartWork()
 	e.MarkPeriodComplete()
 	e.ConfirmNext()
@@ -270,7 +277,7 @@ func TestSnapshotRestorePreservesAllFields(t *testing.T) {
 func TestAdvanceDayResetsOnNewDay(t *testing.T) {
 	e := New(25, 5, 15, 4)
 	yesterday := time.Date(2026, 3, 5, 17, 0, 0, 0, time.Local)
-	e.AdvanceDay(yesterday)
+	e.AdvanceDay(yesterday, dayStart)
 	e.StartWork()
 	e.MarkPeriodComplete()
 	e.ConfirmNext()
@@ -283,7 +290,7 @@ func TestAdvanceDayResetsOnNewDay(t *testing.T) {
 	}
 
 	today := time.Date(2026, 3, 6, 9, 0, 0, 0, time.Local)
-	e.AdvanceDay(today)
+	e.AdvanceDay(today, dayStart)
 
 	if e.CompletedToday() != 0 {
 		t.Fatalf("expected completedToday=0 after day rollover, got %d", e.CompletedToday())
@@ -293,13 +300,13 @@ func TestAdvanceDayResetsOnNewDay(t *testing.T) {
 	}
 }
 
-// AdvanceDay runs while the daemon is up, so midnight can arrive with a phase
+// AdvanceDay runs while the daemon is up, so the day can turn with a phase
 // in flight. What it must not leave behind is a snapshot the engine's own
 // transitions could not have reached: core discards one of those on the next
 // start, and the phase and the day's focused tasks go with it.
 func TestRollingOverMidPhaseLeavesAReachableSnapshot(t *testing.T) {
-	lastNight := time.Date(2026, 3, 5, 23, 50, 0, 0, time.Local)
-	afterMidnight := time.Date(2026, 3, 6, 0, 5, 0, 0, time.Local)
+	beforeTheBoundary := time.Date(2026, 3, 6, 3, 50, 0, 0, time.Local)
+	afterTheBoundary := time.Date(2026, 3, 6, 4, 5, 0, 0, time.Local)
 	inFlight := map[string]func(e *Engine){
 		"running work":     func(e *Engine) { e.StartWork() },
 		"awaiting confirm": func(e *Engine) { e.StartWork(); e.MarkPeriodComplete() },
@@ -308,10 +315,10 @@ func TestRollingOverMidPhaseLeavesAReachableSnapshot(t *testing.T) {
 	for name, reach := range inFlight {
 		t.Run(name, func(t *testing.T) {
 			e := New(25, 5, 15, 4)
-			e.AdvanceDay(lastNight)
+			e.AdvanceDay(beforeTheBoundary, dayStart)
 			reach(e)
 
-			e.AdvanceDay(afterMidnight)
+			e.AdvanceDay(afterTheBoundary, dayStart)
 
 			if reason := e.Snapshot().Invalid(); reason != "" {
 				t.Fatalf("the rollover produced an unreachable snapshot: %s", reason)
@@ -320,16 +327,16 @@ func TestRollingOverMidPhaseLeavesAReachableSnapshot(t *testing.T) {
 	}
 }
 
-// A work period waiting to be confirmed is still a work period after midnight,
-// so confirming it gives the break it earned. Forgetting which phase is waiting
+// A work period waiting to be confirmed is still a work period once the day
+// has turned, so confirming it gives the break it earned. Forgetting which phase is waiting
 // hands the user a second work period back to back.
 func TestRollingOverKeepsThePhaseAwaitingConfirmation(t *testing.T) {
 	e := New(25, 5, 15, 4)
-	e.AdvanceDay(time.Date(2026, 3, 5, 23, 50, 0, 0, time.Local))
+	e.AdvanceDay(time.Date(2026, 3, 6, 3, 50, 0, 0, time.Local), dayStart)
 	e.StartWork()
 	e.MarkPeriodComplete()
 
-	e.AdvanceDay(time.Date(2026, 3, 6, 0, 5, 0, 0, time.Local))
+	e.AdvanceDay(time.Date(2026, 3, 6, 4, 5, 0, 0, time.Local), dayStart)
 
 	if next := e.NextPhase(); next != ShortBreak {
 		t.Fatalf("expected the completed work period to still owe a break, got %v", next)
@@ -339,12 +346,12 @@ func TestRollingOverKeepsThePhaseAwaitingConfirmation(t *testing.T) {
 func TestAdvanceDaySameDayIsNoop(t *testing.T) {
 	e := New(25, 5, 15, 4)
 	now := time.Date(2026, 3, 6, 9, 0, 0, 0, time.Local)
-	e.AdvanceDay(now)
+	e.AdvanceDay(now, dayStart)
 	e.StartWork()
 	e.MarkPeriodComplete()
 
 	later := time.Date(2026, 3, 6, 17, 0, 0, 0, time.Local)
-	e.AdvanceDay(later)
+	e.AdvanceDay(later, dayStart)
 
 	if e.CompletedToday() != 1 {
 		t.Fatalf("expected completedToday=1 on same day, got %d", e.CompletedToday())
@@ -361,14 +368,14 @@ func TestAdvanceDayZeroDateRecordsWithoutReset(t *testing.T) {
 	}
 
 	now := time.Date(2026, 3, 6, 9, 0, 0, 0, time.Local)
-	e.AdvanceDay(now)
+	e.AdvanceDay(now, dayStart)
 
 	if e.CompletedToday() != 1 {
 		t.Fatalf("expected completedToday=1 preserved on first AdvanceDay, got %d", e.CompletedToday())
 	}
 
 	tomorrow := time.Date(2026, 3, 7, 9, 0, 0, 0, time.Local)
-	e.AdvanceDay(tomorrow)
+	e.AdvanceDay(tomorrow, dayStart)
 
 	if e.CompletedToday() != 0 {
 		t.Fatalf("expected completedToday=0 after day rollover, got %d", e.CompletedToday())
@@ -378,7 +385,7 @@ func TestAdvanceDayZeroDateRecordsWithoutReset(t *testing.T) {
 func TestAdvanceDaySnapshotIncludesWorkDate(t *testing.T) {
 	e := New(25, 5, 15, 4)
 	now := time.Date(2026, 3, 6, 9, 0, 0, 0, time.Local)
-	e.AdvanceDay(now)
+	e.AdvanceDay(now, dayStart)
 
 	snap := e.Snapshot()
 	if snap.WorkDate.IsZero() {
@@ -389,28 +396,63 @@ func TestAdvanceDaySnapshotIncludesWorkDate(t *testing.T) {
 	e2.Restore(snap)
 
 	later := time.Date(2026, 3, 6, 17, 0, 0, 0, time.Local)
-	e2.AdvanceDay(later)
+	e2.AdvanceDay(later, dayStart)
 	if e2.CompletedToday() != 0 {
 		t.Fatalf("expected completedToday=0 after restore, got %d", e2.CompletedToday())
 	}
 }
 
-func TestIsSameDay(t *testing.T) {
-	loc := time.Local
-	tests := []struct {
-		name string
-		a, b time.Time
-		want bool
+// An overnight shift is one work day: a pomodoro finished at 1am belongs to
+// the day the worker started, and the counters and the long-break cadence
+// hold across midnight rather than resetting mid-shift.
+func TestTheWorkDayHoldsAcrossMidnight(t *testing.T) {
+	evening := time.Date(2026, 3, 5, 22, 0, 0, 0, time.Local)
+	smallHours := time.Date(2026, 3, 6, 1, 0, 0, 0, time.Local)
+	for _, tc := range []struct {
+		start          string
+		completedAfter int
 	}{
-		{"same day", time.Date(2026, 3, 5, 10, 0, 0, 0, loc), time.Date(2026, 3, 5, 23, 59, 0, 0, loc), true},
-		{"different day", time.Date(2026, 3, 5, 23, 59, 0, 0, loc), time.Date(2026, 3, 6, 0, 1, 0, 0, loc), false},
-		{"different month", time.Date(2026, 2, 28, 12, 0, 0, 0, loc), time.Date(2026, 3, 1, 12, 0, 0, 0, loc), false},
-		{"same midnight", time.Date(2026, 3, 5, 0, 0, 0, 0, loc), time.Date(2026, 3, 5, 0, 0, 0, 0, loc), true},
+		{"04:00", 2},
+		{"00:00", 0},
+	} {
+		t.Run(tc.start, func(t *testing.T) {
+			e := New(25, 5, 15, 4)
+			boundary := workday.MustParseStart(tc.start)
+			e.AdvanceDay(evening, boundary)
+			e.StartWork()
+			e.MarkPeriodComplete()
+			e.ConfirmNext()
+			e.MarkPeriodComplete()
+			e.ConfirmNext()
+			e.MarkPeriodComplete()
+
+			e.AdvanceDay(smallHours, boundary)
+
+			if got := e.CompletedToday(); got != tc.completedAfter {
+				t.Fatalf("with a %s day start, completedToday=%d after midnight, want %d", tc.start, got, tc.completedAfter)
+			}
+			if got := e.WorkSessionsInBlock(); got != tc.completedAfter {
+				t.Fatalf("with a %s day start, workSessionsBlock=%d after midnight, want %d", tc.start, got, tc.completedAfter)
+			}
+		})
 	}
-	for _, tc := range tests {
-		if got := IsSameDay(tc.a, tc.b); got != tc.want {
-			t.Errorf("%s: IsSameDay(%v, %v) = %v, want %v", tc.name, tc.a, tc.b, got, tc.want)
-		}
+}
+
+// Done for the day is owed only to the day it was said on, and that day ends
+// at the start hour: an end declared at 2am clears at 4am, not at the next
+// midnight, so the morning shows plain idle.
+func TestEndingTheDayInTheSmallHoursClearsAtTheStartHour(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.AdvanceDay(time.Date(2026, 3, 6, 2, 0, 0, 0, time.Local), dayStart)
+	e.SkipToday()
+	if !e.Snapshot().DayEnded {
+		t.Fatal("expected the day to be over after skip-today")
+	}
+
+	e.AdvanceDay(time.Date(2026, 3, 6, 4, 0, 0, 0, time.Local), dayStart)
+
+	if e.Snapshot().DayEnded {
+		t.Fatal("expected the new work day to have reopened at the start hour")
 	}
 }
 
@@ -534,10 +576,10 @@ func TestNewCycleReopensTheDay(t *testing.T) {
 func TestRollingOverToANewDayReopensTheDay(t *testing.T) {
 	e := New(25, 5, 15, 4)
 	today := time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC)
-	e.AdvanceDay(today)
+	e.AdvanceDay(today, dayStart)
 	e.SkipToday()
 
-	e.AdvanceDay(today.AddDate(0, 0, 1))
+	e.AdvanceDay(today.AddDate(0, 0, 1), dayStart)
 
 	if e.Snapshot().DayEnded {
 		t.Fatal("a new day is not over before it starts")

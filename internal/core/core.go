@@ -19,6 +19,7 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/reminder"
 	"github.com/jwp23/throwntom/v3/internal/scheduler"
 	"github.com/jwp23/throwntom/v3/internal/task"
+	"github.com/jwp23/throwntom/v3/internal/workday"
 )
 
 type Core struct {
@@ -41,6 +42,11 @@ type Core struct {
 	eventWriter         *eventlog.Writer
 	eventsPath          string
 	longBreakEvery      int
+	// dayStart is where one work day gives way to the next. The core is the
+	// single place it is held: the timer and the reminder are handed it at
+	// each call rather than keeping copies, so a reload cannot leave the two
+	// asking different questions about which day it is.
+	dayStart workday.Start
 	// warnOut is where session warnings go. It defaults to os.Stderr; tests
 	// point it at a buffer so they can assert on a warning's content instead
 	// of letting it leak into the test run's own output.
@@ -98,6 +104,7 @@ func newCore(cfg config.Config, n notifier.Notifier) *Core {
 		scheduler:              scheduler.New(config.ScheduleDayTimes(cfg.Schedule)),
 		now:                    time.Now,
 		morningPending:         cfg.MorningReminderPending,
+		dayStart:               workday.MustParseStart(cfg.DayStart),
 		longBreakEvery:         cfg.Pomodoro.LongBreakEvery,
 		floatWindowWhenWaiting: cfg.FloatWindowWhenWaiting,
 		bounceDockWhenPaused:   cfg.BounceDockWhenPaused,
@@ -187,7 +194,7 @@ func (c *Core) Start(ctx context.Context) {
 	c.scheduleDone = done
 	go func() {
 		defer close(done)
-		c.runMorningSchedule(scheduleCtx)
+		c.runTicker(scheduleCtx)
 	}()
 	// A daemon starting up mid-morning rings for the reminder it was not
 	// running to give, so it asks whether the schedule has already struck
@@ -196,7 +203,7 @@ func (c *Core) Start(ctx context.Context) {
 	// config's standing default, and only the reminder knows what today did.
 	now := c.now()
 	if c.morningPending && c.timer.State() == engine.Idle &&
-		c.reminder.shouldRaiseMorning(now, c.scheduler.IsActiveNow(now)) {
+		c.reminder.shouldRaiseMorning(now, c.scheduler.IsActiveNow(now), c.dayStart) {
 		c.reminder.raise(reminderMorning)
 	}
 }
@@ -207,9 +214,9 @@ func (c *Core) Start(ctx context.Context) {
 // true: every other publish takes publishMu first, so one already queued
 // cannot slip between them.
 func (c *Core) Stop() {
-	// Stop the schedule tick and wait for it to exit before taking c.mu:
-	// tickMorning takes c.mu itself, so waiting first (rather than while
-	// holding the lock) lets an in-flight tick finish instead of deadlocking.
+	// Stop the tick and wait for it to exit before taking c.mu: tick takes
+	// c.mu itself, so waiting first (rather than while holding the lock) lets
+	// an in-flight tick finish instead of deadlocking.
 	c.mu.Lock()
 	stopSchedule, scheduleDone := c.stopSchedule, c.scheduleDone
 	c.mu.Unlock()
@@ -219,7 +226,7 @@ func (c *Core) Stop() {
 	}
 
 	c.mu.Lock()
-	c.timer.AdvanceDay(c.now())
+	c.timer.AdvanceDay(c.now(), c.dayStart)
 	c.reminder.cancel()
 	c.mu.Unlock()
 
@@ -241,7 +248,7 @@ func (c *Core) Status() (statusLine string, state engine.State, morningPending b
 }
 
 func (c *Core) statusLocked() (statusLine string, state engine.State, morningPending bool) {
-	c.timer.AdvanceDay(c.now())
+	c.timer.AdvanceDay(c.now(), c.dayStart)
 	return c.timer.StatusLine(), c.timer.State(), c.reminder.outstanding() == reminderMorning
 }
 
@@ -307,7 +314,7 @@ type Response struct {
 
 func (c *Core) Execute(line string) Response {
 	c.mu.Lock()
-	c.timer.AdvanceDay(c.now())
+	c.timer.AdvanceDay(c.now(), c.dayStart)
 	result := c.executeLocked(line)
 	resp := c.responseLocked(result)
 	c.mu.Unlock()

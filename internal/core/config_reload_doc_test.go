@@ -13,6 +13,7 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/doctest"
 	"github.com/jwp23/throwntom/v3/internal/notifier"
 	"github.com/jwp23/throwntom/v3/internal/reminder"
+	"github.com/jwp23/throwntom/v3/internal/workday"
 )
 
 // The README and the config template both promise a reader which settings the
@@ -25,6 +26,7 @@ import (
 var reloadedSettings = []string{
 	"[pomodoro]",
 	"[[schedule]]",
+	"day_start",
 	"repeat_secs",
 	"repeat_limit_secs",
 	"float_window_when_waiting",
@@ -306,6 +308,15 @@ func TestEverySettingDocumentedAsReloadedIsApplied(t *testing.T) {
 			defer c.mu.Unlock()
 			if !c.scheduler.IsActiveNow(sunday) {
 				t.Fatal("the reloaded schedule did not reach the scheduler")
+			}
+		},
+		"day_start": func(t *testing.T, c *Core, cfg *config.Config) {
+			cfg.DayStart = "12:00"
+			c.ApplyConfig(*cfg)
+			c.mu.Lock()
+			defer c.mu.Unlock()
+			if want := workday.MustParseStart("12:00"); c.dayStart != want {
+				t.Fatal("the reloaded day start did not reach the core, so the day still turns where it did")
 			}
 		},
 		"repeat_secs": func(t *testing.T, c *Core, cfg *config.Config) {

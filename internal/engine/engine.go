@@ -3,6 +3,8 @@ package engine
 import (
 	"fmt"
 	"time"
+
+	"github.com/jwp23/throwntom/v3/internal/workday"
 )
 
 type State int
@@ -510,18 +512,16 @@ func (e *Engine) Restore(s Snapshot) {
 	e.lastMeetingMinutes = s.LastMeetingMinutes
 }
 
-func IsSameDay(a, b time.Time) bool {
-	y1, m1, d1 := a.Date()
-	y2, m2, d2 := b.Date()
-	return y1 == y2 && m1 == m2 && d1 == d2
-}
-
-func (e *Engine) AdvanceDay(now time.Time) {
+// AdvanceDay resets the day's totals when now falls in a later work day than
+// the one the engine is keeping. Where that day begins is the caller's to
+// say: the boundary is a config setting, and passing it in is what keeps this
+// answer and the reminder's own day key from drifting apart (ADR-013).
+func (e *Engine) AdvanceDay(now time.Time, dayStart workday.Start) {
 	if e.workDate.IsZero() {
 		e.workDate = now
 		return
 	}
-	if IsSameDay(e.workDate, now) {
+	if dayStart.Same(e.workDate, now) {
 		return
 	}
 	e.completedToday = 0

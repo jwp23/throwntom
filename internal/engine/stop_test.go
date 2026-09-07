@@ -128,12 +128,12 @@ func TestStoppingWhilePausedOwesNothing(t *testing.T) {
 func TestNewDayClearsTheOwedPhase(t *testing.T) {
 	e := New(25, 5, 15, 4)
 	day1 := time.Date(2026, 8, 29, 9, 0, 0, 0, time.Local)
-	e.AdvanceDay(day1)
+	e.AdvanceDay(day1, dayStart)
 	e.StartWork()
 	e.MarkPeriodComplete()
 	e.Stop()
 
-	e.AdvanceDay(day1.AddDate(0, 0, 1))
+	e.AdvanceDay(day1.AddDate(0, 0, 1), dayStart)
 	if got := e.Snapshot().LastPhase; got != Idle {
 		t.Fatalf("expected a new day to owe nothing, got last_phase %v", got)
 	}

@@ -6,7 +6,12 @@ import (
 	"time"
 
 	"github.com/jwp23/throwntom/v3/internal/engine"
+	"github.com/jwp23/throwntom/v3/internal/workday"
 )
+
+// dayStart is the boundary these tests turn the day over at: the config
+// default, 04:00.
+var dayStart = workday.MustParseStart("04:00")
 
 const (
 	fmtRestore                 = "Restore: %v"
@@ -431,12 +436,12 @@ func TestOnChangeFiresOnVerbs(t *testing.T) {
 
 func TestAdvanceDayDoesNotNotifyWithoutRollover(t *testing.T) {
 	a := New(minutes(25, 5, 15, 4))
-	now := time.Now()
+	now := time.Date(2026, 3, 5, 9, 0, 0, 0, time.Local)
 	count := 0
 	a.SetOnChange(func() { count++ })
 
-	a.AdvanceDay(now) // records the first work date, nothing observable changes
-	a.AdvanceDay(now.Add(time.Minute))
+	a.AdvanceDay(now, dayStart) // records the first work date, nothing observable changes
+	a.AdvanceDay(now.Add(time.Minute), dayStart)
 	if count != 0 {
 		t.Fatalf("expected no change callbacks within the same day, got %d", count)
 	}
@@ -454,7 +459,7 @@ func TestAdvanceDayNotifiesOnRollover(t *testing.T) {
 	count := 0
 	a.SetOnChange(func() { count++ })
 
-	a.AdvanceDay(time.Now())
+	a.AdvanceDay(time.Now(), dayStart)
 	if count != 1 {
 		t.Fatalf("expected 1 change callback after the day rolled over, got %d", count)
 	}

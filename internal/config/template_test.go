@@ -20,6 +20,7 @@ var documentedKeys = []string{
 	"lunch_minutes",
 	"days",
 	"time",
+	"day_start",
 	"repeat_secs",
 	"repeat_limit_secs",
 	"sound_command",

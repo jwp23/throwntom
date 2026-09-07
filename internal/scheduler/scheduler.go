@@ -2,9 +2,10 @@ package scheduler
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jwp23/throwntom/v3/internal/workday"
 )
 
 type dayTime struct {
@@ -23,9 +24,9 @@ func New(dayTimes map[string]string) *Scheduler {
 		if !ok {
 			panic(fmt.Sprintf("invalid weekday %q", day))
 		}
-		hour, minute, err := parseHHMM(hhmm)
+		hour, minute, err := workday.ParseHHMM(hhmm)
 		if err != nil {
-			panic(err)
+			panic(fmt.Sprintf("invalid time %q: %v", hhmm, err))
 		}
 		times[wd] = dayTime{hour: hour, minute: minute}
 	}
@@ -83,20 +84,4 @@ func toWeekday(day string) (time.Weekday, bool) {
 	default:
 		return time.Sunday, false
 	}
-}
-
-func parseHHMM(hhmm string) (int, int, error) {
-	parts := strings.Split(hhmm, ":")
-	if len(parts) != 2 {
-		return 0, 0, fmt.Errorf("invalid time %q", hhmm)
-	}
-	hour, err := strconv.Atoi(parts[0])
-	if err != nil || hour < 0 || hour > 23 {
-		return 0, 0, fmt.Errorf("invalid hour in %q", hhmm)
-	}
-	minute, err := strconv.Atoi(parts[1])
-	if err != nil || minute < 0 || minute > 59 {
-		return 0, 0, fmt.Errorf("invalid minute in %q", hhmm)
-	}
-	return hour, minute, nil
 }
