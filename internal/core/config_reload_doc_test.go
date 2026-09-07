@@ -277,15 +277,11 @@ func settingNames(t reflect.Type) []string {
 	return names
 }
 
-// TestEverySettingDocumentedAsReloadedIsApplied is the other half: the list
-// the docs promise is worth nothing unless each name on it reaches the
-// running core. Each case changes one setting and looks for its effect.
-func TestEverySettingDocumentedAsReloadedIsApplied(t *testing.T) {
-	// 07:00 on a Sunday is after 06:30 on every day and before the
-	// weekday-only 09:15 the default schedule uses.
-	sunday := time.Date(2026, 8, 30, 7, 0, 0, 0, time.UTC)
-
-	applied := map[string]func(t *testing.T, c *Core, cfg *config.Config){
+// reloadChecks pairs each reloaded setting with the case that proves it
+// reaches the running core. Lifted out of the test that runs them so that
+// test's own complexity is the loop, not the eight cases it loops over.
+func reloadChecks(sunday time.Time) map[string]func(t *testing.T, c *Core, cfg *config.Config) {
+	return map[string]func(t *testing.T, c *Core, cfg *config.Config){
 		"[pomodoro]": func(t *testing.T, c *Core, cfg *config.Config) {
 			c.execute(cmdStart)
 			cfg.Pomodoro.WorkMinutes = 50
@@ -315,7 +311,7 @@ func TestEverySettingDocumentedAsReloadedIsApplied(t *testing.T) {
 			c.ApplyConfig(*cfg)
 			c.mu.Lock()
 			defer c.mu.Unlock()
-			if want := workday.MustParseStart("12:00"); c.dayStart != want {
+			if c.dayStart != workday.MustParseStart("12:00") {
 				t.Fatal("the reloaded day start did not reach the core, so the day still turns where it did")
 			}
 		},
@@ -351,6 +347,16 @@ func TestEverySettingDocumentedAsReloadedIsApplied(t *testing.T) {
 			}
 		},
 	}
+}
+
+// TestEverySettingDocumentedAsReloadedIsApplied is the other half: the list
+// the docs promise is worth nothing unless each name on it reaches the
+// running core. Each case changes one setting and looks for its effect.
+func TestEverySettingDocumentedAsReloadedIsApplied(t *testing.T) {
+	// 07:00 on a Sunday is after 06:30 on every day and before the
+	// weekday-only 09:15 the default schedule uses.
+	sunday := time.Date(2026, 8, 30, 7, 0, 0, 0, time.UTC)
+	applied := reloadChecks(sunday)
 
 	for _, name := range reloadedSettings {
 		check, ok := applied[name]
