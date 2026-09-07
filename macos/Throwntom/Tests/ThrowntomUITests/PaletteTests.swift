@@ -49,7 +49,7 @@ final class PaletteTests: XCTestCase {
   /// prose cites as the reason the star dropped its own tint, so that sentence stays backed by a
   /// measured value instead of a claim nothing checks.
   func testSystemYellowWouldNotClearTheIdleGround() {
-    XCTAssertLessThan(Contrast.ratio(HexColor("#FFCC00"), Palette.scheme(for: .idle).ground), 2)
+    XCTAssertEqual(Contrast.ratio(HexColor("#FFCC00"), Palette.scheme(for: .idle).ground), 1.8, accuracy: 0.1)
   }
 
   func testContrastRatioMatchesWCAGReference() {
