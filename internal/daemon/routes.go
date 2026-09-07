@@ -68,7 +68,7 @@ func decodeBody(w http.ResponseWriter, r *http.Request, dst any) error {
 		return err
 	}
 	var extra json.RawMessage
-	if err := dec.Decode(&extra); err != io.EOF {
+	if dec.Decode(&extra) != io.EOF {
 		return errors.New("body must contain exactly one JSON value")
 	}
 	return nil
