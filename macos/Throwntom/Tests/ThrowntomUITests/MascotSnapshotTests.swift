@@ -70,22 +70,36 @@ final class MascotSnapshotTests: XCTestCase {
   }
 
   func testHeaderRendersOffscreen() throws {
+    let now = Date(timeIntervalSince1970: 1_000_000)
     for phase in Self.phases {
       let content = MainWindowContent(
-        state: phase.phase.map { makeState(phase: $0, pausedFrom: phase.pausedFrom) },
+        state: phase.phase.map {
+          makeState(phase: $0, phaseEndAt: now.addingTimeInterval(Self.headerCountdownDuration), pausedFrom: phase.pausedFrom)
+        },
         connection: phase.phase == nil ? .connecting : .connected,
         status: phase.phase == nil ? .reaching : .running,
         tasks: TaskList(),
         error: nil,
         panel: nil,
-        now: Date(timeIntervalSince1970: 1_000_000),
+        now: now,
       )
+      if let phaseValue = phase.phase, Self.countdownPhases.contains(phaseValue) {
+        XCTAssertNotNil(content.countdown, phase.name)
+      }
       let image = try XCTUnwrap(snapshot(header(content)), "header-\(phase.name)")
       try write(image, name: "header-\(phase.name)")
     }
   }
 
   // MARK: Private
+
+  /// A plausible time-left for a header screenshot: long enough to read as a real, in-progress phase.
+  private static let headerCountdownDuration: TimeInterval = 15 * 60
+
+  /// Phases `MainWindowContent.countdown` shows a value for (`MainWindowContent.swift`): the
+  /// `phaseEndAt`-backed phases below, plus `.paused` from `pausedRemaining`. The rest show none
+  /// regardless of `phaseEndAt`, so asserting on them here would be asserting on nothing.
+  private static let countdownPhases: Set<DaemonState.Phase> = [.work, .shortBreak, .longBreak, .lunch, .meeting, .paused]
 
   private static let phases: [(name: String, phase: DaemonState.Phase?, pausedFrom: DaemonState.Phase)] = [
     ("work", .work, .idle),

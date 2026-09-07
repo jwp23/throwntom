@@ -129,41 +129,14 @@ public final class DaemonClient {
   /// where the stream is still alive and parked in its backoff: registering again retries launchd
   /// but not the dial, so the loop is dropped and replaced rather than waited out. Otherwise the
   /// user presses the control the failure note points at and nothing happens for eight seconds.
-  public func startService() {
-    commandError = nil
-    startStalled = false
-    connection = .connecting
-    record(.running)
-    _ = registerAgent()
-    stop()
-    start()
+  public func startService() async {
+    await runServiceVerb { await self.bringTheServiceUp() }
   }
 
   /// Takes the timer service down. Nothing changes unless launchd accepts: a refused stop leaves
   /// a daemon that is still running, and claiming otherwise would leave the window lying about it.
-  public func stopService() {
-    do {
-      try registrar.stopAgent()
-    } catch {
-      ClientLog.failed("stop the timer service", in: .service, error: error)
-      commandError = "The timer service could not be stopped."
-      return
-    }
-    stop()
-    // Recorded only once launchd has taken the agent down. A refused stop leaves a daemon still
-    // running, and an intent written here would take it down on the next launch instead.
-    record(.stopped)
-    state = nil
-    registrationError = nil
-    startStalled = false
-    commandError = nil
-    // Back to the footing the app launches on. The daemon this client knew is gone, so the dials
-    // that follow a later Start are first dials, not a lost connection: `hasConnected` is what
-    // keeps the window quiet through them, and a `lastError` kept from the old daemon would
-    // otherwise surface the moment Start is pressed.
-    lastError = nil
-    hasConnected = false
-    connection = .stopped
+  public func stopService() async {
+    await runServiceVerb { await self.takeTheServiceDown() }
   }
 
   public func command(_ line: String) async throws -> String {
@@ -294,6 +267,10 @@ public final class DaemonClient {
   private let intents: ServiceIntentStore
   private var streamTask: Task<Void, Never>?
 
+  /// The service verb still to finish, and what the next one queues behind. Nil until the first
+  /// Start or Stop of the session.
+  private var pendingServiceVerb: Task<Void, Never>?
+
   /// Whether the user wants a service running, as it stood when this client was built and as the
   /// two service verbs have changed it since.
   private var intent: ServiceIntent
@@ -344,7 +321,7 @@ public final class DaemonClient {
         lastError = DaemonError.userMessage(for: error)
         // A real outage matters more than a stale command refusal from before it started.
         commandError = nil
-        retries.registerAgentIfDue { registerAgent() }
+        await retries.registerAgentIfDue { await registerAgent() }
         startStalled = (retries.failuresSinceRegistration ?? 0) >= Self.failuresBeforeReportingAStall
         // A dial that has never reached a daemon is still a first dial, however many times it has
         // failed: there is no connection to re-make, so `hasConnected` is what separates the two
@@ -363,10 +340,81 @@ public final class DaemonClient {
     }
   }
 
-  /// Asks launchd to start the daemon. Returns whether the ask was accepted.
-  private func registerAgent() -> Bool {
+  /// Runs one service verb with the other held off until it has finished.
+  ///
+  /// Start and Stop each contact launchd and then write the connection state that follows from
+  /// what launchd did, and nothing may come between those two halves. While the launchd calls
+  /// blocked the main actor nothing could, and the ordering cost nothing to have; awaiting them
+  /// is what lets a second press in. A Stop that lands inside a Start's bootstrap decides there
+  /// will be no stream and then the Start it interrupted opens one anyway, leaving the service
+  /// the user stopped still dialling — and asking launchd for the daemon back on its third failed
+  /// dial, which is what ADR-010 rules out.
+  ///
+  /// The verb is awaited by whoever asked for it, so a press still reports when it is done rather
+  /// than when it was queued, and the later press is the one that decides the outcome.
+  private func runServiceVerb(_ verb: @escaping @MainActor () async -> Void) async {
+    let queued = pendingServiceVerb
+    let running = Task {
+      await queued?.value
+      await verb()
+    }
+    pendingServiceVerb = running
+    await running.value
+  }
+
+  /// Asks launchd for the daemon and dials it again.
+  ///
+  /// The stream is dropped before launchd is asked, not after. Asking is awaited — the window must
+  /// not freeze for the length of a bootstrap — and a reconnect loop left running across that
+  /// await reaches its own third failed dial and asks launchd for the daemon itself, spending this
+  /// outage's one registration on the start the user is already making.
+  private func bringTheServiceUp() async {
+    commandError = nil
+    startStalled = false
+    connection = .connecting
+    record(.running)
+    stop()
+    _ = await registerAgent()
+    start()
+  }
+
+  /// Boots the agent out, and reports a refusal rather than claiming a stop that did not happen.
+  ///
+  /// The stream is dropped before launchd is asked, and put back if launchd says no. The bootout
+  /// is awaited rather than run here, so nothing holds the main actor for its duration, and a
+  /// reconnect loop left running across it reaches its third failed dial and asks launchd for the
+  /// daemon back — the service the user just stopped, revived by the client's own recovery.
+  private func takeTheServiceDown() async {
+    stop()
     do {
-      try registrar.ensureAgentRegistered()
+      try await registrar.stopAgent()
+    } catch {
+      ClientLog.failed("stop the timer service", in: .service, error: error)
+      commandError = "The timer service could not be stopped."
+      // The daemon is still running, so the client goes back to watching it.
+      start()
+      return
+    }
+    // Recorded only once launchd has taken the agent down. A refused stop leaves a daemon still
+    // running, and an intent written here would take it down on the next launch instead.
+    record(.stopped)
+    state = nil
+    registrationError = nil
+    startStalled = false
+    commandError = nil
+    // Back to the footing the app launches on. The daemon this client knew is gone, so the dials
+    // that follow a later Start are first dials, not a lost connection: `hasConnected` is what
+    // keeps the window quiet through them, and a `lastError` kept from the old daemon would
+    // otherwise surface the moment Start is pressed.
+    lastError = nil
+    hasConnected = false
+    connection = .stopped
+  }
+
+  /// Asks launchd to start the daemon. Returns whether the ask was accepted.
+  private func registerAgent() async -> Bool {
+    do {
+      try await registrar.ensureAgentRegistered()
       registrationError = nil
       return true
     } catch {

@@ -14,15 +14,6 @@ import (
 // period, and a rule that the same bytes must be seen twice. Both are numbers
 // a reader plans around, so both are checked against the watcher here.
 
-func readmeProse(t *testing.T) string {
-	t.Helper()
-	readme, err := doctest.Read("README.md")
-	if err != nil {
-		t.Fatalf("read README: %v", err)
-	}
-	return doctest.Unwrap(readme)
-}
-
 // pollPeriod matches the README's stated poll period, spelled out in words.
 var pollPeriod = regexp.MustCompile(`It polls every (\w+) seconds`)
 
@@ -34,7 +25,7 @@ var numberWords = map[string]time.Duration{
 // TestDocumentedPollPeriodIsTheWatchersOwn pins the README's "It polls every
 // two seconds" to DefaultWatchInterval, which is what the daemon runs with.
 func TestDocumentedPollPeriodIsTheWatchersOwn(t *testing.T) {
-	m := pollPeriod.FindStringSubmatch(readmeProse(t))
+	m := pollPeriod.FindStringSubmatch(doctest.ReadUnwrapped(t, "README.md"))
 	if m == nil {
 		t.Fatal("README no longer states how often throwntomd polls config.toml")
 	}
@@ -51,7 +42,7 @@ func TestDocumentedPollPeriodIsTheWatchersOwn(t *testing.T) {
 // edit to stop changing before applying it, so a save lands on the second
 // poll that sees it" — the reason an edit takes a little longer than one poll.
 func TestASaveLandsOnTheSecondPollThatSeesIt(t *testing.T) {
-	prose := readmeProse(t)
+	prose := doctest.ReadUnwrapped(t, "README.md")
 	for _, want := range []string{
 		"waits for an edit to stop changing before applying it",
 		"a save lands on the second poll that sees it",

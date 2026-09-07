@@ -149,6 +149,11 @@ final class MainWindowContentTests: XCTestCase {
   /// Focus is no longer gated on a running pomodoro (`internal/core/tasks.go`), so a user can pick
   /// the work before starting it — and the window has to show what they picked, or an idle screen
   /// gives the choice no acknowledgement at all (throwntom-bxd.14).
+  ///
+  /// This is a forward regression guard, not proof the client-side change worked: the gate was
+  /// removed on the Go side, and `MainWindowContent` never gated `focused` on phase in the first
+  /// place, so this test never went red before it was added. It exists to catch a future client
+  /// change that reintroduces the gate here.
   func testFocusedTasksShowWhileTheTimerIsIdle() {
     let tasks = TaskList(active: [makeTask(id: 4), makeTask(id: 5)])
     let c = content(makeState(phase: .idle, focusedTaskIds: [5]), tasks: tasks)
