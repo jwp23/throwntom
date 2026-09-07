@@ -28,6 +28,8 @@ struct ActionChips: View {
       SnoozeChip(content: content, client: client, model: model)
     case .meeting:
       MeetingChip(content: content, client: client, model: model)
+    case .lunch:
+      LunchChip(content: content, client: client, model: model)
     // Enumerated rather than defaulted so a third verb that grows a duration is a compile error
     // here, not a plain button that silently drops the menu it needs.
     case .start,
@@ -36,8 +38,7 @@ struct ActionChips: View {
          .resume,
          .skip,
          .skipToday,
-         .newCycle,
-         .lunch:
+         .newCycle:
       chip(for: action)
     }
   }

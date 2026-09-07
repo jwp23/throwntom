@@ -200,6 +200,22 @@ public final class DaemonClient {
     }
   }
 
+  /// The picker's explicit choices post a length to the same route the bare verb uses
+  /// (`DaemonAPI.timer(.lunch)`); it is the body's presence, not the path, that tells the daemon
+  /// which of the two it is answering.
+  public func perform(_ request: LunchRequest) async throws {
+    switch request {
+    case .start(let minutes): try await lunch(minutes: minutes)
+    }
+  }
+
+  public func lunch(minutes: Int) async throws {
+    try await runCommand {
+      let body = try JSONSerialization.data(withJSONObject: ["minutes": minutes])
+      _ = try await post(DaemonAPI.timer(.lunch), body: body)
+    }
+  }
+
   public func snooze(minutes: Int) async throws {
     try await runCommand {
       let body = try JSONSerialization.data(withJSONObject: ["minutes": minutes])

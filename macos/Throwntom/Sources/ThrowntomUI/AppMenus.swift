@@ -24,9 +24,22 @@ struct AppMenus: Commands {
     }
     CommandMenu("Timer") {
       MenuGroups(menu: timerMenu) { item in
-        Button(item.title) { perform(item.action) }
-          .keyboardShortcut(item.shortcut?.keyboardShortcut)
+        // Lunch alone grows a length picker here, the way the window chip's own pull-down does:
+        // its bare item becomes a submenu offering the same two presets and the custom entry,
+        // rather than a plain button sending one fixed answer.
+        if item.action == .lunch {
+          Menu(item.title) {
+            MenuGroups(menu: lunchMenu) { lunchItem in
+              Button(lunchItem.title) { lunch(lunchItem.action) }
+                .disabled(!lunchItem.isEnabled)
+            }
+          }
           .disabled(!item.isEnabled)
+        } else {
+          Button(item.title) { perform(item.action) }
+            .keyboardShortcut(item.shortcut?.keyboardShortcut)
+            .disabled(!item.isEnabled)
+        }
       }
       // The durations live in a submenu under the Timer menu's own Snooze, which keeps ⌘⇧S on
       // the default and puts every other duration one level down rather than in the top list.
@@ -109,6 +122,14 @@ struct AppMenus: Commands {
     MenuModel.snooze(state: environment.client.state, daemonAvailable: daemonAvailable)
   }
 
+  /// The lengths behind the Timer menu's own "Lunch" submenu, gated the same way the bare item
+  /// it replaces already was: a daemon to take it, and not while lunch is already running,
+  /// where starting it again would only restart the hour.
+  var lunchMenu: MenuModel<LunchAction> {
+    MenuModel.lunch(canStart: daemonAvailable && environment.client.state != nil
+      && environment.client.state?.state != .lunch)
+  }
+
   /// The service group of the Timer menu, below a divider: starting and stopping the daemon is
   /// not a timer verb, but it belongs to the same menu the timer is driven from.
   var serviceMenu: MenuModel<ServiceAction> {
@@ -129,6 +150,17 @@ struct AppMenus: Commands {
   func snooze(_ action: SnoozeAction) {
     guard let request = action.request else {
       environment.windowModel.isEnteringSnooze = true
+      openWindow(id: mainWindowID)
+      return
+    }
+    DaemonDispatch.perform(request, on: environment.client)
+  }
+
+  /// `Custom…` opens the window's duration field the same way the snooze submenu's does, and for
+  /// the same reason (see `snooze(_:)` above).
+  func lunch(_ action: LunchAction) {
+    guard let request = action.request else {
+      environment.windowModel.isEnteringLunch = true
       openWindow(id: mainWindowID)
       return
     }

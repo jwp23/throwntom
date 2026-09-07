@@ -46,6 +46,17 @@ enum DaemonDispatch {
     }
   }
 
+  @MainActor
+  static func perform(_ request: LunchRequest, on client: DaemonClient) {
+    Task {
+      do {
+        try await client.perform(request)
+      } catch {
+        report("send a lunch request", error)
+      }
+    }
+  }
+
   /// Service lifecycle goes straight to launchd rather than over the socket, so unlike a timer
   /// verb it reports through the client's own error properties rather than a beep. It is awaited
   /// like the rest: driving launchd means waiting on `launchctl`, and the window may not.

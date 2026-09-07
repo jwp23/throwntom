@@ -9,6 +9,11 @@ public enum TimerActions {
   /// A meeting is offered in every state, and it is the one verb that is: a user does not choose
   /// when they are called into one, so there is no state in which the answer is "not now".
   ///
+  /// Lunch is chosen rather than earned too, so it follows the same rule — offered wherever
+  /// there is a daemon to take it — except it excludes itself while a lunch is already running,
+  /// where starting it again would only restart the hour and the way out is the Skip chip
+  /// already beside it.
+  ///
   /// Ending the day comes last in every state rather than only while idle: `handleSkipToday` has
   /// no state guard, and a user who is finished mid-pomodoro needs to be able to say so without
   /// first pausing or waiting out the phase.
@@ -18,18 +23,22 @@ public enum TimerActions {
       // Not once the day is already ended: that screen is what the verb produces, and a chip
       // that re-ends an ended day does nothing.
       if state.dayEnded {
-        [.start, .newCycle, .meeting]
+        [.start, .newCycle, .lunch, .meeting]
       } else if state.morningPending {
-        [.start, .newCycle, .snooze, .meeting, .skipToday]
+        [.start, .newCycle, .snooze, .lunch, .meeting, .skipToday]
       } else {
-        [.start, .newCycle, .meeting, .skipToday]
+        [.start, .newCycle, .lunch, .meeting, .skipToday]
       }
 
     // Skip ends the running phase, so it is on offer only while one is running.
     case .work,
          .shortBreak,
-         .longBreak,
-         .lunch:
+         .longBreak:
+      [.pause, .skip, .lunch, .meeting, .skipToday]
+
+    // A running lunch has no lunch chip of its own: starting it again would only restart the
+    // hour, and the way out is the Skip chip already offered here, not a second lunch control.
+    case .lunch:
       [.pause, .skip, .meeting, .skipToday]
 
     // A running meeting has no Skip of its own: ending it is what the meeting chip does while
@@ -37,13 +46,13 @@ public enum TimerActions {
     // out. Ending a meeting is also not a discard — the time is credited — so the chip that
     // says so is the one that belongs on screen.
     case .meeting:
-      [.pause, .meeting, .skipToday]
+      [.pause, .lunch, .meeting, .skipToday]
 
     case .paused:
-      [.resume, .meeting, .skipToday]
+      [.resume, .lunch, .meeting, .skipToday]
 
     case .awaitingConfirm:
-      [.confirm, .snooze, .newCycle, .meeting, .skipToday]
+      [.confirm, .snooze, .newCycle, .lunch, .meeting, .skipToday]
     }
   }
 

@@ -30,3 +30,7 @@ extension SnoozeAction: MenuAction { }
 // MARK: - MeetingAction + MenuAction
 
 extension MeetingAction: MenuAction { }
+
+// MARK: - LunchAction + MenuAction
+
+extension LunchAction: MenuAction { }

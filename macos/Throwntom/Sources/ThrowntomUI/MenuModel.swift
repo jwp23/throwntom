@@ -98,6 +98,22 @@ extension MenuModel where Action == MeetingAction {
   }
 }
 
+extension MenuModel where Action == LunchAction {
+  /// The lunch picker, offered from the Timer menu's own "Lunch" submenu: the same two lengths
+  /// and the same way to type a third that the chip offers. There is no way out here — Skip is
+  /// already that, and lunch withdraws itself from the chip row while it runs — so unlike
+  /// `meeting(canStart:isMeeting:)` there is only the one group.
+  static func lunch(canStart: Bool) -> MenuModel {
+    func item(_ action: LunchAction, isEnabled: Bool) -> MenuItem<LunchAction> {
+      MenuItem(action: action, shortcut: nil, isEnabled: isEnabled)
+    }
+    return MenuModel(groups: [
+      LunchActions.presets.map { item(.start(minutes: $0), isEnabled: canStart) }
+        + [item(.custom, isEnabled: canStart)]
+    ])
+  }
+}
+
 extension MenuModel where Action == SnoozeAction {
   /// The snooze lifecycle as one menu: how long to defer the reminder, a way to say a duration
   /// the presets do not cover, and the undo. It is the whole feature in one place because the
