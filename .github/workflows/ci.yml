@@ -128,4 +128,15 @@ jobs:
 
       - name: Swift tests
         working-directory: macos/Throwntom
-        run: xcodebuild test -scheme Throwntom -destination 'platform=macOS' | tail -50; test "${PIPESTATUS[0]}" -eq 0
+        run: |
+          xcodebuild test -scheme Throwntom -destination 'platform=macOS' 2>&1 | tee /tmp/swift-test.log | tail -50
+          test "${PIPESTATUS[0]}" -eq 0
+
+      # tail -50 above keeps a normal run's log readable; a failure can lose the actual
+      # assertion in 497 tests of output, so the full run is kept here regardless of outcome.
+      - name: Upload Swift test log
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: swift-test-log
+          path: /tmp/swift-test.log
