@@ -101,7 +101,13 @@ func (t *Timer) phaseDurationLocked(state engine.State) time.Duration {
 		return t.shortBreakDuration
 	case engine.LongBreak:
 		return t.longBreakDuration
+	// An explicit lunch's length is the one the user gave it, kept on the
+	// Timer the way a meeting's is; an ordinary lunch still takes the
+	// configured length.
 	case engine.Lunch:
+		if t.explicitLunchDuration > 0 {
+			return t.explicitLunchDuration
+		}
 		return t.lunchDuration
 	// A meeting's length is the one the user gave it, kept on the Timer
 	// because no config field holds it.

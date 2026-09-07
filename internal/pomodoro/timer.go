@@ -35,9 +35,14 @@ type Timer struct {
 	// starts, so this is the Timer's own and travels in the session rather
 	// than being rebuilt from Durations.
 	meetingDuration time.Duration
-	now             func() time.Time
-	after           afterFunc
-	periodTimer     stopper
+	// explicitLunchDuration is the length of the lunch in flight when it was
+	// given one by StartLunchFor rather than taken from t.lunchDuration.
+	// Zero means the running lunch is an ordinary one and still takes its
+	// length from the config.
+	explicitLunchDuration time.Duration
+	now                   func() time.Time
+	after                 afterFunc
+	periodTimer           stopper
 	// phaseStartedAt is when the running phase's clock began, kept as an
 	// absolute time so elapsed is a fact about the phase rather than
 	// something inferred from the durations in force. That is what lets a
@@ -130,19 +135,24 @@ type Snapshot struct {
 	// the one phase length no config holds, so a restart that lost it would
 	// have no way to say when the meeting ends.
 	MeetingDuration time.Duration `json:"meeting_duration"`
+	// ExplicitLunchDuration is the length an in-flight lunch was given by
+	// StartLunchFor, the same way MeetingDuration holds a meeting's. Zero
+	// means the lunch is an ordinary one, still measured against the config.
+	ExplicitLunchDuration time.Duration `json:"explicit_lunch_duration"`
 }
 
 func (t *Timer) Snapshot() Snapshot {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return Snapshot{
-		Engine:          t.engine.Snapshot(),
-		PhaseStartedAt:  t.phaseStartedAt,
-		PhaseEndAt:      t.phaseEndAt,
-		PausedRemaining: t.pausedRemaining,
-		PausedElapsed:   t.pausedElapsed,
-		PausedAt:        t.pausedAt,
-		MeetingDuration: t.meetingDuration,
+		Engine:                t.engine.Snapshot(),
+		PhaseStartedAt:        t.phaseStartedAt,
+		PhaseEndAt:            t.phaseEndAt,
+		PausedRemaining:       t.pausedRemaining,
+		PausedElapsed:         t.pausedElapsed,
+		PausedAt:              t.pausedAt,
+		MeetingDuration:       t.meetingDuration,
+		ExplicitLunchDuration: t.explicitLunchDuration,
 	}
 }
 
@@ -153,6 +163,7 @@ func (t *Timer) Restore(s Snapshot, now time.Time) error {
 	defer t.transitionLocked()
 	t.engine.Restore(s.Engine)
 	t.meetingDuration = s.MeetingDuration
+	t.explicitLunchDuration = s.ExplicitLunchDuration
 
 	switch s.Engine.State {
 	case engine.Work, engine.ShortBreak, engine.LongBreak, engine.Lunch, engine.Meeting:
@@ -326,6 +337,9 @@ func (t *Timer) StartLunch() engine.Snapshot {
 	defer t.transitionLocked()
 	t.stopTimerLocked()
 	t.clearPhaseLocked()
+	// A bare lunch is an ordinary one: forget any explicit length a previous
+	// lunch was given, so this one takes the configured default.
+	t.explicitLunchDuration = 0
 	t.engine.StartLunch()
 	t.startPhaseTimerLocked(t.lunchDuration)
 	return before
@@ -343,6 +357,7 @@ func (t *Timer) StartLunchFor(d time.Duration) engine.Snapshot {
 	defer t.transitionLocked()
 	t.stopTimerLocked()
 	t.clearPhaseLocked()
+	t.explicitLunchDuration = d
 	t.engine.StartLunch()
 	t.startPhaseTimerLocked(d)
 	return before
