@@ -96,38 +96,12 @@ removed after the lock is won.
 
 `State` document:
 
-```jsonc
-{
-  "state": "work",
-  "phase_end_at": "2026-08-25T10:25:00Z",
-  "paused_remaining": 0,          // seconds
-  "paused_from": "idle",          // the phase a pause interrupted; idle when not paused
-  "completed_today": 3,
-  "work_sessions_in_block": 1,
-  "long_break_every": 4,
-  "next_stage": {"state": "short_break", "duration": 300},  // seconds
-  "owed_stage": null,             // what start would enter; null unless idle
-  "morning_pending": false,
-  "day_ended": false,            // the user has ended the work day
-  "snooze_until": null,
-  "status_line": "Work 12:34",
-  "focused_task_ids": [3],
-  "reminder_rings": 0            // chimes the outstanding reminder has asked for
-}
-```
-
-`next_stage` is what `confirm` would move on to, and is present only at
-`awaiting_confirm`. `owed_stage` is what `start` would enter, and is present
-only while idle: stop suspends the cycle rather than abandoning it, so an idle
-timer can still owe the break it earned. It is what lets a client showing a
-Start control name the phase that control will begin: the macOS window and
-Timer menu read it through `TimerActions.startTitle(for:)`, so ⌘R and the chip
-read `Start Short break` rather than a bare `Start`.
-
-`snooze_until` is the morning-reminder snooze deadline (null when no
-morning snooze is active). `status_line` is the same string the TUI shows; the core owns
-presentation strings. Clients compute the live countdown locally from
-`phase_end_at`; the daemon never emits per-second events.
+See the `State` struct in [`internal/core/state.go`](../../internal/core/state.go) for
+the authoritative field list, types, and documentation. The struct comments
+explain which fields are conditionally present (e.g., `next_stage` and
+`owed_stage` are null except in specific states, `snooze_until` is present only
+during an active snooze). Clients can parse the JSON directly and do not need to
+understand Go type syntax.
 
 Errors: `4xx` with `{"error": "..."}`. The core classifies every command
 failure as usage (unknown command, missing or unparseable argument,
