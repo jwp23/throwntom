@@ -149,7 +149,7 @@ struct AppMenus: Commands {
   /// where it is not: raising over another app steals the keyboard from whatever is being typed.
   func snooze(_ action: SnoozeAction) {
     guard let request = action.request else {
-      environment.windowModel.isEnteringSnooze = true
+      environment.windowModel.beginEntry(.snooze)
       openWindow(id: mainWindowID)
       return
     }
@@ -160,7 +160,7 @@ struct AppMenus: Commands {
   /// the same reason (see `snooze(_:)` above).
   func lunch(_ action: LunchAction) {
     guard let request = action.request else {
-      environment.windowModel.isEnteringLunch = true
+      environment.windowModel.beginEntry(.lunch)
       openWindow(id: mainWindowID)
       return
     }
