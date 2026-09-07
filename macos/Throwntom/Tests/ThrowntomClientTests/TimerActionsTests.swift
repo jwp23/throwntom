@@ -6,17 +6,23 @@ final class TimerActionsTests: XCTestCase {
   // MARK: Internal
 
   func testIdleOffersStartSkipTodayAndSnoozeOnlyWhenMorningPending() {
-    XCTAssertEqual(TimerActions.available(for: state(.idle)), [.start, .newCycle, .meeting, .skipToday])
+    XCTAssertEqual(TimerActions.available(for: state(.idle)), [.start, .newCycle, .lunch, .meeting, .skipToday])
     XCTAssertEqual(
       TimerActions.available(for: state(.idle, morningPending: true)),
-      [.start, .newCycle, .snooze, .meeting, .skipToday],
+      [.start, .newCycle, .snooze, .lunch, .meeting, .skipToday],
     )
   }
 
   func testRunningPhasesOfferPauseSkipAndEndingTheDay() {
-    for phase in [DaemonState.Phase.work, .shortBreak, .longBreak, .lunch] {
-      XCTAssertEqual(TimerActions.available(for: state(phase)), [.pause, .skip, .meeting, .skipToday], "\(phase)")
+    for phase in [DaemonState.Phase.work, .shortBreak, .longBreak] {
+      XCTAssertEqual(TimerActions.available(for: state(phase)), [.pause, .skip, .lunch, .meeting, .skipToday], "\(phase)")
     }
+  }
+
+  /// A running lunch offers no lunch chip of its own: starting it again would only restart the
+  /// hour, and the way out is the Skip chip beside it, not a second lunch control.
+  func testARunningLunchOffersNoLunchChip() {
+    XCTAssertEqual(TimerActions.available(for: state(.lunch)), [.pause, .skip, .meeting, .skipToday])
   }
 
   /// Skip ends the running phase, so there is nothing to end unless one is running.
@@ -27,13 +33,13 @@ final class TimerActionsTests: XCTestCase {
   }
 
   func testPausedOffersResumeAndEndingTheDay() {
-    XCTAssertEqual(TimerActions.available(for: state(.paused)), [.resume, .meeting, .skipToday])
+    XCTAssertEqual(TimerActions.available(for: state(.paused)), [.resume, .lunch, .meeting, .skipToday])
   }
 
   func testAwaitingConfirmOffersConfirmSnoozeNewCycleAndEndingTheDay() {
     XCTAssertEqual(
       TimerActions.available(for: state(.awaitingConfirm)),
-      [.confirm, .snooze, .newCycle, .meeting, .skipToday],
+      [.confirm, .snooze, .newCycle, .lunch, .meeting, .skipToday],
     )
   }
 

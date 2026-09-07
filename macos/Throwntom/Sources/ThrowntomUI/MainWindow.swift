@@ -62,6 +62,9 @@ struct MainWindow: View {
       if environment.windowModel.isEnteringMeeting {
         MeetingEntryRow(client: environment.client, model: environment.windowModel)
       }
+      if environment.windowModel.isEnteringLunch {
+        LunchEntryRow(client: environment.client, model: environment.windowModel)
+      }
       ServiceChip(content: content, client: environment.client)
         .padding(.top, Self.serviceChipGap)
       CommandChips(environment: environment, scheme: content.scheme)
@@ -104,6 +107,14 @@ struct MainWindow: View {
     .onChange(of: content.chips.contains(.meeting)) { _, canMeet in
       if !canMeet {
         environment.windowModel.isEnteringMeeting = false
+      }
+    }
+    // The lunch chip withdraws itself while a lunch is already running (`TimerActions.available`),
+    // so a field left open behind it would answer a length with a beep the user has no way to
+    // explain.
+    .onChange(of: content.chips.contains(.lunch)) { _, canLunch in
+      if !canLunch {
+        environment.windowModel.isEnteringLunch = false
       }
     }
     .onChange(of: environment.client.tasks, initial: true) { syncModel() }

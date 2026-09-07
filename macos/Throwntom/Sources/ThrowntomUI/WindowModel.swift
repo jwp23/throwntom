@@ -72,6 +72,7 @@ final class WindowModel {
   enum Entry {
     case snooze
     case meeting
+    case lunch
   }
 
   var panel: WindowPanel?
@@ -82,14 +83,18 @@ final class WindowModel {
   /// Whether the meeting chip's "Custom…" length field is open. Closed on every launch, and
   /// closed again the moment a length is accepted or abandoned.
   var isEnteringMeeting = false
+  /// Whether the lunch chip's "Custom…" length field is open. Closed on every launch, and closed
+  /// again the moment a length is accepted or abandoned.
+  var isEnteringLunch = false
 
-  /// Opens one length field and closes the other. Only one can be open at a time: they occupy
+  /// Opens one length field and closes the others. Only one can be open at a time: they occupy
   /// the same place under the chips and each takes the keyboard as it appears, so two open at
   /// once leaves the user typing into whichever won the focus — and Escape, which answers the
   /// innermost thing first, closing the one they are not looking at.
   func beginEntry(_ entry: Entry) {
     isEnteringSnooze = entry == .snooze
     isEnteringMeeting = entry == .meeting
+    isEnteringLunch = entry == .lunch
   }
 
   func toggle(_ panel: WindowPanel) {
@@ -109,6 +114,10 @@ final class WindowModel {
     }
     if isEnteringMeeting {
       isEnteringMeeting = false
+      return true
+    }
+    if isEnteringLunch {
+      isEnteringLunch = false
       return true
     }
     if showsShortcuts {

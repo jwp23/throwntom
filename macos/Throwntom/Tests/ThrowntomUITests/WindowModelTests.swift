@@ -69,4 +69,44 @@ final class WindowModelTests: XCTestCase {
   func testTheSnoozeFieldStartsClosed() {
     XCTAssertFalse(WindowModel().isEnteringSnooze)
   }
+
+  /// beginEntry(_:) ensures mutual exclusion: opening one entry field closes all others.
+  /// This is critical when menu bar actions switch between fields without closing the current one first.
+  func testBeginEntryLunchClosesOtherEntries() {
+    let model = WindowModel()
+    model.isEnteringSnooze = true
+    model.isEnteringMeeting = true
+
+    model.beginEntry(.lunch)
+
+    XCTAssertTrue(model.isEnteringLunch, "lunch should be open")
+    XCTAssertFalse(model.isEnteringSnooze, "snooze should be closed")
+    XCTAssertFalse(model.isEnteringMeeting, "meeting should be closed")
+  }
+
+  /// beginEntry(_:) ensures mutual exclusion when opening snooze.
+  func testBeginEntrySnoozeClosesOtherEntries() {
+    let model = WindowModel()
+    model.isEnteringLunch = true
+    model.isEnteringMeeting = true
+
+    model.beginEntry(.snooze)
+
+    XCTAssertTrue(model.isEnteringSnooze, "snooze should be open")
+    XCTAssertFalse(model.isEnteringLunch, "lunch should be closed")
+    XCTAssertFalse(model.isEnteringMeeting, "meeting should be closed")
+  }
+
+  /// beginEntry(_:) ensures mutual exclusion when opening meeting.
+  func testBeginEntryMeetingClosesOtherEntries() {
+    let model = WindowModel()
+    model.isEnteringSnooze = true
+    model.isEnteringLunch = true
+
+    model.beginEntry(.meeting)
+
+    XCTAssertTrue(model.isEnteringMeeting, "meeting should be open")
+    XCTAssertFalse(model.isEnteringSnooze, "snooze should be closed")
+    XCTAssertFalse(model.isEnteringLunch, "lunch should be closed")
+  }
 }

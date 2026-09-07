@@ -2,11 +2,11 @@ import AppKit
 import SwiftUI
 import ThrowntomClient
 
-/// The field behind the meeting chip's `Custom…`: how many minutes, in a row that opens under
-/// the chips and closes as soon as it is answered. Return commits, Escape abandons — the same
-/// contract `SnoozeEntryRow` and the inline new-task row keep, because these are the only places
-/// this app asks for typing and a rule that differed between them is a rule learned twice.
-struct MeetingEntryRow: View {
+/// The field behind the lunch chip's `Custom…`: how many minutes, in a row that opens under the
+/// chips and closes as soon as it is answered. Return commits, Escape abandons — the same
+/// contract `SnoozeEntryRow` and `MeetingEntryRow` keep, because these are the only places this
+/// app asks for typing and a rule that differed between them is a rule learned twice.
+struct LunchEntryRow: View {
 
   // MARK: Internal
 
@@ -18,7 +18,7 @@ struct MeetingEntryRow: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 2) {
       HStack(spacing: 6) {
-        Text("Meeting for")
+        Text("Lunch for")
         field
         Text("minutes")
       }
@@ -26,8 +26,9 @@ struct MeetingEntryRow: View {
     }
   }
 
-  /// Painted in the app's own paper for the reason the snooze field is: a system-drawn bezel
-  /// takes the system appearance's background while the text on it takes this window's ink.
+  /// Painted in the app's own paper for the reason the snooze and meeting fields are: a
+  /// system-drawn bezel takes the system appearance's background while the text on it takes this
+  /// window's ink — black on black in Dark Mode otherwise (throwntom-bxd.3).
   var field: some View {
     TextField("minutes", text: $text)
       .textFieldStyle(.plain)
@@ -37,14 +38,14 @@ struct MeetingEntryRow: View {
       .background(Palette.cream.color, in: RoundedRectangle(cornerRadius: 6))
       .frame(width: 70)
       .focused($isFocused)
-      .accessibilityLabel("Meeting length in minutes")
+      .accessibilityLabel("Lunch length in minutes")
       .onAppear { isFocused = true }
       .onSubmit { submit(text) }
-      .onExitCommand { model.isEnteringMeeting = false }
+      .onExitCommand { model.isEnteringLunch = false }
   }
 
-  /// The rule in full text rather than a dimmed caption, for the reason the snooze row states
-  /// its own: this is the line a user reads *because* what they typed was refused.
+  /// The rule in full text rather than a dimmed caption, for the reason the other entry rows
+  /// state their own: this is the line a user reads *because* what they typed was refused.
   var rule: some View {
     Text("1 to \(Minutes.maximum) minutes")
       .font(.caption)
@@ -57,9 +58,9 @@ struct MeetingEntryRow: View {
       alert()
       return
     }
-    DaemonDispatch.perform(MeetingRequest.start(minutes: minutes), on: client)
+    DaemonDispatch.perform(LunchRequest.start(minutes: minutes), on: client)
     text = ""
-    model.isEnteringMeeting = false
+    model.isEnteringLunch = false
   }
 
   // MARK: Private

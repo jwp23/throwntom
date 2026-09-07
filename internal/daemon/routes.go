@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,13 +12,14 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/core"
 )
 
-// Snooze and meeting are absent: each carries a body and has a route of its
-// own. Unsnooze takes no argument, so it is an ordinary verb.
-var timerVerbs = map[string]bool{"start": true, "confirm": true, "pause": true, "resume": true, "skip": true, "skip-today": true, "new-cycle": true, "lunch": true, "unsnooze": true}
+// Snooze, meeting and lunch are absent: each carries a body and has a route
+// of its own. Unsnooze takes no argument, so it is an ordinary verb.
+var timerVerbs = map[string]bool{"start": true, "confirm": true, "pause": true, "resume": true, "skip": true, "skip-today": true, "new-cycle": true, "unsnooze": true}
 
 func (s *server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/timer/snooze", s.postSnooze)
 	mux.HandleFunc("POST /v1/timer/meeting", s.postMeeting)
+	mux.HandleFunc("POST /v1/timer/lunch", s.postLunch)
 	mux.HandleFunc("POST /v1/timer/{verb}", s.postTimerVerb)
 	mux.HandleFunc("GET /v1/tasks", s.getTasks)
 	mux.HandleFunc("POST /v1/tasks", s.postTask)
@@ -114,6 +116,33 @@ func (s *server) postMeeting(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.runCommand(w, "meeting "+strconv.Itoa(minutes))
+}
+
+// postLunch starts lunch, with or without an explicit length. Unlike meeting,
+// lunch has a config default, so its body is optional: none at all keeps
+// today's behavior, the same bare "lunch" command the wildcard route used to
+// serve. The body is read in full up front rather than handed straight to
+// decodeBody, because an absent body and a malformed one both hit decodeBody's
+// io.EOF check the same way -- only a look at the raw bytes first can tell
+// "no minutes given" from "minutes given badly".
+func (s *server) postLunch(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxRequestBodyBytes))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	// A JSON null body is what a Go client sends for "no options" (json.Marshal(nil)),
+	// so it is read the same way a truly empty body is: neither names a length.
+	if trimmed := bytes.TrimSpace(body); len(trimmed) == 0 || string(trimmed) == "null" {
+		s.runNonInteractive(w, "lunch")
+		return
+	}
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	minutes, ok := readMinutesBody(w, r)
+	if !ok {
+		return
+	}
+	s.runNonInteractive(w, "lunch "+strconv.Itoa(minutes))
 }
 
 func (s *server) getTasks(w http.ResponseWriter, _ *http.Request) {
