@@ -46,6 +46,55 @@ func TestStartLunchForRunsForTheLengthItWasGiven(t *testing.T) {
 	}
 }
 
+// An explicit lunch length came from the user, not the config, so it keeps
+// its length across a daemon restart the way a meeting's does.
+func TestALunchStartedForAnExplicitLengthKeepsItAcrossARestart(t *testing.T) {
+	a := New(minutes(25, 5, 15, 4))
+	start := time.Date(2026, 9, 4, 10, 0, 0, 0, time.UTC)
+	clock := newFakeClock(start)
+	a.setClock(clock)
+	a.StartLunchFor(30 * time.Minute)
+	clock.Advance(10 * time.Minute)
+	saved := a.Snapshot()
+
+	restored := New(minutes(25, 5, 15, 4))
+	restoredClock := newFakeClock(start.Add(10 * time.Minute))
+	restored.setClock(restoredClock)
+	if err := restored.Restore(saved, restoredClock.Now()); err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+
+	if got := restored.State(); got != engine.Lunch {
+		t.Fatalf("state is %s, want lunch", got)
+	}
+	remaining := restored.Snapshot().PhaseEndAt.Sub(restoredClock.Now())
+	if remaining != 20*time.Minute {
+		t.Fatalf("lunch has %s left, want 20m -- the explicit 30m, not the configured 60m", remaining)
+	}
+}
+
+// A config reload re-derives every running phase against its new length. An
+// explicit lunch's length came from the user, not the config, so a reload
+// leaves it exactly where it was, the way a meeting's does.
+func TestAConfigReloadDoesNotChangeAnExplicitLunch(t *testing.T) {
+	a := New(minutes(25, 5, 15, 4))
+	clock := newFakeClock(time.Date(2026, 9, 4, 10, 0, 0, 0, time.UTC))
+	a.setClock(clock)
+	a.StartLunchFor(30 * time.Minute)
+	clock.Advance(10 * time.Minute)
+
+	d := minutes(25, 5, 15, 4)
+	d.LunchMinutes = 90
+	a.ApplyDurations(d)
+
+	if got := a.State(); got != engine.Lunch {
+		t.Fatalf("state is %s, want lunch", got)
+	}
+	if remaining := a.Snapshot().PhaseEndAt.Sub(clock.Now()); remaining != 20*time.Minute {
+		t.Fatalf("lunch has %s left, want 20m of the explicit 30m", remaining)
+	}
+}
+
 func TestLunchEndsOnItsOwnDeadline(t *testing.T) {
 	a := New(minutes(25, 5, 15, 4))
 	clock := newFakeClock(time.Date(2026, 8, 29, 12, 0, 0, 0, time.UTC))
