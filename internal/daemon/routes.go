@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -53,6 +54,26 @@ func (s *server) runNonInteractive(w http.ResponseWriter, line string) {
 // largest field these routes take.
 const maxRequestBodyBytes = 64 * 1024
 
+// decodeBody wraps r's body in the shared size cap, decodes exactly one JSON
+// value into dst, and requires nothing to follow it: a second Decode call
+// must hit io.EOF. Without this, a decoder that stops once dst is filled
+// would leave trailing bytes unread, so MaxBytesReader's cap would bound
+// only what the first value needed rather than everything a route accepts.
+// Every bodied route shares this contract, so one reader enforces it for all
+// of them rather than each restating it.
+func decodeBody(w http.ResponseWriter, r *http.Request, dst any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
+	dec := json.NewDecoder(r.Body)
+	if err := dec.Decode(dst); err != nil {
+		return err
+	}
+	var extra json.RawMessage
+	if err := dec.Decode(&extra); err != io.EOF {
+		return errors.New("body must contain exactly one JSON value")
+	}
+	return nil
+}
+
 // maxMeetingMinutes is the longest meeting or snooze this route will accept,
 // in the minutes the body speaks in. It is derived from the one rule rather
 // than restating it, so the routes and the command line cannot drift apart.
@@ -66,11 +87,10 @@ var maxMeetingMinutes = int(core.MaxMeetingDuration.Minutes())
 // range for the same reason, so one reader validates for both rather than
 // each restating the rule.
 func readMinutesBody(w http.ResponseWriter, r *http.Request) (int, bool) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
 	var body struct {
 		Minutes int `json:"minutes"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Minutes <= 0 || body.Minutes > maxMeetingMinutes {
+	if err := decodeBody(w, r, &body); err != nil || body.Minutes <= 0 || body.Minutes > maxMeetingMinutes {
 		writeError(w, http.StatusBadRequest, fmt.Errorf("minutes must be between 1 and %d", maxMeetingMinutes))
 		return 0, false
 	}
@@ -101,11 +121,10 @@ func (s *server) getTasks(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *server) postTask(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
 	var body struct {
 		Description string `json:"description"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeBody(w, r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, errors.New("description is required"))
 		return
 	}
