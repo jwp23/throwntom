@@ -12,23 +12,12 @@ import (
 // checked against the handlers here rather than left to whoever last edited
 // the prose.
 
-// readmeProse is the README with its wrapping undone, so a sentence can be
-// looked for as it reads rather than as it is laid out.
-func readmeProse(t *testing.T) string {
-	t.Helper()
-	readme, err := doctest.Read("README.md")
-	if err != nil {
-		t.Fatalf("read README: %v", err)
-	}
-	return doctest.Unwrap(readme)
-}
-
 // TestReadmeSaysFocusIsNotTiedToARunningPomodoro pins the promise and the
 // behaviour together: every focus verb answers in whatever state the timer is
 // in, so a reader who focuses before starting is not refused.
 func TestReadmeSaysFocusIsNotTiedToARunningPomodoro(t *testing.T) {
 	want := "you can focus and unfocus in any timer state, including while idle"
-	if prose := readmeProse(t); !strings.Contains(prose, want) {
+	if prose := doctest.ReadUnwrapped(t, "README.md"); !strings.Contains(prose, want) {
 		t.Errorf("README no longer says focus is available in any timer state (%q)", want)
 	}
 
@@ -49,7 +38,7 @@ func TestReadmeSaysFocusIsNotTiedToARunningPomodoro(t *testing.T) {
 // choosing focus while idle worth doing.
 func TestReadmeSaysStartOffersBackTheFocusAlreadyChosen(t *testing.T) {
 	want := "Starting a pomodoro always asks which tasks it is for, offering back whatever is already focused"
-	if prose := readmeProse(t); !strings.Contains(prose, want) {
+	if prose := doctest.ReadUnwrapped(t, "README.md"); !strings.Contains(prose, want) {
 		t.Errorf("README no longer says start offers back the focus already chosen (%q)", want)
 	}
 
@@ -67,7 +56,7 @@ func TestReadmeSaysStartOffersBackTheFocusAlreadyChosen(t *testing.T) {
 // to end by asking again for focus they had already chosen.
 func TestReadmeSaysConfirmAsksOnlyWhenNothingIsFocused(t *testing.T) {
 	want := "confirming into a work phase asks only when nothing is focused yet"
-	if prose := readmeProse(t); !strings.Contains(prose, want) {
+	if prose := doctest.ReadUnwrapped(t, "README.md"); !strings.Contains(prose, want) {
 		t.Errorf("README no longer says confirm asks only when nothing is focused (%q)", want)
 	}
 

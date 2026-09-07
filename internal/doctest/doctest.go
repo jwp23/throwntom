@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"testing"
 )
 
 // Read returns the text of a documentation file named relative to the
@@ -55,6 +56,18 @@ func repoRoot() (string, error) {
 // looked for without depending on where it happens to wrap.
 func Unwrap(text string) string {
 	return strings.Join(strings.Fields(text), " ")
+}
+
+// ReadUnwrapped reads a documentation file and unwraps its prose in one step,
+// failing the test on a read error. It is what every doc test reaching for
+// the README wants: the read and the unwrap are never used apart.
+func ReadUnwrapped(t *testing.T, name string) string {
+	t.Helper()
+	text, err := Read(name)
+	if err != nil {
+		t.Fatalf("read %s: %v", name, err)
+	}
+	return Unwrap(text)
 }
 
 // UnwrapComments is Unwrap for a file whose prose is a run of comment lines,

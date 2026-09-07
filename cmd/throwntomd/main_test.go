@@ -2,16 +2,23 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/jwp23/throwntom/v3/internal/daemon"
+	"github.com/jwp23/throwntom/v3/internal/doctest"
 	"github.com/jwp23/throwntom/v3/internal/notifier"
 )
 
 // ADR-003: the daemon owns timing and state, each client owns presentation on
 // its own platform. A sound is presentation, and nothing is in front of the
-// daemon to hear it, so the daemon plays none.
+// daemon to hear it, so the daemon plays none. The README states the same
+// claim to a reader; both are pinned here, next to the notifier the daemon
+// actually runs with.
 func TestDaemonPlaysNoSound(t *testing.T) {
+	if !strings.Contains(doctest.ReadUnwrapped(t, "README.md"), "`throwntomd` plays no sound at all") {
+		t.Fatal("README no longer says throwntomd plays no sound at all")
+	}
 	if daemonNotifier() != notifier.Silent() {
 		t.Fatal("expected the daemon to run with a silent notifier")
 	}

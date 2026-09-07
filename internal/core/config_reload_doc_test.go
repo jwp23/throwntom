@@ -113,11 +113,7 @@ func TestReadmeListsTheSettingsThatNeedARestart(t *testing.T) {
 // gains a false explanation is the failure this branch exists to catch, and
 // the sound_command line is the one CLAUDE.md holds up as the example.
 func TestReadmeGivesTheReasonEachRestartSettingIsNotReloaded(t *testing.T) {
-	readme, err := doctest.Read("README.md")
-	if err != nil {
-		t.Fatalf("read README: %v", err)
-	}
-	prose := doctest.Unwrap(readme)
+	prose := doctest.ReadUnwrapped(t, "README.md")
 	for _, want := range []string{
 		"the terminal UI that does use it builds its notifier once, at startup; neither rereads it",
 		"it answers whether today's morning reminder is owed when the daemon starts",

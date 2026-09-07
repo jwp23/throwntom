@@ -21,15 +21,6 @@ import (
 // none of them reaches a configured command.
 var soundNames = []string{"morning", "default", "test", "unrecognised"}
 
-func readmeText(t *testing.T) string {
-	t.Helper()
-	readme, err := doctest.Read("README.md")
-	if err != nil {
-		t.Fatalf("read README: %v", err)
-	}
-	return doctest.Unwrap(readme)
-}
-
 func mustContain(t *testing.T, source, text, want string) {
 	t.Helper()
 	if !strings.Contains(text, want) {
@@ -50,7 +41,7 @@ func recordRun(calls *[][]string, err error) runner {
 // "It is run as written; the sound name is not passed to it" and the README's
 // "the first item is the executable, the rest are its arguments".
 func TestConfiguredCommandRunsAsWrittenWithoutTheSoundName(t *testing.T) {
-	mustContain(t, "README.md", readmeText(t),
+	mustContain(t, "README.md", doctest.ReadUnwrapped(t, "README.md"),
 		"the first item is the executable, the rest are its arguments")
 	mustContain(t, "the config template", doctest.UnwrapComments(config.Template),
 		"It is run as written; the sound name is not passed to it")
@@ -76,7 +67,7 @@ func TestConfiguredCommandRunsAsWrittenWithoutTheSoundName(t *testing.T) {
 // replaces the sound outright": there is no fallback, so a failing command
 // makes no noise and says so.
 func TestMacOSReplacesTheBuiltInSoundOutright(t *testing.T) {
-	mustContain(t, "README.md", readmeText(t), "it *replaces* the built-in sound entirely")
+	mustContain(t, "README.md", doctest.ReadUnwrapped(t, "README.md"), "it *replaces* the built-in sound entirely")
 	mustContain(t, "the config template", doctest.UnwrapComments(config.Template),
 		"on macOS it replaces the sound outright")
 
@@ -99,18 +90,51 @@ func TestMacOSReplacesTheBuiltInSoundOutright(t *testing.T) {
 	}
 }
 
-// linuxChain matches the README's ordered list of what Linux falls back to.
-var linuxChain = regexp.MustCompile(
-	"it is tried first and, if it fails, throwntom falls back to `([^`]+)`, `([^`]+)`, `([^`]+)`, then the terminal bell")
+// linuxChainSpan captures the README's ordered list of what Linux falls back
+// to as a single span, rather than fixing how many fallbacks there are: a
+// regex with one capture group per fallback stops matching at all the moment
+// a correctly documented fallback is added, misreporting a live chain as an
+// absent one.
+var linuxChainSpan = regexp.MustCompile(
+	"it is tried first and, if it fails, throwntom falls back to (.+?), then the terminal bell")
+
+// backtickedName matches one command name inside a backtick-delimited list.
+var backtickedName = regexp.MustCompile("`([^`]+)`")
+
+// documentedLinuxFallbacks reads the README's Linux fallback chain, in order,
+// however many commands it names.
+func documentedLinuxFallbacks(t *testing.T, prose string) []string {
+	t.Helper()
+	m := linuxChainSpan.FindStringSubmatch(prose)
+	if m == nil {
+		t.Fatal("README no longer states the Linux sound fallback order")
+	}
+	var names []string
+	for _, n := range backtickedName.FindAllStringSubmatch(m[1], -1) {
+		names = append(names, n[1])
+	}
+	return names
+}
+
+// TestDocumentedLinuxFallbacksReadsAnyLength pins documentedLinuxFallbacks to
+// arbitrary length: the old regex hardcoded three capture groups and would
+// have failed to match this fixture's fourth fallback outright, misreporting
+// a correctly updated README as one that "no longer states" the chain.
+func TestDocumentedLinuxFallbacksReadsAnyLength(t *testing.T) {
+	prose := "it is tried first and, if it fails, throwntom falls back to " +
+		"`paplay`, `canberra-gtk-play`, `aplay`, `speaker-test`, then the terminal bell"
+	got := documentedLinuxFallbacks(t, prose)
+	want := []string{"paplay", "canberra-gtk-play", "aplay", "speaker-test"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("documentedLinuxFallbacks(%q) = %v, want %v", prose, got, want)
+	}
+}
 
 // TestLinuxFallsBackThroughTheDocumentedChain pins the README's fallback
 // order to the order the notifier actually tries, the configured command
 // included — the difference from macOS the docs draw twice.
 func TestLinuxFallsBackThroughTheDocumentedChain(t *testing.T) {
-	m := linuxChain.FindStringSubmatch(readmeText(t))
-	if m == nil {
-		t.Fatal("README no longer states the Linux sound fallback order")
-	}
+	m := documentedLinuxFallbacks(t, doctest.ReadUnwrapped(t, "README.md"))
 	mustContain(t, "the config template", doctest.UnwrapComments(config.Template),
 		"On Linux that same chain also backs up a command that fails")
 
@@ -132,7 +156,7 @@ func TestLinuxFallsBackThroughTheDocumentedChain(t *testing.T) {
 		t.Fatalf("play sound: %v", err)
 	}
 
-	want := append([]string{"mycommand"}, m[1:]...)
+	want := append([]string{"mycommand"}, m...)
 	var tried []string
 	for _, call := range calls {
 		tried = append(tried, call[0])
@@ -172,21 +196,78 @@ func TestLinuxStopsAtAConfiguredCommandThatWorks(t *testing.T) {
 	}
 }
 
-// builtInSounds matches the README's parenthetical naming each built-in macOS
-// sound, in both the Config section and the Notes.
-var builtInSounds = regexp.MustCompile(
-	`the built-in choice is (\w+) for the morning nudge, (\w+) for confirm reminders, (\w+) for ` + "`test-sound`")
+// builtInSoundsSpan captures the README's parenthetical naming every built-in
+// macOS sound as a single span, rather than fixing how many sounds there are:
+// a regex with one capture group per sound stops matching at all the moment a
+// correctly documented sound is added, misreporting a live list as an absent
+// one.
+var builtInSoundsSpan = regexp.MustCompile(`the built-in choice is (.+?)\)`)
+
+// roleToSoundName maps the README's English description of each sound's role
+// to the name the rest of the program asks for it by.
+var roleToSoundName = map[string]string{
+	"the morning nudge": "morning",
+	"confirm reminders": "default",
+	"`test-sound`":      "test",
+}
+
+// documentedBuiltInSoundRoles splits the README's built-in sound span into
+// its "<Name> for <role>" segments, however many there are.
+func documentedBuiltInSoundRoles(t *testing.T, span string) map[string]string {
+	t.Helper()
+	roles := map[string]string{}
+	for _, segment := range strings.Split(span, ", ") {
+		name, role, found := strings.Cut(segment, " for ")
+		if !found {
+			t.Fatalf("README's built-in sound list has a segment %q not shaped %q", segment, "<Name> for <role>")
+		}
+		roles[role] = name
+	}
+	return roles
+}
+
+// TestDocumentedBuiltInSoundRolesReadsAnyLength pins documentedBuiltInSoundRoles
+// to arbitrary length. The old regex hardcoded three capture groups with no
+// anchor at the end, so a fourth sound appended to the list was silently
+// dropped from what the test read rather than reported as drift — the failure
+// mode this test proves does not recur here.
+func TestDocumentedBuiltInSoundRolesReadsAnyLength(t *testing.T) {
+	span := "Blow for the morning nudge, Glass for confirm reminders, Tink for `test-sound`, Sosumi for `break-sound`"
+	got := documentedBuiltInSoundRoles(t, span)
+	want := map[string]string{
+		"the morning nudge": "Blow",
+		"confirm reminders": "Glass",
+		"`test-sound`":      "Tink",
+		"`break-sound`":     "Sosumi",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("documentedBuiltInSoundRoles(%q) = %v, want %v", span, got, want)
+	}
+}
 
 // TestBuiltInMacOSSoundsAreTheOnesDocumented pins the names the README gives
 // a reader picking a different system sound.
 func TestBuiltInMacOSSoundsAreTheOnesDocumented(t *testing.T) {
-	m := builtInSounds.FindStringSubmatch(readmeText(t))
+	readme := doctest.ReadUnwrapped(t, "README.md")
+	m := builtInSoundsSpan.FindStringSubmatch(readme)
 	if m == nil {
 		t.Fatal("README no longer names the built-in macOS sounds")
 	}
-	documented := map[string]string{"morning": m[1], "default": m[2], "test": m[3]}
-	mustContain(t, "README.md", readmeText(t),
-		"a system sound chosen by name (`morning`→"+m[1]+", `default`→"+m[2]+", `test`→"+m[3]+")")
+	roles := documentedBuiltInSoundRoles(t, m[1])
+	documented := map[string]string{}
+	for role, name := range roles {
+		key, ok := roleToSoundName[role]
+		if !ok {
+			t.Fatalf("README names a built-in sound for %q, which this test does not recognise as a sound role", role)
+		}
+		documented[key] = name
+	}
+	if len(documented) != len(roleToSoundName) {
+		t.Fatalf("README documents %v, want one sound for each of %v", documented, roleToSoundName)
+	}
+	mustContain(t, "README.md", readme,
+		"a system sound chosen by name (`morning`→"+documented["morning"]+
+			", `default`→"+documented["default"]+", `test`→"+documented["test"]+")")
 
 	for name, sound := range documented {
 		var calls [][]string
@@ -201,21 +282,9 @@ func TestBuiltInMacOSSoundsAreTheOnesDocumented(t *testing.T) {
 	}
 }
 
-// TestTheDaemonsNotifierPlaysNothing pins the claim every sound_command
-// paragraph rests on: throwntomd plays no sound at all (ADR-007), which is
-// why the setting belongs to the terminal UI alone.
-func TestTheDaemonsNotifierPlaysNothing(t *testing.T) {
-	mustContain(t, "README.md", readmeText(t), "`throwntomd` plays no sound at all")
-
-	// The silent notifier holds no runner, so there is no command line to
-	// inspect: that it plays nothing is the absence of one. Audible is the
-	// observable half, and cmd/throwntomd's TestDaemonPlaysNoSound pins the
-	// daemon to this notifier.
-	silent := Silent()
-	if err := silent.PlaySound("default"); err != nil {
-		t.Fatalf("the silent notifier reported an error: %v", err)
-	}
-	if Audible(silent) {
-		t.Fatal("the daemon's notifier reports itself audible")
-	}
-}
+// The claim every sound_command paragraph rests on — throwntomd plays no
+// sound at all (ADR-007) — is pinned in cmd/throwntomd/main_test.go, next to
+// TestDaemonPlaysNoSound, which is where the daemon's notifier is actually
+// built. Checking it here as well would only restate that silentNotifier's
+// PlaySound returns nil and that Audible type-asserts it, both already
+// covered by TestAudibleDistinguishesTheSilentNotifier in notifier_test.go.

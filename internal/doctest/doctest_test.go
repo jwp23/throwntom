@@ -45,3 +45,13 @@ func TestUnwrapCommentsDropsTheContinuationMarker(t *testing.T) {
 		t.Fatalf("UnwrapComments gave %q, want %q", got, want)
 	}
 }
+
+func TestReadUnwrappedReadsAndUnwrapsInOneStep(t *testing.T) {
+	got := ReadUnwrapped(t, "README.md")
+	if !strings.Contains(got, "# throwntom") {
+		t.Fatal("the file read does not look like the project README")
+	}
+	if strings.Contains(got, "\n") {
+		t.Fatal("ReadUnwrapped left the README's line wrapping in place")
+	}
+}
