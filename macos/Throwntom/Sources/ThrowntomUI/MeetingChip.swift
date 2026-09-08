@@ -38,20 +38,9 @@ struct MeetingChip: View {
   }
 
   var body: some View {
-    Menu {
-      MenuGroups(menu: menu) { item in menuButton(for: item) }
-    } label: {
-      ChipLabel(title: title, hint: "", style: style, hasMenu: true)
-    } primaryAction: {
-      run(primaryAction)
+    SplitChip(title: title, hint: "", style: style, menu: menu, primaryAction: { run(primaryAction) }) { item in
+      menuButton(for: item)
     }
-    // AppKit's own menu style repaints the label; the button style keeps ChipLabel's paint, so
-    // the pull-down wears the same chip as the buttons beside it.
-    .menuStyle(.button)
-    .buttonStyle(.plain)
-    .fixedSize()
-    .accessibilityLabel(title)
-    .accessibilityHint("Press and hold to choose how long")
   }
 
   /// Built as its own method, free of the menu's trailing closure, so a test can call it directly
