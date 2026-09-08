@@ -106,25 +106,6 @@ final class ChipTests: XCTestCase {
     XCTAssertTrue(commandRow.contains("_LayoutRoot<BlockFlowLayout>"), "both chip rows flow: \(commandRow)")
   }
 
-  /// throwntom-bxd.29: a menu-bearing chip has to look different from a plain one, or nothing on
-  /// screen tells a sighted user that press-and-hold opens a duration list.
-  func testChipLabelShowsAChevronOnlyWhenItHasAMenu() throws {
-    let style = ChipStyle.style(primary: false, scheme: Palette.scheme(for: .idle))
-    for appearance in AppearanceRender.appearances {
-      let plainSize = try AppearanceRender.size(
-        ChipLabel(title: "Snooze", hint: "", style: style).environment(\.colorScheme, appearance.scheme)
-      )
-      let withMenuSize = try AppearanceRender.size(
-        ChipLabel(title: "Snooze", hint: "", style: style, hasMenu: true)
-          .environment(\.colorScheme, appearance.scheme)
-      )
-      // A chevron drawn on the trailing edge is a glyph the layout has to make room for, so the
-      // menu chip lays out wider than the same label without one — a plain byte-for-byte picture
-      // diff would also pass if the flag's sense were flipped, this would not.
-      XCTAssertGreaterThan(withMenuSize.width, plainSize.width, appearance.name)
-    }
-  }
-
   func testChipForActionMatchesTheActionAndDispatchesOnTap() async throws {
     let transport = try StubTransport(states: [makeState(phase: .idle)])
     let environment = AppEnvironment(transport: transport)

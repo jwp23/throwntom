@@ -24,18 +24,12 @@ struct ChipLabel: View {
   let title: String
   let hint: String
   let style: ChipStyle
-  var hasMenu = false
 
   var body: some View {
     HStack(spacing: 6) {
       Text(title).fontWeight(.semibold)
       if !hint.isEmpty {
         Text(hint).font(.body.monospaced())
-      }
-      // The only thing on screen that says press-and-hold opens a duration list — sized down so
-      // it reads as a hint rather than a second label (throwntom-bxd.29).
-      if hasMenu {
-        Image(systemName: "chevron.down").font(.caption2.weight(.semibold))
       }
     }
     .padding(.horizontal, 10)
