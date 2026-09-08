@@ -129,26 +129,27 @@ enum HeldProps {
     path.line(units, 88, 22)
   }
 
-  /// The nightcap: a cone standing on its brim, leaning to the far side of the crown so the stem
-  /// and both leaves stay above it. A cap drawn straight over the top would leave a red ball with a
-  /// face on it, and the crown is the whole of what says tomato.
+  /// The nightcap: a cone pulled down over the crown, its brim riding the top of the head and its
+  /// point flopped to the near side. The stem and both leaves sleep under it — the cap replaces the
+  /// crown for the night rather than perching beside it.
   static let nightcapCone = DesignShape { path, units in
-    path.move(units, 19, 43)
-    path.curve(units, 16, 32, 14, 22, 13, 16)
-    path.curve(units, 32, 28, 58, 29, 79, 34)
-    path.curve(units, 60, 44, 34, 47, 19, 43)
+    path.move(units, 18, 33)
+    path.curve(units, 17, 26, 18, 17, 24, 10)
+    path.curve(units, 33, 1, 55, 0, 74, 7)
+    path.curve(units, 74.5, 13, 72.5, 18, 66, 22)
+    path.curve(units, 52, 21, 32, 25, 18, 33)
     path.closeSubpath()
   }
 
   /// The brim, along the bottom edge of the cone and stroked over it, so the band reads as turned
   /// up rather than as a line ruled across the cap.
   static let nightcapBrim = DesignShape { path, units in
-    path.move(units, 19, 43)
-    path.curve(units, 34, 47, 60, 44, 79, 34)
+    path.move(units, 18, 33)
+    path.curve(units, 32, 25, 52, 21, 66, 22)
   }
 
   static let nightcapBobble = DesignShape { path, units in
-    path.circle(units, 11, 13, 4.5)
+    path.circle(units, 78, 8, 4.8)
   }
 
   /// How many Z's drift off the cap at once.
@@ -219,10 +220,11 @@ enum HeldProps {
 
   // MARK: Private
 
-  /// Where a Z sets off — clear of the near shoulder, above the cap's brim — and how far it travels
-  /// over its run: up and away from the face, into the corner the "!" used to shout from.
-  private static let zedStart = CGPoint(76, 27)
-  private static let zedDrift = CGSize(width: 16, height: -20)
+  /// Where a Z sets off — beside the cheek, under the cap's flopped point — and how far it travels
+  /// over its run: up and away from the face, into the corner the "!" used to shout from. The climb
+  /// is long enough that Z's a third of a cycle apart never touch, so they read as three.
+  private static let zedStart = CGPoint(79, 38)
+  private static let zedDrift = CGSize(width: 16, height: -31)
   private static let zedHalfSizeRange: ClosedRange<Double> = 2 ... 4.5
   /// The last fraction of a run, over which the Z fades out.
   private static let zedFadeOut = 0.25
