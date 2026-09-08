@@ -111,17 +111,17 @@ final class ChipTests: XCTestCase {
   func testChipLabelShowsAChevronOnlyWhenItHasAMenu() throws {
     let style = ChipStyle.style(primary: false, scheme: Palette.scheme(for: .idle))
     for appearance in AppearanceRender.appearances {
-      let plain = try AppearanceRender.bitmap(
-        ChipLabel(title: "Snooze", hint: "", style: style),
-        appearance: appearance.appearance,
-        scheme: appearance.scheme,
+      let plainSize = try AppearanceRender.size(
+        ChipLabel(title: "Snooze", hint: "", style: style).environment(\.colorScheme, appearance.scheme)
       )
-      let withMenu = try AppearanceRender.bitmap(
-        ChipLabel(title: "Snooze", hint: "", style: style, hasMenu: true),
-        appearance: appearance.appearance,
-        scheme: appearance.scheme,
+      let withMenuSize = try AppearanceRender.size(
+        ChipLabel(title: "Snooze", hint: "", style: style, hasMenu: true)
+          .environment(\.colorScheme, appearance.scheme)
       )
-      XCTAssertNotEqual(try AppearanceRender.png(plain), try AppearanceRender.png(withMenu), appearance.name)
+      // A chevron drawn on the trailing edge is a glyph the layout has to make room for, so the
+      // menu chip lays out wider than the same label without one — a plain byte-for-byte picture
+      // diff would also pass if the flag's sense were flipped, this would not.
+      XCTAssertGreaterThan(withMenuSize.width, plainSize.width, appearance.name)
     }
   }
 
