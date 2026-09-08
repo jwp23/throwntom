@@ -106,6 +106,25 @@ final class ChipTests: XCTestCase {
     XCTAssertTrue(commandRow.contains("_LayoutRoot<BlockFlowLayout>"), "both chip rows flow: \(commandRow)")
   }
 
+  /// throwntom-bxd.29: a menu-bearing chip has to look different from a plain one, or nothing on
+  /// screen tells a sighted user that press-and-hold opens a duration list.
+  func testChipLabelShowsAChevronOnlyWhenItHasAMenu() throws {
+    let style = ChipStyle.style(primary: false, scheme: Palette.scheme(for: .idle))
+    for appearance in AppearanceRender.appearances {
+      let plain = try AppearanceRender.bitmap(
+        ChipLabel(title: "Snooze", hint: "", style: style),
+        appearance: appearance.appearance,
+        scheme: appearance.scheme,
+      )
+      let withMenu = try AppearanceRender.bitmap(
+        ChipLabel(title: "Snooze", hint: "", style: style, hasMenu: true),
+        appearance: appearance.appearance,
+        scheme: appearance.scheme,
+      )
+      XCTAssertNotEqual(try AppearanceRender.png(plain), try AppearanceRender.png(withMenu), appearance.name)
+    }
+  }
+
   func testChipForActionMatchesTheActionAndDispatchesOnTap() async throws {
     let transport = try StubTransport(states: [makeState(phase: .idle)])
     let environment = AppEnvironment(transport: transport)
