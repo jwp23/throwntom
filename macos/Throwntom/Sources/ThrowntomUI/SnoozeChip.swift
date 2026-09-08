@@ -47,7 +47,7 @@ struct SnoozeChip: View {
     Menu {
       MenuGroups(menu: menu) { item in menuButton(for: item) }
     } label: {
-      ChipLabel(title: title, hint: hint, style: style)
+      ChipLabel(title: title, hint: hint, style: style, hasMenu: true)
     } primaryAction: {
       run(primaryAction)
     }

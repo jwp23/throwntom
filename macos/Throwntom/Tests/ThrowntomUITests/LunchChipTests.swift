@@ -71,17 +71,16 @@ final class LunchChipTests: XCTestCase {
 
   /// The lunch control is a pull-down, but it has to be a chip first, for the same reason
   /// `MeetingChipTests` holds the meeting chip to it (throwntom-bxd.2).
+  ///
+  /// This used to assert the two were the same picture byte for byte, but throwntom-bxd.29 gives
+  /// menu chips a disclosure chevron that plain chips do not draw, so the pictures now differ on
+  /// purpose. What still has to hold — and what would fail if AppKit's tinting came back — is that
+  /// this chip paints in the plain chip's own fill and text colours rather than the system's.
   func testTheChipIsDrawnExactlyLikeThePlainChipsBesideIt() throws {
     let chip = try makeChip(phase: .idle)
-    let plain = Chip(title: chip.title, hint: "", isPrimary: false, scheme: chip.content.scheme) { }
     for appearance in AppearanceRender.appearances {
       let drawn = try AppearanceRender.bitmap(
         framed(chip.body, scheme: chip.content.scheme),
-        appearance: appearance.appearance,
-        scheme: appearance.scheme,
-      )
-      let reference = try AppearanceRender.bitmap(
-        framed(plain, scheme: chip.content.scheme),
         appearance: appearance.appearance,
         scheme: appearance.scheme,
       )
@@ -90,12 +89,13 @@ final class LunchChipTests: XCTestCase {
         appearance: appearance.appearance,
         scheme: appearance.scheme,
       )
-      XCTAssertGreaterThan(AppearanceRender.pixels(of: fill, in: reference), 500, appearance.name)
-      XCTAssertEqual(
-        try AppearanceRender.png(drawn),
-        try AppearanceRender.png(reference),
-        appearance.name,
+      let text = try AppearanceRender.swatch(
+        chip.content.scheme.secondaryChipText,
+        appearance: appearance.appearance,
+        scheme: appearance.scheme,
       )
+      XCTAssertGreaterThan(AppearanceRender.pixels(of: fill, in: drawn), 500, appearance.name)
+      XCTAssertGreaterThan(AppearanceRender.pixels(of: text, in: drawn), 0, appearance.name)
     }
   }
 

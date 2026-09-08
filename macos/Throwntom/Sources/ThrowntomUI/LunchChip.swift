@@ -27,7 +27,7 @@ struct LunchChip: View {
     Menu {
       MenuGroups(menu: menu) { item in menuButton(for: item) }
     } label: {
-      ChipLabel(title: title, hint: "", style: style)
+      ChipLabel(title: title, hint: "", style: style, hasMenu: true)
     } primaryAction: {
       run(nil)
     }
