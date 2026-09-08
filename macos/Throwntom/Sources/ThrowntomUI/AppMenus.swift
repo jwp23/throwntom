@@ -24,7 +24,7 @@ struct AppMenus: Commands {
     }
     CommandMenu("Timer") {
       MenuGroups(menu: timerMenu) { item in
-        // Lunch alone grows a length picker here, the way the window chip's own pull-down does:
+        // Lunch alone grows a length picker here, the way the window chip's own split chip does:
         // its bare item becomes a submenu offering the same two presets and the custom entry,
         // rather than a plain button sending one fixed answer.
         if item.action == .lunch {

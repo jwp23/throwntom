@@ -3,7 +3,7 @@ import XCTest
 @testable import ThrowntomUI
 
 /// The lengths behind the Timer menu's "Lunch" submenu (`AppMenus.lunchMenu`), which offers the
-/// same choices as the chip's own pull-down.
+/// same choices as the chip's own split chip.
 final class LunchMenuTests: XCTestCase {
 
   func testTheMenuOffersThirtyAndSixtyMinutesThenACustomLength() {

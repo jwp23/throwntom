@@ -12,9 +12,8 @@ final class LunchChipTests: XCTestCase {
     _ = try makeChip(phase: .idle).body
   }
 
-  /// throwntom-bxd.29: press-and-hold reaching the menu is gone; SplitChip is what replaces
-  /// it, so the chip's body has to actually be built from it rather than from
-  /// Menu(primaryAction:), which is press-and-hold-only.
+  /// throwntom-bxd.29: the chip's body has to be built from SplitChip, with the menu reaching
+  /// via the trailing chevron (a plain click, not through Menu(primaryAction:)).
   func testTheChipIsBuiltFromSplitChipRatherThanPressAndHold() throws {
     let chip = try makeChip(phase: .idle)
     let bodyType = String(describing: type(of: chip.body))
@@ -78,14 +77,14 @@ final class LunchChipTests: XCTestCase {
     _ = chip.menuButton(for: MenuItem(action: .custom, shortcut: nil, isEnabled: false))
   }
 
-  /// The lunch control is a pull-down, but it has to be a chip first, for the same reason
+  /// The lunch control has to be a chip first, for the same reason
   /// `MeetingChipTests` holds the meeting chip to it (throwntom-bxd.2).
   ///
   /// This used to assert the two were the same picture byte for byte, but throwntom-bxd.29 gives
   /// menu chips a disclosure chevron that plain chips do not draw, so the pictures now differ on
   /// purpose. What still has to hold — and what would fail if AppKit's tinting came back — is that
   /// this chip paints in the plain chip's own fill and text colours rather than the system's.
-  func testTheChipIsDrawnExactlyLikeThePlainChipsBesideIt() throws {
+  func testTheChipPaintsTheStylesFillAndTextColours() throws {
     let chip = try makeChip(phase: .idle)
     for appearance in AppearanceRender.appearances {
       let drawn = try AppearanceRender.bitmap(

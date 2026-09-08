@@ -2,7 +2,7 @@ import SwiftUI
 import ThrowntomClient
 
 /// The snooze control: a chip that defers the reminder on a plain click and opens the durations
-/// on a press-and-hold, the way a macOS pull-down with a default action behaves.
+/// on a click of its trailing chevron (`SplitChip`).
 ///
 /// While a snooze is running the same chip cancels it, because that is the moment the user wants
 /// the undo and going looking for a second control for it is the gap this closes. The durations

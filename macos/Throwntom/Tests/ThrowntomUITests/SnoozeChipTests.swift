@@ -20,9 +20,8 @@ final class SnoozeChipTests: XCTestCase {
     _ = try makeChip(snoozeUntil: Date().addingTimeInterval(600)).body
   }
 
-  /// throwntom-bxd.29: press-and-hold reaching the menu is gone; SplitChip is what replaces
-  /// it, so the chip's body has to actually be built from it rather than from
-  /// Menu(primaryAction:), which is press-and-hold-only.
+  /// throwntom-bxd.29: the chip's body has to be built from SplitChip, with the menu reaching
+  /// via the trailing chevron (a plain click, not through Menu(primaryAction:)).
   func testTheChipIsBuiltFromSplitChipRatherThanPressAndHold() throws {
     let chip = try makeChip(snoozeUntil: nil)
     let bodyType = String(describing: type(of: chip.body))
@@ -98,7 +97,7 @@ final class SnoozeChipTests: XCTestCase {
     XCTAssertEqual(try makeChip(snoozeUntil: Date().addingTimeInterval(600)).hint, "")
   }
 
-  /// The snooze control is a pull-down, but it has to be a chip first. A menu style that hands its
+  /// The snooze control has to be a chip first. A menu style that hands its
   /// label to AppKit gets AppKit's own tinting painted over `ChipLabel`, so the chip came out in
   /// brown text on the phase ground while every button beside it wore the fill (throwntom-bxd.2).
   ///
@@ -106,7 +105,7 @@ final class SnoozeChipTests: XCTestCase {
   /// menu chips a disclosure chevron that plain chips do not draw, so the pictures now differ on
   /// purpose. What still has to hold — and what would fail if AppKit's tinting came back — is that
   /// this chip paints in the plain chip's own fill and text colours rather than the system's.
-  func testTheChipIsDrawnExactlyLikeThePlainChipsBesideIt() throws {
+  func testTheChipPaintsTheStylesFillAndTextColours() throws {
     let chip = try makeChip(snoozeUntil: nil)
     for appearance in AppearanceRender.appearances {
       let drawn = try AppearanceRender.bitmap(

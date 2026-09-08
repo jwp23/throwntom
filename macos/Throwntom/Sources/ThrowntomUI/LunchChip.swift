@@ -2,7 +2,7 @@ import SwiftUI
 import ThrowntomClient
 
 /// The lunch control: a chip that takes the daemon's configured length on a plain click and
-/// opens the lengths on a press-and-hold, the way the meeting chip does.
+/// opens the lengths on a click of its trailing chevron, the way the meeting chip does.
 ///
 /// Unlike meeting, lunch needs no way out of its own: `TimerActions.available(for:)` already
 /// withdraws this chip once a lunch is running and offers Skip in its place, so this chip never
