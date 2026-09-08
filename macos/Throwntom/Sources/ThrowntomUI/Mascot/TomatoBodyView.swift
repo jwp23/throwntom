@@ -47,21 +47,24 @@ enum TomatoBody {
 // MARK: - TomatoBodyView
 
 /// Body, stem and leaves on a `100 * unit` square. The leaves are swept 8° to the right so the
-/// crown follows the turned face.
+/// crown follows the turned face; a pose that is not `crowned` doffs them.
 struct TomatoBodyView: View {
+  let crowned: Bool
   let unit: CGFloat
 
   var body: some View {
     ZStack {
       TomatoBody.outline.fill(TomatoBody.shading(unit: unit))
       TomatoBody.outline.stroke(Palette.outline.color, lineWidth: 2 * unit)
-      ZStack {
-        TomatoBody.leaves.fill(TomatoBody.leafShading)
-        TomatoBody.leaves.stroke(Palette.outline.color, style: StrokeStyle(lineWidth: 2 * unit, lineJoin: .round))
-        TomatoBody.stem.stroke(Palette.outline.color, style: StrokeStyle(lineWidth: 3.5 * unit, lineCap: .round))
+      if crowned {
+        ZStack {
+          TomatoBody.leaves.fill(TomatoBody.leafShading)
+          TomatoBody.leaves.stroke(Palette.outline.color, style: StrokeStyle(lineWidth: 2 * unit, lineJoin: .round))
+          TomatoBody.stem.stroke(Palette.outline.color, style: StrokeStyle(lineWidth: 3.5 * unit, lineCap: .round))
+        }
+        .rotationEffect(.degrees(8), anchor: UnitPoint(x: 0.5, y: 0.2))
+        .offset(x: 4 * unit)
       }
-      .rotationEffect(.degrees(8), anchor: UnitPoint(x: 0.5, y: 0.2))
-      .offset(x: 4 * unit)
     }
     .frame(width: Units.canvas * unit, height: Units.canvas * unit)
   }

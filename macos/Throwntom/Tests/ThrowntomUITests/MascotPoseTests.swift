@@ -52,6 +52,7 @@ final class MascotPoseTests: XCTestCase {
 
     XCTAssertEqual(asleep.eyes, .closed)
     XCTAssertEqual(asleep.held, .nightcap)
+    XCTAssertFalse(asleep.crowned, "the cap replaces the crown; drawing both leaks the swept leaf tip")
     XCTAssertEqual(asleep.motions, [.breathe, .zzz])
     XCTAssertEqual(MascotPose.awaitingConfirm.held, .exclamation, "the pose it replaces still holds the shout")
   }

@@ -65,6 +65,10 @@ struct MascotPose: Equatable {
   var held: HeldProp?
   var worn: WornProp?
   var furniture: Furniture?
+  /// Whether the stem and leaves are drawn. The asleep pose doffs them: its cap replaces the
+  /// crown for the night, and the crown is drawn swept far enough right that no cap thin enough
+  /// to match the design could cover it instead.
+  var crowned = true
   var rotation: Double
   var scale: Double
   var offset: CGSize

@@ -45,8 +45,9 @@ final class HeldPropViewTests: XCTestCase {
     XCTAssertEqual(HeldProps.cableSocket.path(in: canvas).boundingRect.minX, 88)
   }
 
-  /// The cap is a cone standing on its own brim, so the two share an edge; the bobble hangs off
-  /// the far side, which is what makes the point read as flopped over rather than upright.
+  /// The cap is a cone standing on its own brim, so the two share an edge; the cone flops toward
+  /// the near side, into the long thin point of the approved mock, whose bobble hangs off the
+  /// head's edge past it (mock: bobble at (87, 14)).
   func testTheNightcapConeStandsOnItsBrimWithTheBobbleAtItsPoint() {
     let cone = HeldProps.nightcapCone.path(in: canvas).boundingRect
     let brim = HeldProps.nightcapBrim.path(in: canvas).boundingRect
@@ -54,18 +55,52 @@ final class HeldPropViewTests: XCTestCase {
 
     XCTAssertEqual(brim.maxY, cone.maxY, accuracy: 1, "the brim runs along the bottom of the cap")
     XCTAssertLessThan(cone.minY, brim.minY, "the cap rises above its own brim")
-    XCTAssertLessThan(bobble.midX, brim.minX, "the point flops off the far side")
-    XCTAssertEqual(bobble.midY, cone.minY, accuracy: 4, "and the bobble is at that point, not adrift")
+    XCTAssertGreaterThan(bobble.midX, brim.maxX, "the point flops off the near side")
+    XCTAssertGreaterThan(bobble.midX, 85, "the bobble hangs off the head's edge, past the point")
+    XCTAssertGreaterThan(bobble.maxX, cone.maxX, "the bobble hangs past the tip")
+    XCTAssertLessThan(bobble.midY, 16, "and stays up on the crown, not adrift down the face")
   }
 
-  /// The tomato has to stay a tomato in a hat. Its stem and both leaves live above y 24, so a cap
-  /// drawn over them leaves a red ball with a face on it — which is the whole of what the crown
-  /// does for the character.
-  func testTheNightcapLeavesTheStemAndLeavesShowing() {
+  /// The cap sits where the crown was: it spans the head's top and its point's finger reaches out
+  /// toward the bobble, so the bare crown never shows around it. The stem and leaves themselves
+  /// are not drawn while it is worn — the asleep pose is not `crowned` — and `MascotSnapshotTests`
+  /// proves no leaf green survives. Points follow the approved mock (throwntom-bxd.5).
+  func testTheNightcapSpansTheCrown() {
     let cap = HeldProps.nightcapCone.path(in: canvas)
-    for crown in [CGPoint(x: 43, y: 20), CGPoint(x: 57, y: 20), CGPoint(x: 52, y: 14)] {
-      XCTAssertFalse(cap.contains(crown), "the cap covers the crown at \(crown)")
+    let inside = [
+      CGPoint(x: 40, y: 22),
+      CGPoint(x: 50, y: 18),
+      CGPoint(x: 60, y: 16),
+      CGPoint(x: 35, y: 26),
+      CGPoint(x: 80, y: 13), // the thin finger, on its way to the bobble
+    ]
+    for point in inside {
+      XCTAssertTrue(cap.contains(point), "the cap misses the crown at \(point)")
     }
+  }
+
+  /// The cap belongs to the top of the head: its brim rides the crown, well clear of the face.
+  func testTheNightcapStaysAboveTheFace() {
+    XCTAssertLessThanOrEqual(HeldProps.nightcapCone.path(in: canvas).boundingRect.maxY, 34)
+  }
+
+  /// The cap is not a pillow: past its crest the silhouette is pared down to a thin finger, so
+  /// there is cream neither above the crest, above the finger, nor sagging under it.
+  func testTheNightcapTapersThinPastTheCrest() {
+    let cap = HeldProps.nightcapCone.path(in: canvas)
+    for outside in [CGPoint(x: 52, y: 3), CGPoint(x: 80, y: 8), CGPoint(x: 78, y: 19)] {
+      XCTAssertFalse(cap.contains(outside), "the cap is fat at \(outside)")
+    }
+  }
+
+  /// The Z's sit exactly where the approved mock drew them: the smallest sets off beside the cheek
+  /// at (78, 44) and the run ends in the corner at (93.5, 15.5), growing from 4 to 8.5 across.
+  func testTheZsFollowTheMocksRun() {
+    XCTAssertEqual(HeldProps.zed(progress: 0).path(in: canvas).boundingRect, CGRect(x: 76, y: 42, width: 4, height: 4))
+    let top = HeldProps.zed(progress: 1).path(in: canvas).boundingRect
+    XCTAssertEqual(top.midX, 93.5, accuracy: 0.01)
+    XCTAssertEqual(top.midY, 15.5, accuracy: 0.01)
+    XCTAssertEqual(top.width, 8.5, accuracy: 0.01)
   }
 
   /// Three Z's on one cycle, staggered by thirds, so the still frame Reduce Motion draws — and the
@@ -91,6 +126,25 @@ final class HeldPropViewTests: XCTestCase {
     XCTAssertEqual(HeldProps.zedProgress(0, phase: 1), HeldProps.zedProgress(0, phase: 0), accuracy: 0.001)
   }
 
+  /// Three distinct Z's, not a pile: at no point in the cycle do two of them touch, even with
+  /// their stroke width on.
+  func testTheZsNeverTouch() {
+    let strokeRadius = 0.8
+    for phase in stride(from: 0.0, through: 1.0, by: 0.02) {
+      let boxes = (0 ..< HeldProps.zedCount).compactMap { index -> CGRect? in
+        let progress = HeldProps.zedProgress(index, phase: phase)
+        guard HeldProps.zedOpacity(progress: progress) > 0 else { return nil }
+        return HeldProps.zed(progress: progress).path(in: canvas)
+          .boundingRect.insetBy(dx: -strokeRadius, dy: -strokeRadius)
+      }
+      for (index, box) in boxes.enumerated() {
+        for other in boxes[(index + 1)...] {
+          XCTAssertFalse(box.intersects(other), "Z's touch at phase \(phase)")
+        }
+      }
+    }
+  }
+
   /// A Z dissolves at the top of its cycle instead of blinking off there. It is fully painted at
   /// the bottom, which is what keeps three of them on screen in a still frame.
   func testAZFadesOnlyAsItLeaves() {
@@ -103,8 +157,9 @@ final class HeldPropViewTests: XCTestCase {
   @MainActor
   func testEveryPropBuilds() {
     for prop in [HeldProp.drink, .book, .yoyo, .cable, .exclamation, .burger, .nightcap] {
-      _ = HeldPropView(prop: prop, yoyoDrop: 10, zzzPhase: 0.25, unit: 2).body
+      _ = HeldPropView(prop: prop, yoyoDrop: 10, unit: 2).body
     }
+    _ = ZedsView(zzzPhase: 0.25, unit: 2).body
   }
 
   // MARK: Private

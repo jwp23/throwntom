@@ -113,6 +113,7 @@ extension MascotPose {
     held: .nightcap,
     worn: nil,
     furniture: nil,
+    crowned: false,
     rotation: -12,
     scale: 1,
     offset: .zero,

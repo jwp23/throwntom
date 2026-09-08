@@ -35,6 +35,9 @@ struct MascotCharacterView: View {
       if pose.furniture == .laptop {
         FurnitureView(furniture: .laptop, scheme: scheme, unit: unit)
       }
+      if pose.held == .nightcap {
+        ZedsView(zzzPhase: frame.zzzPhase, unit: unit)
+      }
     }
     .frame(width: Units.canvas * unit, height: Units.canvas * unit)
   }
@@ -80,7 +83,7 @@ struct MascotCharacterView: View {
   private func layerView(_ layer: CharacterLayer) -> some View {
     switch layer {
     case .body:
-      TomatoBodyView(unit: unit)
+      TomatoBodyView(crowned: pose.crowned, unit: unit)
     case .face:
       TomatoFaceView(eyes: Self.eyes(for: pose, frame: frame), mouth: pose.mouth, unit: unit)
     case .arms:
@@ -88,7 +91,7 @@ struct MascotCharacterView: View {
     case .hands:
       HandsView(left: pose.leftArm, right: pose.rightArm, unit: unit)
     case .held(let prop):
-      HeldPropView(prop: prop, yoyoDrop: frame.yoyoDrop, zzzPhase: frame.zzzPhase, unit: unit)
+      HeldPropView(prop: prop, yoyoDrop: frame.yoyoDrop, unit: unit)
     case .worn(let prop):
       WornPropView(prop: prop, unit: unit)
     }
