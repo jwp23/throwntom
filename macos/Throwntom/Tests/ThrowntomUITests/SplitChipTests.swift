@@ -44,4 +44,19 @@ final class SplitChipTests: XCTestCase {
     XCTAssertGreaterThan(splitSize.width, plainSize.width)
   }
 
+  /// No divider marks the seam between the label and the chevron — the whole chip reads as
+  /// one control, the way DESIGN.md's Chip (macOS) section describes it. The same
+  /// type-description technique `ChipTests.testTimerChipsFlowRatherThanSitInOneStack` uses
+  /// to prove a view IS in the tree proves the inverse here — that `Divider` is not.
+  func testTheChipDrawsNoDividerBetweenTheTwoRegions() {
+    let scheme = Palette.scheme(for: .idle)
+    let style = ChipStyle.style(primary: false, scheme: scheme)
+    let menu = MenuModel.snooze(canDefer: true, isSnoozed: false)
+    let chip = SplitChip(title: "Snooze", hint: "", style: style, menu: menu, primaryAction: { }) { item in
+      Button(item.title) { }.disabled(!item.isEnabled)
+    }
+    let bodyType = String(describing: type(of: chip.body))
+    XCTAssertFalse(bodyType.contains("Divider"), bodyType)
+  }
+
 }
