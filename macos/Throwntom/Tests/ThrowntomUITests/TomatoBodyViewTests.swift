@@ -22,7 +22,8 @@ final class TomatoBodyViewTests: XCTestCase {
 
   @MainActor
   func testBodyBuilds() {
-    _ = TomatoBodyView(unit: 2).body
+    _ = TomatoBodyView(crowned: true, unit: 2).body
+    _ = TomatoBodyView(crowned: false, unit: 2).body
   }
 
   // MARK: Private

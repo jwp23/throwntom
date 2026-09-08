@@ -59,29 +59,14 @@ final class HeldPropViewTests: XCTestCase {
     XCTAssertLessThan(bobble.midY, 14, "and stays up on the crown, not adrift down the face")
   }
 
-  /// The cap is pulled down over the crown like a real nightcap: the stem and both leaves sleep
-  /// under it, and no green pokes out of the cream. The crown is drawn swept 8° right about
-  /// (50, 20) and offset 4 to the right (`TomatoBodyView`), so these are the leaves' and stem's
-  /// extremes where they actually land, not where their paths put them; the swept right leaf tip
-  /// reaches past the cone, which is what the bobble is sized to cover.
-  func testTheNightcapCoversTheCrown() {
+  /// The cap sits where the crown was: it spans the head's top from its left edge to the swept
+  /// stem's seat, so the bare crown never shows around it. The stem and leaves themselves are not
+  /// drawn at all while it is worn — the asleep pose is not `crowned` — because the swept crown
+  /// reaches past any cap this thin, and `MascotSnapshotTests` proves no leaf green survives.
+  func testTheNightcapSpansTheCrown() {
     let cap = HeldProps.nightcapCone.path(in: canvas)
-    let bobble = HeldProps.nightcapBobble.path(in: canvas)
-    let sweptCrown = [
-      CGPoint(x: 77.0, y: 14.2), // right leaf tip
-      CGPoint(x: 75.1, y: 15.1), // right leaf inner edge, near the tip
-      CGPoint(x: 70.3, y: 12.3), // right leaf outer edge, mid
-      CGPoint(x: 67.7, y: 19.0), // right leaf inner edge, mid
-      CGPoint(x: 62.5, y: 10.1), // stem top
-      CGPoint(x: 44.0, y: 9.3), // left leaf top
-      CGPoint(x: 33.5, y: 8.0), // left leaf tip
-      CGPoint(x: 46.5, y: 23.0), // left leaf base
-    ]
-    for point in sweptCrown {
-      XCTAssertTrue(
-        cap.contains(point) || bobble.contains(point),
-        "the crown pokes out of the cap at \(point)",
-      )
+    for point in [CGPoint(x: 43, y: 20), CGPoint(x: 57, y: 20), CGPoint(x: 52, y: 14), CGPoint(x: 28, y: 13)] {
+      XCTAssertTrue(cap.contains(point), "the cap misses the crown at \(point)")
     }
   }
 

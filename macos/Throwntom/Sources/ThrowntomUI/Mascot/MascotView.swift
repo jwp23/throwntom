@@ -80,7 +80,7 @@ struct MascotCharacterView: View {
   private func layerView(_ layer: CharacterLayer) -> some View {
     switch layer {
     case .body:
-      TomatoBodyView(unit: unit)
+      TomatoBodyView(crowned: pose.crowned, unit: unit)
     case .face:
       TomatoFaceView(eyes: Self.eyes(for: pose, frame: frame), mouth: pose.mouth, unit: unit)
     case .arms:

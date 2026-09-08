@@ -129,14 +129,17 @@ enum HeldProps {
     path.line(units, 88, 22)
   }
 
-  /// The nightcap: a cone pulled down over the crown, its brim riding the top of the head and its
-  /// point flopped to the near side. The stem and both leaves sleep under it — the cap replaces the
-  /// crown for the night rather than perching beside it.
+  /// The nightcap: a cone pulled down where the crown was, its brim riding the top of the head and
+  /// its point flopped to the near side. Past the crest at (38, 2) the top edge is a straight
+  /// taper — the sharp angle there is what keeps it a cap and not a pillow. It replaces the crown
+  /// outright: the asleep pose is not `crowned`, because the crown is drawn swept far enough right
+  /// (`TomatoBodyView`) that no cap this thin could cover its tip.
   static let nightcapCone = DesignShape { path, units in
     path.move(units, 18, 33)
-    path.curve(units, 17, 26, 18, 17, 24, 10)
-    path.curve(units, 33, 1, 55, 0, 74, 7)
-    path.curve(units, 74.5, 13, 72.5, 18, 66, 22)
+    path.curve(units, 16, 26, 17, 16, 25, 8)
+    path.curve(units, 26, 5, 34, 4, 38, 2)
+    path.line(units, 74, 8)
+    path.curve(units, 73, 12.5, 70, 17, 66, 22)
     path.curve(units, 52, 21, 32, 25, 18, 33)
     path.closeSubpath()
   }
@@ -149,7 +152,7 @@ enum HeldProps {
   }
 
   static let nightcapBobble = DesignShape { path, units in
-    path.circle(units, 78, 8, 4.8)
+    path.circle(units, 77, 9, 4.8)
   }
 
   /// How many Z's drift off the cap at once.
