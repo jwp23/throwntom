@@ -20,6 +20,15 @@ final class SnoozeChipTests: XCTestCase {
     _ = try makeChip(snoozeUntil: Date().addingTimeInterval(600)).body
   }
 
+  /// throwntom-bxd.29: press-and-hold reaching the menu is gone; SplitChip is what replaces
+  /// it, so the chip's body has to actually be built from it rather than from
+  /// Menu(primaryAction:), which is press-and-hold-only.
+  func testTheChipIsBuiltFromSplitChipRatherThanPressAndHold() throws {
+    let chip = try makeChip(snoozeUntil: nil)
+    let bodyType = String(describing: type(of: chip.body))
+    XCTAssertTrue(bodyType.contains("SplitChip"), bodyType)
+  }
+
   /// The undo has to be where the snooze was. A user looking for the way out of a snooze reaches
   /// for the control that caused it, so the same chip cancels while one is running.
   func testWhileSnoozedTheSameChipIsTheUndo() throws {
