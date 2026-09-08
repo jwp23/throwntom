@@ -46,7 +46,8 @@ final class HeldPropViewTests: XCTestCase {
   }
 
   /// The cap is a cone standing on its own brim, so the two share an edge; the cone flops toward
-  /// the near side, so the bobble hangs past its tip rather than sitting upright on top.
+  /// the near side, into the long thin point of the approved mock, whose bobble hangs off the
+  /// head's edge past it (mock: bobble at (87, 14)).
   func testTheNightcapConeStandsOnItsBrimWithTheBobbleAtItsPoint() {
     let cone = HeldProps.nightcapCone.path(in: canvas).boundingRect
     let brim = HeldProps.nightcapBrim.path(in: canvas).boundingRect
@@ -55,17 +56,25 @@ final class HeldPropViewTests: XCTestCase {
     XCTAssertEqual(brim.maxY, cone.maxY, accuracy: 1, "the brim runs along the bottom of the cap")
     XCTAssertLessThan(cone.minY, brim.minY, "the cap rises above its own brim")
     XCTAssertGreaterThan(bobble.midX, brim.maxX, "the point flops off the near side")
+    XCTAssertGreaterThan(bobble.midX, 85, "the bobble hangs off the head's edge, past the point")
     XCTAssertGreaterThan(bobble.maxX, cone.maxX, "the bobble hangs past the tip")
-    XCTAssertLessThan(bobble.midY, 14, "and stays up on the crown, not adrift down the face")
+    XCTAssertLessThan(bobble.midY, 16, "and stays up on the crown, not adrift down the face")
   }
 
-  /// The cap sits where the crown was: it spans the head's top from its left edge to the swept
-  /// stem's seat, so the bare crown never shows around it. The stem and leaves themselves are not
-  /// drawn at all while it is worn — the asleep pose is not `crowned` — because the swept crown
-  /// reaches past any cap this thin, and `MascotSnapshotTests` proves no leaf green survives.
+  /// The cap sits where the crown was: it spans the head's top and its point's finger reaches out
+  /// toward the bobble, so the bare crown never shows around it. The stem and leaves themselves
+  /// are not drawn while it is worn — the asleep pose is not `crowned` — and `MascotSnapshotTests`
+  /// proves no leaf green survives. Points follow the approved mock (throwntom-bxd.5).
   func testTheNightcapSpansTheCrown() {
     let cap = HeldProps.nightcapCone.path(in: canvas)
-    for point in [CGPoint(x: 43, y: 20), CGPoint(x: 57, y: 20), CGPoint(x: 52, y: 14), CGPoint(x: 28, y: 13)] {
+    let inside = [
+      CGPoint(x: 40, y: 22),
+      CGPoint(x: 50, y: 18),
+      CGPoint(x: 60, y: 16),
+      CGPoint(x: 35, y: 26),
+      CGPoint(x: 80, y: 13), // the thin finger, on its way to the bobble
+    ]
+    for point in inside {
       XCTAssertTrue(cap.contains(point), "the cap misses the crown at \(point)")
     }
   }
@@ -75,13 +84,23 @@ final class HeldPropViewTests: XCTestCase {
     XCTAssertLessThanOrEqual(HeldProps.nightcapCone.path(in: canvas).boundingRect.maxY, 34)
   }
 
-  /// The cap is not a pillow: past its crest the top edge is pared straight down to a thin point,
-  /// so there is cream neither above the taper line nor hanging under the tip.
+  /// The cap is not a pillow: past its crest the silhouette is pared down to a thin finger, so
+  /// there is cream neither above the crest, above the finger, nor sagging under it.
   func testTheNightcapTapersThinPastTheCrest() {
     let cap = HeldProps.nightcapCone.path(in: canvas)
-    for outside in [CGPoint(x: 52, y: 3), CGPoint(x: 60, y: 5), CGPoint(x: 70, y: 17)] {
+    for outside in [CGPoint(x: 52, y: 3), CGPoint(x: 80, y: 8), CGPoint(x: 78, y: 19)] {
       XCTAssertFalse(cap.contains(outside), "the cap is fat at \(outside)")
     }
+  }
+
+  /// The Z's sit exactly where the approved mock drew them: the smallest sets off beside the cheek
+  /// at (78, 44) and the run ends in the corner at (93.5, 15.5), growing from 4 to 8.5 across.
+  func testTheZsFollowTheMocksRun() {
+    XCTAssertEqual(HeldProps.zed(progress: 0).path(in: canvas).boundingRect, CGRect(x: 76, y: 42, width: 4, height: 4))
+    let top = HeldProps.zed(progress: 1).path(in: canvas).boundingRect
+    XCTAssertEqual(top.midX, 93.5, accuracy: 0.01)
+    XCTAssertEqual(top.midY, 15.5, accuracy: 0.01)
+    XCTAssertEqual(top.width, 8.5, accuracy: 0.01)
   }
 
   /// Three Z's on one cycle, staggered by thirds, so the still frame Reduce Motion draws — and the
