@@ -46,6 +46,26 @@ final class MascotSnapshotTests: XCTestCase {
     }
   }
 
+  /// The asleep pose doffs the crown: the cap replaces the stem and leaves for the night, so not
+  /// one pixel of leaf green may show in the snoozed frame. The crown is drawn swept 8° to the
+  /// right (`TomatoBodyView`), which pushes its tip out past any cap thin enough to match the
+  /// design — the approved mockup resolves that by not drawing a crown at all, and so does the
+  /// pose.
+  func testTheSnoozedFrameShowsNoLeafGreen() throws {
+    let image = try XCTUnwrap(render(pose: .asleep, frame: .still, scheme: Palette.snoozed))
+    let tiff = try XCTUnwrap(image.tiffRepresentation)
+    let bitmap = try XCTUnwrap(NSBitmapImageRep(data: tiff))
+
+    var greens = 0
+    for y in 0 ..< bitmap.pixelsHigh {
+      for x in 0 ..< bitmap.pixelsWide where Self.isLeafGreen(bitmap.colorAt(x: x, y: y)) {
+        greens += 1
+      }
+    }
+
+    XCTAssertEqual(greens, 0, "leaf green shows through the nightcap")
+  }
+
   /// A snooze is not a phase, so the asleep pose and the ground it wears are rendered on their own
   /// rather than through the sweep above. Mid-cycle as well as still: the Z's are the one motion
   /// whose still frame is not simply the absence of the moving one.
@@ -115,6 +135,16 @@ final class MascotSnapshotTests: XCTestCase {
 
   private var outputDirectory: URL? {
     ProcessInfo.processInfo.environment["MASCOT_SNAPSHOT_DIR"].map { URL(fileURLWithPath: $0) }
+  }
+
+  /// Leaf green as it survives gradients and antialiasing: green leads red and blue both, which
+  /// nothing else on the snoozed frame's palette does — cream, sky, red, violet and outline all
+  /// fail one of the margins.
+  private static func isLeafGreen(_ color: NSColor?) -> Bool {
+    guard let color = color?.usingColorSpace(.deviceRGB) else { return false }
+    return color.greenComponent > 0.31
+      && color.greenComponent > color.redComponent + 0.1
+      && color.greenComponent > color.blueComponent + 0.1
   }
 
   private func header(_ content: MainWindowContent) -> some View {
