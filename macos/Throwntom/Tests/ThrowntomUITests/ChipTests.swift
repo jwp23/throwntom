@@ -58,6 +58,15 @@ final class ChipTests: XCTestCase {
     _ = ActionChips(content: content, client: environment.client, model: environment.windowModel).body
   }
 
+  /// `ChipLabel` and `SplitChip`'s label region share one face (`ChipFace`) instead of each
+  /// drawing the title/hint HStack themselves, so a future style change cannot silently
+  /// un-match them the way the dropped byte-identity test used to guard against.
+  func testChipLabelIsBuiltFromChipFace() {
+    let style = ChipStyle.style(primary: false, scheme: Palette.scheme(for: .idle))
+    let bodyType = String(describing: type(of: ChipLabel(title: "Snooze", hint: "", style: style).body))
+    XCTAssertTrue(bodyType.contains("ChipFace"), bodyType)
+  }
+
   /// `ActionChips.row(for:)` is what `ForEach`'s trailing closure delegates to, and the closure
   /// itself only runs through the (untestable) rendering pass — so both branches are built here
   /// directly instead, the same smoke-build shape as `WindowSectionBodyTests`.

@@ -15,15 +15,15 @@ struct ChipStyle: Equatable {
   }
 }
 
-// MARK: - ChipLabel
+// MARK: - ChipFace
 
-/// A chip's face: the title, its shortcut when it has one, and the rounded fill. Separate from
-/// `Chip` so the controls that are not buttons — the snooze pull-down — wear the same face
-/// without copying it.
-struct ChipLabel: View {
+/// The title and, when present, its shortcut hint — the text content every chip face shares,
+/// whether drawn as a plain button (`ChipLabel`) or as one half of a split chip (`SplitChip`).
+/// Neither background nor padding belongs here: a plain chip pads and fills all the way around,
+/// while a split chip's label region only pads and fills its own side of one shared background.
+struct ChipFace: View {
   let title: String
   let hint: String
-  let style: ChipStyle
 
   var body: some View {
     HStack(spacing: 6) {
@@ -32,10 +32,23 @@ struct ChipLabel: View {
         Text(hint).font(.body.monospaced())
       }
     }
-    .padding(.horizontal, 10)
-    .padding(.vertical, 5)
-    .background(style.fill.color, in: RoundedRectangle(cornerRadius: 6))
-    .foregroundStyle(style.text.color)
+  }
+}
+
+// MARK: - ChipLabel
+
+/// A chip's face with its own padding and rounded fill applied — what `Chip` wraps in a button.
+struct ChipLabel: View {
+  let title: String
+  let hint: String
+  let style: ChipStyle
+
+  var body: some View {
+    ChipFace(title: title, hint: hint)
+      .padding(.horizontal, 10)
+      .padding(.vertical, 5)
+      .background(style.fill.color, in: RoundedRectangle(cornerRadius: 6))
+      .foregroundStyle(style.text.color)
   }
 }
 

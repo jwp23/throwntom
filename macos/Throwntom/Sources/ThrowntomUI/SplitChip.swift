@@ -1,12 +1,10 @@
 import SwiftUI
 
 /// A chip with two independently-clickable regions sharing one fill: the label performs the
-/// chip's plain-click action, and the chevron opens a menu on a plain click — no press-and-hold
-/// anywhere (throwntom-bxd.29). Built entirely of SwiftUI's own drawing rather than a native
-/// combo/split button, because AppKit's own split-button chrome does not take this app's
-/// palette — it renders as a light system-grey pill against this app's dark `*-chip` colours,
-/// which is what left the plain `Menu(primaryAction:)` chevron a press-and-hold-only control in
-/// the first place once `throwntom-bxd.2` moved its label off AppKit's own drawing.
+/// chip's plain-click action, and the chevron opens a menu on a plain click (throwntom-bxd.29).
+/// Built entirely of SwiftUI's own drawing rather than a native combo/split button, because
+/// AppKit's own split-button chrome does not take this app's palette — it renders as a light
+/// system-grey pill against this app's dark `*-chip` colours.
 struct SplitChip<Action: MenuAction, MenuItemLabel: View>: View {
 
   // MARK: Internal
@@ -31,16 +29,11 @@ struct SplitChip<Action: MenuAction, MenuItemLabel: View>: View {
 
   private var labelRegion: some View {
     Button(action: primaryAction) {
-      HStack(spacing: 6) {
-        Text(title).fontWeight(.semibold)
-        if !hint.isEmpty {
-          Text(hint).font(.body.monospaced())
-        }
-      }
-      .padding(.leading, 10)
-      .padding(.trailing, 6)
-      .padding(.vertical, 5)
-      .contentShape(Rectangle())
+      ChipFace(title: title, hint: hint)
+        .padding(.leading, 10)
+        .padding(.trailing, 6)
+        .padding(.vertical, 5)
+        .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
     .accessibilityLabel(hint.isEmpty ? title : "\(title), \(hint)")

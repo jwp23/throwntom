@@ -59,4 +59,17 @@ final class SplitChipTests: XCTestCase {
     XCTAssertFalse(bodyType.contains("Divider"), bodyType)
   }
 
+  /// The other half of `ChipTests.testChipLabelIsBuiltFromChipFace` — proves this chip's label
+  /// region shares `ChipFace` too, rather than duplicating it.
+  func testTheChipIsBuiltFromChipFace() {
+    let scheme = Palette.scheme(for: .idle)
+    let style = ChipStyle.style(primary: false, scheme: scheme)
+    let menu = MenuModel.snooze(canDefer: true, isSnoozed: false)
+    let chip = SplitChip(title: "Snooze", hint: "", style: style, menu: menu, primaryAction: { }) { item in
+      Button(item.title) { }.disabled(!item.isEnabled)
+    }
+    let bodyType = String(describing: type(of: chip.body))
+    XCTAssertTrue(bodyType.contains("ChipFace"), bodyType)
+  }
+
 }
