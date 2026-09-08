@@ -13,7 +13,14 @@ final class SplitChipTests: XCTestCase {
     let scheme = Palette.scheme(for: .idle)
     let style = ChipStyle.style(primary: false, scheme: scheme)
     let menu = MenuModel.snooze(canDefer: true, isSnoozed: false)
-    let chip = SplitChip(title: "Snooze", hint: "", style: style, menu: menu, primaryAction: { }) { item in
+    let chip = SplitChip(
+      title: "Snooze",
+      hint: "",
+      style: style,
+      menu: menu,
+      menuAccessibilityLabel: "Snooze",
+      primaryAction: { },
+    ) { item in
       Button(item.title) { }.disabled(!item.isEnabled)
     }
     for appearance in AppearanceRender.appearances {
@@ -37,7 +44,14 @@ final class SplitChipTests: XCTestCase {
     let style = ChipStyle.style(primary: false, scheme: scheme)
     let menu = MenuModel.snooze(canDefer: true, isSnoozed: false)
     let plainSize = try AppearanceRender.size(ChipLabel(title: "Snooze", hint: "", style: style))
-    let chip = SplitChip(title: "Snooze", hint: "", style: style, menu: menu, primaryAction: { }) { item in
+    let chip = SplitChip(
+      title: "Snooze",
+      hint: "",
+      style: style,
+      menu: menu,
+      menuAccessibilityLabel: "Snooze",
+      primaryAction: { },
+    ) { item in
       Button(item.title) { }.disabled(!item.isEnabled)
     }
     let splitSize = try AppearanceRender.size(chip)
@@ -52,7 +66,14 @@ final class SplitChipTests: XCTestCase {
     let scheme = Palette.scheme(for: .idle)
     let style = ChipStyle.style(primary: false, scheme: scheme)
     let menu = MenuModel.snooze(canDefer: true, isSnoozed: false)
-    let chip = SplitChip(title: "Snooze", hint: "", style: style, menu: menu, primaryAction: { }) { item in
+    let chip = SplitChip(
+      title: "Snooze",
+      hint: "",
+      style: style,
+      menu: menu,
+      menuAccessibilityLabel: "Snooze",
+      primaryAction: { },
+    ) { item in
       Button(item.title) { }.disabled(!item.isEnabled)
     }
     let bodyType = String(describing: type(of: chip.body))
@@ -65,7 +86,14 @@ final class SplitChipTests: XCTestCase {
     let scheme = Palette.scheme(for: .idle)
     let style = ChipStyle.style(primary: false, scheme: scheme)
     let menu = MenuModel.snooze(canDefer: true, isSnoozed: false)
-    let chip = SplitChip(title: "Snooze", hint: "", style: style, menu: menu, primaryAction: { }) { item in
+    let chip = SplitChip(
+      title: "Snooze",
+      hint: "",
+      style: style,
+      menu: menu,
+      menuAccessibilityLabel: "Snooze",
+      primaryAction: { },
+    ) { item in
       Button(item.title) { }.disabled(!item.isEnabled)
     }
     let bodyType = String(describing: type(of: chip.body))

@@ -44,7 +44,14 @@ struct SnoozeChip: View {
   }
 
   var body: some View {
-    SplitChip(title: title, hint: hint, style: style, menu: menu, primaryAction: { run(primaryAction) }) { item in
+    SplitChip(
+      title: title,
+      hint: hint,
+      style: style,
+      menu: menu,
+      menuAccessibilityLabel: "Snooze",
+      primaryAction: { run(primaryAction) },
+    ) { item in
       menuButton(for: item)
     }
   }
