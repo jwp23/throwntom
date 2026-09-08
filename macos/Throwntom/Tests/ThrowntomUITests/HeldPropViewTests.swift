@@ -157,8 +157,9 @@ final class HeldPropViewTests: XCTestCase {
   @MainActor
   func testEveryPropBuilds() {
     for prop in [HeldProp.drink, .book, .yoyo, .cable, .exclamation, .burger, .nightcap] {
-      _ = HeldPropView(prop: prop, yoyoDrop: 10, zzzPhase: 0.25, unit: 2).body
+      _ = HeldPropView(prop: prop, yoyoDrop: 10, unit: 2).body
     }
+    _ = ZedsView(zzzPhase: 0.25, unit: 2).body
   }
 
   // MARK: Private

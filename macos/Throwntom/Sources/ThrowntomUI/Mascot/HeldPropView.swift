@@ -129,30 +129,31 @@ enum HeldProps {
     path.line(units, 88, 22)
   }
 
-  /// The nightcap: a cone pulled down where the crown was, its brim riding the top of the head and
-  /// its point flopped to the near side. Past the crest at (38, 2) the top edge is a straight
-  /// taper — the sharp angle there is what keeps it a cap and not a pillow. It replaces the crown
-  /// outright: the asleep pose is not `crowned`, because the crown is drawn swept far enough right
-  /// (`TomatoBodyView`) that no cap this thin could cover its tip.
+  /// The nightcap, verbatim from the approved mock (throwntom-bxd.5): a cone pulled down where
+  /// the crown was, cresting at (52, 4) and pared into a thin finger that reaches (85, 13), with
+  /// the bobble hanging off the head's edge past it. It replaces the crown outright: the asleep
+  /// pose is not `crowned`, because the crown is drawn swept far enough right (`TomatoBodyView`)
+  /// that no cap this thin could cover its tip.
   static let nightcapCone = DesignShape { path, units in
-    path.move(units, 18, 33)
-    path.curve(units, 16, 26, 17, 16, 25, 8)
-    path.curve(units, 26, 5, 34, 4, 38, 2)
-    path.line(units, 74, 8)
-    path.curve(units, 73, 12.5, 70, 17, 66, 22)
-    path.curve(units, 52, 21, 32, 25, 18, 33)
+    path.move(units, 25, 31)
+    path.quad(units, 29, 7, 52, 4)
+    path.quad(units, 64, 3, 72, 8)
+    path.quad(units, 80, 12, 85, 13)
+    path.quad(units, 76, 18, 70, 20)
+    path.quad(units, 71, 24, 72, 28)
+    path.quad(units, 50, 19, 25, 31)
     path.closeSubpath()
   }
 
   /// The brim, along the bottom edge of the cone and stroked over it, so the band reads as turned
   /// up rather than as a line ruled across the cap.
   static let nightcapBrim = DesignShape { path, units in
-    path.move(units, 18, 33)
-    path.curve(units, 32, 25, 52, 21, 66, 22)
+    path.move(units, 25, 31)
+    path.quad(units, 50, 19, 72, 28)
   }
 
   static let nightcapBobble = DesignShape { path, units in
-    path.circle(units, 77, 9, 4.8)
+    path.circle(units, 87, 14, 4.5)
   }
 
   /// How many Z's drift off the cap at once.
@@ -224,11 +225,12 @@ enum HeldProps {
   // MARK: Private
 
   /// Where a Z sets off — beside the cheek, under the cap's flopped point — and how far it travels
-  /// over its run: up and away from the face, into the corner the "!" used to shout from. The climb
-  /// is long enough that Z's a third of a cycle apart never touch, so they read as three.
-  private static let zedStart = CGPoint(79, 38)
-  private static let zedDrift = CGSize(width: 16, height: -31)
-  private static let zedHalfSizeRange: ClosedRange<Double> = 2 ... 4.5
+  /// over its run: up and away from the face, into the corner the "!" used to shout from. Start,
+  /// end and sizes are the mock's own; the climb is long enough that Z's a third of a cycle apart
+  /// never touch, so they read as three.
+  private static let zedStart = CGPoint(78, 44)
+  private static let zedDrift = CGSize(width: 15.5, height: -28.5)
+  private static let zedHalfSizeRange: ClosedRange<Double> = 2 ... 4.25
   /// The last fraction of a run, over which the Z fades out.
   private static let zedFadeOut = 0.25
 
@@ -243,8 +245,6 @@ struct HeldPropView: View {
   let prop: HeldProp
   /// How far the yo-yo hangs below the hand, in design units; ignored by every other prop.
   let yoyoDrop: Double
-  /// Where the nightcap's Z's are in their cycle, 0 to 1; ignored by every other prop.
-  let zzzPhase: Double
   let unit: CGFloat
 
   var body: some View {
@@ -316,26 +316,17 @@ struct HeldPropView: View {
     }
   }
 
-  /// Cream cap, sky brim, cream Z's: the cap borrows the drink's and the yo-yo's own blue rather
-  /// than introducing a colour, and the Z's are the cream the "!" they replace was drawn in.
+  /// Cream cap, sky brim: the cap borrows the drink's and the yo-yo's own blue rather than
+  /// introducing a colour. The Z's are not here — they are air, not prop, drawn by `ZedsView`
+  /// outside the character's turn the way the approved mock draws them.
   private var nightcap: some View {
     ZStack {
       HeldProps.nightcapCone.fill(Palette.cream.color)
       HeldProps.nightcapCone.stroke(outline, style: StrokeStyle(lineWidth: 2 * unit, lineJoin: .round))
-      HeldProps.nightcapBrim.stroke(outline, style: StrokeStyle(lineWidth: 6.5 * unit, lineCap: .round))
-      HeldProps.nightcapBrim.stroke(MascotPalette.sky.color, style: StrokeStyle(lineWidth: 4.5 * unit, lineCap: .round))
+      HeldProps.nightcapBrim.stroke(outline, style: StrokeStyle(lineWidth: 8 * unit, lineCap: .round))
+      HeldProps.nightcapBrim.stroke(MascotPalette.sky.color, style: StrokeStyle(lineWidth: 5 * unit, lineCap: .round))
       HeldProps.nightcapBobble.fill(Palette.cream.color)
       HeldProps.nightcapBobble.stroke(outline, lineWidth: 2 * unit)
-      zeds
-    }
-  }
-
-  private var zeds: some View {
-    ForEach(0 ..< HeldProps.zedCount, id: \.self) { index in
-      let progress = HeldProps.zedProgress(index, phase: zzzPhase)
-      HeldProps.zed(progress: progress)
-        .stroke(Palette.cream.color, style: StrokeStyle(lineWidth: 1.6 * unit, lineCap: .round, lineJoin: .round))
-        .opacity(HeldProps.zedOpacity(progress: progress))
     }
   }
 
@@ -358,4 +349,28 @@ struct HeldPropView: View {
     }
   }
 
+}
+
+// MARK: - ZedsView
+
+/// The nightcap's Z's, drifting into the corner the "!" used to shout from. They are air, not
+/// prop: the approved mock draws them outside the character's −12° turn and its breathe, upright
+/// in the room, so they live beside the character in `MascotCharacterView` rather than in
+/// `HeldPropView`. Cream, because that is what the "!" they replace was drawn in.
+struct ZedsView: View {
+  /// Where the Z's are in their shared cycle, 0 to 1.
+  let zzzPhase: Double
+  let unit: CGFloat
+
+  var body: some View {
+    ZStack {
+      ForEach(0 ..< HeldProps.zedCount, id: \.self) { index in
+        let progress = HeldProps.zedProgress(index, phase: zzzPhase)
+        HeldProps.zed(progress: progress)
+          .stroke(Palette.cream.color, style: StrokeStyle(lineWidth: 1.6 * unit, lineCap: .round, lineJoin: .round))
+          .opacity(HeldProps.zedOpacity(progress: progress))
+      }
+    }
+    .frame(width: Units.canvas * unit, height: Units.canvas * unit)
+  }
 }
