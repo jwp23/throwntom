@@ -12,6 +12,15 @@ final class LunchChipTests: XCTestCase {
     _ = try makeChip(phase: .idle).body
   }
 
+  /// throwntom-bxd.29: press-and-hold reaching the menu is gone; SplitChip is what replaces
+  /// it, so the chip's body has to actually be built from it rather than from
+  /// Menu(primaryAction:), which is press-and-hold-only.
+  func testTheChipIsBuiltFromSplitChipRatherThanPressAndHold() throws {
+    let chip = try makeChip(phase: .idle)
+    let bodyType = String(describing: type(of: chip.body))
+    XCTAssertTrue(bodyType.contains("SplitChip"), bodyType)
+  }
+
   func testCustomOpensTheLengthFieldInsteadOfAskingTheDaemon() throws {
     let chip = try makeChip(phase: .idle)
     XCTAssertFalse(chip.model.isEnteringLunch)
