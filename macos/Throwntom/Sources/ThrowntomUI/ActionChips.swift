@@ -17,10 +17,9 @@ struct ActionChips: View {
     }
   }
 
-  /// Snooze and meeting are the two verbs with a duration to choose and a way out to offer, so
-  /// each is a pull-down rather than a plain button. Everything else is one click and done. Built
-  /// as its own method, free of `ForEach`'s trailing closure, for the same testability reason as
-  /// `chip(for:)`.
+  /// Snooze, Lunch and Meeting are the verbs with a duration to choose, so each is a split chip
+  /// rather than a plain button. Everything else is one click and done. Built as its own method,
+  /// free of `ForEach`'s trailing closure, for the same testability reason as `chip(for:)`.
   @ViewBuilder
   func row(for action: TimerAction) -> some View {
     switch action {

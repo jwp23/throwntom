@@ -88,7 +88,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Govulncheck
-        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
 
   macos:
     name: macOS app

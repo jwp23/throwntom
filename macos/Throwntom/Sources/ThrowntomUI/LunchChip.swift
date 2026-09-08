@@ -2,7 +2,7 @@ import SwiftUI
 import ThrowntomClient
 
 /// The lunch control: a chip that takes the daemon's configured length on a plain click and
-/// opens the lengths on a press-and-hold, the way the meeting chip does.
+/// opens the lengths on a click of its trailing chevron, the way the meeting chip does.
 ///
 /// Unlike meeting, lunch needs no way out of its own: `TimerActions.available(for:)` already
 /// withdraws this chip once a lunch is running and offers Skip in its place, so this chip never
@@ -24,20 +24,16 @@ struct LunchChip: View {
   }
 
   var body: some View {
-    Menu {
-      MenuGroups(menu: menu) { item in menuButton(for: item) }
-    } label: {
-      ChipLabel(title: title, hint: "", style: style)
-    } primaryAction: {
-      run(nil)
+    SplitChip(
+      title: title,
+      hint: "",
+      style: style,
+      menu: menu,
+      menuAccessibilityLabel: "Lunch",
+      primaryAction: { run(nil) },
+    ) { item in
+      menuButton(for: item)
     }
-    // AppKit's own menu style repaints the label; the button style keeps ChipLabel's paint, so
-    // the pull-down wears the same chip as the buttons beside it.
-    .menuStyle(.button)
-    .buttonStyle(.plain)
-    .fixedSize()
-    .accessibilityLabel(title)
-    .accessibilityHint("Press and hold to choose how long")
   }
 
   /// Built as its own method, free of the menu's trailing closure, so a test can call it directly

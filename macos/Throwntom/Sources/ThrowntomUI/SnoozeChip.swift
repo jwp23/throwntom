@@ -2,7 +2,7 @@ import SwiftUI
 import ThrowntomClient
 
 /// The snooze control: a chip that defers the reminder on a plain click and opens the durations
-/// on a press-and-hold, the way a macOS pull-down with a default action behaves.
+/// on a click of its trailing chevron (`SplitChip`).
 ///
 /// While a snooze is running the same chip cancels it, because that is the moment the user wants
 /// the undo and going looking for a second control for it is the gap this closes. The durations
@@ -44,22 +44,16 @@ struct SnoozeChip: View {
   }
 
   var body: some View {
-    Menu {
-      MenuGroups(menu: menu) { item in menuButton(for: item) }
-    } label: {
-      ChipLabel(title: title, hint: hint, style: style)
-    } primaryAction: {
-      run(primaryAction)
+    SplitChip(
+      title: title,
+      hint: hint,
+      style: style,
+      menu: menu,
+      menuAccessibilityLabel: "Snooze",
+      primaryAction: { run(primaryAction) },
+    ) { item in
+      menuButton(for: item)
     }
-    // A menu drawn by AppKit paints its own label tinting over `ChipLabel`, which left this chip in
-    // brown text on the phase ground while every button beside it wore the fill. Drawn as a button
-    // in the plain style, the pull-down is SwiftUI's own drawing all the way down and wears exactly
-    // the chip the buttons wear — in both system appearances, which an AppKit control would not.
-    .menuStyle(.button)
-    .buttonStyle(.plain)
-    .fixedSize()
-    .accessibilityLabel(hint.isEmpty ? title : "\(title), \(hint)")
-    .accessibilityHint("Press and hold to choose how long")
   }
 
   /// Built as its own method, free of `MenuGroups`' trailing closure, so it can be called and

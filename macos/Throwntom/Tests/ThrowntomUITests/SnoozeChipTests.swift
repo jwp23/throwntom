@@ -20,6 +20,14 @@ final class SnoozeChipTests: XCTestCase {
     _ = try makeChip(snoozeUntil: Date().addingTimeInterval(600)).body
   }
 
+  /// throwntom-bxd.29: the chip's body has to be built from SplitChip, with the menu reaching
+  /// via the trailing chevron (a plain click, not through Menu(primaryAction:)).
+  func testTheChipIsBuiltFromSplitChipRatherThanPressAndHold() throws {
+    let chip = try makeChip(snoozeUntil: nil)
+    let bodyType = String(describing: type(of: chip.body))
+    XCTAssertTrue(bodyType.contains("SplitChip"), bodyType)
+  }
+
   /// The undo has to be where the snooze was. A user looking for the way out of a snooze reaches
   /// for the control that caused it, so the same chip cancels while one is running.
   func testWhileSnoozedTheSameChipIsTheUndo() throws {
@@ -89,37 +97,34 @@ final class SnoozeChipTests: XCTestCase {
     XCTAssertEqual(try makeChip(snoozeUntil: Date().addingTimeInterval(600)).hint, "")
   }
 
-  /// The snooze control is a pull-down, but it has to be a chip first. A menu style that hands its
+  /// The snooze control has to be a chip first. A menu style that hands its
   /// label to AppKit gets AppKit's own tinting painted over `ChipLabel`, so the chip came out in
   /// brown text on the phase ground while every button beside it wore the fill (throwntom-bxd.2).
-  /// Drawn against the chip it sits next to, the two have to be the same picture — in both system
-  /// appearances, because a window painted in its own palette does not change with the system's.
-  func testTheChipIsDrawnExactlyLikeThePlainChipsBesideIt() throws {
+  ///
+  /// This used to assert the two were the same picture byte for byte, but throwntom-bxd.29 gives
+  /// menu chips a disclosure chevron that plain chips do not draw, so the pictures now differ on
+  /// purpose. What still has to hold — and what would fail if AppKit's tinting came back — is that
+  /// this chip paints in the plain chip's own fill and text colours rather than the system's.
+  func testTheChipPaintsTheStylesFillAndTextColours() throws {
     let chip = try makeChip(snoozeUntil: nil)
-    let plain = Chip(title: chip.title, hint: chip.hint, isPrimary: false, scheme: chip.content.scheme) { }
     for appearance in AppearanceRender.appearances {
       let drawn = try AppearanceRender.bitmap(
         framed(chip.body, scheme: chip.content.scheme),
         appearance: appearance.appearance,
         scheme: appearance.scheme,
       )
-      let reference = try AppearanceRender.bitmap(
-        framed(plain, scheme: chip.content.scheme),
-        appearance: appearance.appearance,
-        scheme: appearance.scheme,
-      )
-      // Two blank pictures are also identical, so the reference has to be shown to be a chip first.
       let fill = try AppearanceRender.swatch(
         chip.content.scheme.secondaryChip,
         appearance: appearance.appearance,
         scheme: appearance.scheme,
       )
-      XCTAssertGreaterThan(AppearanceRender.pixels(of: fill, in: reference), 500, appearance.name)
-      XCTAssertEqual(
-        try AppearanceRender.png(drawn),
-        try AppearanceRender.png(reference),
-        appearance.name,
+      let text = try AppearanceRender.swatch(
+        chip.content.scheme.secondaryChipText,
+        appearance: appearance.appearance,
+        scheme: appearance.scheme,
       )
+      XCTAssertGreaterThan(AppearanceRender.pixels(of: fill, in: drawn), 500, appearance.name)
+      XCTAssertGreaterThan(AppearanceRender.pixels(of: text, in: drawn), 0, appearance.name)
     }
   }
 
