@@ -60,24 +60,43 @@ final class HeldPropViewTests: XCTestCase {
   }
 
   /// The cap is pulled down over the crown like a real nightcap: the stem and both leaves sleep
-  /// under it, and no green pokes out of the cream.
+  /// under it, and no green pokes out of the cream. The crown is drawn swept 8° right about
+  /// (50, 20) and offset 4 to the right (`TomatoBodyView`), so these are the leaves' and stem's
+  /// extremes where they actually land, not where their paths put them; the swept right leaf tip
+  /// reaches past the cone, which is what the bobble is sized to cover.
   func testTheNightcapCoversTheCrown() {
     let cap = HeldProps.nightcapCone.path(in: canvas)
-    let crown = [
-      CGPoint(x: 43, y: 20),
-      CGPoint(x: 57, y: 20),
-      CGPoint(x: 52, y: 14),
-      CGPoint(x: 28, y: 11),
-      CGPoint(x: 72, y: 11),
+    let bobble = HeldProps.nightcapBobble.path(in: canvas)
+    let sweptCrown = [
+      CGPoint(x: 77.0, y: 14.2), // right leaf tip
+      CGPoint(x: 75.1, y: 15.1), // right leaf inner edge, near the tip
+      CGPoint(x: 70.3, y: 12.3), // right leaf outer edge, mid
+      CGPoint(x: 67.7, y: 19.0), // right leaf inner edge, mid
+      CGPoint(x: 62.5, y: 10.1), // stem top
+      CGPoint(x: 44.0, y: 9.3), // left leaf top
+      CGPoint(x: 33.5, y: 8.0), // left leaf tip
+      CGPoint(x: 46.5, y: 23.0), // left leaf base
     ]
-    for point in crown {
-      XCTAssertTrue(cap.contains(point), "the cap misses the crown at \(point)")
+    for point in sweptCrown {
+      XCTAssertTrue(
+        cap.contains(point) || bobble.contains(point),
+        "the crown pokes out of the cap at \(point)",
+      )
     }
   }
 
   /// The cap belongs to the top of the head: its brim rides the crown, well clear of the face.
   func testTheNightcapStaysAboveTheFace() {
     XCTAssertLessThanOrEqual(HeldProps.nightcapCone.path(in: canvas).boundingRect.maxY, 34)
+  }
+
+  /// The cap is not a pillow: past its crest the top edge is pared straight down to a thin point,
+  /// so there is cream neither above the taper line nor hanging under the tip.
+  func testTheNightcapTapersThinPastTheCrest() {
+    let cap = HeldProps.nightcapCone.path(in: canvas)
+    for outside in [CGPoint(x: 52, y: 3), CGPoint(x: 60, y: 5), CGPoint(x: 70, y: 17)] {
+      XCTAssertFalse(cap.contains(outside), "the cap is fat at \(outside)")
+    }
   }
 
   /// Three Z's on one cycle, staggered by thirds, so the still frame Reduce Motion draws — and the
