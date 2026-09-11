@@ -94,8 +94,8 @@ func TestMustParseStartPanicsOnAnInvalidStart(t *testing.T) {
 // small hours that follow it are one day and the boundary is the only place
 // the day changes.
 func TestSameWorkDay(t *testing.T) {
-	local := func(y int, m time.Month, d, hour, min int) time.Time {
-		return time.Date(y, m, d, hour, min, 0, 0, time.Local)
+	local := func(y int, m time.Month, d, hour, minute int) time.Time {
+		return time.Date(y, m, d, hour, minute, 0, 0, time.Local)
 	}
 	tests := []struct {
 		name  string

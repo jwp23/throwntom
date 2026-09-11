@@ -192,13 +192,13 @@ func clampANSILine(line string, width int) string {
 	if width == 1 {
 		return ""
 	}
-	max := width - 1
+	maxWidth := width - 1
 	visibleWidth := ansi.StringWidth(line)
-	if visibleWidth <= max {
+	if visibleWidth <= maxWidth {
 		return line
 	}
-	if max <= 3 {
-		return ansi.Truncate(line, max, "")
+	if maxWidth <= 3 {
+		return ansi.Truncate(line, maxWidth, "")
 	}
-	return ansi.Truncate(line, max, "...")
+	return ansi.Truncate(line, maxWidth, "...")
 }
