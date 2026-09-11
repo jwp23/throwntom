@@ -49,8 +49,23 @@ struct MainWindowContent: Equatable {
     // itself as the only thing that can report a snooze at all.
     let snoozed = shown?.snoozeUntil != nil
     isSnoozed = snoozed
-    scheme = snoozed ? Palette.snoozed : Palette.scheme(for: shown?.state)
-    pose = snoozed ? .asleep : MascotPose.pose(for: shown?.state, pausedFrom: shown?.pausedFrom ?? .idle)
+    // An outstanding morning nudge is not a phase either: the daemon publishes it as a flag beside
+    // an idle state, so drawn from the phase alone the window said `Idle` — indistinguishable from
+    // a timer nobody is waiting on. The nudge only rings for as long as `repeat_limit_secs`, and a
+    // user who reached their desk after that had a notification long since scrolled away and a
+    // window that admitted to nothing. It wears the confirm screen because it asks the same
+    // question with the same urgency; only the title differs, because the verb does — this one is
+    // answered by Start, not Confirm.
+    let nudging = Self.isMorningNudge(shown)
+    scheme = snoozed ? Palette.snoozed : Palette.scheme(for: nudging ? .awaitingConfirm : shown?.state)
+    pose =
+      if snoozed {
+        .asleep
+      } else if nudging {
+        .awaitingConfirm
+      } else {
+        MascotPose.pose(for: shown?.state, pausedFrom: shown?.pausedFrom ?? .idle)
+      }
     // A retained phase is still counting (ADR-008), so the window goes on naming it and keeps its
     // ground and its verbs — but it must not read as a live connection. Unmarked, a client that has
     // lost the daemon draws a window byte-for-byte identical to the connected one, and the only way
@@ -86,6 +101,11 @@ struct MainWindowContent: Equatable {
   }
 
   // MARK: Internal
+
+  /// What the window calls an unanswered morning nudge. It names what is owed rather than the
+  /// phase underneath, which is idle, and it echoes the notification's own words so the two read
+  /// as one reminder rather than as two things asking for attention.
+  static let morningNudgeTitle = "Ready to start?"
 
   let scheme: PhaseScheme
   let pose: MascotPose
@@ -130,18 +150,34 @@ struct MainWindowContent: Equatable {
   /// reference to what is bound, not a report of what is live.
   private let startTitle: String
 
-  /// The phase's own name, except for the two situations the phase does not describe: a snooze,
+  /// The phase's own name, except for the three situations the phase does not describe: a snooze,
   /// which the daemon reports beside the state and which leaves that state naming the reminder it
-  /// silenced, and a day the user has ended, where the daemon is idle and "Idle" would read as a
-  /// timer waiting to be started rather than as a day that is over.
+  /// silenced; a day the user has ended, where the daemon is idle and "Idle" would read as a
+  /// timer waiting to be started rather than as a day that is over; and an outstanding morning
+  /// nudge, where the daemon is idle and the user is the one being waited on.
   private static func phaseTitle(for state: DaemonState) -> String {
     if state.snoozeUntil != nil {
       "Snoozed"
     } else if state.state == .idle, state.dayEnded {
       "Done for today"
+    } else if isMorningNudge(state) {
+      morningNudgeTitle
     } else {
       state.state.displayName
     }
+  }
+
+  /// Whether an unanswered morning nudge is what this window is showing. One definition, because
+  /// the title, the ground and the pose have to agree: a window that named the nudge on an idle
+  /// ground, or shouted in alarm red under the word `Idle`, would be worse than either alone.
+  ///
+  /// A snooze outranks it for the reason the snoozed presentation exists at all — the reminder a
+  /// user has just quieted must not go on shouting — and an ended day outranks it because
+  /// `skipToday` retires the reminder along with the day (`internal/core/outstanding.go`), so the
+  /// two together are a contradiction, and "Done for today" is the half of it that is true.
+  private static func isMorningNudge(_ state: DaemonState?) -> Bool {
+    guard let state else { return false }
+    return state.snoozeUntil == nil && !state.dayEnded && state.state == .idle && state.morningPending
   }
 
   /// Both of what a snooze owes the reader, in the slot the phase countdown would have used. The

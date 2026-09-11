@@ -41,6 +41,16 @@ final class TimerHeaderTests: XCTestCase {
     XCTAssertGreaterThan(Self.deepestTitle().lines, 2)
   }
 
+  /// The sweep's whole claim is that it builds every title without anyone having to remember a
+  /// new one, so each title that is not a phase name is pinned here. A dimension the sweep forgets
+  /// costs nothing today and silently stops measuring the title that outgrows the width tomorrow.
+  func testTheSweepBuildsTheTitlesThatAreNotPhaseNames() {
+    let built = Self.everyTitle()
+    for title in ["Snoozed", "Done for today", MainWindowContent.morningNudgeTitle] {
+      XCTAssertTrue(built.contains(title), "the sweep no longer builds “\(title)”")
+    }
+  }
+
   /// Truncation is the failure being ruled out, so the header must not reintroduce it by another
   /// route: a scale factor would shrink text rather than cut it, which is the same readability
   /// problem wearing a different hat.
@@ -72,7 +82,9 @@ final class TimerHeaderTests: XCTestCase {
   }
 
   /// Every title `MainWindowContent` can produce, built through it rather than restated, so a new
-  /// phase or a reworded wait is measured here without anyone remembering to add it.
+  /// phase or a reworded wait is measured here without anyone remembering to add it. The flags
+  /// beside the phase are swept too, not just the phase itself: three of the titles are owed to
+  /// `snooze_until`, `day_ended` and `morning_pending` rather than to any state the daemon names.
   private static func everyTitle() -> Set<String> {
     let phases: [DaemonState.Phase] = [.idle, .work, .shortBreak, .longBreak, .lunch, .awaitingConfirm, .paused]
     let connections: [DaemonClient.Connection] = [
@@ -94,8 +106,15 @@ final class TimerHeaderTests: XCTestCase {
           for phase in phases {
             for dayEnded in [false, true] {
               for snoozeUntil in [nil, Date(timeIntervalSince1970: 600)] {
-                let state = makeState(phase: phase, snoozeUntil: snoozeUntil, dayEnded: dayEnded)
-                titles.insert(title(state: state, connection: connection, status: status))
+                for morningPending in [false, true] {
+                  let state = makeState(
+                    phase: phase,
+                    morningPending: morningPending,
+                    snoozeUntil: snoozeUntil,
+                    dayEnded: dayEnded,
+                  )
+                  titles.insert(title(state: state, connection: connection, status: status))
+                }
               }
             }
           }
