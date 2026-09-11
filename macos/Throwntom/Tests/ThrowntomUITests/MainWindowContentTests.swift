@@ -73,6 +73,51 @@ final class MainWindowContentTests: XCTestCase {
     XCTAssertNil(c.countdown)
   }
 
+  /// An outstanding morning nudge is a reminder owed, exactly as the cycle reminder is, and the
+  /// daemon reports it beside an idle state rather than as a state of its own. Drawn from the
+  /// phase alone the window said `Idle` — indistinguishable from a timer nobody is waiting on —
+  /// so a user arriving after the ring budget ran out had nothing on screen to answer. It wears
+  /// the confirm screen's ground and pose because it is asking the same question with the same
+  /// urgency; the title differs because the verb does: this one is answered by Start.
+  func testAnOutstandingMorningNudgeWearsTheConfirmScreen() {
+    let c = content(makeState(phase: .idle, morningPending: true))
+
+    XCTAssertEqual(c.title, "Ready to start?")
+    XCTAssertEqual(c.scheme, Palette.scheme(for: .awaitingConfirm))
+    XCTAssertEqual(c.pose, .awaitingConfirm)
+    XCTAssertNil(c.countdown)
+  }
+
+  /// The plain idle screen is what a morning nudge must stay distinguishable from, so an idle
+  /// timer with nothing owed keeps its own ground and pose.
+  func testAnIdleTimerWithNoReminderKeepsTheIdleScreen() {
+    let c = content(makeState(phase: .idle, morningPending: false))
+
+    XCTAssertEqual(c.title, "Idle")
+    XCTAssertEqual(c.scheme, Palette.scheme(for: .idle))
+    XCTAssertEqual(c.pose, .idle)
+  }
+
+  /// A snooze outranks the nudge it silenced: the user has just quieted this reminder, and the
+  /// alarm-red screen is the thing the snoozed look exists to stop (`testTheMorningNudgeSnooze…`).
+  /// An ended day outranks it too — "Done for today" is true where an alarm is not.
+  func testASnoozeOrAnEndedDayOutranksTheMorningNudge() {
+    let snoozed = content(makeState(phase: .idle, morningPending: true, snoozeUntil: now.addingTimeInterval(600)))
+    XCTAssertEqual(snoozed.title, "Snoozed")
+    XCTAssertEqual(snoozed.scheme, Palette.snoozed)
+
+    let ended = content(makeState(phase: .idle, morningPending: true, dayEnded: true))
+    XCTAssertEqual(ended.title, "Done for today")
+    XCTAssertEqual(ended.scheme, Palette.scheme(for: .idle))
+  }
+
+  /// The reconnect mark goes on whatever title the window is showing, and this is the third that
+  /// is not a phase name.
+  func testAMorningNudgeTitleTakesTheReconnectMarkLikeAnyOther() {
+    let nudged = makeState(phase: .idle, morningPending: true)
+    XCTAssertEqual(content(nudged, connection: .reconnecting(attempt: 1)).title, "Ready to start? (reconnecting)")
+  }
+
   /// The reconnect mark goes on whatever title the window is showing, and `Snoozed` is one of the
   /// two that is not a phase name.
   func testASnoozedTitleTakesTheReconnectMarkLikeAnyOther() {
