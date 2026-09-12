@@ -4,6 +4,8 @@ This ADR covers the Go side only. Swift mutation testing is a separate
 decision, to be recorded in its own ADR once the tooling question is
 settled (bead throwntom-ug9v).
 
+> 2026-09-12: the Swift decision is recorded in ADR-015.
+
 ## Context
 
 spe guards test quality with cargo-mutants in three layers (diff-scoped PR
