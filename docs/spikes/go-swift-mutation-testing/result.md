@@ -142,8 +142,11 @@ source; the Homebrew tap is untrusted by default):
 ## Follow-up spike: honest Swift runs under workspace relocation
 
 Bead: throwntom-gz9z.2 · Feeds: throwntom-ug9v (Swift CI adoption)
-Run: 2026-09-12 · Tool: ericodx/swift-mutation-testing built from source at
-commit f271976 (2026-05-24)
+Run: 2026-09-12 · Tool: ericodx/swift-mutation-testing built from source
+(`swift build -c release`) at `main` commit f271976 (2026-05-24), nine
+commits past the latest release v1.3.0; those commits are CI, Sonar and
+docs only, so the measured code paths are v1.3.0's. The cache-invalidation
+code dates from v1.2.0.
 
 ### Question
 
@@ -300,7 +303,15 @@ including the daemon and UI tests.
   JSON as the artifact (it carries `killedBy`), and keep the negative
   control (planted survivor must be Survived) as a job that runs before
   trusting any score.
-- Upstream issue candidates, in order of harm: baseline result discarded;
-  cache never invalidated by test edits; `--no-cache` still writes;
-  Crash verdicts on a clean mutant at the default timeout (repro above);
-  SPM concurrency serialized by the `.build` lock.
+- Upstream issues filed 2026-09-12 (AI-drafted, human-reviewed, disclosed
+  in each), in order of harm: baseline result discarded
+  ([#66](https://github.com/ericodx/swift-mutation-testing/issues/66));
+  cache never invalidated by test edits
+  ([#67](https://github.com/ericodx/swift-mutation-testing/issues/67));
+  `--no-cache` still writes
+  ([#68](https://github.com/ericodx/swift-mutation-testing/issues/68));
+  Crash verdicts on a clean mutant at the default timeout
+  ([#69](https://github.com/ericodx/swift-mutation-testing/issues/69));
+  SPM concurrency serialized by the `.build` lock
+  ([#70](https://github.com/ericodx/swift-mutation-testing/issues/70)).
+  The tracker had one prior issue (docs) and no overlap.
