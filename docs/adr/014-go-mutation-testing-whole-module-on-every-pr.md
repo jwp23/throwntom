@@ -32,13 +32,12 @@ feed the separate Swift ADR.)
   solely by tests not worth maintaining, recorded with a justifying comment.
 - **The bar is zero unexcluded in-scope survivors**, not a kill-rate
   percentage. Known-equivalent mutants are excluded via reviewed config
-  changes with justification (spe's equivalence policy). This bar covers
+  changes with justification (spe's equivalence policy). The bar covers
   every non-KILLED status, not just LIVED: an in-scope mutant that is
-  LIVED or NOT COVERED fails the gate the same as an excluded-equivalent
-  requires a reviewed exclusion; TIMED OUT and NOT VIABLE are reported
-  separately and triaged (a real hang vs. an uncompilable schema) rather
-  than silently passing. gremlins reports each status distinctly — the
-  gate consumes all of them, not just the LIVED count.
+  LIVED or NOT COVERED fails the gate unless a reviewed exclusion covers
+  it, and TIMED OUT and NOT VIABLE are triaged (a real hang vs. an
+  uncompilable mutation) rather than silently passing. gremlins reports
+  each status distinctly — the gate consumes all of them.
 
 ## Trade-offs
 
