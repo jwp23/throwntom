@@ -287,6 +287,10 @@ public final class DaemonClient {
   /// Start or Stop of the session.
   private var pendingServiceVerb: Task<Void, Never>?
 
+  /// How many times Start or Stop has been pressed, so a verb can tell whether a later press has
+  /// overtaken it by the time it finishes.
+  private var servicePresses = 0
+
   /// Whether the user wants a service running, as it stood when this client was built and as the
   /// two service verbs have changed it since.
   private var intent: ServiceIntent
@@ -368,48 +372,61 @@ public final class DaemonClient {
   ///
   /// The verb is awaited by whoever asked for it, so a press still reports when it is done rather
   /// than when it was queued, and the later press is the one that decides the outcome.
-  private func runServiceVerb(_ verb: @escaping @MainActor () async -> Void) async {
+  ///
+  /// That holds for the stream too. It is dropped at the press rather than when the verb's turn
+  /// comes, and the verb only reports whether the service is up; the stream is opened here, and
+  /// only for the latest press. A stream left live between a press and its turn, or opened by a
+  /// verb a later press has already overtaken, dials until that turn comes, and asks launchd for
+  /// the daemon on its third failed dial. How soon the turn comes is up to the scheduler, so
+  /// whether the service the user stopped gets asked for again would be too.
+  private func runServiceVerb(_ verb: @escaping @MainActor () async -> Bool) async {
+    stop()
+    servicePresses += 1
+    let press = servicePresses
     let queued = pendingServiceVerb
     let running = Task {
       await queued?.value
-      await verb()
+      let isServiceUp = await verb()
+      if isServiceUp, press == servicePresses {
+        start()
+      }
     }
     pendingServiceVerb = running
     await running.value
   }
 
-  /// Asks launchd for the daemon and dials it again.
+  /// Asks launchd for the daemon, and reports the service up so that it is dialled again.
   ///
-  /// The stream is dropped before launchd is asked, not after. Asking is awaited — the window must
-  /// not freeze for the length of a bootstrap — and a reconnect loop left running across that
-  /// await reaches its own third failed dial and asks launchd for the daemon itself, spending this
-  /// outage's one registration on the start the user is already making.
-  private func bringTheServiceUp() async {
+  /// No stream runs across the ask: `runServiceVerb` has dropped it at the press. Asking is
+  /// awaited — the window must not freeze for the length of a bootstrap — and a reconnect loop
+  /// left running across that await would reach its own third failed dial and ask launchd for the
+  /// daemon itself, spending this outage's one registration on the start the user is already
+  /// making.
+  private func bringTheServiceUp() async -> Bool {
     commandError = nil
     startStalled = false
     connection = .connecting
     record(.running)
-    stop()
     _ = await registerAgent()
-    start()
+    return true
   }
 
   /// Boots the agent out, and reports a refusal rather than claiming a stop that did not happen.
+  /// Returns whether the service is still up.
   ///
-  /// The stream is dropped before launchd is asked, and put back if launchd says no. The bootout
-  /// is awaited rather than run here, so nothing holds the main actor for its duration, and a
-  /// reconnect loop left running across it reaches its third failed dial and asks launchd for the
-  /// daemon back — the service the user just stopped, revived by the client's own recovery.
-  private func takeTheServiceDown() async {
-    stop()
+  /// No stream runs across the bootout: `runServiceVerb` has dropped it at the press, and puts it
+  /// back if launchd says no. The bootout is awaited rather than run here, so nothing holds the
+  /// main actor for its duration, and a reconnect loop left running across it would reach its
+  /// third failed dial and ask launchd for the daemon back — the service the user just stopped,
+  /// revived by the client's own recovery.
+  private func takeTheServiceDown() async -> Bool {
     do {
       try await registrar.stopAgent()
     } catch {
       ClientLog.failed("stop the timer service", in: .service, error: error)
       commandError = "The timer service could not be stopped."
       // The daemon is still running, so the client goes back to watching it.
-      start()
-      return
+      return true
     }
     // Recorded only once launchd has taken the agent down. A refused stop leaves a daemon still
     // running, and an intent written here would take it down on the next launch instead.
@@ -425,6 +442,7 @@ public final class DaemonClient {
     lastError = nil
     hasConnected = false
     connection = .stopped
+    return false
   }
 
   /// Asks launchd to start the daemon. Returns whether the ask was accepted.

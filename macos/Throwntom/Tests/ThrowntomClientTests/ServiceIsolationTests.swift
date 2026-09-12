@@ -59,12 +59,13 @@ final class ServiceVerbSerialisationTests: XCTestCase {
   /// ending over a stream the Start opened while it was waiting on launchd. The service the user
   /// stopped goes on dialling, and asks launchd for the daemon back on its third failed dial.
   func testAStopPressedInsideAStartLeavesTheServiceStopped() async throws {
-    let registrar = SlowLaunchdRegistrar(registering: .milliseconds(100), stopping: .milliseconds(300))
+    let registrar = HeldLaunchdRegistrar(holding: .register)
     let client = DaemonClient(transport: VanishingTransport(), registrar: registrar, backoff: [.milliseconds(5)])
     defer { client.stop() }
 
     let starting = Task { await client.startService() }
-    try await waitUntil("the start to reach launchd") { registrar.isRegistering }
+    try await waitUntil("the start to reach launchd") { registrar.registrations == 1 }
+    Task { @MainActor in registrar.release() }
     await client.stopService()
     await starting.value
 
@@ -79,12 +80,13 @@ final class ServiceVerbSerialisationTests: XCTestCase {
   /// The mirror, where the Start finishes last. It is the later of the two presses, so it is the
   /// one that decides the outcome; the Stop must not write its own ending over it.
   func testAStartPressedInsideAStopLeavesTheServiceRunning() async throws {
-    let registrar = SlowLaunchdRegistrar(registering: .milliseconds(100), stopping: .milliseconds(300))
+    let registrar = HeldLaunchdRegistrar(holding: .stop)
     let client = DaemonClient(transport: CountingStateTransport(), registrar: registrar)
     defer { client.stop() }
 
     let stopping = Task { await client.stopService() }
-    try await waitUntil("the stop to reach launchd") { registrar.isStopping }
+    try await waitUntil("the stop to reach launchd") { registrar.stops == 1 }
+    Task { @MainActor in registrar.release() }
     await client.startService()
     await stopping.value
 
@@ -92,60 +94,164 @@ final class ServiceVerbSerialisationTests: XCTestCase {
     try await waitUntil("the restarted client to reach the daemon") { client.connection == .connected }
   }
 
+  /// A Start that a Stop has already overtaken opens no stream. The Stop is the later press, so it
+  /// has decided there is none; a stream opened anyway dials, and asks launchd for the daemon on
+  /// its third failure, until the Stop's turn comes to drop it, and how soon that turn comes is
+  /// up to a scheduler that a loaded machine spends elsewhere.
+  func testAStartOvertakenByAStopOpensNoStream() async throws {
+    let registrar = HeldLaunchdRegistrar(holding: .register)
+    let transport = CountingTransport()
+    let client = DaemonClient(transport: transport, registrar: registrar)
+    defer { client.stop() }
+
+    let starting = Task { await client.startService() }
+    try await waitUntil("the start to reach launchd") { registrar.registrations == 1 }
+    Task { @MainActor in registrar.release() }
+    await client.stopService()
+    await starting.value
+
+    XCTAssertEqual(transport.streamsOpened, 0, "the overtaken start dialled the daemon")
+  }
+
+  /// A press drops the stream when it is pressed, not when its turn comes. Between the two the
+  /// loop is still live, and a loop mid-outage can reach its third failed dial in that gap and ask
+  /// launchd for the service the user is stopping.
+  func testPressingStopDropsTheStreamAtThePress() async throws {
+    let transport = HeldStreamTransport()
+    let client = DaemonClient(transport: transport, registrar: RecordingRegistrar())
+    client.start()
+    defer { client.stop() }
+    // The task list is published in the same main-actor turn that goes back to wait on the
+    // stream, so once it is here the loop is parked there and a cancel reaches the stream at once.
+    try await waitUntil("the task list to arrive") { !client.tasks.active.isEmpty }
+
+    // Queued before the press, so it runs ahead of the press's own task: in the gap between the
+    // press and its turn.
+    let endedBeforeTheVerbRan = Task { @MainActor in transport.isStreamEnded }
+    await client.stopService()
+
+    let ended = await endedBeforeTheVerbRan.value
+    XCTAssertTrue(ended, "the stream outlived the press")
+  }
+
 }
 
-// MARK: - SlowLaunchdRegistrar
+// MARK: - HeldLaunchdRegistrar
 
-/// A launchd stand-in whose calls take long enough for a second press to land inside them, the way
-/// a real `bootstrap` and `bootout` do. The two durations are given separately because which of
-/// the two verbs finishes last is the whole of the interleaving under test.
+/// A launchd stand-in that holds one of its two verbs until the test releases it, so a second
+/// press lands inside that call the way it can inside a real `bootstrap` or `bootout`. Holding the
+/// call rather than timing it is what makes "inside" certain: a call that ran for a fixed stretch
+/// can be over before a stalled main actor looks to see it has begun, and the press meant for its
+/// middle then lands after it.
 // Every mutable member is read and written under `lock`.
 // swiftlint:disable:next no_unchecked_sendable
-final class SlowLaunchdRegistrar: LaunchAgentRegistrar, @unchecked Sendable {
+final class HeldLaunchdRegistrar: LaunchAgentRegistrar, @unchecked Sendable {
 
   // MARK: Lifecycle
 
-  init(registering: Duration, stopping: Duration) {
-    registerDuration = registering
-    stopDuration = stopping
+  init(holding held: Verb) {
+    self.held = held
   }
 
   // MARK: Internal
 
-  var isRegistering: Bool {
-    lock.withLock { registering }
+  enum Verb {
+    case register
+    case stop
   }
 
-  var isStopping: Bool {
-    lock.withLock { stopping }
-  }
-
+  /// How many times launchd has been asked to start the daemon, counted as each ask arrives, so an
+  /// ask the held verb is still waiting on is counted too.
   var registrations: Int {
-    lock.withLock { registered }
+    lock.withLock { asks[.register, default: 0] }
   }
 
-  func ensureAgentRegistered() async throws {
-    lock.withLock { registering = true }
-    try? await Task.sleep(for: registerDuration)
-    lock.withLock {
-      registering = false
-      registered += 1
+  /// How many times launchd has been asked to take the agent down, counted as each ask arrives.
+  var stops: Int {
+    lock.withLock { asks[.stop, default: 0] }
+  }
+
+  /// Lets the held call finish, and every later call of that verb straight through, so an ask that
+  /// arrives after the release is counted rather than held where no test would notice it.
+  ///
+  /// Call it from a main-actor task queued just before the press. The press runs on to its first
+  /// suspension before that task gets a turn, so the release always comes after the press.
+  func release() {
+    let waiting = lock.withLock {
+      isReleased = true
+      defer { waiters = [] }
+      return waiters
+    }
+    for waiter in waiting {
+      waiter.resume()
     }
   }
 
+  func ensureAgentRegistered() async throws {
+    await ask(.register)
+  }
+
   func stopAgent() async throws {
-    lock.withLock { stopping = true }
-    try? await Task.sleep(for: stopDuration)
-    lock.withLock { stopping = false }
+    await ask(.stop)
   }
 
   // MARK: Private
 
-  private let registerDuration: Duration
-  private let stopDuration: Duration
+  private let held: Verb
   private let lock = NSLock()
-  private var registering = false
-  private var stopping = false
-  private var registered = 0
+  private var asks = [Verb: Int]()
+  private var isReleased = false
+  private var waiters = [CheckedContinuation<Void, Never>]()
+
+  private func ask(_ verb: Verb) async {
+    await withCheckedContinuation { continuation in
+      let isHeld = lock.withLock {
+        asks[verb, default: 0] += 1
+        guard verb == held, !isReleased else { return false }
+        waiters.append(continuation)
+        return true
+      }
+      if !isHeld {
+        continuation.resume()
+      }
+    }
+  }
+
+}
+
+// MARK: - HeldStreamTransport
+
+/// A daemon that answers the dial with a state frame, serves a one-task list, and holds the stream
+/// open, recording when the client's end of the stream goes away.
+// Every mutable member is read and written under `lock`.
+// swiftlint:disable:next no_unchecked_sendable
+final class HeldStreamTransport: DaemonTransport, @unchecked Sendable {
+
+  // MARK: Internal
+
+  var isStreamEnded: Bool {
+    lock.withLock { ended }
+  }
+
+  func request(_: String, _: String, body _: Data?) async throws -> HTTPResponse {
+    HTTPResponse(status: 200, headers: [:], body: Data(Self.oneTaskJSON.utf8))
+  }
+
+  func events(_: String) -> AsyncThrowingStream<Data, Error> {
+    AsyncThrowingStream { continuation in
+      continuation.onTermination = { _ in
+        self.lock.withLock { self.ended = true }
+      }
+      continuation.yield(Data(StateDecodingTests.idleJSON.utf8))
+    }
+  }
+
+  // MARK: Private
+
+  private static let oneTaskJSON =
+    #"{"active":[{"id":1,"description":"write plan","done":false,"created_at":"2026-08-25T20:14:37Z","completed_at":"0001-01-01T00:00:00Z"}],"completed":[]}"#
+
+  private let lock = NSLock()
+  private var ended = false
 
 }
