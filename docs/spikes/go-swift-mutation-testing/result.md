@@ -78,12 +78,30 @@ source; the Homebrew tap is untrusted by default):
 
 | Scope | Mutants | Wall clock | Outcome |
 |---|---|---|---|
-| `Sources/ThrowntomClient` (3.4k LOC) | 333 | 55 m 05 s | 94.2% — 260 killed, **0 survived**, 16 timeouts, 57 unviable |
+| `Sources/ThrowntomClient` (3.4k LOC) | 333 | 55 m 05 s | reported 94.2% — 260 killed, 0 survived, 16 timeouts, 57 unviable — but see below: the kill verdicts are invalid |
 
-- **It passes the litmus.** The `ReconnectBackoff.swift:44` relational
-  mutants (`>` → `>=`, `>` → `<`) and the negated conditional are all
-  Killed — including the exact mutant muter reported as surviving.
-  Mutant activation demonstrably works.
+- **The 0-survived headline is an artifact — do not trust this run's
+  verdicts.** The tool copies the package to a temp workspace and
+  compiles there; `DaemonHarness.repoRoot` is `#filePath`-derived
+  (`Tests/ThrowntomClientTests/TestSupport.swift`), so in the relocated
+  workspace it resolves outside any Go module, `go build ./cmd/throwntomd`
+  fails, and every `DaemonClientTests` case fails in every per-mutant run
+  — baseline included. The tool counts a failing suite as a kill and
+  never flags the broken baseline, so every viable mutant reports Killed.
+  Proven by negative control: with the `formatDuration` 60-minute
+  boundary assertion removed in a scratch copy, the then-genuinely-
+  surviving `>=` → `>` mutant was still reported Killed (with and without
+  cache). muter's copy is a sibling directory *inside* the repo, which is
+  why its baseline passed.
+- Consequences: (a) any adoption must make daemon-spawning integration
+  tests survive workspace relocation — e.g. skip them in mutation runs
+  or resolve the repo root via an overridable env var — and prove one
+  planted survivor is reported Survived before trusting a run; (b) the
+  missing baseline sanity check is worth filing upstream.
+- Timing and mechanics below remain valid: schematization, per-mutant
+  cost, unviable handling, and the cache observation (a cached rerun
+  returned in 20 s but did not notice changed *tests* — verify cache
+  invalidation before enabling it in CI).
 - **Cost shape is the opposite of Go's.** Schematization means one build,
   but each mutant still pays a full XCTest suite run (~11–14 s), so
   3.4k LOC costs ~55 min. `ThrowntomUI` is 5.9k LOC; whole-package runs
@@ -108,9 +126,13 @@ source; the Homebrew tap is untrusted by default):
   handler are tested domain logic, unlike spe's excluded UI plumbing.
   Borderline files are arbitrated file-by-file by the clean rerun's
   survivor list, not by a directory rule.
-- **Swift: ericodx/swift-mutation-testing is viable** — correct on the
-  litmus, robust against unviable schemata — but at ~10 s+/mutant it
-  needs spe-style scoping and cadence rather than whole-scope PR runs,
-  and its youth (3 stars, 2026-03) is real adoption risk. Decision and
-  ADR via throwntom-ug9v; muter is off the table until its activation
-  defect is fixed upstream.
+- **Swift: ericodx/swift-mutation-testing is the only live candidate,
+  but its trial verdicts are invalid** — the relocated workspace breaks
+  `DaemonHarness.repoRoot`, the suite fails in every run, and the tool
+  silently counts that as kills (no baseline check). Adoption
+  (throwntom-ug9v) must first make the suite pass under relocation for
+  mutation runs, then rerun and prove a planted survivor is reported
+  Survived. At ~10 s+/mutant it needs spe-style scoping and cadence
+  rather than whole-scope PR runs, and its youth (3 stars, 2026-03) is
+  real adoption risk. muter is off the table until its activation defect
+  is fixed upstream.
