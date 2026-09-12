@@ -138,3 +138,180 @@ source; the Homebrew tap is untrusted by default):
   rather than whole-scope PR runs, and its youth (3 stars, 2026-03) is
   real adoption risk. muter is off the table until its activation defect
   is fixed upstream.
+
+## Follow-up spike: honest Swift runs under workspace relocation
+
+Bead: throwntom-gz9z.2 · Feeds: throwntom-ug9v (Swift CI adoption)
+Run: 2026-09-12 · Tool: ericodx/swift-mutation-testing built from source
+(`swift build -c release`) at `main` commit f271976 (2026-05-24), nine
+commits past the latest release v1.3.0; those commits are CI, Sonar and
+docs only, so the measured code paths are v1.3.0's. The cache-invalidation
+code dates from v1.2.0.
+
+### Question
+
+The first trial's verdicts were invalid because the relocated sandbox breaks
+the daemon-spawning tests. What configuration makes the suite pass in the
+sandbox, and does an honest run then report a planted survivor as Survived
+and the ReconnectBackoff line-44 litmus as Killed?
+
+### Method
+
+Negative-control protocol from the first spike, recreated: copy
+`macos/Throwntom` outside the repo, move `StatsSummary.swift` and
+`ReconnectBackoff.swift` into `Sources/ThrowntomClient/Stats/` so
+`--sources-path` scopes the run to 27 mutants, and change the
+`formatDuration(minutes: 60)` assertion to `minutes: 120` so the `>=` → `>`
+mutant at `StatsSummary.swift:157` is a true survivor. A second copy is a
+`git clone` of the whole repo, so the code-change fixes can be tested with a
+real Go module around the package. Verdicts were read from `--output` JSON,
+which records `killedBy` per mutant; the console does not.
+
+### How the sandbox breaks the suite
+
+- The sandbox is `$TMPDIR/xmr-<uuid>/`. Every unmutated file, tests
+  included, is a **symlink** back to the source tree; only schematized
+  sources are real files (`Sandbox/SandboxFactory.swift`, `writeFile`).
+- `#filePath` is the compile-time path, i.e. the symlink path under the
+  sandbox, so five `deletingLastPathComponent()` calls land in `$TMPDIR`.
+  Two tests derive the repo root this way: `DaemonHarness.repoRoot`
+  (`Tests/ThrowntomClientTests/TestSupport.swift:147`) and the DESIGN.md
+  palette check (`Tests/ThrowntomUITests/DesignTokensTests.swift:28`).
+- Relocated baseline: 844 tests, 17 failures across `DaemonClientTests`,
+  `UnixSocketTransportTests`, `ReminderNotificationAnswerTests` (the three
+  `DaemonHarness` users) and `DesignTokensTests`. Not just the one class
+  the first spike named.
+- The tool's "baseline" is a warm-up, not a check: `validateSPMBaseline`
+  runs `swift test` and discards the result
+  (`Execution/MutantExecutor.swift:338-353`, `_ = try?`). Any failing
+  suite is a kill (`Execution/SPMResultParser.swift`: nonzero exit + a
+  `Test Case ... failed` line → killed). Upstream issue candidate.
+
+### Three fixes that make the suite pass in the sandbox
+
+1. **Tool-side filter, no code change.** `--target` is passed verbatim as
+   `swift test --filter <regex>` (`Execution/TestExecutionStage.swift:129-133`),
+   and `swift test --filter` accepts a negative lookahead (verified), so it is
+   a skip list:
+   `--target '^ThrowntomClientTests\.(?!DaemonClientTests|UnixSocketTransportTests|ReminderNotificationAnswerTests)'`
+   runs 293 client tests, 0 failures, in the relocated copy. YAML key:
+   `test-target` (`Configuration/ConfigurationResolver.swift:35`). The
+   tool exposes no `--skip`. Widening to both targets needs
+   `DesignTokensTests` in the lookahead too.
+2. **Resolve the symlink before deriving the root** — one call at each
+   site: `URL(fileURLWithPath: #filePath).resolvingSymlinksInPath()`.
+   Zero configuration, and the daemon and DESIGN.md tests then run inside
+   the sandbox. It depends on the tool symlinking rather than copying
+   (muter copies), so it is a fix for this tool, not for relocation in
+   general.
+3. **Env-overridable root** (`THROWNTOM_REPO_ROOT` or similar) at the same
+   two sites. Not run, but the mechanism is verified: per-mutant test
+   processes inherit the tool's environment
+   (`Infrastructure/ProcessRunner.swift:65-75`), so exporting the variable
+   before invoking the tool reaches the tests. Same cost profile as 2;
+   works under any tool that relocates, at the price of a knob nobody sets
+   by hand.
+
+### Runs
+
+All on the 27-mutant scope (3 unviable in every run). "filter" = fix 1 in
+the outside-the-repo copy; "symlink" = fix 2 in the clone, full suite
+including the daemon and UI tests.
+
+| Run | Config | Wall | Killed / Survived / Timeout | Planted 157 | Line 44 (`>`→`>=`) |
+|---|---|---|---|---|---|
+| 1 | filter, 30 s, 9 workers | 5 m 26 s | 19 / 1 / 4 | Survived | Killed |
+| 2 | symlink, 30 s, 9 workers | 6 m 53 s | 18 / 1 / 5 | Survived | **Timeout** |
+| 3 | symlink, 120 s, 9 workers | 10 m 43 s | 22 / 2 / 0 | Survived | Killed |
+| 4b | filter, 120 s, 9 workers | 7 m 39 s | 22 / 2 / 0 | Survived | Killed |
+| 7 | filter, 30 s, 1 worker | 5 m 29 s | 19 / 1 / 4 | Survived | Killed |
+
+- **Both fixes satisfy the acceptance criteria** once the timeout is
+  raised: planted survivor Survived, line-44 relational mutant Killed by a
+  named `ReconnectBackoffTests` case, no timeouts. At the 30 s default the
+  full-suite run reported the litmus mutant as Timeout (run 2).
+- The second survivor in runs 3/4b is real: `ReconnectBackoff.swift:18`
+  `precondition(registerEvery > 0)` → `>= 0`, which no test exercises.
+  Every 30 s run (1, 2, 7) reported that same mutant as **Crash**, a
+  false kill; every 120 s run reported it Survived. Applying the mutant
+  by hand in the copy builds and passes all 293 filtered tests with exit
+  0, so nothing traps. Crash means the run's output carried `Fatal error`
+  and no failed-test line (`Execution/TestOutputParser.swift`); a timed-out
+  process is reported as Timeout, and a failed rebuild of a
+  non-schematizable mutant as Unviable
+  (`Execution/IncompatibleMutantExecutor.swift:287-298`), so neither path
+  explains it. The tool discards per-mutant output, so the cause was not
+  recoverable here. Treat Crash verdicts at the 30 s default as suspect.
+- **The 30 s default is too tight; the timeouts are slow suites, not
+  hangs or queueing.** The same four `ReconnectBackoff.swift:65/87`
+  mutants time out at 30 s with nine workers (runs 1, 2) and with one
+  worker (run 7), and all are Killed at 120 s (runs 3, 4b) with no
+  increase in survivors. Workers do not help anyway: two concurrent
+  `swift test --skip-build` runs in one `.build` serialize on SwiftPM's
+  lock (`Another instance of SwiftPM ... is already running ... waiting`),
+  which is why run 7's wall clock equals run 1's. Use `--timeout 120`;
+  `--concurrency 1` costs nothing and keeps the load off the timeout clock.
+- Full suite costs ~27-40% more wall clock than the filtered client
+  target (run 2 vs 1, run 3 vs 4b) and, at 120 s, produced the same
+  verdicts on this scope. The false-survivor risk of filtering is real in principle
+  (a mutant only an integration test can kill would be reported Survived,
+  a visible triage item) but the reverse failure, a broken baseline,
+  is silent. Filtering fails loud; relocation failed silent.
+
+### Result cache: two defects
+
+- **`--no-cache` disables reads only.** Results are persisted
+  unconditionally (`Execution/MutantExecutor.swift:83-84`) to
+  `.swift-mutation-testing-cache/` in the package dir, and the next run
+  without the flag replays them. Run 4 (identical to run 1 but with
+  `--timeout 120`) finished in 17 s with run 1's verdicts, timeouts
+  included, and printed the per-mutant progress lines as if it had tested
+  them. The cache key is the mutated file content plus the mutant
+  (`Cache/MutantCacheKey.swift`); timeout and concurrency are not part of
+  it. `Loaded N mutants from cache` prints only when every mutant is
+  cached; partial replays are silent.
+- **Killed verdicts never invalidate on test edits.** Killer test files
+  are stored as absolute paths (`Cache/KillerTestFileResolver.swift`, from
+  `TestFilesHasher.testFilePaths`) but the change set is keyed by
+  project-relative path (`TestFilesHasher.hashPerFile`), so
+  `invalidate(diff:)` (`Cache/CacheStore.swift:93-120`) can never match a
+  modified file. Proven: after replacing `ReconnectBackoffTests.swift`
+  with an empty class, a cached run (run 5, 5 m 42 s) still reported six
+  mutants Killed by tests that no longer existed; the fresh-cache control
+  (run 6) reports `ReconnectBackoff.swift:65` `>`→`>=` Survived. Kills
+  whose killer class name does not match a file name (e.g.
+  `BackoffRegistrationCountTests`) are unresolvable and are correctly
+  re-run on any test change, which is why the first spike saw *some*
+  refresh. Survived/timeout entries are always re-run.
+- This is the "cache replayed stale verdicts" observation from the first
+  spike, now with a cause. Do not enable the cache in CI; delete
+  `.swift-mutation-testing-cache/` before every run, since `--no-cache`
+  does not.
+
+### Recommendation
+
+- **Adopt fix 2 (symlink resolution) in both test files** and keep the
+  `--target` lookahead as the CI scoping knob rather than a correctness
+  crutch: per-target scoping runs 293 of 844 tests when only the client is
+  mutated. Either fix alone satisfies the criteria; fix 2 keeps the
+  daemon tests in the kill set at ~40% more wall clock (120 s runs:
+  10 m 43 s symlink vs. 7 m 39 s filter).
+- CI invocation for throwntom-ug9v: `--testing-framework xctest
+  --concurrency 1 --timeout 120` (120 s is required, not tuning: at 30 s
+  the litmus mutant timed out and a true survivor was reported Crash),
+  delete the cache dir first, `--output`
+  JSON as the artifact (it carries `killedBy`), and keep the negative
+  control (planted survivor must be Survived) as a job that runs before
+  trusting any score.
+- Upstream issues filed 2026-09-12 (AI-drafted, human-reviewed, disclosed
+  in each), in order of harm: baseline result discarded
+  ([#66](https://github.com/ericodx/swift-mutation-testing/issues/66));
+  cache never invalidated by test edits
+  ([#67](https://github.com/ericodx/swift-mutation-testing/issues/67));
+  `--no-cache` still writes
+  ([#68](https://github.com/ericodx/swift-mutation-testing/issues/68));
+  Crash verdicts on a clean mutant at the default timeout
+  ([#69](https://github.com/ericodx/swift-mutation-testing/issues/69));
+  SPM concurrency serialized by the `.build` lock
+  ([#70](https://github.com/ericodx/swift-mutation-testing/issues/70)).
+  The tracker had one prior issue (docs) and no overlap.
