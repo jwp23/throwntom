@@ -34,9 +34,11 @@ Both tools work against Go 1.27. Findings that matter for adoption:
 - **gremlins' default timeout is broken for this suite**: every mutant
   reports timed-out. `--timeout-coefficient 10` fixes it (39/39 then run
   normally).
-- **A whole-module run fits inside a PR check.** 3 m 07 s locally; even a
-  slower hosted runner stays in single-digit minutes. spe's diff-scoping
-  and weekly-sweep layers solve a cost problem this repo does not have.
+- **A whole-module run is cheap enough to fit inside a PR check on this
+  dev machine**: 3 m 07 s locally. CI runner performance is not yet
+  measured — see the load-sensitivity note below — but the cost problem
+  spe's diff-scoping and weekly-sweep layers solve does not look like it
+  exists here.
 - gremlins is coverage-guided (uncovered mutants are reported without
   running tests) and has native `-D/--diff` if PR-scoped runs are ever
   wanted.
