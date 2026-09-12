@@ -25,7 +25,7 @@ final class DesignTokensTests: XCTestCase {
 
   /// `name: "#RRGGBB"` lines from the YAML front matter, keyed by name.
   private func designTokens() throws -> [String: String] {
-    let root = URL(fileURLWithPath: #filePath)
+    let root = URL(fileURLWithPath: #filePath).resolvingSymlinksInPath()
       .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
       .deletingLastPathComponent().deletingLastPathComponent()
     let text = try String(contentsOf: root.appendingPathComponent("DESIGN.md"), encoding: .utf8)
