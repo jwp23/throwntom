@@ -92,6 +92,45 @@ final class ServiceVerbSerialisationTests: XCTestCase {
     try await waitUntil("the restarted client to reach the daemon") { client.connection == .connected }
   }
 
+  /// A Start that a Stop has already overtaken opens no stream. The Stop is the later press, so it
+  /// has decided there is none; a stream opened anyway dials, and asks launchd for the daemon on
+  /// its third failure, until the Stop's turn comes to drop it, and how soon that turn comes is
+  /// up to a scheduler that a loaded machine spends elsewhere.
+  func testAStartOvertakenByAStopOpensNoStream() async throws {
+    let registrar = SlowLaunchdRegistrar(registering: .milliseconds(100), stopping: .milliseconds(10))
+    let transport = CountingTransport()
+    let client = DaemonClient(transport: transport, registrar: registrar)
+    defer { client.stop() }
+
+    let starting = Task { await client.startService() }
+    try await waitUntil("the start to reach launchd") { registrar.isRegistering }
+    await client.stopService()
+    await starting.value
+
+    XCTAssertEqual(transport.streamsOpened, 0, "the overtaken start dialled the daemon")
+  }
+
+  /// A press drops the stream when it is pressed, not when its turn comes. Between the two the
+  /// loop is still live, and a loop mid-outage can reach its third failed dial in that gap and ask
+  /// launchd for the service the user is stopping.
+  func testPressingStopDropsTheStreamAtThePress() async throws {
+    let transport = HeldStreamTransport()
+    let client = DaemonClient(transport: transport, registrar: RecordingRegistrar())
+    client.start()
+    defer { client.stop() }
+    // The task list is published in the same main-actor turn that goes back to wait on the
+    // stream, so once it is here the loop is parked there and a cancel reaches the stream at once.
+    try await waitUntil("the task list to arrive") { !client.tasks.active.isEmpty }
+
+    // Queued before the press, so it runs ahead of the press's own task: in the gap between the
+    // press and its turn.
+    let endedBeforeTheVerbRan = Task { @MainActor in transport.isStreamEnded }
+    await client.stopService()
+
+    let ended = await endedBeforeTheVerbRan.value
+    XCTAssertTrue(ended, "the stream outlived the press")
+  }
+
 }
 
 // MARK: - SlowLaunchdRegistrar
@@ -147,5 +186,42 @@ final class SlowLaunchdRegistrar: LaunchAgentRegistrar, @unchecked Sendable {
   private var registering = false
   private var stopping = false
   private var registered = 0
+
+}
+
+// MARK: - HeldStreamTransport
+
+/// A daemon that answers the dial with a state frame, serves a one-task list, and holds the stream
+/// open, recording when the client's end of the stream goes away.
+// Every mutable member is read and written under `lock`.
+// swiftlint:disable:next no_unchecked_sendable
+final class HeldStreamTransport: DaemonTransport, @unchecked Sendable {
+
+  // MARK: Internal
+
+  var isStreamEnded: Bool {
+    lock.withLock { ended }
+  }
+
+  func request(_: String, _: String, body _: Data?) async throws -> HTTPResponse {
+    HTTPResponse(status: 200, headers: [:], body: Data(Self.oneTaskJSON.utf8))
+  }
+
+  func events(_: String) -> AsyncThrowingStream<Data, Error> {
+    AsyncThrowingStream { continuation in
+      continuation.onTermination = { _ in
+        self.lock.withLock { self.ended = true }
+      }
+      continuation.yield(Data(StateDecodingTests.idleJSON.utf8))
+    }
+  }
+
+  // MARK: Private
+
+  private static let oneTaskJSON =
+    #"{"active":[{"id":1,"description":"write plan","done":false,"created_at":"2026-08-25T20:14:37Z","completed_at":"0001-01-01T00:00:00Z"}],"completed":[]}"#
+
+  private let lock = NSLock()
+  private var ended = false
 
 }
