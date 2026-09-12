@@ -289,9 +289,10 @@ including the daemon and UI tests.
 
 - **Adopt fix 2 (symlink resolution) in both test files** and keep the
   `--target` lookahead as the CI scoping knob rather than a correctness
-  crutch: per-target scoping halves the suite when only the client is
+  crutch: per-target scoping runs 293 of 844 tests when only the client is
   mutated. Either fix alone satisfies the criteria; fix 2 keeps the
-  daemon tests in the kill set at ~27% more wall clock.
+  daemon tests in the kill set at ~40% more wall clock (120 s runs:
+  10 m 43 s symlink vs. 7 m 39 s filter).
 - CI invocation for throwntom-ug9v: `--testing-framework xctest
   --concurrency 1 --timeout 120` (120 s is required, not tuning: at 30 s
   the litmus mutant timed out and a true survivor was reported Crash),
