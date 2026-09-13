@@ -144,7 +144,7 @@ final class DaemonHarness {
 
   // MARK: Internal
 
-  static let repoRoot = URL(fileURLWithPath: #filePath)
+  static let repoRoot = URL(fileURLWithPath: #filePath).resolvingSymlinksInPath()
     .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     .deletingLastPathComponent().deletingLastPathComponent()
 
