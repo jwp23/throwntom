@@ -146,6 +146,105 @@ func TestComputePausesSnoozes(t *testing.T) {
 	}
 }
 
+// TestPomDaysCountsEachCompletionIndependently pins the increment (not
+// decrement) that tallies a day's completions: two completions on the same
+// day must show as 2 in that day's DailyCounts entry, not 0.
+func TestPomDaysCountsEachCompletionIndependently(t *testing.T) {
+	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 10, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 19, 11, 0, 0, 0, time.Local)),
+	}
+	dash := Compute(events, now)
+	var got int
+	for _, dc := range dash.ThisWeek.DailyCounts {
+		if dc.Date.Equal(startOfDay(now)) {
+			got = dc.Count
+		}
+	}
+	if got != 2 {
+		t.Fatalf("today's DailyCounts entry is %d, want 2", got)
+	}
+}
+
+// TestBestHourTieKeepsTheEarlierHour pins the strict ">" in computePatterns:
+// on a tie, the first hour reached (the lowest hour number, since the loop
+// runs 0..23) must stay best rather than being overwritten by a later hour
+// with the same count.
+func TestBestHourTieKeepsTheEarlierHour(t *testing.T) {
+	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 17, 9, 0, 0, 0, time.Local)),
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 18, 15, 0, 0, 0, time.Local)),
+	}
+	dash := Compute(events, now)
+	if dash.Patterns.BestHour != 9 {
+		t.Fatalf("expected the earlier tied hour 9, got %d", dash.Patterns.BestHour)
+	}
+}
+
+// TestAvgByWeekdayIncludesSaturday pins the loop bound "wd <= time.Saturday":
+// a day this loop skips never gets an AvgByWeekday entry at all.
+func TestAvgByWeekdayIncludesSaturday(t *testing.T) {
+	now := time.Date(2026, 3, 21, 14, 0, 0, 0, time.Local) // a Saturday
+	events := []eventlog.Event{
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 21, 10, 0, 0, 0, time.Local)),
+	}
+	dash := Compute(events, now)
+	if dash.Patterns.AvgByWeekday[time.Saturday] != 1.0 {
+		t.Fatalf("expected Saturday avg 1.0, got %.1f", dash.Patterns.AvgByWeekday[time.Saturday])
+	}
+}
+
+// TestAvgByWeekdayWithNoEventsIsZeroNotNaN pins the "days > 0" guard: a
+// weekday with no completions must show 0, not the 0/0 NaN a boundary
+// mutant here would let through.
+func TestAvgByWeekdayWithNoEventsIsZeroNotNaN(t *testing.T) {
+	now := time.Date(2026, 3, 16, 14, 0, 0, 0, time.Local) // a Monday
+	events := []eventlog.Event{
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 16, 10, 0, 0, 0, time.Local)),
+	}
+	dash := Compute(events, now)
+	if avg := dash.Patterns.AvgByWeekday[time.Friday]; avg != 0 {
+		t.Fatalf("expected Friday avg 0 (no data), got %v", avg)
+	}
+}
+
+// TestBestDayTieKeepsTheEarlierDay pins the strict ">" in computePatterns:
+// on a tie, the first weekday reached (the loop runs Sunday..Saturday) must
+// stay best rather than being overwritten by a later day with the same
+// average.
+func TestBestDayTieKeepsTheEarlierDay(t *testing.T) {
+	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		// Sunday 2026-03-15: 1 pomodoro.
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 15, 10, 0, 0, 0, time.Local)),
+		// Monday 2026-03-16: 1 pomodoro. Same average (1.0), later in the loop.
+		makeEvent("pomodoro_completed", time.Date(2026, 3, 16, 10, 0, 0, 0, time.Local)),
+	}
+	dash := Compute(events, now)
+	if dash.Patterns.BestDay != time.Sunday {
+		t.Fatalf("expected the earlier tied day Sunday, got %v", dash.Patterns.BestDay)
+	}
+}
+
+// TestSortDatesReversesFullyDescendingInput exercises the insertion sort's
+// inner loop directly, deterministically: Streaks' own tests build sorted's
+// input from map iteration, whose order Go randomizes, so whether the
+// swap loop actually runs more than once depends on luck rather than the
+// test. A fully-descending slice forces every element to travel the whole
+// way to the front.
+func TestSortDatesReversesFullyDescendingInput(t *testing.T) {
+	d := func(day int) time.Time { return time.Date(2026, 3, day, 0, 0, 0, 0, time.UTC) }
+	dates := []time.Time{d(5), d(4), d(3), d(2), d(1)}
+	sortDates(dates)
+	for i, want := range []int{1, 2, 3, 4, 5} {
+		if dates[i].Day() != want {
+			t.Fatalf("dates[%d].Day() = %d, want %d (dates = %v)", i, dates[i].Day(), want, dates)
+		}
+	}
+}
+
 func TestStreakCurrent(t *testing.T) {
 	now := time.Date(2026, 3, 19, 14, 0, 0, 0, time.Local)
 	events := []eventlog.Event{
