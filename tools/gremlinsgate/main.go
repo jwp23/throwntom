@@ -38,26 +38,50 @@ type violation struct {
 	Column int
 }
 
+// equivalent names one mutant reviewed and proven equivalent — no test can
+// ever distinguish it from correct code, so it is not a coverage gap.
+// gremlins only excludes whole files (exclude-files in .gremlins.yaml);
+// this allowlist covers the case ADR-014 anticipates but gremlins can't
+// express: a single mutant excluded on its own reviewed merits, in a file
+// whose other mutants are real, worth-keeping coverage.
+type equivalent struct {
+	File   string `json:"file"`
+	Line   int    `json:"line"`
+	Column int    `json:"column"`
+	Type   string `json:"type"`
+	Reason string `json:"reason"`
+}
+
 func main() {
-	path := flag.String("report", "", "path to gremlins JSON report (produced by unleash -o)")
+	reportPath := flag.String("report", "", "path to gremlins JSON report (produced by unleash -o)")
+	equivalentsPath := flag.String("equivalents", "", "optional path to a reviewed-equivalents JSON allowlist")
 	flag.Parse()
-	if *path == "" {
+	if *reportPath == "" {
 		fmt.Fprintln(os.Stderr, "gremlinsgate: -report is required")
 		os.Exit(2)
 	}
-	os.Exit(run(*path, os.Stdout, os.Stderr))
+	os.Exit(run(*reportPath, *equivalentsPath, os.Stdout, os.Stderr))
 }
 
-func run(path string, stdout, stderr io.Writer) int {
-	data, err := os.ReadFile(path)
+func run(reportPath, equivalentsPath string, stdout, stderr io.Writer) int {
+	data, err := os.ReadFile(reportPath)
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
-	violations, err := findViolations(data)
+	equivalents, err := loadEquivalents(equivalentsPath)
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, err)
 		return 1
+	}
+	violations, err := findViolations(data, equivalents)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	excluded := countExcludedEquivalents(data, equivalents)
+	if excluded > 0 {
+		_, _ = fmt.Fprintf(stdout, "gremlinsgate: %d known-equivalent mutant(s) excluded (reviewed, see -equivalents)\n", excluded)
 	}
 	if len(violations) == 0 {
 		_, _ = fmt.Fprintln(stdout, "gremlinsgate: no unexcluded survivors")
@@ -70,18 +94,21 @@ func run(path string, stdout, stderr io.Writer) int {
 	return 1
 }
 
-// findViolations reports every mutation whose status isn't KILLED. Files
-// gremlins never mutated at all (ADR-014's exclude-files scope) don't appear
-// in the report, so they never reach here.
-func findViolations(data []byte) ([]violation, error) {
-	var r report
-	if err := json.Unmarshal(data, &r); err != nil {
-		return nil, fmt.Errorf("parse gremlins report: %w", err)
+// findViolations reports every mutation whose status isn't KILLED, minus any
+// reviewed equivalents. Files gremlins never mutated at all (ADR-014's
+// exclude-files scope) don't appear in the report, so they never reach here.
+func findViolations(data []byte, equivalents []equivalent) ([]violation, error) {
+	r, err := parseReport(data)
+	if err != nil {
+		return nil, err
 	}
 	var violations []violation
 	for _, f := range r.Files {
 		for _, m := range f.Mutations {
 			if m.Status == "KILLED" {
+				continue
+			}
+			if isReviewedEquivalent(f.FileName, m, equivalents) {
 				continue
 			}
 			violations = append(violations, violation{
@@ -94,4 +121,58 @@ func findViolations(data []byte) ([]violation, error) {
 		}
 	}
 	return violations, nil
+}
+
+// countExcludedEquivalents reports how many mutants in data an equivalents
+// allowlist actually matched, so a stale entry (the mutant it named got
+// KILLED by an unrelated test change, or never existed) is silently worth
+// zero rather than silently claimed.
+func countExcludedEquivalents(data []byte, equivalents []equivalent) int {
+	r, err := parseReport(data)
+	if err != nil {
+		return 0
+	}
+	count := 0
+	for _, f := range r.Files {
+		for _, m := range f.Mutations {
+			if m.Status != "KILLED" && isReviewedEquivalent(f.FileName, m, equivalents) {
+				count++
+			}
+		}
+	}
+	return count
+}
+
+func isReviewedEquivalent(fileName string, m mutation, equivalents []equivalent) bool {
+	for _, e := range equivalents {
+		if e.File == fileName && e.Line == m.Line && e.Column == m.Column && e.Type == m.Type {
+			return true
+		}
+	}
+	return false
+}
+
+func parseReport(data []byte) (report, error) {
+	var r report
+	if err := json.Unmarshal(data, &r); err != nil {
+		return report{}, fmt.Errorf("parse gremlins report: %w", err)
+	}
+	return r, nil
+}
+
+// loadEquivalents reads the reviewed-equivalents allowlist. An empty path
+// means no allowlist was configured, not an error.
+func loadEquivalents(path string) ([]equivalent, error) {
+	if path == "" {
+		return nil, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read equivalents file: %w", err)
+	}
+	var equivalents []equivalent
+	if err := json.Unmarshal(data, &equivalents); err != nil {
+		return nil, fmt.Errorf("parse equivalents file: %w", err)
+	}
+	return equivalents, nil
 }
