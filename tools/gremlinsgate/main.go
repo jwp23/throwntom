@@ -144,13 +144,25 @@ func countExcludedEquivalents(data []byte, equivalents []equivalent) int {
 	return count
 }
 
+// isReviewedEquivalent matches an allowlist entry's file (always recorded
+// module-relative, e.g. "internal/pomodoro/timer.go") against the report's
+// file_name, which gremlins writes relative to whatever path it was invoked
+// with — the whole module ("internal/pomodoro/timer.go") when scoped to ".",
+// but bare ("timer.go") when scoped to a single package directory, as the
+// sharded CI jobs do. An exact match or a "/"-boundary suffix match covers
+// both; the boundary check keeps "my_timer.go" from matching "timer.go" by
+// bare character-suffix alone.
 func isReviewedEquivalent(fileName string, m mutation, equivalents []equivalent) bool {
 	for _, e := range equivalents {
-		if e.File == fileName && e.Line == m.Line && e.Column == m.Column && e.Type == m.Type {
+		if fileMatches(e.File, fileName) && e.Line == m.Line && e.Column == m.Column && e.Type == m.Type {
 			return true
 		}
 	}
 	return false
+}
+
+func fileMatches(recorded, reported string) bool {
+	return recorded == reported || strings.HasSuffix(recorded, "/"+reported)
 }
 
 func parseReport(data []byte) (report, error) {

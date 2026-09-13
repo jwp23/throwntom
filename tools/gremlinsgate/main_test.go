@@ -99,6 +99,48 @@ func TestFindViolationsSkipsReviewedEquivalents(t *testing.T) {
 	}
 }
 
+// TestFindViolationsMatchesEquivalentScopedToASubPackage covers running
+// gremlins against a single package directory (as the sharded CI jobs do)
+// rather than the whole module from repo root: gremlins then reports
+// file_name relative to the scoped path (bare "timer.go", no directory at
+// all), not the module-relative path .gremlins-equivalents.json records
+// ("internal/pomodoro/timer.go"). An equivalents entry must still match.
+func TestFindViolationsMatchesEquivalentScopedToASubPackage(t *testing.T) {
+	report := `{"files":[{"file_name":"timer.go","mutations":[
+		{"type":"CONDITIONALS_BOUNDARY","status":"LIVED","line":408,"column":24}
+	]}]}`
+	equivalents := []equivalent{
+		{File: "internal/pomodoro/timer.go", Line: 408, Column: 24, Type: "CONDITIONALS_BOUNDARY", Reason: "proven equivalent"},
+	}
+	violations, err := findViolations([]byte(report), equivalents)
+	if err != nil {
+		t.Fatalf("findViolations: %v", err)
+	}
+	if len(violations) != 0 {
+		t.Fatalf("violations = %v, want none — the scoped report's bare filename should still match the module-relative equivalents entry", violations)
+	}
+}
+
+// TestFindViolationsEquivalentSuffixMatchRespectsPathBoundaries guards the
+// fix for the case above against a naive substring match: a differently
+// named file that merely ends with the same characters must not be treated
+// as the same file.
+func TestFindViolationsEquivalentSuffixMatchRespectsPathBoundaries(t *testing.T) {
+	report := `{"files":[{"file_name":"my_timer.go","mutations":[
+		{"type":"CONDITIONALS_BOUNDARY","status":"LIVED","line":408,"column":24}
+	]}]}`
+	equivalents := []equivalent{
+		{File: "internal/pomodoro/timer.go", Line: 408, Column: 24, Type: "CONDITIONALS_BOUNDARY", Reason: "proven equivalent"},
+	}
+	violations, err := findViolations([]byte(report), equivalents)
+	if err != nil {
+		t.Fatalf("findViolations: %v", err)
+	}
+	if len(violations) != 1 {
+		t.Fatalf("violations = %v, want the my_timer.go survivor kept — it is not internal/pomodoro/timer.go despite the shared suffix", violations)
+	}
+}
+
 // TestFindViolationsEquivalentMustMatchTypeToo guards against an allowlist
 // entry silencing every mutant at a line:column regardless of mutator type —
 // a reviewed equivalent is equivalent for one specific mutation, not
