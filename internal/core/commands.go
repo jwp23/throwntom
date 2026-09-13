@@ -111,7 +111,7 @@ func (c *Core) handleLunch(parts []string) commandResult {
 	if err != nil {
 		return commandResult{err: err}
 	}
-	if d > MaxMeetingDuration {
+	if d > MaxMeetingDuration() {
 		return commandResult{err: errors.New("lunch duration must be one day or less")}
 	}
 	before := c.timer.StartLunchFor(d)
@@ -130,7 +130,13 @@ func (c *Core) handleLunch(parts []string) commandResult {
 //
 // Every way in enforces it: the command line here, and the daemon's own
 // routes, which read their minutes bound from this rather than restating it.
-const MaxMeetingDuration = 24 * time.Hour
+//
+// A function, not a const: a package-level const's initializer sits outside
+// every function body, so go test's coverage instrumentation never marks it
+// executed and a mutation there is unkillable no matter what asserts on it.
+func MaxMeetingDuration() time.Duration {
+	return 24 * time.Hour
+}
 
 // handleMeeting takes the user into a meeting of the length they name. Like
 // lunch it needs no state to be in and refuses nothing but a length it cannot
@@ -143,7 +149,7 @@ func (c *Core) handleMeeting(parts []string) commandResult {
 	if err != nil {
 		return commandResult{err: err}
 	}
-	if parsed > MaxMeetingDuration {
+	if parsed > MaxMeetingDuration() {
 		return commandResult{err: errors.New("meeting duration must be one day or less")}
 	}
 	before := c.timer.StartMeeting(parsed)

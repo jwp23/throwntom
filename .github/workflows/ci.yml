@@ -90,6 +90,162 @@ jobs:
       - name: Govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
 
+  # ADR-014: whole-module mutation testing on every PR, no diff scoping or
+  # scheduled sweep. Scope and the timeout coefficient live in .gremlins.yaml;
+  # gremlinsgate enforces the zero-unexcluded-survivors bar gremlins' own
+  # percentage thresholds can't express, against .gremlins-equivalents.json's
+  # reviewed allowlist.
+  #
+  # Split into three jobs so they run in parallel rather than one ~10-minute
+  # job: internal/core and internal/daemon are the two heaviest packages by a
+  # wide margin (measured locally), so each gets its own job; everything else
+  # in scope is fast and shares a third. gremlins takes exactly one path
+  # argument, so "everything else" runs one invocation per package rather
+  # than a single call over a shared parent directory — a parent path (e.g.
+  # ./internal) would also have to re-exclude core and daemon on the command
+  # line, and CLI --exclude-files replaces .gremlins.yaml's list rather than
+  # adding to it, which would silently drop the tools/ and main.go/startup.go
+  # exclusions too.
+  gremlins-core:
+    name: Mutation testing (core)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+
+      # Pinned to v0.6.0's commit, not the tag: a tag can be moved, a commit
+      # hash can't (SonarCloud githubactions:S8545 — a tag alone isn't a
+      # verified version for supply-chain purposes).
+      - name: Install gremlins
+        run: go install github.com/go-gremlins/gremlins/cmd/gremlins@e05b1d47b8c55748e50abc28ff6b132c536bacca # v0.6.0
+
+      - name: Build gremlinsgate
+        run: go build -o /tmp/gremlinsgate ./tools/gremlinsgate
+
+      - name: Run gremlins
+        run: gremlins unleash -o gremlins-report.json ./internal/core
+
+      - name: Enforce zero unexcluded survivors
+        run: /tmp/gremlinsgate -report gremlins-report.json -equivalents .gremlins-equivalents.json
+
+      - name: Upload gremlins report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: gremlins-report-core
+          path: gremlins-report.json
+
+  gremlins-daemon:
+    name: Mutation testing (daemon)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+
+      - name: Install gremlins
+        run: go install github.com/go-gremlins/gremlins/cmd/gremlins@e05b1d47b8c55748e50abc28ff6b132c536bacca # v0.6.0
+
+      - name: Build gremlinsgate
+        run: go build -o /tmp/gremlinsgate ./tools/gremlinsgate
+
+      - name: Run gremlins
+        run: gremlins unleash -o gremlins-report.json ./internal/daemon
+
+      - name: Enforce zero unexcluded survivors
+        run: /tmp/gremlinsgate -report gremlins-report.json -equivalents .gremlins-equivalents.json
+
+      - name: Upload gremlins report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: gremlins-report-daemon
+          path: gremlins-report.json
+
+  gremlins-rest:
+    name: Mutation testing (rest)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+
+      - name: Install gremlins
+        run: go install github.com/go-gremlins/gremlins/cmd/gremlins@e05b1d47b8c55748e50abc28ff6b132c536bacca # v0.6.0
+
+      - name: Build gremlinsgate
+        run: go build -o /tmp/gremlinsgate ./tools/gremlinsgate
+
+      # Every in-scope package except internal/core and internal/daemon
+      # (their own jobs above) and tools/* (excluded by ADR-014), each its
+      # own gremlins invocation (see the job-group comment above for why).
+      # The package list comes from `go list ./...`, not a hand-maintained
+      # one: a hand-enumerated list silently drops any package that starts
+      # out with zero survivors (nothing to fix, so nothing prompts adding it
+      # by hand) — caught only by comparing against `go list ./...` after
+      # the fact. A failure in any one package's gate fails the step
+      # immediately.
+      #
+      # cmd/throwntom needs its own --exclude-files, scope-relative
+      # ("^main\.go$", not "^cmd/[^/]+/main\.go$"): gremlins matches
+      # exclude-files against the path relative to the argument it was given,
+      # not the module root, so .gremlins.yaml's module-relative patterns
+      # never match once scoped to a single package directory — confirmed by
+      # main.go/startup.go reappearing as NOT COVERED the first time this job
+      # ran scoped this way. CLI --exclude-files replaces .gremlins.yaml's
+      # list rather than adding to it, which is exactly what's wanted here:
+      # only main.go/startup.go need excluding within this one invocation.
+      # cmd/throwntomd is skipped outright: its only file is main.go, fully
+      # excluded, so a scoped run there would report 100% NOT COVERED with
+      # nothing to gain from running it at all.
+      - name: Run gremlins and enforce the gate per package
+        run: |
+          set -euo pipefail
+          for pkg in $(go list ./... | sed 's|^github.com/jwp23/throwntom/v3/||'); do
+            case "$pkg" in
+              internal/core|internal/daemon|tools/*|cmd/throwntomd) continue ;;
+            esac
+            report="gremlins-report-$(echo "$pkg" | tr '/' '-').json"
+            if [ "$pkg" = "cmd/throwntom" ]; then
+              gremlins unleash --exclude-files '^main\.go$' --exclude-files '^startup\.go$' -o "$report" "./$pkg"
+            else
+              gremlins unleash -o "$report" "./$pkg"
+            fi
+            /tmp/gremlinsgate -report "$report" -equivalents .gremlins-equivalents.json
+          done
+
+      - name: Upload gremlins reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: gremlins-report-rest
+          path: gremlins-report-*.json
+
   macos:
     name: macOS app
     runs-on: macos-15

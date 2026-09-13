@@ -63,6 +63,70 @@ func TestApplyDurationsShorterThanElapsedEndsPhase(t *testing.T) {
 	}
 }
 
+// TestApplyDurationsTransitionsOnlyWhenStateActuallyChanges pins the guard
+// ApplyDurations' deferred func applies: transitionLocked must fire when the
+// reload ends the phase, and must not fire when the reload leaves the phase
+// running, per the comment on ApplyDurations — an unwarranted transition
+// would answer whatever reminder is outstanding.
+func TestApplyDurationsTransitionsOnlyWhenStateActuallyChanges(t *testing.T) {
+	a := New(minutes(25, 5, 15, 4))
+	clock := newFakeClock(time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC))
+	a.setClock(clock)
+	transitions := 0
+	a.SetOnTransition(func(engine.State) { transitions++ })
+	a.Start()
+	clock.Advance(10 * time.Minute)
+	transitions = 0 // Start() itself is a transition (Idle -> Work); only what follows matters here
+
+	a.ApplyDurations(minutes(30, 5, 15, 4)) // still running: no transition
+	if transitions != 0 {
+		t.Fatalf("expected no transition when the phase keeps running, got %d", transitions)
+	}
+
+	a.ApplyDurations(minutes(5, 5, 15, 4)) // shorter than elapsed: ends the phase
+	if transitions != 1 {
+		t.Fatalf("expected exactly one transition when the reload ends the phase, got %d", transitions)
+	}
+}
+
+// TestApplyDurationsExactlyAtElapsedEndsPhase pins the "<= 0" boundary in
+// rederiveRunningLocked: a new duration exactly equal to the elapsed time
+// must end the phase, not start a zero-length one.
+func TestApplyDurationsExactlyAtElapsedEndsPhase(t *testing.T) {
+	a := New(minutes(25, 5, 15, 4))
+	clock := newFakeClock(time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC))
+	a.setClock(clock)
+	a.Start()
+	clock.Advance(10 * time.Minute)
+
+	a.ApplyDurations(minutes(10, 5, 15, 4)) // new duration == elapsed exactly
+
+	if got := a.State(); got != engine.AwaitingConfirm {
+		t.Fatalf("expected the phase to end when the new duration exactly matches elapsed time, got %s", got)
+	}
+}
+
+// TestApplyDurationsPausedExactlyAtElapsedEndsPhase pins the "> 0" boundary
+// in rederivePausedLocked: a paused phase whose new duration exactly equals
+// the elapsed time must end, not resume with a zero remainder.
+func TestApplyDurationsPausedExactlyAtElapsedEndsPhase(t *testing.T) {
+	a := New(minutes(25, 5, 15, 4))
+	clock := newFakeClock(time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC))
+	a.setClock(clock)
+	a.Start()
+	clock.Advance(10 * time.Minute)
+	a.Pause()
+
+	a.ApplyDurations(minutes(10, 5, 15, 4)) // new duration == elapsed exactly
+
+	if got := a.State(); got != engine.AwaitingConfirm {
+		t.Fatalf("expected the paused phase to end when the new duration exactly matches elapsed time, got %s", got)
+	}
+	if got := a.Snapshot().PausedRemaining; got != 0 {
+		t.Fatalf("expected no paused remainder once the phase ended, got %s", got)
+	}
+}
+
 func TestApplyDurationsRederivesBreak(t *testing.T) {
 	a := New(minutes(25, 5, 15, 4))
 	clock := newFakeClock(time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC))

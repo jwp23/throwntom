@@ -47,6 +47,25 @@ func TestLinuxNotifierErrorsOnNilOutput(t *testing.T) {
 	}
 }
 
+// TestLinuxNotifierSkipsEmptyConfiguredCommand pins the "len(soundCommand) >
+// 0" boundary: with no configured command at all, PlaySound must not add an
+// empty candidate — the resulting failure message must not carry the
+// "invalid sound command" entry that candidate would contribute.
+func TestLinuxNotifierSkipsEmptyConfiguredCommand(t *testing.T) {
+	n := &linuxTerminalNotifier{
+		run: func(name string, args ...string) error {
+			return errors.New("no command available")
+		},
+	}
+	err := n.PlaySound(testSoundName)
+	if err == nil {
+		t.Fatal("expected an error when out is nil and every command fails")
+	}
+	if strings.Contains(err.Error(), "invalid sound command") {
+		t.Fatalf("expected no invalid-sound-command entry for an unconfigured command, got: %v", err)
+	}
+}
+
 func TestLinuxNotifierUsesConfiguredCommandFirst(t *testing.T) {
 	var gotName string
 	var gotArgs []string

@@ -209,6 +209,51 @@ tier_mid = 3
 	}
 }
 
+func TestTierLowEqualToMidIsRejected(t *testing.T) {
+	raw := []byte(`
+[stats]
+tier_low = 3
+tier_mid = 3
+`)
+	_, err := LoadBytes(raw)
+	if err == nil {
+		t.Fatal("expected error when tier_low equals tier_mid")
+	}
+	if want := "stats tier_low must be less than tier_mid"; err.Error() != want {
+		t.Fatalf("error is %q, want %q", err, want)
+	}
+}
+
+func TestLoadRejectsZeroTierLow(t *testing.T) {
+	raw := []byte(`
+[stats]
+tier_low = 0
+tier_mid = 5
+`)
+	_, err := LoadBytes(raw)
+	if err == nil {
+		t.Fatal("expected error when tier_low is 0")
+	}
+	if want := "stats tier_low and tier_mid must be > 0"; err.Error() != want {
+		t.Fatalf("error is %q, want %q", err, want)
+	}
+}
+
+func TestLoadRejectsZeroTierMid(t *testing.T) {
+	raw := []byte(`
+[stats]
+tier_low = 2
+tier_mid = 0
+`)
+	_, err := LoadBytes(raw)
+	if err == nil {
+		t.Fatal("expected error when tier_mid is 0")
+	}
+	if want := "stats tier_low and tier_mid must be > 0"; err.Error() != want {
+		t.Fatalf("error is %q, want %q", err, want)
+	}
+}
+
 // --- New tests for [[schedule]] array-of-tables ---
 
 func TestLoadMultipleScheduleGroups(t *testing.T) {
@@ -433,6 +478,16 @@ func TestLoadRejectsNonPositiveRepeatLimit(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsZeroRepeatSecs(t *testing.T) {
+	_, err := LoadBytes([]byte("repeat_secs = 0"))
+	if err == nil {
+		t.Fatal("expected repeat_secs = 0 to be rejected")
+	}
+	if want := "repeat_secs must be > 0"; err.Error() != want {
+		t.Fatalf("error is %q, want %q", err, want)
+	}
+}
+
 // Lunch is a break the user chooses, so its length is theirs to set; an hour
 // is the default working assumption.
 func TestDefaultLunchMinutes(t *testing.T) {
@@ -457,6 +512,46 @@ func TestLoadRejectsNonPositiveLunchMinutes(t *testing.T) {
 		t.Fatal("expected lunch_minutes = 0 to be rejected")
 	}
 	if want := "lunch_minutes must be > 0"; err.Error() != want {
+		t.Fatalf("error is %q, want %q", err, want)
+	}
+}
+
+func TestLoadRejectsZeroWorkMinutes(t *testing.T) {
+	_, err := LoadBytes([]byte("[pomodoro]\nwork_minutes = 0\n"))
+	if err == nil {
+		t.Fatal("expected work_minutes = 0 to be rejected")
+	}
+	if want := "work_minutes must be > 0"; err.Error() != want {
+		t.Fatalf("error is %q, want %q", err, want)
+	}
+}
+
+func TestLoadRejectsZeroShortBreakMinutes(t *testing.T) {
+	_, err := LoadBytes([]byte("[pomodoro]\nshort_break_minutes = 0\n"))
+	if err == nil {
+		t.Fatal("expected short_break_minutes = 0 to be rejected")
+	}
+	if want := "short_break_minutes must be > 0"; err.Error() != want {
+		t.Fatalf("error is %q, want %q", err, want)
+	}
+}
+
+func TestLoadRejectsZeroLongBreakMinutes(t *testing.T) {
+	_, err := LoadBytes([]byte("[pomodoro]\nlong_break_minutes = 0\n"))
+	if err == nil {
+		t.Fatal("expected long_break_minutes = 0 to be rejected")
+	}
+	if want := "long_break_minutes must be > 0"; err.Error() != want {
+		t.Fatalf("error is %q, want %q", err, want)
+	}
+}
+
+func TestLoadRejectsZeroLongBreakEvery(t *testing.T) {
+	_, err := LoadBytes([]byte("[pomodoro]\nlong_break_every = 0\n"))
+	if err == nil {
+		t.Fatal("expected long_break_every = 0 to be rejected")
+	}
+	if want := "long_break_every must be > 0"; err.Error() != want {
 		t.Fatalf("error is %q, want %q", err, want)
 	}
 }

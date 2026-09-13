@@ -1,0 +1,93 @@
+[
+  {
+    "file": "internal/engine/engine.go",
+    "line": 204,
+    "column": 18,
+    "type": "CONDITIONALS_BOUNDARY",
+    "reason": "e.lastCredit<=0 vs <0: at lastCredit=0 the fallthrough formula reduces to workSessionsBlock/n > (workSessionsBlock-0)/n, i.e. X > X, always false — identical to the guard's early return for every workSessionsBlock and longBreakEvery. Proven algebraically, not just by trial inputs."
+  },
+  {
+    "file": "internal/engine/engine.go",
+    "line": 269,
+    "column": 26,
+    "type": "CONDITIONALS_BOUNDARY",
+    "reason": "elapsed<=0 vs <0 in MeetingCredits: at elapsed=0 the fallthrough formula is int(work/(2*work)), which is 0 for any work>0 by integer division — identical to the guard's 0, for every work. Same equivalence shape as the lastCredit case above."
+  },
+  {
+    "file": "internal/analytics/analytics.go",
+    "line": 156,
+    "column": 13,
+    "type": "CONDITIONALS_BOUNDARY",
+    "reason": "minutes>0 vs >=0: at minutes=0 both branches add zero to the same field, so the outcome is identical either way. Confirmed empirically: a hand-applied mutation still passes every test."
+  },
+  {
+    "file": "internal/analytics/analytics.go",
+    "line": 187,
+    "column": 18,
+    "type": "CONDITIONALS_BOUNDARY",
+    "reason": "value<0 vs <=0: both the \"valid, credit 0\" and \"invalid, reject\" paths return int 0 at value=0, so the mutation is mathematically unobservable."
+  },
+  {
+    "file": "internal/analytics/analytics.go",
+    "line": 281,
+    "column": 14,
+    "type": "CONDITIONALS_BOUNDARY",
+    "reason": "streak>longest vs >=longest: on a tie, assigning longest = streak is idempotent since they are already equal, so no test can distinguish the mutation from correct code."
+  },
+  {
+    "file": "internal/pomodoro/timer.go",
+    "line": 408,
+    "column": 24,
+    "type": "CONDITIONALS_BOUNDARY",
+    "reason": "pausedRemaining<0 vs <=0 clamping to zero: at pausedRemaining=0 exactly, the clamp assigns 0 to a field that is already 0, so the observable result is identical whether the branch fires or not. Confirmed empirically: a hand-applied mutation still passes the full internal/pomodoro suite."
+  },
+  {
+    "file": "internal/pomodoro/timer.go",
+    "line": 546,
+    "column": 7,
+    "type": "CONDITIONALS_BOUNDARY",
+    "reason": "formatRemaining's d<0 vs <=0 clamping to zero: same shape as pausedRemaining above, at d=0 the clamp assigns 0 to a duration that is already 0. Confirmed empirically: a hand-applied mutation still passes the full suite."
+  },
+  {
+    "file": "internal/pomodoro/timer.go",
+    "line": 572,
+    "column": 13,
+    "type": "CONDITIONALS_BOUNDARY",
+    "reason": "elapsedSincePhaseStartLocked's elapsed<0 vs <=0 clamping to zero: same shape as pausedRemaining above, at elapsed=0 the clamp assigns 0 to a duration that is already 0. Confirmed empirically: a hand-applied mutation still passes the full suite."
+  },
+  {
+    "file": "internal/notifier/notifier.go",
+    "line": 130,
+    "column": 47,
+    "type": "ARITHMETIC_BASE",
+    "reason": "len(candidates)+1 is only a slice capacity hint for make(); Go's append grows a slice automatically regardless of the initial capacity, so no test can observe a difference between +1, -1, *1 or /1 here. Confirmed empirically: a hand-applied mutation still passes the full suite."
+  },
+  {
+    "file": "internal/reminder/loop.go",
+    "line": 21,
+    "column": 27,
+    "type": "CONDITIONALS_BOUNDARY",
+    "reason": "limit>0 vs >=0 (with interval>0 already required by the preceding &&): at limit=0 exactly, int(limit/interval) is 0 regardless of interval's value, so 1+0 equals the guard's own default of 1 either way. Confirmed empirically: a hand-applied mutation still passes the full suite."
+  },
+  {
+    "file": "internal/reminder/loop.go",
+    "line": 33,
+    "column": 46,
+    "type": "CONDITIONALS_BOUNDARY",
+    "reason": "policy.MaxAlerts<1 vs <=1: at MaxAlerts=1 exactly (with Interval>0, so the preceding || is false), the guard would assign 1 to a field that is already 1, so the observable result is identical whether it fires or not. Confirmed empirically: a hand-applied mutation still passes the full suite."
+  },
+  {
+    "file": "internal/scheduler/scheduler.go",
+    "line": 54,
+    "column": 16,
+    "type": "CONDITIONALS_BOUNDARY",
+    "reason": "NextTrigger's 'i < 8' vs 'i <= 8' loop bound: a week has 7 distinct weekdays, so checking offsets 0-7 (8 days) from `from` is provably sufficient to find any configured weekday's next occurrence, including the case where today's own slot already passed and the next occurrence is exactly a week out. A 9th offset can never turn a real miss (an empty schedule, which panics regardless of iteration count) into a hit, so the extra iteration is unobservable in every configuration. Confirmed empirically: a hand-applied mutation still passes the full suite."
+  },
+  {
+    "file": "internal/core/session.go",
+    "line": 51,
+    "column": 48,
+    "type": "CONDITIONALS_BOUNDARY",
+    "reason": "len(data.FocusedTaskIDs)>0 vs >=0: at length 0, entering the branch just builds an activeByID map and then ranges over an empty FocusedTaskIDs slice, which does nothing observable — c.focused ends up identical either way. Confirmed empirically: a hand-applied mutation still passes the full suite."
+  }
+]

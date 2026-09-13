@@ -1,0 +1,40 @@
+# Mutation-testing scope for the Go module. See ADR-014
+# (docs/adr/014-go-mutation-testing-whole-module-on-every-pr.md) for the
+# decision this encodes and the bar it sets: zero unexcluded non-KILLED
+# mutants, enforced by tools/gremlinsgate against this run's JSON report
+# (gremlinsgate reads its own bar from the report, not from thresholds here).
+unleash:
+  # ADR-014 originally set this to 10, from the spike's internal/engine
+  # benchmark (pure logic, no I/O). internal/daemon's real-socket/HTTP tests
+  # need more headroom: at 10, repeated local runs of the same code swung
+  # from 1 to 37 timeouts on an otherwise idle-looking machine, pure
+  # environmental noise rather than a real gap (internal/daemon verified
+  # 100% killed at 30 across many runs). See the 2026-09-13 ADR-014 note.
+  timeout-coefficient: 30
+  # Default (NumCPU) workers run many mutated test binaries concurrently,
+  # which starves internal/daemon's real Unix-socket/HTTP tests of CPU and
+  # produces the same kind of phantom timeouts the coefficient bump above
+  # addresses. Serial execution costs wall-clock time, not correctness, and
+  # every measurement behind this file was taken at workers: 1.
+  workers: 1
+  exclude-files:
+    # Dev utilities: a bug here costs a debugging session, not a broken timer.
+    - "^tools/"
+    # Process bootstrap: killing a mutant here means process-lifecycle tests
+    # that mostly restate wiring. The rest of cmd/throwntom stays in scope —
+    # the Bubble Tea model, theme, and stats handler are tested domain logic.
+    - "^cmd/[^/]+/main\\.go$"
+    - "^cmd/throwntom/startup\\.go$"
+
+# An ordinary counted loop (`for i := 0; i < n; i++`) becomes a permanent
+# infinite loop under this mutator (i-- from an increasing bound, or i++ from
+# a decreasing one, never reaches its exit test). That's a real behavior
+# difference, but it can never resolve to KILLED — the process just hangs
+# until gremlins' own per-mutant timeout — so every ordinary loop in the
+# module reports an unkillable-by-design TIMED OUT. Disabled module-wide
+# rather than chased file by file; gremlins itself already defaults several
+# noisy mutators off (invert-assignments, invert-bitwise, invert-bwassign,
+# invert-logical, invert-loopctrl) for the same kind of reason.
+mutants:
+  increment-decrement:
+    enabled: false

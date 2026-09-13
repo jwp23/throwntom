@@ -10,7 +10,16 @@ import (
 // DefaultWatchInterval is how often a Watcher looks at the config file. The
 // file is a few kilobytes and read at most once per interval, so the cost is
 // negligible, while two seconds is short enough that an edit feels immediate.
-const DefaultWatchInterval = 2 * time.Second
+//
+// A var built from a function, not a const: a package-level const's
+// initializer sits outside every function body, so go test's coverage
+// instrumentation never marks it executed and a mutation there is unkillable
+// no matter what asserts on it.
+var DefaultWatchInterval = defaultWatchInterval()
+
+func defaultWatchInterval() time.Duration {
+	return 2 * time.Second
+}
 
 // Watcher reports changes to a config file. It polls rather than subscribing
 // to filesystem events: the standard library has no portable watch API, and
@@ -37,10 +46,7 @@ type Watcher struct {
 // exists. A nil baseline means nothing is in force yet, so the file's
 // contents are reported once they have held still for a poll.
 func (w Watcher) Run(ctx context.Context, baseline []byte) {
-	interval := w.Interval
-	if interval <= 0 {
-		interval = DefaultWatchInterval
-	}
+	interval := resolveInterval(w.Interval)
 	state := watchState{applied: baseline, seen: baseline}
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -52,6 +58,16 @@ func (w Watcher) Run(ctx context.Context, baseline []byte) {
 			state = w.poll(state)
 		}
 	}
+}
+
+// resolveInterval falls back to DefaultWatchInterval for a non-positive
+// interval: time.NewTicker panics on one, and Interval's zero value must
+// never reach it.
+func resolveInterval(interval time.Duration) time.Duration {
+	if interval <= 0 {
+		return DefaultWatchInterval
+	}
+	return interval
 }
 
 // watchState is what the watcher remembers between polls: the contents it

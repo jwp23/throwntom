@@ -20,6 +20,50 @@ func mustParse(t *testing.T, hhmm string) Start {
 	return s
 }
 
+// TestTwoDigitsAcceptsNineInEitherPosition pins twoDigits' own "> '9'"
+// boundaries directly: '9' is the last valid digit, in either character
+// position, and must not be rejected as though it were past the range.
+func TestTwoDigitsAcceptsNineInEitherPosition(t *testing.T) {
+	if v, ok := twoDigits("99"); !ok || v != 99 {
+		t.Fatalf("twoDigits(\"99\") = %d, %v, want 99, true", v, ok)
+	}
+	if v, ok := twoDigits("91"); !ok || v != 91 {
+		t.Fatalf("twoDigits(\"91\") = %d, %v, want 91, true", v, ok)
+	}
+	if v, ok := twoDigits("19"); !ok || v != 19 {
+		t.Fatalf("twoDigits(\"19\") = %d, %v, want 19, true", v, ok)
+	}
+}
+
+// TestTwoDigitsRejectsTheCharacterJustPastNine is the boundary's other side:
+// ':' is '9'+1 in ASCII, the character immediately outside the valid range,
+// in either position.
+func TestTwoDigitsRejectsTheCharacterJustPastNine(t *testing.T) {
+	if _, ok := twoDigits(":0"); ok {
+		t.Fatal("expected ':' in the first position to be rejected")
+	}
+	if _, ok := twoDigits("0:"); ok {
+		t.Fatal("expected ':' in the second position to be rejected")
+	}
+}
+
+// TestBeforeStartAtTheSameHourComparesMinutes pins beforeStart's "hour ==
+// s.hour" clause directly: the existing DST tests only exercise hours that
+// differ from the start hour, where "hour < s.hour" alone already decides
+// the answer without ever reaching the minute comparison.
+func TestBeforeStartAtTheSameHourComparesMinutes(t *testing.T) {
+	start := mustParse(t, "04:30")
+	beforeMinute := time.Date(2026, 3, 8, 4, 15, 0, 0, time.UTC)
+	afterMinute := time.Date(2026, 3, 8, 4, 45, 0, 0, time.UTC)
+
+	if !start.beforeStart(beforeMinute) {
+		t.Error("04:15 is before a 04:30 start")
+	}
+	if start.beforeStart(afterMinute) {
+		t.Error("04:45 is at or past a 04:30 start")
+	}
+}
+
 func TestParseStartAcceptsHHMM(t *testing.T) {
 	for _, hhmm := range []string{"00:00", fourAM, "09:15", "23:59"} {
 		if _, err := ParseStart(hhmm); err != nil {

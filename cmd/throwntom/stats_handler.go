@@ -38,11 +38,7 @@ func renderDashboard(dash analytics.Dashboard, now time.Time, tierLow, tierMid i
 		tierStyled(dash.ThisMonth.Pomodoros, tierLow, tierMid),
 		formatDuration(dash.ThisMonth.FocusMinutes))
 	if dash.ThisMonth.Pomodoros > 0 {
-		dayCount := now.Day()
-		if dayCount > 0 {
-			avg := float64(dash.ThisMonth.Pomodoros) / float64(dayCount)
-			monthLine += fmt.Sprintf("    Avg: %.1f/day", avg)
-		}
+		monthLine += monthlyAverageSuffix(dash.ThisMonth.Pomodoros, now.Day())
 	}
 	sections = append(sections, monthLine)
 
@@ -67,6 +63,17 @@ func renderDashboard(dash analytics.Dashboard, now time.Time, tierLow, tierMid i
 	return strings.Join(sections, "\n\n")
 }
 
+// monthlyAverageSuffix renders the per-day average for the month, guarding
+// against a zero day count so a stubbed or otherwise degenerate clock can't
+// divide by zero.
+func monthlyAverageSuffix(pomodoros, dayCount int) string {
+	if dayCount > 0 {
+		avg := float64(pomodoros) / float64(dayCount)
+		return fmt.Sprintf("    Avg: %.1f/day", avg)
+	}
+	return ""
+}
+
 // tierStyled renders a count with a tier glyph and colour, so the tier reads
 // with or without colour vision: ● above tierMid, ◐ above tierLow, ○ otherwise.
 func tierStyled(count, tierLow, tierMid int) string {
@@ -75,14 +82,13 @@ func tierStyled(count, tierLow, tierMid int) string {
 }
 
 func tierMark(count, tierLow, tierMid int) (string, lipgloss.Style) {
-	switch {
-	case count > tierMid:
+	if count > tierMid {
 		return "●", lipgloss.NewStyle().Foreground(colorTeal)
-	case count > tierLow:
-		return "◐", lipgloss.NewStyle().Foreground(colorTomato)
-	default:
-		return "○", lipgloss.NewStyle().Foreground(colorDim)
 	}
+	if count > tierLow {
+		return "◐", lipgloss.NewStyle().Foreground(colorTomato)
+	}
+	return "○", lipgloss.NewStyle().Foreground(colorDim)
 }
 
 func formatDuration(minutes int) string {

@@ -85,6 +85,75 @@ func TestAMeetingClosesTheOpenPomodoro(t *testing.T) {
 	}
 }
 
+// TestAMeetingWithZeroMinutesAddsNoFocusTime documents that a zero-minute
+// meeting adds no focus time. It does not, despite appearances, discriminate
+// the "minutes > 0" guard from a ">= 0" mutant: adding zero minutes is a
+// no-op on the same field either way, so that boundary is equivalent — no
+// test can tell the two apart. Kept for documentation value.
+func TestAMeetingWithZeroMinutesAddsNoFocusTime(t *testing.T) {
+	now := time.Date(2026, 9, 4, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		makeEventWithData("meeting_completed", time.Date(2026, 9, 4, 11, 0, 0, 0, time.Local),
+			map[string]any{"pomodoros": float64(0), "minutes": float64(0)}),
+	}
+
+	dash := Compute(events, now)
+
+	if dash.Today.FocusMinutes != 0 {
+		t.Fatalf("today's focus minutes is %d, want 0", dash.Today.FocusMinutes)
+	}
+}
+
+// TestAMeetingWithZeroPomodorosLeavesNoDailyCount pins the "<= 0" guard on
+// pomodoros at the exact boundary: crediting zero pomodoros must return
+// before touching the day's tally at all, not fall through and add zero —
+// falling through would still create a zero-count DailyCounts entry for a
+// day nothing was actually credited on.
+func TestAMeetingWithZeroPomodorosLeavesNoDailyCount(t *testing.T) {
+	now := time.Date(2026, 9, 4, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		makeEventWithData("meeting_completed", time.Date(2026, 9, 4, 11, 0, 0, 0, time.Local),
+			map[string]any{"pomodoros": float64(0), "minutes": float64(5)}),
+	}
+
+	dash := Compute(events, now)
+
+	if len(dash.ThisWeek.DailyCounts) != 0 {
+		t.Fatalf("expected no DailyCounts entry for a zero-pomodoro meeting, got %v", dash.ThisWeek.DailyCounts)
+	}
+}
+
+// TestAMeetingCreditsExactlyAtTheCreditCap and
+// TestAMeetingOneOverTheCreditCapIsRejected together pin the credit cap's
+// exact boundary: the cap itself is a legitimate count, one more is not.
+func TestAMeetingCreditsExactlyAtTheCreditCap(t *testing.T) {
+	now := time.Date(2026, 9, 4, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		makeEventWithData("meeting_completed", time.Date(2026, 9, 4, 11, 0, 0, 0, time.Local),
+			map[string]any{"pomodoros": float64(1_000_000), "minutes": float64(0)}),
+	}
+
+	dash := Compute(events, now)
+
+	if dash.Today.Pomodoros != 1_000_000 {
+		t.Fatalf("today's pomodoros is %d, want 1000000", dash.Today.Pomodoros)
+	}
+}
+
+func TestAMeetingOneOverTheCreditCapIsRejected(t *testing.T) {
+	now := time.Date(2026, 9, 4, 14, 0, 0, 0, time.Local)
+	events := []eventlog.Event{
+		makeEventWithData("meeting_completed", time.Date(2026, 9, 4, 11, 0, 0, 0, time.Local),
+			map[string]any{"pomodoros": float64(1_000_001), "minutes": float64(0)}),
+	}
+
+	dash := Compute(events, now)
+
+	if dash.Today.Pomodoros != 0 {
+		t.Fatalf("today's pomodoros is %d, want 0", dash.Today.Pomodoros)
+	}
+}
+
 // A malformed or truncated event must not crash the dashboard or invent
 // credit; the log is read back from disk and cannot be assumed well-formed.
 func TestAMeetingEventWithoutItsCreditIsHarmless(t *testing.T) {

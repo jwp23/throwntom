@@ -54,6 +54,16 @@ func watchConfig(ctx context.Context, path string, baseline []byte, c *core.Core
 	}
 }
 
+// newDaemonServer builds the http.Server Run drives, with BaseContext tied
+// to ctx so every request's context is cancelled the moment Run's is.
+func newDaemonServer(handler http.Handler, ctx context.Context) *http.Server {
+	return &http.Server{
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		BaseContext:       func(net.Listener) context.Context { return ctx },
+	}
+}
+
 // Run serves the daemon API on paths.Socket until ctx is cancelled, then
 // shuts the server down and stops the core, which saves the session.
 //
@@ -82,11 +92,7 @@ func Run(ctx context.Context, cfg config.Config, n notifier.Notifier, paths core
 	if paths.Config != "" {
 		stopWatching = watchConfig(ctx, paths.Config, configBytes, c)
 	}
-	srv := &http.Server{
-		Handler:           NewHandler(c),
-		ReadHeaderTimeout: 5 * time.Second,
-		BaseContext:       func(net.Listener) context.Context { return ctx },
-	}
+	srv := newDaemonServer(NewHandler(c), ctx)
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.Serve(ln) }()
 

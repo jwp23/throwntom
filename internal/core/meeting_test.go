@@ -85,6 +85,38 @@ func TestMeetingOfNoLengthIsRefused(t *testing.T) {
 // The daemon route rejects a meeting over a day as a typo; the command path
 // must refuse it too, or a user typing minutes where the route expects them
 // is stuck with a 69-day meeting they have to notice and undo.
+// TestMeetingAcceptsExactlyADay pins the "parsed > MaxMeetingDuration"
+// boundary directly: TestMeetingOverADayIsRefused below only exercises a
+// duration far past the bound, which any plausible boundary operator would
+// also refuse.
+func TestMeetingAcceptsExactlyADay(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+
+	result := c.execute("meeting 1440") // exactly 24h
+
+	if result.err != nil {
+		t.Fatalf("a meeting of exactly a day was refused: %v", result.err)
+	}
+	if c.timer.State() != engine.Meeting {
+		t.Fatal("expected the meeting to start")
+	}
+}
+
+// TestMeetingOneMinuteOverADayIsRefused is the boundary's other side.
+func TestMeetingOneMinuteOverADayIsRefused(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+
+	result := c.execute("meeting 1441") // one minute past 24h
+
+	if result.err == nil {
+		t.Fatal("a meeting one minute over a day was accepted")
+	}
+}
+
 func TestMeetingOverADayIsRefused(t *testing.T) {
 	cfg := config.Default()
 	cfg.MorningReminderPending = false

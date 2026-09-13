@@ -107,6 +107,62 @@ func TestTaskUnfocus(t *testing.T) {
 	}
 }
 
+// TestTaskUpNamesTheDestinationPosition pins the message arithmetic
+// directly: TestTaskReorderWhileIdle already checks the resulting order but
+// never reads the message text, so pos-1's own arithmetic goes uncovered.
+func TestTaskUpNamesTheDestinationPosition(t *testing.T) {
+	c := newTestCoreWithTasks(t)
+	c.execute("task add first")
+	c.execute("task add second")
+	c.execute(cmdTaskFocus1)
+	c.execute("task focus 2")
+
+	result := c.execute("task up 2")
+
+	if result.message != "moved task up to position 1" {
+		t.Fatalf("message = %q, want %q", result.message, "moved task up to position 1")
+	}
+}
+
+// TestTaskDownNamesTheDestinationPosition is TestTaskUpNamesTheDestinationPosition's
+// sibling for pos+1.
+func TestTaskDownNamesTheDestinationPosition(t *testing.T) {
+	c := newTestCoreWithTasks(t)
+	c.execute("task add first")
+	c.execute("task add second")
+	c.execute(cmdTaskFocus1)
+	c.execute("task focus 2")
+
+	result := c.execute("task down 1")
+
+	if result.message != "moved task down to position 2" {
+		t.Fatalf("message = %q, want %q", result.message, "moved task down to position 2")
+	}
+}
+
+// TestTaskDownRefusesTheLastPosition pins the "pos >= len(c.focused)"
+// boundary directly: moving the last focused task down has nowhere to go,
+// and must be refused rather than index one past the end of the slice.
+func TestTaskDownRefusesTheLastPosition(t *testing.T) {
+	c := newTestCoreWithTasks(t)
+	c.execute("task add first")
+	c.execute("task add second")
+	c.execute(cmdTaskFocus1)
+	c.execute("task focus 2")
+
+	result := c.execute("task down 2")
+
+	if result.err == nil {
+		t.Fatal("expected moving the last focused task down to be refused")
+	}
+	// Pins the "len(c.focused)-1" arithmetic in the refusal message: with 2
+	// focused tasks the valid range for "down" tops out at 1, one less than
+	// the count, since the last task has nowhere further to go.
+	if want := "position 2 out of range for down (1-1)"; result.err.Error() != want {
+		t.Fatalf("error = %q, want %q", result.err.Error(), want)
+	}
+}
+
 func TestTaskUpDown(t *testing.T) {
 	c := newTestCoreWithTasks(t)
 	c.execute("task add first")
@@ -341,6 +397,39 @@ func TestCancelFocusPromptClearsPendingState(t *testing.T) {
 	}
 	if c.pendingFocusAction != "" {
 		t.Fatal("expected action cleared")
+	}
+}
+
+// TestFocusPromptSelectedListUsesOneBasedIndex pins the "i+1" arithmetic in
+// the selected-tasks summary directly: TestFocusPromptToggleAndStart only
+// checks that the word "Focused" appears, which a wrong index (e.g. "-1")
+// would not catch.
+func TestFocusPromptSelectedListUsesOneBasedIndex(t *testing.T) {
+	c := newTestCoreWithTasks(t)
+	c.execute("task add first")
+	c.execute("task add second")
+	c.execute("start")
+	c.execute("2") // toggle the second task (zero-based index 1)
+
+	prompt := c.FocusPrompt()
+
+	if !strings.Contains(prompt, "Focused: 2") {
+		t.Fatalf("prompt = %q, want it to name the selected task as 2", prompt)
+	}
+}
+
+// TestFocusPromptOmitsFocusedLineWithNothingSelected pins the "len(selected)
+// > 0" boundary: with nothing toggled, the prompt must not print an empty
+// "Focused:" line at all.
+func TestFocusPromptOmitsFocusedLineWithNothingSelected(t *testing.T) {
+	c := newTestCoreWithTasks(t)
+	c.execute("task add first")
+	c.execute("start")
+
+	prompt := c.FocusPrompt()
+
+	if strings.Contains(prompt, "Focused") {
+		t.Fatalf("prompt = %q, want no Focused line with nothing selected", prompt)
 	}
 }
 

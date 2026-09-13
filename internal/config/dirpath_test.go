@@ -21,6 +21,31 @@ func TestDirPathJoinsConfigDir(t *testing.T) {
 	}
 }
 
+func TestResolvePathKeepsAnExplicitPath(t *testing.T) {
+	got, err := ResolvePath("/explicit/config.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "/explicit/config.toml" {
+		t.Fatalf("ResolvePath = %q, want the explicit path unchanged", got)
+	}
+}
+
+func TestResolvePathFallsBackToDirPathWhenEmpty(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	got, err := ResolvePath("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := DirPath("config.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Fatalf("ResolvePath(\"\") = %q, want %q", got, want)
+	}
+}
+
 func TestLoadDefaultUsesExplicitPath(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "c.toml")
 	if err := os.WriteFile(path, []byte("repeat_secs = 7\n"), 0o600); err != nil {
