@@ -13,3 +13,16 @@ unleash:
     # the Bubble Tea model, theme, and stats handler are tested domain logic.
     - "^cmd/[^/]+/main\\.go$"
     - "^cmd/throwntom/startup\\.go$"
+
+# An ordinary counted loop (`for i := 0; i < n; i++`) becomes a permanent
+# infinite loop under this mutator (i-- from an increasing bound, or i++ from
+# a decreasing one, never reaches its exit test). That's a real behavior
+# difference, but it can never resolve to KILLED — the process just hangs
+# until gremlins' own per-mutant timeout — so every ordinary loop in the
+# module reports an unkillable-by-design TIMED OUT. Disabled module-wide
+# rather than chased file by file; gremlins itself already defaults several
+# noisy mutators off (invert-assignments, invert-bitwise, invert-bwassign,
+# invert-logical, invert-loopctrl) for the same kind of reason.
+mutants:
+  increment-decrement:
+    enabled: false
