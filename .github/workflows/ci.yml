@@ -90,6 +90,43 @@ jobs:
       - name: Govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
 
+  # ADR-014: whole-module mutation testing on every PR, no diff scoping or
+  # scheduled sweep. Scope and the timeout coefficient live in .gremlins.yaml;
+  # gremlinsgate enforces the zero-unexcluded-survivors bar gremlins' own
+  # percentage thresholds can't express.
+  gremlins:
+    name: Mutation testing
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+
+      - name: Install gremlins
+        run: go install github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0
+
+      - name: Build gremlinsgate
+        run: go build -o /tmp/gremlinsgate ./tools/gremlinsgate
+
+      - name: Run gremlins
+        run: gremlins unleash -o gremlins-report.json .
+
+      - name: Enforce zero unexcluded survivors
+        run: /tmp/gremlinsgate -report gremlins-report.json
+
+      - name: Upload gremlins report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: gremlins-report
+          path: gremlins-report.json
+
   macos:
     name: macOS app
     runs-on: macos-15

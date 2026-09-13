@@ -93,6 +93,33 @@ func TestAZeroThresholdNeverReportsTooLong(t *testing.T) {
 	}
 }
 
+// TestAZeroThresholdNeverArmsTheWatchdog pins the boundary armPauseWatchdogLocked
+// itself checks: TestAZeroThresholdNeverReportsTooLong above proves
+// PausedTooLong()'s own guard, but that is a second, independent "<= 0" check
+// on the same field — this one proves the watchdog is never scheduled at all,
+// so it cannot later fire a spurious change notification. onChange is hooked
+// before Pause() deliberately: a zero-delay fakeClock timer fires on the very
+// next Advance (even Advance(0), which pausedFor's own setup would trigger),
+// so hooking it any later would silently miss a fire that already happened.
+func TestAZeroThresholdNeverArmsTheWatchdog(t *testing.T) {
+	a := New(minutes(25, 5, 15, 4))
+	clk := newFakeClock(time.Date(2026, 9, 3, 10, 0, 0, 0, time.UTC))
+	a.setClock(clk)
+	a.Start()
+	changes := 0
+	a.SetOnChange(func() { changes++ })
+
+	if !a.Pause() {
+		t.Fatal("expected the running phase to pause")
+	}
+	changes = 0 // Pause() itself notifies; only what follows matters here
+	clk.Advance(time.Second)
+
+	if changes != 0 {
+		t.Fatalf("expected no watchdog notification with a zero threshold, got %d", changes)
+	}
+}
+
 // The pause's age is wall-clock time the daemon was not necessarily running
 // for. A pause forgotten before a restart is still forgotten after it.
 func TestARestoredPauseKeepsItsAge(t *testing.T) {

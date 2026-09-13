@@ -120,6 +120,32 @@ func TestStatusLineUsesPomodoroLabel(t *testing.T) {
 	}
 }
 
+// TestStatusLineAtLongBreakWithNoWorkSessionsShowsEmptyCycle pins the
+// "workSessionsInBlock > 0" guard directly: a long break entered with zero
+// work sessions in the block (only reachable through a hand-crafted restore,
+// but StatusLine must still get it right) must show an empty cycle, not
+// borrow the full-cycle display the >0 guard exists to produce.
+func TestStatusLineAtLongBreakWithNoWorkSessionsShowsEmptyCycle(t *testing.T) {
+	a := New(minutes(25, 5, 15, 4))
+	snap := Snapshot{
+		Engine: engine.Snapshot{
+			State:          engine.LongBreak,
+			LastPhase:      engine.LongBreak,
+			WorkSessions:   0,
+			WorkDayStarted: true,
+			WorkDate:       time.Now(),
+		},
+	}
+	if err := a.Restore(snap, time.Now()); err != nil {
+		t.Fatalf(fmtRestore, err)
+	}
+
+	line := a.StatusLine()
+	if !strings.Contains(line, "Cycle: 0/4") {
+		t.Fatalf("expected an empty cycle with no work sessions in the block, got %s", line)
+	}
+}
+
 func TestStatusLineShowsFullCycleAtLongBreakBoundary(t *testing.T) {
 	a := New(minutes(25, 5, 15, 4))
 	a.Start()
@@ -194,6 +220,44 @@ func TestStartNewCycleResetsCycleProgressButPreservesDailyTotal(t *testing.T) {
 	}
 	if !strings.Contains(line, statusTodayPomodoros1) {
 		t.Fatalf("expected daily total preserved, got %s", line)
+	}
+}
+
+// TestConfirmSkipsTimerForAZeroDurationPhase pins Confirm's own "d > 0"
+// guard: a phase with no duration of its own must not get a phase timer
+// (PhaseEndAt), or a later completion callback would fire against a phase
+// that was never really running.
+func TestConfirmSkipsTimerForAZeroDurationPhase(t *testing.T) {
+	a := New(minutes(25, 0, 15, 4)) // short break duration is zero
+	a.Start()
+	a.CompletePeriod()
+
+	a.Confirm()
+
+	if got := a.State(); got != engine.ShortBreak {
+		t.Fatalf("expected the owed short break, got %s", got)
+	}
+	if !a.Snapshot().PhaseEndAt.IsZero() {
+		t.Fatalf("expected no phase timer for a zero-duration break")
+	}
+}
+
+// TestStartAtAwaitingConfirmSkipsTimerForAZeroDurationPhase is
+// TestConfirmSkipsTimerForAZeroDurationPhase's sibling: Start does what
+// Confirm does at the AwaitingConfirm boundary via its own, separately
+// guarded confirmNextLocked call.
+func TestStartAtAwaitingConfirmSkipsTimerForAZeroDurationPhase(t *testing.T) {
+	a := New(minutes(25, 0, 15, 4)) // short break duration is zero
+	a.Start()
+	a.CompletePeriod()
+
+	a.Start()
+
+	if got := a.State(); got != engine.ShortBreak {
+		t.Fatalf("expected the owed short break, got %s", got)
+	}
+	if !a.Snapshot().PhaseEndAt.IsZero() {
+		t.Fatalf("expected no phase timer for a zero-duration break")
 	}
 }
 
@@ -388,6 +452,44 @@ func TestPauseCapturesRemainingFromInjectedClock(t *testing.T) {
 // case Pause reports zero remaining. Resume must complete that phase rather
 // than reviving it with a fresh full duration, which would hand back time
 // the phase never had.
+// TestResumeCompletesAPhaseServedExactlyToTheDeadlineWhilePaused pins the
+// exact "d <= 0" boundary in Resume's fallback path: pausing exactly when
+// elapsed equals the phase duration (not after, unlike the sibling test
+// below) must still complete on resume, not start a zero-length phase.
+// phaseStartedAt/phaseEndAt are set by hand, bypassing the fake clock's own
+// auto-firing completion callback, the same way the sibling test does — a
+// clk.Advance that lands exactly on the deadline would fire that callback
+// itself before Pause ever runs.
+func TestResumeCompletesAPhaseServedExactlyToTheDeadlineWhilePaused(t *testing.T) {
+	a := New(minutes(25, 5, 15, 4))
+	clk := newFakeClock(time.Now())
+	a.setClock(clk)
+	a.Start()
+
+	a.mu.Lock()
+	if a.periodTimer != nil {
+		a.periodTimer.Stop()
+		a.periodTimer = nil
+	}
+	a.phaseStartedAt = clk.Now().Add(-25 * time.Minute)
+	a.phaseEndAt = a.phaseStartedAt.Add(25 * time.Minute) // exactly now: elapsed == duration
+	a.mu.Unlock()
+
+	if !a.Pause() {
+		t.Fatal("expected Pause to report true during work")
+	}
+	if got := a.Snapshot().PausedRemaining; got != 0 {
+		t.Fatalf("expected 0 remaining at pause, got %s", got)
+	}
+
+	if !a.Resume() {
+		t.Fatal("expected Resume to report true when paused")
+	}
+	if state := a.State(); state != engine.AwaitingConfirm {
+		t.Fatalf("expected the exactly-served phase to complete on resume, got %s", state)
+	}
+}
+
 func TestResumeCompletesAPhaseThatExpiredWhilePaused(t *testing.T) {
 	a := New(minutes(25, 5, 15, 4))
 	clk := newFakeClock(time.Now())

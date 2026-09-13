@@ -82,6 +82,25 @@ func TestRestoreEndsAPhaseShorterThanTheElapsedTime(t *testing.T) {
 	}
 }
 
+// TestRestoreEndsAPhaseExactlyAtTheElapsedTime pins the "<= 0" boundary
+// itself: a new duration exactly equal to the elapsed time must end the
+// phase, not restore a zero-length one.
+func TestRestoreEndsAPhaseExactlyAtTheElapsedTime(t *testing.T) {
+	start := time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC)
+	now := start.Add(10 * time.Minute)
+	a := New(minutes(10, 5, 15, 4)) // new duration == elapsed exactly
+	clock := newFakeClock(now)
+	a.setClock(clock)
+
+	if err := a.Restore(downSnapshot(start), now); err != nil {
+		t.Fatalf(fmtRestore, err)
+	}
+
+	if got := a.State(); got != engine.AwaitingConfirm {
+		t.Fatalf(fmtExpectedAwaitingConfirm, got)
+	}
+}
+
 // Downtime is not a pause: time spent with the daemon stopped counts, so a
 // phase whose new duration ran out during the outage comes back complete.
 func TestRestoreCountsDowntimeTowardTheNewDuration(t *testing.T) {
@@ -129,6 +148,109 @@ func TestRestorePausedPhaseUsesTheCurrentDuration(t *testing.T) {
 	}
 	if got := a.Snapshot().PausedRemaining; got != 40*time.Minute {
 		t.Fatalf("expected 40m left of the new 50m phase, got %s", got)
+	}
+}
+
+// TestRestorePausedPhaseEndsExactlyAtElapsed pins restorePausedLocked's own
+// "<= 0" boundary: a paused phase whose PausedElapsed exactly equals the
+// current duration must end, not resume with a zero remainder.
+func TestRestorePausedPhaseEndsExactlyAtElapsed(t *testing.T) {
+	start := time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC)
+	now := start.Add(2 * time.Hour)
+	a := New(minutes(10, 5, 15, 4)) // work duration == PausedElapsed exactly
+	clock := newFakeClock(now)
+	a.setClock(clock)
+	snap := Snapshot{
+		Engine: engine.Snapshot{
+			State:          engine.Paused,
+			LastPhase:      engine.Work,
+			PausedFrom:     engine.Work,
+			WorkDayStarted: true,
+			WorkDate:       start,
+		},
+		PausedElapsed:   10 * time.Minute,
+		PausedRemaining: 0,
+	}
+
+	if err := a.Restore(snap, now); err != nil {
+		t.Fatalf(fmtRestore, err)
+	}
+
+	if got := a.State(); got != engine.AwaitingConfirm {
+		t.Fatalf(fmtExpectedAwaitingConfirm, got)
+	}
+	if got := a.Snapshot().PausedRemaining; got != 0 {
+		t.Fatalf("expected no paused remainder once the phase ended, got %s", got)
+	}
+}
+
+// TestResumeAfterRestoringAFreshPauseRunsTheFullPhase pins Resume's own
+// "d <= 0" guard for pausedRemaining (timer.go): a pause restored with
+// PausedElapsed and PausedRemaining both zero (never measured, not "already
+// served") must fall through to phaseDuration-minus-elapsed and resume the
+// full phase, not complete it as though it had already run out. Restoring
+// with PausedElapsed == 0 is the only path that leaves pausedRemaining at
+// its zero value without it meaning the phase was fully served.
+func TestResumeAfterRestoringAFreshPauseRunsTheFullPhase(t *testing.T) {
+	start := time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC)
+	now := start
+	a := New(minutes(25, 5, 15, 4))
+	clock := newFakeClock(now)
+	a.setClock(clock)
+	snap := Snapshot{
+		Engine: engine.Snapshot{
+			State:          engine.Paused,
+			LastPhase:      engine.Work,
+			PausedFrom:     engine.Work,
+			WorkDayStarted: true,
+			WorkDate:       start,
+		},
+		PausedElapsed:   0,
+		PausedRemaining: 0,
+	}
+	if err := a.Restore(snap, now); err != nil {
+		t.Fatalf(fmtRestore, err)
+	}
+
+	if !a.Resume() {
+		t.Fatal("expected Resume to report true when paused")
+	}
+
+	if got := a.State(); got != engine.Work {
+		t.Fatalf("expected work to resume, got %s", got)
+	}
+	if got := a.Snapshot().PhaseEndAt.Sub(now); got != 25*time.Minute {
+		t.Fatalf("expected the full 25m phase, got %s", got)
+	}
+}
+
+// TestResumeRefusedWhenFreshPauseHasNoDurationToFallBackOn pins Resume's
+// inner "total <= 0" guard: when the pausedRemaining fallback (previous test)
+// finds the current phase itself has no configured duration, Resume must
+// refuse rather than start a zero-length phase.
+func TestResumeRefusedWhenFreshPauseHasNoDurationToFallBackOn(t *testing.T) {
+	start := time.Date(2026, 8, 29, 9, 0, 0, 0, time.UTC)
+	now := start
+	a := New(minutes(25, 0, 15, 4)) // short break duration is zero
+	clock := newFakeClock(now)
+	a.setClock(clock)
+	snap := Snapshot{
+		Engine: engine.Snapshot{
+			State:          engine.Paused,
+			LastPhase:      engine.Work,
+			PausedFrom:     engine.ShortBreak,
+			WorkDayStarted: true,
+			WorkDate:       start,
+		},
+		PausedElapsed:   0,
+		PausedRemaining: 0,
+	}
+	if err := a.Restore(snap, now); err != nil {
+		t.Fatalf(fmtRestore, err)
+	}
+
+	if a.Resume() {
+		t.Fatal("expected Resume to refuse a phase with no duration to fall back on")
 	}
 }
 

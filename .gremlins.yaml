@@ -1,0 +1,15 @@
+# Mutation-testing scope for the Go module. See ADR-014
+# (docs/adr/014-go-mutation-testing-whole-module-on-every-pr.md) for the
+# decision this encodes and the bar it sets: zero unexcluded non-KILLED
+# mutants, enforced by tools/gremlinsgate against this run's JSON report
+# (gremlinsgate reads its own bar from the report, not from thresholds here).
+unleash:
+  timeout-coefficient: 10
+  exclude-files:
+    # Dev utilities: a bug here costs a debugging session, not a broken timer.
+    - "^tools/"
+    # Process bootstrap: killing a mutant here means process-lifecycle tests
+    # that mostly restate wiring. The rest of cmd/throwntom stays in scope —
+    # the Bubble Tea model, theme, and stats handler are tested domain logic.
+    - "^cmd/[^/]+/main\\.go$"
+    - "^cmd/throwntom/startup\\.go$"
