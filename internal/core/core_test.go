@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -123,6 +124,130 @@ func TestStatusResetsCompletedTodayOnDayRollover(t *testing.T) {
 	status2, _, _ := c.Status()
 	if !strings.Contains(status2, statusTodayPomodoros0) {
 		t.Fatalf("expected today's pomodoros=0 after day rollover, got %s", status2)
+	}
+}
+
+// TestNewWarnsOnAnUnreadableSessionButStillStarts pins the "err != nil"
+// branch in New's loadSession call directly: a session file that fails to
+// load must warn on stderr and still leave New usable, not silently proceed
+// as though nothing happened.
+func TestNewWarnsOnAnUnreadableSessionButStillStarts(t *testing.T) {
+	dir := t.TempDir()
+	paths := Paths{
+		Tasks:   filepath.Join(dir, "tasks.json"),
+		Session: filepath.Join(dir, "session.json"),
+		Events:  filepath.Join(dir, "events.jsonl"),
+	}
+	if err := os.WriteFile(paths.Session, []byte("not valid json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	origStderr := os.Stderr
+	os.Stderr = w
+	c, newErr := New(cfg, noopNotifier{}, paths)
+	os.Stderr = origStderr
+	_ = w.Close()
+	if newErr != nil {
+		t.Fatalf("New returned an error for an unreadable session: %v", newErr)
+	}
+	defer c.Stop()
+
+	captured, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(captured), "warning: could not load session") {
+		t.Fatalf("stderr = %q, want a load-session warning", captured)
+	}
+}
+
+// TestSaveSessionWarnsWhenTheWriteFails pins the "err != nil" branch in
+// saveSessionLocked directly: pointing the session path at an existing
+// directory makes the write fail, and Stop's own synchronous saveAndFanOut
+// call is the deterministic way to observe it (publishAsync would run it on
+// a goroutine this test can't reliably wait on).
+func TestSaveSessionWarnsWhenTheWriteFails(t *testing.T) {
+	dir := t.TempDir()
+	sessionAsDir := filepath.Join(dir, "session.json")
+	if err := os.Mkdir(sessionAsDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	paths := Paths{
+		Tasks:   filepath.Join(dir, "tasks.json"),
+		Session: sessionAsDir,
+		Events:  filepath.Join(dir, "events.jsonl"),
+	}
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c, err := New(cfg, noopNotifier{}, paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	origStderr := os.Stderr
+	os.Stderr = w
+	c.Stop()
+	os.Stderr = origStderr
+	_ = w.Close()
+
+	captured, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(captured), "warning: session save failed") {
+		t.Fatalf("stderr = %q, want a session-save warning", captured)
+	}
+}
+
+// TestLogEventWarnsWhenTheWriteFails pins the "err != nil" branch on
+// eventWriter.Log's result directly (distinct from the "eventWriter == nil"
+// guard just above it): pointing the events path at an existing directory
+// makes every write fail once a real *Writer is wired up.
+func TestLogEventWarnsWhenTheWriteFails(t *testing.T) {
+	dir := t.TempDir()
+	eventsAsDir := filepath.Join(dir, "events.jsonl")
+	if err := os.Mkdir(eventsAsDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	paths := Paths{
+		Tasks:   filepath.Join(dir, "tasks.json"),
+		Session: filepath.Join(dir, "session.json"),
+		Events:  eventsAsDir,
+	}
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c, err := New(cfg, noopNotifier{}, paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Stop()
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	origStderr := os.Stderr
+	os.Stderr = w
+	c.execute("new-cycle") // handleNewCycle logs "pomodoro_started"
+	os.Stderr = origStderr
+	_ = w.Close()
+
+	captured, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(captured), "warning: event log") {
+		t.Fatalf("stderr = %q, want an event-log warning", captured)
 	}
 }
 

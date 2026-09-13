@@ -52,6 +52,25 @@ func TestSaveSessionWritesValidJSON(t *testing.T) {
 	}
 }
 
+// TestDayUnderwayIsTrueWhenAPhaseIsRunning pins dayUnderway's "State !=
+// Idle" clause on its own: WorkDayStarted and DayEnded are both false here,
+// so only that first clause can make the answer true.
+func TestDayUnderwayIsTrueWhenAPhaseIsRunning(t *testing.T) {
+	snap := engine.Snapshot{State: engine.Work, WorkDayStarted: false, DayEnded: false}
+	if !dayUnderway(snap) {
+		t.Fatal("expected a running phase to count as the day being underway")
+	}
+}
+
+// TestDayUnderwayIsFalseWhenIdleAndUntouched is the negation's other side:
+// idle, with neither flag set, must not count as underway.
+func TestDayUnderwayIsFalseWhenIdleAndUntouched(t *testing.T) {
+	snap := engine.Snapshot{State: engine.Idle, WorkDayStarted: false, DayEnded: false}
+	if dayUnderway(snap) {
+		t.Fatal("expected an untouched idle day to not count as underway")
+	}
+}
+
 func TestLoadSessionRestoresState(t *testing.T) {
 	dir := t.TempDir()
 	sessPath := filepath.Join(dir, testSessionFile)

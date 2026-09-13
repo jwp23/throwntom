@@ -82,5 +82,12 @@
     "column": 16,
     "type": "CONDITIONALS_BOUNDARY",
     "reason": "NextTrigger's 'i < 8' vs 'i <= 8' loop bound: a week has 7 distinct weekdays, so checking offsets 0-7 (8 days) from `from` is provably sufficient to find any configured weekday's next occurrence, including the case where today's own slot already passed and the next occurrence is exactly a week out. A 9th offset can never turn a real miss (an empty schedule, which panics regardless of iteration count) into a hit, so the extra iteration is unobservable in every configuration. Confirmed empirically: a hand-applied mutation still passes the full suite."
+  },
+  {
+    "file": "internal/core/session.go",
+    "line": 51,
+    "column": 48,
+    "type": "CONDITIONALS_BOUNDARY",
+    "reason": "len(data.FocusedTaskIDs)>0 vs >=0: at length 0, entering the branch just builds an activeByID map and then ranges over an empty FocusedTaskIDs slice, which does nothing observable — c.focused ends up identical either way. Confirmed empirically: a hand-applied mutation still passes the full suite."
   }
 ]

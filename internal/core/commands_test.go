@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -8,6 +9,38 @@ import (
 	"github.com/jwp23/throwntom/v3/internal/config"
 	"github.com/jwp23/throwntom/v3/internal/engine"
 )
+
+// failingNotifier stands in for a notifier whose sound playback fails, so
+// handleTestSound's error path is reachable — noopNotifier only ever
+// succeeds.
+type failingNotifier struct{ err error }
+
+func (n failingNotifier) PlaySound(string) error { return n.err }
+
+func TestTestSoundReportsSuccess(t *testing.T) {
+	cfg := config.Default()
+	c := newCore(cfg, noopNotifier{})
+	got := c.execute("test-sound")
+	if got.err != nil {
+		t.Fatalf("unexpected error: %v", got.err)
+	}
+	if got.message != "Sound test played." {
+		t.Fatalf("message = %q, want %q", got.message, "Sound test played.")
+	}
+}
+
+func TestTestSoundReportsPlaybackFailure(t *testing.T) {
+	cfg := config.Default()
+	playErr := errors.New("no audio device")
+	c := newCore(cfg, failingNotifier{err: playErr})
+	got := c.execute("test-sound")
+	if got.err != nil {
+		t.Fatalf("expected a message result, not an error result: %v", got.err)
+	}
+	if !strings.Contains(got.message, playErr.Error()) {
+		t.Fatalf("message = %q, want it to name the playback error", got.message)
+	}
+}
 
 func TestHelpExplainsSnoozeIsNonDestructive(t *testing.T) {
 	help := Help()

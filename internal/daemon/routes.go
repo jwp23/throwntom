@@ -88,7 +88,7 @@ func decodeBody(w http.ResponseWriter, r *http.Request, dst any) error {
 // The macOS client refuses the same length before asking (Minutes.maximum),
 // but a client's rule is not the daemon's: this is the trust boundary, and it
 // holds the bound too.
-var maxMeetingMinutes = int(core.MaxMeetingDuration.Minutes())
+var maxMeetingMinutes = int(core.MaxMeetingDuration().Minutes())
 
 // readMinutesBody decodes a {"minutes": N} body shared by snooze and
 // meeting: both ask for nothing but a length, and both refuse the same

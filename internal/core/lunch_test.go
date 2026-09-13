@@ -130,6 +130,37 @@ func TestLunchOfNoLengthIsRefused(t *testing.T) {
 
 // The daemon route rejects a lunch over a day as a typo, the same rule
 // meeting is held to; the command path must refuse it too.
+// TestLunchAcceptsExactlyADay pins the "d > MaxMeetingDuration" boundary
+// directly: TestLunchOverADayIsRefused below only exercises a duration far
+// past the bound, which any plausible boundary operator would also refuse.
+func TestLunchAcceptsExactlyADay(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+
+	result := c.execute("lunch 1440") // exactly 24h
+
+	if result.err != nil {
+		t.Fatalf("a lunch of exactly a day was refused: %v", result.err)
+	}
+	if c.timer.State() != engine.Lunch {
+		t.Fatal("expected lunch to start")
+	}
+}
+
+// TestLunchOneMinuteOverADayIsRefused is the boundary's other side.
+func TestLunchOneMinuteOverADayIsRefused(t *testing.T) {
+	cfg := config.Default()
+	cfg.MorningReminderPending = false
+	c := newCore(cfg, noopNotifier{})
+
+	result := c.execute("lunch 1441") // one minute past 24h
+
+	if result.err == nil {
+		t.Fatal("a lunch one minute over a day was accepted")
+	}
+}
+
 func TestLunchOverADayIsRefused(t *testing.T) {
 	cfg := config.Default()
 	cfg.MorningReminderPending = false
