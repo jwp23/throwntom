@@ -40,6 +40,17 @@ func TestTimerSnoozeAcceptsExactlyADay(t *testing.T) {
 	}
 }
 
+// TestMaxRequestBodyBytesIsSixtyFourKiB pins the cap's value: the oversized-
+// body tests below use a body far bigger than any plausible cap, so they
+// reject a mutated cap just as reliably as the real one and cannot tell the
+// two apart.
+func TestMaxRequestBodyBytesIsSixtyFourKiB(t *testing.T) {
+	const want = 64 * 1024
+	if got := maxRequestBodyBytes(); got != want {
+		t.Fatalf("maxRequestBodyBytes() = %d, want %d", got, want)
+	}
+}
+
 // A body large enough to overflow the daemon's cap must be rejected before
 // it is ever handed to json.Decode, not merely refused for its content: an
 // unbounded read would allocate the whole thing first regardless of what it

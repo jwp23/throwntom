@@ -92,12 +92,36 @@ func TestListenRestrictsSocketToOwner(t *testing.T) {
 	}
 }
 
+// unixClientTimeout bounds every request this client makes. Without it, a
+// daemon bug that accepts a connection but never writes a response (as
+// several mutants proved: an early return that skips Serve entirely, or
+// isMuxError's comparisons flipped so every response gets suppressed) hangs
+// the caller's polling loop forever instead of failing within the test's own
+// budget.
+const unixClientTimeout = 2 * time.Second
+
 func unixClient(socket string) *http.Client {
-	return &http.Client{Transport: &http.Transport{
-		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-			return (&net.Dialer{}).DialContext(ctx, "unix", socket)
+	return &http.Client{
+		Timeout: unixClientTimeout,
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				return (&net.Dialer{}).DialContext(ctx, "unix", socket)
+			},
 		},
-	}}
+	}
+}
+
+// TestNewDaemonServerReadHeaderTimeoutIsFiveSeconds pins the value Run gives
+// srv's ReadHeaderTimeout. Proving the real behavior (a client that trickles
+// headers past the deadline gets disconnected) needs a multi-second test;
+// inspecting the constructed server's field catches the same regression
+// without the wait.
+func TestNewDaemonServerReadHeaderTimeoutIsFiveSeconds(t *testing.T) {
+	srv := newDaemonServer(http.NotFoundHandler(), context.Background())
+	const want = 5 * time.Second
+	if srv.ReadHeaderTimeout != want {
+		t.Fatalf("ReadHeaderTimeout = %v, want %v", srv.ReadHeaderTimeout, want)
+	}
 }
 
 func TestRunServesUntilCancelledAndSavesSession(t *testing.T) {

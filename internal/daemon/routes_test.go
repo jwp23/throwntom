@@ -36,6 +36,22 @@ func TestTimerPauseWhenIdleIs409(t *testing.T) {
 	}
 }
 
+// TestReadMinutesBodyRejectsZero isolates the lower bound from the route
+// tests above: postSnooze's own end-to-end 400 for zero minutes is also
+// produced independently by the core's command parser, so it cannot tell
+// whether readMinutesBody's own "<= 0" check ever ran. Calling it directly
+// pins that specific check.
+func TestReadMinutesBodyRejectsZero(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"minutes":0}`))
+	w := httptest.NewRecorder()
+	if _, ok := readMinutesBody(w, req); ok {
+		t.Fatal("expected zero minutes to be rejected")
+	}
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status %d, want 400", w.Code)
+	}
+}
+
 func TestTimerSnoozeRequiresMinutes(t *testing.T) {
 	srv, c := newTestServer(t)
 	if resp := postJSON(t, srv.URL+"/v1/timer/snooze", map[string]int{}); resp.StatusCode != 400 {

@@ -54,7 +54,13 @@ func (s *server) runNonInteractive(w http.ResponseWriter, line string) {
 // could ever need is rejected by the reader rather than fully allocated for
 // json.Decode to then refuse. Generous for a task description, which is the
 // largest field these routes take.
-const maxRequestBodyBytes = 64 * 1024
+//
+// A function, not a const: a package-level const's initializer sits outside
+// every function body, so go test's coverage instrumentation never marks it
+// executed and a mutation there is unkillable no matter what asserts on it.
+func maxRequestBodyBytes() int64 {
+	return 64 * 1024
+}
 
 // decodeBody wraps r's body in the shared size cap, decodes exactly one JSON
 // value into dst, and requires nothing to follow it: a second Decode call
@@ -64,7 +70,7 @@ const maxRequestBodyBytes = 64 * 1024
 // Every bodied route shares this contract, so one reader enforces it for all
 // of them rather than each restating it.
 func decodeBody(w http.ResponseWriter, r *http.Request, dst any) error {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes())
 	dec := json.NewDecoder(r.Body)
 	if err := dec.Decode(dst); err != nil {
 		return err
@@ -126,7 +132,7 @@ func (s *server) postMeeting(w http.ResponseWriter, r *http.Request) {
 // io.EOF check the same way -- only a look at the raw bytes first can tell
 // "no minutes given" from "minutes given badly".
 func (s *server) postLunch(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxRequestBodyBytes))
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxRequestBodyBytes()))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
