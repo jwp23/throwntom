@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 )
 
 type mutation struct {
@@ -157,6 +158,19 @@ func parseReport(data []byte) (report, error) {
 	if err := json.Unmarshal(data, &r); err != nil {
 		return report{}, fmt.Errorf("parse gremlins report: %w", err)
 	}
+	if len(r.Files) == 0 {
+		return report{}, fmt.Errorf("parse gremlins report: no files in report")
+	}
+	hasMutations := false
+	for _, f := range r.Files {
+		if len(f.Mutations) > 0 {
+			hasMutations = true
+			break
+		}
+	}
+	if !hasMutations {
+		return report{}, fmt.Errorf("parse gremlins report: no mutations in report")
+	}
 	return r, nil
 }
 
@@ -173,6 +187,11 @@ func loadEquivalents(path string) ([]equivalent, error) {
 	var equivalents []equivalent
 	if err := json.Unmarshal(data, &equivalents); err != nil {
 		return nil, fmt.Errorf("parse equivalents file: %w", err)
+	}
+	for _, e := range equivalents {
+		if strings.TrimSpace(e.Reason) == "" {
+			return nil, fmt.Errorf("parse equivalents file: %s:%d:%d %s has an empty reason", e.File, e.Line, e.Column, e.Type)
+		}
 	}
 	return equivalents, nil
 }

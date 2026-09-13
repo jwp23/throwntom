@@ -54,6 +54,26 @@ func TestFindViolationsRejectsMalformedJSON(t *testing.T) {
 	}
 }
 
+// TestFindViolationsRejectsReportWithNoFiles guards against a truncated or
+// empty gremlins report silently passing as "no unexcluded survivors" — an
+// absent files list means gremlins never ran the mutation, not that it found
+// none.
+func TestFindViolationsRejectsReportWithNoFiles(t *testing.T) {
+	if _, err := findViolations([]byte(`{"files":[]}`), nil); err == nil {
+		t.Fatal("expected an error for a report with no files")
+	}
+}
+
+// TestFindViolationsRejectsReportWithNoMutations guards the same failure
+// mode when files are present but every one of them lists zero mutations —
+// still a sign the run produced no real data, not a clean pass.
+func TestFindViolationsRejectsReportWithNoMutations(t *testing.T) {
+	report := `{"files":[{"file_name":"a.go","mutations":[]},{"file_name":"b.go","mutations":[]}]}`
+	if _, err := findViolations([]byte(report), nil); err == nil {
+		t.Fatal("expected an error for a report where every file has zero mutations")
+	}
+}
+
 // TestFindViolationsSkipsReviewedEquivalents covers ADR-014's equivalence
 // policy: gremlins only excludes whole files, so a single mutant proven
 // mathematically equivalent (no test can ever distinguish it from correct
@@ -113,6 +133,22 @@ func TestLoadEquivalentsFromFile(t *testing.T) {
 	want := []equivalent{{File: "a.go", Line: 10, Column: 5, Type: "CONDITIONALS_BOUNDARY", Reason: "proven equivalent"}}
 	if len(got) != 1 || got[0] != want[0] {
 		t.Fatalf("loadEquivalents = %v, want %v", got, want)
+	}
+}
+
+// TestLoadEquivalentsRejectsEmptyReason guards ADR-014's equivalence policy:
+// every allowlist entry must carry a reviewed justification, so an empty or
+// whitespace-only reason (a stub someone forgot to fill in) fails loudly
+// instead of silently exempting a mutant with no review behind it.
+func TestLoadEquivalentsRejectsEmptyReason(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/equivalents.json"
+	body := `[{"file":"a.go","line":10,"column":5,"type":"CONDITIONALS_BOUNDARY","reason":"   "}]`
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := loadEquivalents(path); err == nil {
+		t.Fatal("expected an error for a whitespace-only reason")
 	}
 }
 
