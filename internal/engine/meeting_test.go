@@ -69,6 +69,10 @@ func TestMeetingCreditsRoundToTheNearestPomodoro(t *testing.T) {
 		{5 * time.Minute, 10, 1},
 		{299 * time.Second, 10, 0},
 		{0, 25, 0},
+		// workMinutes=0 is the boundary the "work <= 0" guard exists for: past
+		// it the formula divides by 2*work, so a guard that let zero through
+		// (e.g. "< 0" instead of "<= 0") would panic here rather than answer 0.
+		{30 * time.Minute, 0, 0},
 	} {
 		if got := MeetingCredits(tc.elapsed, tc.workMinutes); got != tc.want {
 			t.Errorf("MeetingCredits(%v, %d) = %d, want %d", tc.elapsed, tc.workMinutes, got, tc.want)

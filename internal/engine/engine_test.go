@@ -2,6 +2,7 @@ package engine
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -51,6 +52,22 @@ func TestEveryFourthWorkGoesToLongBreak(t *testing.T) {
 	e.ConfirmNext()
 	if e.State() != LongBreak {
 		t.Fatalf("expected LongBreak, got %v", e.State())
+	}
+}
+
+// TestBlockBoundaryCrossedWorkSessionsBlockAtZero pins the workSessionsBlock
+// boundary in blockBoundaryCrossed: at exactly zero the guard must return
+// false without falling into the division below it. lastCredit is chosen
+// large enough (6, with longBreakEvery 4) that the fallthrough formula would
+// answer true instead of false if the guard's "<= 0" ever became "< 0" --
+// 0/4 > (0-6)/4 is 0 > -1, true -- so this input actually distinguishes the
+// two operators rather than coincidentally agreeing on both.
+func TestBlockBoundaryCrossedWorkSessionsBlockAtZero(t *testing.T) {
+	e := New(25, 5, 15, 4)
+	e.workSessionsBlock = 0
+	e.lastCredit = 6
+	if e.blockBoundaryCrossed() {
+		t.Fatal("workSessionsBlock=0 must not report a boundary crossed")
 	}
 }
 
@@ -197,6 +214,19 @@ func TestStateStringRoundTrip(t *testing.T) {
 		if parsed != tc.state {
 			t.Errorf("StateFromString(%q) = %d, want %d", tc.name, parsed, tc.state)
 		}
+	}
+}
+
+// TestStateStringOutOfRange pins the boundary between a valid State (indexes
+// into stateNames) and one past the end (falls back to "State(%d)"): the
+// value exactly at len(stateNames) is the only input that distinguishes
+// int(s) < len(stateNames) from <=, since <= would index one past the array
+// and panic.
+func TestStateStringOutOfRange(t *testing.T) {
+	s := State(len(stateNames))
+	want := fmt.Sprintf("State(%d)", int(s))
+	if got := s.String(); got != want {
+		t.Fatalf("String() = %q, want %q", got, want)
 	}
 }
 
