@@ -65,3 +65,48 @@ func TestTierStyledCarriesGlyph(t *testing.T) {
 		}
 	}
 }
+
+// The this-month section only prints a per-day average once there are
+// pomodoros to average, and the average itself must be a real division, not
+// some other arithmetic op standing in for one.
+func TestRenderDashboardMonthAverage(t *testing.T) {
+	now := time.Date(2026, 3, 4, 9, 0, 0, 0, time.Local) // day-of-month 4
+	dash := analytics.Dashboard{
+		ThisMonth: analytics.PeriodStats{Pomodoros: 10, FocusMinutes: 250},
+	}
+
+	output := renderDashboard(dash, now, 2, 5)
+	if !strings.Contains(output, "Avg: 2.5/day") {
+		t.Fatalf("expected Avg: 2.5/day (10 pomodoros / day 4), got: %s", output)
+	}
+}
+
+// The best-hour range is reported as an open interval [hour, hour+1); the
+// upper bound must actually be hour+1, not some other arithmetic result.
+func TestRenderDashboardPatternsBestHourRange(t *testing.T) {
+	now := time.Date(2026, 3, 4, 9, 0, 0, 0, time.Local)
+	dash := analytics.Dashboard{
+		AllTime: analytics.PeriodStats{Pomodoros: 1},
+		Patterns: analytics.PatternStats{
+			BestDay:  time.Monday,
+			BestHour: 10,
+		},
+	}
+
+	output := renderDashboard(dash, now, 2, 5)
+	if !strings.Contains(output, "Best hour: 10:00-11:00") {
+		t.Fatalf("expected Best hour: 10:00-11:00, got: %s", output)
+	}
+}
+
+// monthlyAverageSuffix guards its division against a zero day count. Real
+// callers pass now.Day(), which time.Time never reports as zero, so this
+// exercises the guard directly rather than through a clock that can't reach it.
+func TestMonthlyAverageSuffix(t *testing.T) {
+	if got := monthlyAverageSuffix(10, 4); got != "    Avg: 2.5/day" {
+		t.Errorf("monthlyAverageSuffix(10, 4) = %q, want \"    Avg: 2.5/day\"", got)
+	}
+	if got := monthlyAverageSuffix(5, 0); got != "" {
+		t.Errorf("monthlyAverageSuffix(5, 0) = %q, want empty string (guard against dividing by zero)", got)
+	}
+}
