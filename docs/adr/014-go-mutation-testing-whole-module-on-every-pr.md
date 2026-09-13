@@ -28,6 +28,16 @@ settled (bead throwntom-ug9v).
 > many runs. This is a number correction, not a reversal of the decision to
 > run whole-module on every PR.
 
+> 2026-09-13: the CI job is split into three parallel jobs
+> (`gremlins-core`, `gremlins-daemon`, `gremlins-rest`) instead of one
+> sequential ~10-minute job, since `internal/core` and `internal/daemon` are
+> the two heaviest packages by a wide margin and everything else in scope is
+> fast. This is a job-topology change for wall-clock time, not a scope
+> change: it is still the whole module, every PR, no diff scoping — spe's
+> `--in-diff` sharding (docs/spikes/go-swift-mutation-testing/result.md)
+> does not apply here, since gremlins has no native `--shard` flag and this
+> ADR already rejected diff-scoping on cost grounds.
+
 ## Context
 
 spe guards test quality with cargo-mutants in three layers (diff-scoped PR

@@ -95,8 +95,19 @@ jobs:
   # gremlinsgate enforces the zero-unexcluded-survivors bar gremlins' own
   # percentage thresholds can't express, against .gremlins-equivalents.json's
   # reviewed allowlist.
-  gremlins:
-    name: Mutation testing
+  #
+  # Split into three jobs so they run in parallel rather than one ~10-minute
+  # job: internal/core and internal/daemon are the two heaviest packages by a
+  # wide margin (measured locally), so each gets its own job; everything else
+  # in scope is fast and shares a third. gremlins takes exactly one path
+  # argument, so "everything else" runs one invocation per package rather
+  # than a single call over a shared parent directory — a parent path (e.g.
+  # ./internal) would also have to re-exclude core and daemon on the command
+  # line, and CLI --exclude-files replaces .gremlins.yaml's list rather than
+  # adding to it, which would silently drop the tools/ and main.go/startup.go
+  # exclusions too.
+  gremlins-core:
+    name: Mutation testing (core)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -121,7 +132,7 @@ jobs:
         run: go build -o /tmp/gremlinsgate ./tools/gremlinsgate
 
       - name: Run gremlins
-        run: gremlins unleash -o gremlins-report.json .
+        run: gremlins unleash -o gremlins-report.json ./internal/core
 
       - name: Enforce zero unexcluded survivors
         run: /tmp/gremlinsgate -report gremlins-report.json -equivalents .gremlins-equivalents.json
@@ -130,8 +141,95 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: gremlins-report
+          name: gremlins-report-core
           path: gremlins-report.json
+
+  gremlins-daemon:
+    name: Mutation testing (daemon)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+
+      - name: Install gremlins
+        run: go install github.com/go-gremlins/gremlins/cmd/gremlins@e05b1d47b8c55748e50abc28ff6b132c536bacca # v0.6.0
+
+      - name: Build gremlinsgate
+        run: go build -o /tmp/gremlinsgate ./tools/gremlinsgate
+
+      - name: Run gremlins
+        run: gremlins unleash -o gremlins-report.json ./internal/daemon
+
+      - name: Enforce zero unexcluded survivors
+        run: /tmp/gremlinsgate -report gremlins-report.json -equivalents .gremlins-equivalents.json
+
+      - name: Upload gremlins report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: gremlins-report-daemon
+          path: gremlins-report.json
+
+  gremlins-rest:
+    name: Mutation testing (rest)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+
+      - name: Install gremlins
+        run: go install github.com/go-gremlins/gremlins/cmd/gremlins@e05b1d47b8c55748e50abc28ff6b132c536bacca # v0.6.0
+
+      - name: Build gremlinsgate
+        run: go build -o /tmp/gremlinsgate ./tools/gremlinsgate
+
+      # Every in-scope package except internal/core and internal/daemon,
+      # each its own gremlins invocation (see the job-group comment above for
+      # why). A failure in any one package's gate fails the step immediately.
+      - name: Run gremlins and enforce the gate per package
+        run: |
+          set -euo pipefail
+          for pkg in \
+            internal/pomodoro \
+            internal/config \
+            internal/analytics \
+            internal/engine \
+            internal/eventlog \
+            internal/notifier \
+            internal/reminder \
+            internal/scheduler \
+            internal/workday \
+            cmd/throwntom \
+          ; do
+            report="gremlins-report-$(echo "$pkg" | tr '/' '-').json"
+            gremlins unleash -o "$report" "./$pkg"
+            /tmp/gremlinsgate -report "$report" -equivalents .gremlins-equivalents.json
+          done
+
+      - name: Upload gremlins reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: gremlins-report-rest
+          path: gremlins-report-*.json
 
   macos:
     name: macOS app
