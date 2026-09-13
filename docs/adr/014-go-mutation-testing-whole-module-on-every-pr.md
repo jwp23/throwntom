@@ -6,6 +6,28 @@ settled (bead throwntom-ug9v).
 
 > 2026-09-12: the Swift decision is recorded in ADR-015.
 
+> 2026-09-12: adoption (throwntom-ewx1) landed two implementation details
+> this ADR's own policy already anticipated. First, `INCREMENT_DECREMENT`
+> is disabled module-wide in `.gremlins.yaml`: an ordinary counted loop
+> (`for i := 0; i < n; i++`) becomes a permanent infinite loop under this
+> mutator, which can never resolve to KILLED regardless of test quality —
+> not a scope decision, a mutator gremlins ships disabled by default for
+> several other operators for the same reason. Second, this ADR's
+> equivalence policy is enforced by `tools/gremlinsgate` reading
+> `.gremlins-equivalents.json`, a reviewed per-mutant allowlist with a
+> justification for each entry: gremlins itself only supports file-level
+> exclusion (`exclude-files`), so a single mutant proven equivalent in a
+> file with other real coverage has nowhere else to go.
+
+> 2026-09-13: `--timeout-coefficient` raised from 10 to 30. The spike
+> validated 10 against `internal/engine` (39 mutants, pure logic, no I/O);
+> `internal/daemon`'s tests hold real Unix sockets and an HTTP server, and at
+> 10 the same code produced wildly different timeout counts across repeated
+> local runs (1, then 37, on an otherwise idle-looking dev machine) — noise,
+> not a real gap, since `internal/daemon` verified 100% killed at 30 across
+> many runs. This is a number correction, not a reversal of the decision to
+> run whole-module on every PR.
+
 ## Context
 
 spe guards test quality with cargo-mutants in three layers (diff-scoped PR

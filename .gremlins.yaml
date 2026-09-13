@@ -4,7 +4,19 @@
 # mutants, enforced by tools/gremlinsgate against this run's JSON report
 # (gremlinsgate reads its own bar from the report, not from thresholds here).
 unleash:
-  timeout-coefficient: 10
+  # ADR-014 originally set this to 10, from the spike's internal/engine
+  # benchmark (pure logic, no I/O). internal/daemon's real-socket/HTTP tests
+  # need more headroom: at 10, repeated local runs of the same code swung
+  # from 1 to 37 timeouts on an otherwise idle-looking machine, pure
+  # environmental noise rather than a real gap (internal/daemon verified
+  # 100% killed at 30 across many runs). See the 2026-09-13 ADR-014 note.
+  timeout-coefficient: 30
+  # Default (NumCPU) workers run many mutated test binaries concurrently,
+  # which starves internal/daemon's real Unix-socket/HTTP tests of CPU and
+  # produces the same kind of phantom timeouts the coefficient bump above
+  # addresses. Serial execution costs wall-clock time, not correctness, and
+  # every measurement behind this file was taken at workers: 1.
+  workers: 1
   exclude-files:
     # Dev utilities: a bug here costs a debugging session, not a broken timer.
     - "^tools/"
