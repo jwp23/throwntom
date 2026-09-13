@@ -201,26 +201,41 @@ jobs:
       - name: Build gremlinsgate
         run: go build -o /tmp/gremlinsgate ./tools/gremlinsgate
 
-      # Every in-scope package except internal/core and internal/daemon,
-      # each its own gremlins invocation (see the job-group comment above for
-      # why). A failure in any one package's gate fails the step immediately.
+      # Every in-scope package except internal/core and internal/daemon
+      # (their own jobs above) and tools/* (excluded by ADR-014), each its
+      # own gremlins invocation (see the job-group comment above for why).
+      # The package list comes from `go list ./...`, not a hand-maintained
+      # one: a hand-enumerated list silently drops any package that starts
+      # out with zero survivors (nothing to fix, so nothing prompts adding it
+      # by hand) — caught only by comparing against `go list ./...` after
+      # the fact. A failure in any one package's gate fails the step
+      # immediately.
+      #
+      # cmd/throwntom needs its own --exclude-files, scope-relative
+      # ("^main\.go$", not "^cmd/[^/]+/main\.go$"): gremlins matches
+      # exclude-files against the path relative to the argument it was given,
+      # not the module root, so .gremlins.yaml's module-relative patterns
+      # never match once scoped to a single package directory — confirmed by
+      # main.go/startup.go reappearing as NOT COVERED the first time this job
+      # ran scoped this way. CLI --exclude-files replaces .gremlins.yaml's
+      # list rather than adding to it, which is exactly what's wanted here:
+      # only main.go/startup.go need excluding within this one invocation.
+      # cmd/throwntomd is skipped outright: its only file is main.go, fully
+      # excluded, so a scoped run there would report 100% NOT COVERED with
+      # nothing to gain from running it at all.
       - name: Run gremlins and enforce the gate per package
         run: |
           set -euo pipefail
-          for pkg in \
-            internal/pomodoro \
-            internal/config \
-            internal/analytics \
-            internal/engine \
-            internal/eventlog \
-            internal/notifier \
-            internal/reminder \
-            internal/scheduler \
-            internal/workday \
-            cmd/throwntom \
-          ; do
+          for pkg in $(go list ./... | sed 's|^github.com/jwp23/throwntom/v3/||'); do
+            case "$pkg" in
+              internal/core|internal/daemon|tools/*|cmd/throwntomd) continue ;;
+            esac
             report="gremlins-report-$(echo "$pkg" | tr '/' '-').json"
-            gremlins unleash -o "$report" "./$pkg"
+            if [ "$pkg" = "cmd/throwntom" ]; then
+              gremlins unleash --exclude-files '^main\.go$' --exclude-files '^startup\.go$' -o "$report" "./$pkg"
+            else
+              gremlins unleash -o "$report" "./$pkg"
+            fi
             /tmp/gremlinsgate -report "$report" -equivalents .gremlins-equivalents.json
           done
 
