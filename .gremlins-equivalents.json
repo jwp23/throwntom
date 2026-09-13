@@ -54,5 +54,33 @@
     "column": 13,
     "type": "CONDITIONALS_BOUNDARY",
     "reason": "elapsedSincePhaseStartLocked's elapsed<0 vs <=0 clamping to zero: same shape as pausedRemaining above, at elapsed=0 the clamp assigns 0 to a duration that is already 0. Confirmed empirically: a hand-applied mutation still passes the full suite."
+  },
+  {
+    "file": "internal/notifier/notifier.go",
+    "line": 130,
+    "column": 47,
+    "type": "ARITHMETIC_BASE",
+    "reason": "len(candidates)+1 is only a slice capacity hint for make(); Go's append grows a slice automatically regardless of the initial capacity, so no test can observe a difference between +1, -1, *1 or /1 here. Confirmed empirically: a hand-applied mutation still passes the full suite."
+  },
+  {
+    "file": "internal/reminder/loop.go",
+    "line": 21,
+    "column": 27,
+    "type": "CONDITIONALS_BOUNDARY",
+    "reason": "limit>0 vs >=0 (with interval>0 already required by the preceding &&): at limit=0 exactly, int(limit/interval) is 0 regardless of interval's value, so 1+0 equals the guard's own default of 1 either way. Confirmed empirically: a hand-applied mutation still passes the full suite."
+  },
+  {
+    "file": "internal/reminder/loop.go",
+    "line": 33,
+    "column": 46,
+    "type": "CONDITIONALS_BOUNDARY",
+    "reason": "policy.MaxAlerts<1 vs <=1: at MaxAlerts=1 exactly (with Interval>0, so the preceding || is false), the guard would assign 1 to a field that is already 1, so the observable result is identical whether it fires or not. Confirmed empirically: a hand-applied mutation still passes the full suite."
+  },
+  {
+    "file": "internal/scheduler/scheduler.go",
+    "line": 54,
+    "column": 16,
+    "type": "CONDITIONALS_BOUNDARY",
+    "reason": "NextTrigger's 'i < 8' vs 'i <= 8' loop bound: a week has 7 distinct weekdays, so checking offsets 0-7 (8 days) from `from` is provably sufficient to find any configured weekday's next occurrence, including the case where today's own slot already passed and the next occurrence is exactly a week out. A 9th offset can never turn a real miss (an empty schedule, which panics regardless of iteration count) into a hit, so the extra iteration is unobservable in every configuration. Confirmed empirically: a hand-applied mutation still passes the full suite."
   }
 ]

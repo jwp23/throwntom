@@ -10,6 +10,37 @@ import (
 	"time"
 )
 
+// TestSplitLinesDropsATrailingEmptyLine pins the "start < len(data)"
+// boundary: data ending exactly on a newline has nothing left after the last
+// split point and must not append a spurious empty final line.
+func TestSplitLinesDropsATrailingEmptyLine(t *testing.T) {
+	got := splitLines([]byte("a\nb\n"))
+	want := [][]byte{[]byte("a"), []byte("b")}
+	if len(got) != len(want) {
+		t.Fatalf("splitLines = %q, want %q", got, want)
+	}
+	for i := range want {
+		if string(got[i]) != string(want[i]) {
+			t.Fatalf("splitLines = %q, want %q", got, want)
+		}
+	}
+}
+
+// TestSplitLinesKeepsATrailingPartialLine is the boundary's other side: data
+// with content after the last newline must keep that partial line.
+func TestSplitLinesKeepsATrailingPartialLine(t *testing.T) {
+	got := splitLines([]byte("a\nb"))
+	want := [][]byte{[]byte("a"), []byte("b")}
+	if len(got) != len(want) {
+		t.Fatalf("splitLines = %q, want %q", got, want)
+	}
+	for i := range want {
+		if string(got[i]) != string(want[i]) {
+			t.Fatalf("splitLines = %q, want %q", got, want)
+		}
+	}
+}
+
 func TestWriterAppendsJSONL(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "events.jsonl")
 	w := NewWriter(path)
