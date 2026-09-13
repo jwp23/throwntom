@@ -42,6 +42,21 @@ func runWatcher(t *testing.T, w Watcher) {
 	})
 }
 
+// TestResolveIntervalFallsBackOnNonPositive pins the exact boundary:
+// Run relies on resolveInterval to keep a zero-value Interval from ever
+// reaching time.NewTicker, which panics on a non-positive duration.
+func TestResolveIntervalFallsBackOnNonPositive(t *testing.T) {
+	if got := resolveInterval(5 * time.Millisecond); got != 5*time.Millisecond {
+		t.Fatalf("resolveInterval(5ms) = %v, want 5ms unchanged", got)
+	}
+	if got := resolveInterval(0); got != DefaultWatchInterval {
+		t.Fatalf("resolveInterval(0) = %v, want %v", got, DefaultWatchInterval)
+	}
+	if got := resolveInterval(-time.Second); got != DefaultWatchInterval {
+		t.Fatalf("resolveInterval(-1s) = %v, want %v", got, DefaultWatchInterval)
+	}
+}
+
 func TestWatcherReportsChangedConfig(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	writeConfig(t, path, "[pomodoro]\nwork_minutes = 25\n")
