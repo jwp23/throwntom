@@ -160,8 +160,10 @@ jobs:
     steps:
       - name: Require every target to have completed
         if: needs.mutate.result != 'success'
+        env:
+          MUTATE_RESULT: ${{ needs.mutate.result }}
         run: |
-          echo "::error::A mutate job did not complete (${{ needs.mutate.result }}); the tracking issue is left untouched." >&2
+          echo "::error::A mutate job did not complete ($MUTATE_RESULT); the tracking issue is left untouched." >&2
           exit 1
 
       - name: Checkout

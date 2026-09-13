@@ -8,6 +8,11 @@
 # root), mutates only that fixture while running the full test suite, and fails unless
 # `>` → `>=` is reported Survived and `>` → `<` Killed. The Killed half proves the tests ran.
 #
+# Never run this while another swift-mutation-testing run is in progress for the same macOS
+# user. At startup the tool deletes every sandbox in the per-user temp directory, live or not
+# (Foundation's temporaryDirectory ignores $TMPDIR, so there is no way to separate two runs), and
+# the run it wipes reports its mutants Unviable or dies without a report.
+#
 # Usage:
 #   macos/mutation-control.sh <path-to-swift-mutation-testing>
 #
