@@ -109,8 +109,11 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # Pinned to v0.6.0's commit, not the tag: a tag can be moved, a commit
+      # hash can't (SonarCloud githubactions:S8545 — a tag alone isn't a
+      # verified version for supply-chain purposes).
       - name: Install gremlins
-        run: go install github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0
+        run: go install github.com/go-gremlins/gremlins/cmd/gremlins@e05b1d47b8c55748e50abc28ff6b132c536bacca # v0.6.0
 
       - name: Build gremlinsgate
         run: go build -o /tmp/gremlinsgate ./tools/gremlinsgate
