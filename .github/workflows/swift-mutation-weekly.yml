@@ -127,6 +127,9 @@ jobs:
       # (upstream #67, #68). 120 s, because at the 30 s default a true survivor
       # was reported Crash (#69); one worker, because parallel workers only
       # queue on SwiftPM's build lock inside each mutant's timeout (#70).
+      # script(1) gives the tool a pseudo-terminal: piped, its stdout is
+      # block-buffered and a job killed at its timeout would log no progress
+      # at all. script passes the tool's exit status through.
       - name: Run swift-mutation-testing
         working-directory: macos/Throwntom
         env:
@@ -134,7 +137,7 @@ jobs:
         run: |
           chmod +x "$RUNNER_TEMP/bin/swift-mutation-testing"
           rm -rf .swift-mutation-testing-cache
-          "$RUNNER_TEMP/bin/swift-mutation-testing" . \
+          script -q /dev/null "$RUNNER_TEMP/bin/swift-mutation-testing" . \
             --testing-framework xctest --timeout 120 --concurrency 1 \
             --sources-path "Sources/$TARGET" \
             --output "$RUNNER_TEMP/report-$TARGET.json"
