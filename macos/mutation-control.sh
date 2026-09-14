@@ -22,8 +22,27 @@ set -euo pipefail
 
 tool="${1:?usage: macos/mutation-control.sh <path-to-swift-mutation-testing>}"
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+
+# Guard against two mutation-control.sh invocations racing each other: the tool's startup
+# sweep wipes every other live run's sandbox for this macOS user (see header comment above),
+# so a second invocation must refuse before it ever launches the tool. Scoped to this script's
+# own invocations only — swift-mutation-testing has no other checked-in local entry point.
+lock_dir="${TMPDIR:-/tmp}/mutation-control.lock"
+if ! mkdir "$lock_dir" 2>/dev/null; then
+  lock_pid="$(cat "$lock_dir/pid" 2>/dev/null || true)"
+  if [[ -n "$lock_pid" ]] && kill -0 "$lock_pid" 2>/dev/null; then
+    echo "mutation-control.sh: another run is already in progress (pid $lock_pid); refusing to start" >&2
+    exit 1
+  fi
+  # Lock left by a process that no longer exists (e.g. killed mid-run): stale, reclaim it.
+  echo "mutation-control.sh: found stale lock from dead pid ${lock_pid:-unknown}; reclaiming" >&2
+  rm -rf "$lock_dir"
+  mkdir "$lock_dir"
+fi
+echo "$$" >"$lock_dir/pid"
+
 scratch="$(mktemp -d)"
-trap 'rm -rf "$scratch"' EXIT
+trap 'rm -rf "$scratch" "$lock_dir"' EXIT
 
 rsync -a --exclude .git --exclude .build --exclude .claude --exclude .beads \
   --exclude .swift-mutation-testing-cache "$repo_root/" "$scratch/repo/"
