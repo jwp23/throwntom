@@ -245,10 +245,23 @@ jobs:
           code=0
           go build -o "$RUNNER_TEMP/swiftmutantsgate" ./tools/swiftmutantsgate
           "$RUNNER_TEMP/swiftmutantsgate" -equivalents .swift-mutation-equivalents.json \
+            -summary "$RUNNER_TEMP/summary.md" \
             "${reports[@]}" > "$RUNNER_TEMP/gate.md" || code=$?
           cat "$RUNNER_TEMP/gate.md"
           echo "code=$code" >> "$GITHUB_OUTPUT"
           [ "$code" -le 1 ]
+
+      # The full per-mutant list lives here rather than in the issue: GitHub caps
+      # an issue body at 65,536 characters, which 630 mutants overran (112,339).
+      - name: Upload gate output
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: swift-mutation-gate
+          path: |
+            ${{ runner.temp }}/gate.md
+            ${{ runner.temp }}/summary.md
+          if-no-files-found: ignore
 
       # Label, not title, marks the tracking issue. More than one open issue
       # with it fails loudly rather than guessing which to update.
@@ -277,9 +290,9 @@ jobs:
           fi
 
           {
-            cat "$RUNNER_TEMP/gate.md"
+            cat "$RUNNER_TEMP/summary.md"
             echo
-            echo "Run: $RUN_URL (JSON reports, with killedBy, are attached as artifacts)."
+            echo "Run: $RUN_URL. The full per-mutant list is the swift-mutation-gate artifact; the JSON reports, with killedBy, are attached too."
             echo
             echo "Triage each into a killing test or a reviewed entry in \`.swift-mutation-equivalents.json\` (ADR-015). Tracking lives in beads; this issue is transient and closes itself on a clean run."
           } > "$RUNNER_TEMP/issue.md"

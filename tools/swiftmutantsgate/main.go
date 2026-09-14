@@ -94,15 +94,16 @@ type equivalent struct {
 
 func main() {
 	equivalentsPath := flag.String("equivalents", "", "optional path to a reviewed-equivalents JSON allowlist")
+	summaryPath := flag.String("summary", "", "optional path to write a per-file Markdown summary to")
 	flag.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: swiftmutantsgate [-equivalents path] report.json [report.json ...]")
+		fmt.Fprintln(os.Stderr, "usage: swiftmutantsgate [-equivalents path] [-summary path] report.json [report.json ...]")
 	}
 	flag.Parse()
 	if flag.NArg() == 0 {
 		flag.Usage()
 		os.Exit(2)
 	}
-	os.Exit(run(flag.Args(), *equivalentsPath, os.Stdout, os.Stderr))
+	os.Exit(run(flag.Args(), *equivalentsPath, *summaryPath, os.Stdout, os.Stderr))
 }
 
 // Unviable mutants do not compile, so no test can kill them; ADR-016 reports
@@ -120,7 +121,78 @@ const (
 	exitError      = 2
 )
 
-func run(reportPaths []string, equivalentsPath string, stdout, stderr io.Writer) int {
+// unviableNote is the count ADR-016 reports without gating on it.
+func unviableNote(unviable int) string {
+	return fmt.Sprintf("%d Unviable mutant(s) not gated (ADR-016): they do not compile, so no test can kill them.\n", unviable)
+}
+
+type fileTally struct {
+	file     string
+	gated    int
+	statuses map[string]int
+}
+
+// summarize renders the tracking issue body: one row per file with its gated
+// count and statuses, heaviest file first. GitHub caps an issue body at 65,536
+// characters; a per-mutant list outgrows that, a row per file does not.
+func summarize(violations []violation, unviable int) string {
+	var b strings.Builder
+	if len(violations) == 0 {
+		b.WriteString("No unexcluded mutants survived.\n")
+	} else {
+		tallies := tallyByFile(violations)
+		_, _ = fmt.Fprintf(&b, "%d unexcluded mutant(s) not killed in %d file(s).\n\n", len(violations), len(tallies))
+		b.WriteString("| File | Gated | Statuses |\n|---|---|---|\n")
+		for _, t := range tallies {
+			_, _ = fmt.Fprintf(&b, "| `%s` | %d | %s |\n", t.file, t.gated, formatStatuses(t.statuses))
+		}
+	}
+	if unviable > 0 {
+		b.WriteString("\n" + unviableNote(unviable))
+	}
+	return b.String()
+}
+
+// tallyByFile counts gated mutants per file, ordered by count and then path so
+// identical results render an identical issue body.
+func tallyByFile(violations []violation) []fileTally {
+	byFile := map[string]*fileTally{}
+	for _, v := range violations {
+		t := byFile[v.File]
+		if t == nil {
+			t = &fileTally{file: v.File, statuses: map[string]int{}}
+			byFile[v.File] = t
+		}
+		t.gated++
+		t.statuses[v.Status]++
+	}
+	tallies := make([]fileTally, 0, len(byFile))
+	for _, t := range byFile {
+		tallies = append(tallies, *t)
+	}
+	sort.Slice(tallies, func(i, j int) bool {
+		if tallies[i].gated != tallies[j].gated {
+			return tallies[i].gated > tallies[j].gated
+		}
+		return tallies[i].file < tallies[j].file
+	})
+	return tallies
+}
+
+func formatStatuses(statuses map[string]int) string {
+	names := make([]string, 0, len(statuses))
+	for name := range statuses {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	parts := make([]string, 0, len(names))
+	for _, name := range names {
+		parts = append(parts, fmt.Sprintf("%s %d", name, statuses[name]))
+	}
+	return strings.Join(parts, ", ")
+}
+
+func run(reportPaths []string, equivalentsPath, summaryPath string, stdout, stderr io.Writer) int {
 	equivalents, err := loadEquivalents(equivalentsPath)
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, err)
@@ -154,7 +226,13 @@ func run(reportPaths []string, equivalentsPath string, stdout, stderr io.Writer)
 		}
 	}
 	if unviable > 0 {
-		_, _ = fmt.Fprintf(stdout, "\n%d Unviable mutant(s) not gated (ADR-016): they do not compile, so no test can kill them.\n", unviable)
+		_, _ = fmt.Fprint(stdout, "\n"+unviableNote(unviable))
+	}
+	if summaryPath != "" {
+		if err := os.WriteFile(summaryPath, []byte(summarize(violations, unviable)), 0o600); err != nil {
+			_, _ = fmt.Fprintln(stderr, err)
+			return exitError
+		}
 	}
 	return code
 }
