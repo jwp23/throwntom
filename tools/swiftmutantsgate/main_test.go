@@ -243,7 +243,7 @@ func TestRunCombinesReportsAndFailsOnAnyViolation(t *testing.T) {
 		{"mutatorName":"M","status":"Survived","location":{"start":{"line":4,"column":2}},"originalText":">","replacement":">="}
 	]}}}`)
 	var stdout, stderr bytes.Buffer
-	code := run([]string{clean, dirty}, "", &stdout, &stderr)
+	code := run([]string{clean, dirty}, "", "", &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("exit = %d, want 1; stderr=%s", code, stderr.String())
 	}
@@ -261,7 +261,7 @@ func TestRunEscapesMutationTextForMarkdown(t *testing.T) {
 		"\t]}}}"
 	report := writeReport(t, body)
 	var stdout, stderr bytes.Buffer
-	if code := run([]string{report}, "", &stdout, &stderr); code != 1 {
+	if code := run([]string{report}, "", "", &stdout, &stderr); code != 1 {
 		t.Fatalf("exit = %d, want 1; stderr=%s", code, stderr.String())
 	}
 	if strings.Contains(stdout.String(), "a`b\nc") {
@@ -282,7 +282,7 @@ func TestRunOrdersViolationsAcrossReports(t *testing.T) {
 		{"mutatorName":"M","status":"Survived","location":{"start":{"line":1,"column":1}}}
 	]}}}`)
 	var stdout, stderr bytes.Buffer
-	if code := run([]string{later, earlier}, "", &stdout, &stderr); code != 1 {
+	if code := run([]string{later, earlier}, "", "", &stdout, &stderr); code != 1 {
 		t.Fatalf("exit = %d, want 1; stderr=%s", code, stderr.String())
 	}
 	out := stdout.String()
@@ -302,7 +302,7 @@ func TestRunOnlyUnviableIsCleanButCounted(t *testing.T) {
 		{"mutatorName":"SwapTernary","status":"Unviable","location":{"start":{"line":1,"column":1}}}
 	]}}}`)
 	var stdout, stderr bytes.Buffer
-	if code := run([]string{first, second}, "", &stdout, &stderr); code != 0 {
+	if code := run([]string{first, second}, "", "", &stdout, &stderr); code != 0 {
 		t.Fatalf("exit = %d, want 0; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
 	}
 	if !strings.Contains(stdout.String(), "2 Unviable mutant(s) not gated") {
@@ -316,7 +316,7 @@ func TestRunViolationsAlsoCountUnviable(t *testing.T) {
 		{"mutatorName":"M","status":"Survived","location":{"start":{"line":2,"column":1}}}
 	]}}}`)
 	var stdout, stderr bytes.Buffer
-	if code := run([]string{report}, "", &stdout, &stderr); code != 1 {
+	if code := run([]string{report}, "", "", &stdout, &stderr); code != 1 {
 		t.Fatalf("exit = %d, want 1", code)
 	}
 	if !strings.Contains(stdout.String(), "1 Unviable mutant(s) not gated") {
@@ -329,7 +329,7 @@ func TestRunCleanReportsExitZero(t *testing.T) {
 		{"mutatorName":"M","status":"Killed","location":{"start":{"line":1,"column":1}}}
 	]}}}`)
 	var stdout, stderr bytes.Buffer
-	if code := run([]string{clean}, "", &stdout, &stderr); code != 0 {
+	if code := run([]string{clean}, "", "", &stdout, &stderr); code != 0 {
 		t.Fatalf("exit = %d, want 0; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
 	}
 }
@@ -343,7 +343,7 @@ func TestRunMissingReportIsAnErrorNotSurvivors(t *testing.T) {
 	]}}}`)
 	missing := filepath.Join(t.TempDir(), "absent.json")
 	var stdout, stderr bytes.Buffer
-	if code := run([]string{clean, missing}, "", &stdout, &stderr); code != 2 {
+	if code := run([]string{clean, missing}, "", "", &stdout, &stderr); code != 2 {
 		t.Fatalf("exit = %d, want 2", code)
 	}
 }
@@ -354,7 +354,105 @@ func TestRunUnreadableEquivalentsIsAnError(t *testing.T) {
 	]}}}`)
 	missing := filepath.Join(t.TempDir(), "absent-equivalents.json")
 	var stdout, stderr bytes.Buffer
-	if code := run([]string{clean}, missing, &stdout, &stderr); code != 2 {
+	if code := run([]string{clean}, missing, "", &stdout, &stderr); code != 2 {
+		t.Fatalf("exit = %d, want 2", code)
+	}
+}
+
+// The tracking issue body holds this summary: GitHub caps a body at 65,536
+// characters, and the full per-mutant list (630 mutants, 112,339 characters in
+// the first sharded run) does not fit, while a row per file does.
+func TestSummarizeGroupsByFileWithCountsAndStatuses(t *testing.T) {
+	violations := []violation{
+		{File: "Sources/A.swift", Line: 1, Column: 1, Mutator: "M", Status: "Survived"},
+		{File: "Sources/A.swift", Line: 2, Column: 1, Mutator: "M", Status: "Crash"},
+		{File: "Sources/A.swift", Line: 3, Column: 1, Mutator: "M", Status: "Survived"},
+		{File: "Sources/B.swift", Line: 1, Column: 1, Mutator: "M", Status: "Timeout"},
+	}
+	want := "4 unexcluded mutant(s) not killed in 2 file(s).\n" +
+		"\n" +
+		"| File | Gated | Statuses |\n" +
+		"|---|---|---|\n" +
+		"| `Sources/A.swift` | 3 | Crash 1, Survived 2 |\n" +
+		"| `Sources/B.swift` | 1 | Timeout 1 |\n" +
+		"\n" +
+		"5 Unviable mutant(s) not gated (ADR-016): they do not compile, so no test can kill them.\n"
+	if got := summarize(violations, 5); got != want {
+		t.Fatalf("summarize =\n%s\nwant\n%s", got, want)
+	}
+}
+
+// Heaviest files first so the triage priority reads top-down; ties by path so
+// the body is identical week to week for identical results.
+func TestSummarizeOrdersFilesByGatedCountThenPath(t *testing.T) {
+	violations := []violation{
+		{File: "Sources/B.swift", Status: "Survived"},
+		{File: "Sources/B.swift", Status: "Survived"},
+		{File: "Sources/C.swift", Status: "Survived"},
+		{File: "Sources/C.swift", Status: "Survived"},
+		{File: "Sources/C.swift", Status: "Survived"},
+		{File: "Sources/A.swift", Status: "Survived"},
+		{File: "Sources/A.swift", Status: "Survived"},
+	}
+	got := summarize(violations, 0)
+	c := strings.Index(got, "Sources/C.swift")
+	a := strings.Index(got, "Sources/A.swift")
+	b := strings.Index(got, "Sources/B.swift")
+	if c < 0 || a < 0 || b < 0 || c > a || a > b {
+		t.Fatalf("want C (3), then A and B (2 each, by path):\n%s", got)
+	}
+}
+
+func TestSummarizeCleanRunSaysSo(t *testing.T) {
+	if got, want := summarize(nil, 0), "No unexcluded mutants survived.\n"; got != want {
+		t.Fatalf("summarize(nil, 0) = %q, want %q", got, want)
+	}
+	want := "No unexcluded mutants survived.\n" +
+		"\n" +
+		"2 Unviable mutant(s) not gated (ADR-016): they do not compile, so no test can kill them.\n"
+	if got := summarize(nil, 2); got != want {
+		t.Fatalf("summarize(nil, 2) = %q, want %q", got, want)
+	}
+}
+
+func TestRunWritesSummaryAndKeepsFullListOnStdout(t *testing.T) {
+	report := writeReport(t, `{"files":{"Sources/ThrowntomUI/B.swift":{"mutants":[
+		{"mutatorName":"M","status":"Survived","location":{"start":{"line":4,"column":2}}},
+		{"mutatorName":"M","status":"Unviable","location":{"start":{"line":5,"column":2}}}
+	]}}}`)
+	summaryPath := filepath.Join(t.TempDir(), "summary.md")
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{report}, "", summaryPath, &stdout, &stderr); code != 1 {
+		t.Fatalf("exit = %d, want 1; stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "- `Sources/ThrowntomUI/B.swift:4:2` M Survived") {
+		t.Fatalf("stdout lost the per-mutant line:\n%s", stdout.String())
+	}
+	data, err := os.ReadFile(summaryPath)
+	if err != nil {
+		t.Fatalf("summary not written: %v", err)
+	}
+	want := "1 unexcluded mutant(s) not killed in 1 file(s).\n" +
+		"\n" +
+		"| File | Gated | Statuses |\n" +
+		"|---|---|---|\n" +
+		"| `Sources/ThrowntomUI/B.swift` | 1 | Survived 1 |\n" +
+		"\n" +
+		"1 Unviable mutant(s) not gated (ADR-016): they do not compile, so no test can kill them.\n"
+	if string(data) != want {
+		t.Fatalf("summary =\n%s\nwant\n%s", data, want)
+	}
+}
+
+// A summary that cannot be written would leave the workflow filing an empty or
+// stale issue body, so it is an error, not a quiet success.
+func TestRunUnwritableSummaryIsAnError(t *testing.T) {
+	report := writeReport(t, `{"files":{"Sources/ThrowntomUI/B.swift":{"mutants":[
+		{"mutatorName":"M","status":"Survived","location":{"start":{"line":4,"column":2}}}
+	]}}}`)
+	summaryPath := filepath.Join(t.TempDir(), "missing-dir", "summary.md")
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{report}, "", summaryPath, &stdout, &stderr); code != 2 {
 		t.Fatalf("exit = %d, want 2", code)
 	}
 }
