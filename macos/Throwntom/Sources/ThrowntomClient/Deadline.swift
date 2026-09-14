@@ -6,8 +6,8 @@ import Foundation
 /// until every child has, and cancelling a child is a request rather than a guarantee: a child
 /// suspended on a continuation nothing resumes stays suspended, cancelled or not. The deadline
 /// here resumes the caller itself and leaves the work behind, so the bound the caller was promised
-/// holds even then. Work abandoned that way leaks until the process exits, which is the price of
-/// answering the caller at all.
+/// holds even then. Work left behind is cancelled but not waited for, so work that cannot answer a
+/// cancel runs until the process exits — the price of answering the caller at all.
 func withDeadline<T: Sendable>(
   _ timeout: Duration,
   operation: @escaping @Sendable () async throws -> T,

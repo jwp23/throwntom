@@ -129,8 +129,8 @@ public final class UnixSocketTransport: DaemonTransport {
 // MARK: - PendingTask
 
 /// A cancellation handle that can be handed out before the task it refers to exists.
-/// A cancel that lands first is applied as soon as the task arrives, and neither cancel is run
-/// where it was asked for.
+/// A cancel that lands first is applied as soon as the task arrives. Neither path runs the task's
+/// cancellation handlers on the thread that asked for the cancel.
 // Every mutable member is read and written under `lock`.
 // @unchecked because NSLock-guarded access isn't expressible to the compiler; correct today, but
 // the annotation could go once the deployment target reaches Mutex (macOS 15).
