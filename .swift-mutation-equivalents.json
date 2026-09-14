@@ -190,5 +190,29 @@
     "mutator": "ArithmeticOperatorReplacement",
     "replacement": "+",
     "reason": "Not an equivalence claim: the mutant is a real, deterministic, fast trap, already exercised by the existing ReconnectBackoffTests.testEscalatesThroughTheDelaysAndHoldsAtTheLast (6 failures against a 4-element delays array drives delayIndex to 5, and `delays.count + 1` is 5 -- out of bounds). Hand-verified: `swift test --filter ReconnectBackoffTests/testEscalatesThroughTheDelaysAndHoldsAtTheLast` with this mutation applied by hand aborts the process (`Fatal error: Index out of range`, Swift/ContiguousArrayBuffer.swift:692, exit via signal 5); restored, the same filter passes. Same reasoning as 18:32's Crash entry above for why the tool can only report Crash here and why this is not the poisoning shape: no Timeout mutant exists anywhere in this file's own gated set."
+  },
+  {
+    "file": "Sources/ThrowntomClient/ClientLog.swift",
+    "line": 67,
+    "column": 5,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Proven equivalent for testing purposes. This statement's only effect is writing to the unified log via os.Logger, which this file's own doc comment states is not readable from inside the process that wrote it (ClientLog.swift:8-10) -- the whole reason the `sink` indirection exists. Every ClientLogTests/ClientLoggingSitesTests test replaces `ClientLog.sink` with a recorder before asserting (see LogRecorder in ClientLogTests.swift), so the default sink's body -- this statement -- is never executed by any test, existing or possible. No in-process XCTest can observe whether this call ran or was removed."
+  },
+  {
+    "file": "Sources/ThrowntomClient/SMAppServiceRegistrar.swift",
+    "line": 52,
+    "column": 5,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Proven equivalent for testing purposes. `openSystemSettingsLoginItems()` is a bare static SDK call to open a real System Settings pane -- unlike `agent`/`mainApp` on this same type, it sits behind no injectable seam, so a test cannot substitute a fake for it. Invoking the real API during an XCTest run would open an actual system UI window, which is neither safe nor observable in-process (there is no return value or callback to assert against). No XCTest, existing or possible, can distinguish this call from a no-op without opening a real window."
+  },
+  {
+    "file": "Sources/ThrowntomClient/TaskWindowModel.swift",
+    "line": 57,
+    "column": 62,
+    "mutator": "ArithmeticOperatorReplacement",
+    "replacement": "+",
+    "reason": "Not an equivalence claim: the mutant is a real, deterministic, fast trap, already exercised by the existing TaskWindowModelTests.testMoveSelectionClampsAtEnds (three ids, moveSelection(by: 5) drives current to 6, and `ids.count + 1` is 4 -- out of bounds). Hand-verified: the same filter with this mutation applied by hand aborts the process (`Fatal error: Index out of range`, Swift/ContiguousArrayBuffer.swift:692, exit via signal 5); restored, TaskWindowModelTests passes 11/11. Same reasoning as ReconnectBackoff.swift's Crash entries above for why the tool can only report Crash here and why this is not the poisoning shape: no Timeout mutant exists anywhere in this file's own gated set."
   }
 ]
