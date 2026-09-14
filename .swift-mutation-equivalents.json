@@ -101,7 +101,7 @@
     "column": 18,
     "mutator": "RelationalOperatorReplacement",
     "replacement": "!=",
-    "reason": "Not an equivalence claim: this mutation produces the identical mutated source to the guard's `intent == .running` NegateConditional mutant at 117:11 (`!(intent == .running)` and `intent != .running` are the same guard), so it fails the same way for the same reason and is killed by the same hand-verified test, DaemonClientTests.testStartDialsTheEventStreamWhenIntentIsRunning. It reported Timeout directly even in a run with every NegateConditional mutator disabled (`--disable-mutator NegateConditional`, /tmp/report-ThrowntomClient-noNegate.json), confirming it is not merely poisoned by a neighbor but genuinely blocks the full suite past the tool's 120s budget on its own, for the mechanism recorded at 117:11's entry above."
+    "reason": "Not an equivalence claim: this mutation produces source semantically identical to the guard's `intent == .running` NegateConditional mutant at 117:11 (`!(intent == .running)` and `intent != .running` are De Morgan-equivalent for this Equatable comparison, not byte-identical text), so it fails the same way for the same reason and is killed by the same hand-verified test, DaemonClientTests.testStartDialsTheEventStreamWhenIntentIsRunning. It reported Timeout directly even in a run with every NegateConditional mutator disabled (`--disable-mutator NegateConditional`, /tmp/report-ThrowntomClient-noNegate.json), confirming it is not merely poisoned by a neighbor but genuinely blocks the full suite past the tool's 120s budget on its own, for the mechanism recorded at 117:11's entry above."
   },
   {
     "file": "Sources/ThrowntomClient/DaemonClient.swift",
@@ -110,14 +110,6 @@
     "mutator": "NegateConditional",
     "replacement": "!(streamTask == nil)",
     "reason": "Not an equivalence claim: the mutant is observable and killed by DaemonClientTests.testStartDialsTheEventStreamWhenIntentIsRunning, hand-verified (RED under the mutant: times out after 5.0s waiting for the event stream to be dialled; GREEN restored: passes in 0.077s). Same guard as 117:11's entry, negating the other clause: on the very first call streamTask is nil, so this mutant's `streamTask != nil` also fails the guard on entry and start() never begins the stream, breaking the same wide set of tests the same way. Reported Timeout directly in this bead's own file-scoped runs (both the pre-test baseline and the post-test confirmation run), so no tool run available - the tool has no per-test scope - can report this mutant Killed within budget."
-  },
-  {
-    "file": "Sources/ThrowntomClient/DaemonClient.swift",
-    "line": 117,
-    "column": 42,
-    "mutator": "RelationalOperatorReplacement",
-    "replacement": "!=",
-    "reason": "Not an equivalence claim: this mutation produces the identical mutated source to the guard's `streamTask == nil` NegateConditional mutant at 117:31 (`!(streamTask == nil)` and `streamTask != nil` are the same guard), so it fails the same way for the same reason and is killed by the same hand-verified test, DaemonClientTests.testStartDialsTheEventStreamWhenIntentIsRunning (RED confirmed by hand: times out after 5.0s; GREEN restored: passes in 0.076s). It is reported Crash rather than Timeout in every automated run because it sits immediately after 117:18 in mutant discovery order, so the tool's SIGKILL-radius defect (docs/decisions/swift-mutation-timeout-poisons-a-later-mutant.md) always catches its run mid-flight before it reaches its own 120s mark - not because the underlying mutation resolves any faster, since it shares 117:31's mechanism exactly."
   },
   {
     "file": "Sources/ThrowntomClient/DaemonClient.swift",
@@ -134,13 +126,5 @@
     "mutator": "NegateConditional",
     "replacement": "!(Task.isCancelled)",
     "reason": "Not an equivalence claim: the mutant is observable and killed by DaemonClientTests.testRegistersTheAgentOnceAndKeepsReportingThePersistentOutage, hand-verified (RED under the mutant: times out after 5.0s waiting for the registration that ends the outage; GREEN restored: passes). The mutated `if !(Task.isCancelled) { return }` returns out of runStream on the very first failed dial, before recordFailure() or registerAgentIfDue() ever run, so the reconnect loop never retries and never registers the launch agent - breaking every test that waits on either. Reported Timeout directly in both of this bead's file-scoped runs; the tool has no per-test scope, so no run can finish within its 120s budget under this mutation for the reasons measured at 117:11's entry above."
-  },
-  {
-    "file": "Sources/ThrowntomClient/DaemonClient.swift",
-    "line": 316,
-    "column": 17,
-    "mutator": "NegateConditional",
-    "replacement": "!(!Task.isCancelled)",
-    "reason": "Not an equivalence claim: the mutant is observable and killed by DaemonClientTests.testConnectsAfterReceivingTheFirstFrame, hand-verified (RED under the mutant: DaemonClientTests.swift:201 times out after 5.0s waiting for the client to connect; GREEN restored: passes in 0.647s). `!(!Task.isCancelled)` reduces to `Task.isCancelled`, so the frame loop's guard returns on the very first decoded frame and the client never reaches `.connected` - the same wide blast radius as the 117 guard mutants. This is the residual gap the two-report merge cannot fix: it shares both file and exact operator (NegateConditional) with the genuinely timing-out mutants at 117:11, 117:31, 311:11 and 333:12, so the `--disable-mutator NegateConditional` run used to confirm this file's other Crash mutants removes this one too. It sits immediately after 311:11 in mutant discovery order in every observed run, so the SIGKILL-radius defect (docs/decisions/swift-mutation-timeout-poisons-a-later-mutant.md) always catches its run mid-flight - consistent with it not being a genuine self-timeout (unlike 117:11/117:31/311:11/333:12/117:18, none of which ever reported anything but Timeout), just unable to be isolated from one by any scope the tool has."
   }
 ]
