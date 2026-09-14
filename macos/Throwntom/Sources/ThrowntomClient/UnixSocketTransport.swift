@@ -134,7 +134,7 @@ public final class UnixSocketTransport: DaemonTransport {
 // @unchecked because NSLock-guarded access isn't expressible to the compiler; correct today, but
 // the annotation could go once the deployment target reaches Mutex (macOS 15).
 // swiftlint:disable:next no_unchecked_sendable
-private final class PendingTask: @unchecked Sendable {
+final class PendingTask: @unchecked Sendable {
 
   // MARK: Internal
 
