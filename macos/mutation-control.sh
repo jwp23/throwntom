@@ -40,7 +40,8 @@ cp "$repo_root/macos/mutation-control/MutationControlTests.swift" "$package/Test
 )
 
 verdict() {
-  jq -r --arg replacement "$1" \
+  local replacement="$1"
+  jq -r --arg replacement "$replacement" \
     '[.files[].mutants[] | select(.originalText == ">" and .replacement == $replacement) | .status] | join(",")' \
     "$scratch/report.json"
 }
