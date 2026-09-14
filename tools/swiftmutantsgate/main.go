@@ -169,7 +169,9 @@ type fileTally struct {
 // summarize renders the tracking issue body: one row per file with its gated
 // count and statuses, heaviest file first. GitHub caps an issue body at 65,536
 // characters; a per-mutant list outgrows that, a row per file does not.
-func summarize(violations []violation, unviable int) string {
+// Unsettled verdicts are appended in full, not tallied: they are rare enough
+// that the issue is where triage needs to see them, not just the CI log.
+func summarize(violations []violation, unviable int, unsettled []unsettled) string {
 	var b strings.Builder
 	if len(violations) == 0 {
 		b.WriteString("No unexcluded mutants survived.\n")
@@ -183,6 +185,9 @@ func summarize(violations []violation, unviable int) string {
 	}
 	if unviable > 0 {
 		b.WriteString("\n" + unviableNote(unviable))
+	}
+	if len(unsettled) > 0 {
+		b.WriteString("\n" + unsettledNote(unsettled))
 	}
 	return b.String()
 }
@@ -257,14 +262,15 @@ func run(reportPaths []string, equivalentsPath, summaryPath string, stdout, stde
 			_, _ = fmt.Fprintln(stdout, v.markdown())
 		}
 	}
-	if unsettled := merged.unsettledVerdicts(equivalents); len(unsettled) > 0 {
+	unsettled := merged.unsettledVerdicts(equivalents)
+	if len(unsettled) > 0 {
 		_, _ = fmt.Fprint(stdout, "\n"+unsettledNote(unsettled))
 	}
 	if unviable > 0 {
 		_, _ = fmt.Fprint(stdout, "\n"+unviableNote(unviable))
 	}
 	if summaryPath != "" {
-		if err := os.WriteFile(summaryPath, []byte(summarize(violations, unviable)), 0o600); err != nil {
+		if err := os.WriteFile(summaryPath, []byte(summarize(violations, unviable, unsettled)), 0o600); err != nil {
 			_, _ = fmt.Fprintln(stderr, err)
 			return exitError
 		}

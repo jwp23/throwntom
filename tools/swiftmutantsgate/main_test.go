@@ -387,7 +387,7 @@ func TestSummarizeGroupsByFileWithCountsAndStatuses(t *testing.T) {
 		"| `Sources/B.swift` | 1 | Timeout 1 |\n" +
 		"\n" +
 		"5 Unviable mutant(s) not gated (ADR-016): they do not compile, so no test can kill them.\n"
-	if got := summarize(violations, 5); got != want {
+	if got := summarize(violations, 5, nil); got != want {
 		t.Fatalf("summarize =\n%s\nwant\n%s", got, want)
 	}
 }
@@ -404,7 +404,7 @@ func TestSummarizeOrdersFilesByGatedCountThenPath(t *testing.T) {
 		{File: "Sources/A.swift", Status: "Survived"},
 		{File: "Sources/A.swift", Status: "Survived"},
 	}
-	got := summarize(violations, 0)
+	got := summarize(violations, 0, nil)
 	c := strings.Index(got, "Sources/C.swift")
 	a := strings.Index(got, "Sources/A.swift")
 	b := strings.Index(got, "Sources/B.swift")
@@ -414,13 +414,13 @@ func TestSummarizeOrdersFilesByGatedCountThenPath(t *testing.T) {
 }
 
 func TestSummarizeCleanRunSaysSo(t *testing.T) {
-	if got, want := summarize(nil, 0), "No unexcluded mutants survived.\n"; got != want {
+	if got, want := summarize(nil, 0, nil), "No unexcluded mutants survived.\n"; got != want {
 		t.Fatalf("summarize(nil, 0) = %q, want %q", got, want)
 	}
 	want := "No unexcluded mutants survived.\n" +
 		"\n" +
 		"2 Unviable mutant(s) not gated (ADR-016): they do not compile, so no test can kill them.\n"
-	if got := summarize(nil, 2); got != want {
+	if got := summarize(nil, 2, nil); got != want {
 		t.Fatalf("summarize(nil, 2) = %q, want %q", got, want)
 	}
 }
@@ -451,6 +451,28 @@ func TestRunWritesSummaryAndKeepsFullListOnStdout(t *testing.T) {
 		"1 Unviable mutant(s) not gated (ADR-016): they do not compile, so no test can kill them.\n"
 	if string(data) != want {
 		t.Fatalf("summary =\n%s\nwant\n%s", data, want)
+	}
+}
+
+// The tracking issue body is summary.md, not stdout — an unsettled verdict
+// that only reached stdout would never surface there, hiding a timeout-poisoned
+// or contradictory report from the one place triage actually reads.
+func TestRunWritesUnsettledVerdictsIntoSummary(t *testing.T) {
+	poisoned := writeReport(t, `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
+		{"mutatorName":"M","status":"Timeout","location":{"start":{"line":1,"column":1}}},
+		{"mutatorName":"M","status":"Crash","location":{"start":{"line":9,"column":2}}}
+	]}}}`)
+	summaryPath := filepath.Join(t.TempDir(), "summary.md")
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{poisoned}, "", summaryPath, &stdout, &stderr); code != 1 {
+		t.Fatalf("exit = %d, want 1; stderr=%s", code, stderr.String())
+	}
+	data, err := os.ReadFile(summaryPath)
+	if err != nil {
+		t.Fatalf("summary not written: %v", err)
+	}
+	if !strings.Contains(string(data), "reported Crash only by a run that also timed a mutant out") {
+		t.Fatalf("summary lost the unsettled verdict:\n%s", data)
 	}
 }
 
