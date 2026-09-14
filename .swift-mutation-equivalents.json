@@ -9,14 +9,6 @@
   },
   {
     "file": "Sources/ThrowntomClient/SocketConnection.swift",
-    "line": 126,
-    "column": 5,
-    "mutator": "RemoveSideEffects",
-    "replacement": "",
-    "reason": "Not an equivalence claim: the mutant removes thread safety, and no test can report it killed. Every single-threaded path through attach and finish is unchanged - the now unbalanced lock.unlock() on an unheld NSLock is a no-op, and the whole suite passes clean with this mutant applied. It differs only when attach and a concurrent finish interleave within nanoseconds, and those interleavings end either in a double continuation.resume, which traps the process and is reported Crash (which this gate also counts as not killed), or in a result stored into resultBeforeAttach after attach has read it. Provoking either needs a probabilistic stress test, which cannot fail deterministically."
-  },
-  {
-    "file": "Sources/ThrowntomClient/SocketConnection.swift",
     "line": 129,
     "column": 7,
     "mutator": "RemoveSideEffects",
@@ -46,14 +38,6 @@
     "mutator": "BooleanLiteralReplacement",
     "replacement": "true",
     "reason": "Proven equivalent. perform reads this return only to decide whether to start the operation (lines 100-101). On this path the continuation has already been resumed with the result that arrived before attach, and the gate is settled - line 132 sets isFinished and resultBeforeAttach stays non-nil - so line 142 refuses every later result and an operation started here can no longer reach the caller. That result can only have come from the cancellation handler, which cancels the connection immediately after producing it (lines 104-105), so the operation the mutant starts runs on a cancelled NWConnection and performs no I/O. SocketConnectionTests.testACallStartedInACancelledTaskNeverDialsThePeer pins that: with this mutant applied the peer still accepts no connection."
-  },
-  {
-    "file": "Sources/ThrowntomClient/SocketConnection.swift",
-    "line": 141,
-    "column": 5,
-    "mutator": "RemoveSideEffects",
-    "replacement": "",
-    "reason": "Not an equivalence claim: the mutant removes thread safety, and no test can report it killed. Every single-threaded path through finish is unchanged - the now unbalanced lock.unlock() on an unheld NSLock is a no-op, and the whole suite passes clean with this mutant applied. It differs only when two finish calls (the cancellation handler and an NWConnection callback) interleave within nanoseconds, and that ends in a double continuation.resume, which traps the process and is reported Crash - which this gate also counts as not killed. Provoking it needs a probabilistic stress test, which cannot fail deterministically."
   },
   {
     "file": "Sources/ThrowntomClient/SocketConnection.swift",
