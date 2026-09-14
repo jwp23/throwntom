@@ -66,6 +66,7 @@ func TestFindViolationsSortsByFileThenPosition(t *testing.T) {
 	if err != nil {
 		t.Fatalf("findViolations: %v", err)
 	}
+	sortViolations(violations)
 	var got []string
 	for _, v := range violations {
 		got = append(got, v.String())
@@ -92,8 +93,22 @@ func TestFindViolationsOrdersSamePositionByReplacement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("findViolations: %v", err)
 	}
+	sortViolations(violations)
 	if len(violations) != 2 || violations[0].Replacement != "<" || violations[1].Replacement != ">=" {
 		t.Fatalf("violations = %+v, want `<` before `>=`", violations)
+	}
+}
+
+// findViolations no longer sorts on its own; run sorts once after combining
+// every report, so ordering doesn't depend on report or shard order.
+func TestSortViolationsTieBreaksIdenticalPositionAndReplacement(t *testing.T) {
+	violations := []violation{
+		{File: "A.swift", Line: 1, Column: 1, Mutator: "Z", Replacement: "x", OriginalText: "b", Status: "Survived"},
+		{File: "A.swift", Line: 1, Column: 1, Mutator: "A", Replacement: "x", OriginalText: "b", Status: "Survived"},
+	}
+	sortViolations(violations)
+	if violations[0].Mutator != "A" || violations[1].Mutator != "Z" {
+		t.Fatalf("violations = %+v, want Mutator A before Z", violations)
 	}
 }
 
@@ -232,8 +247,28 @@ func TestRunCombinesReportsAndFailsOnAnyViolation(t *testing.T) {
 	if code != 1 {
 		t.Fatalf("exit = %d, want 1; stderr=%s", code, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "- `Sources/ThrowntomUI/B.swift:4:2` M Survived (`>` → `>=`)") {
+	if !strings.Contains(stdout.String(), "- `Sources/ThrowntomUI/B.swift:4:2` M Survived (<code>&gt;</code> → <code>&gt;=</code>)") {
 		t.Fatalf("stdout missing the survivor line:\n%s", stdout.String())
+	}
+}
+
+// OriginalText and Replacement come from mutated source and can contain
+// backticks or newlines; rendering them as Markdown would split a mutant
+// across lines or corrupt the tracking issue body.
+func TestRunEscapesMutationTextForMarkdown(t *testing.T) {
+	body := "{\"files\":{\"Sources/ThrowntomUI/B.swift\":{\"mutants\":[\n" +
+		"\t\t{\"mutatorName\":\"M\",\"status\":\"Survived\",\"location\":{\"start\":{\"line\":4,\"column\":2}},\"originalText\":\"a`b\\nc\",\"replacement\":\"<x>\"}\n" +
+		"\t]}}}"
+	report := writeReport(t, body)
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{report}, "", &stdout, &stderr); code != 1 {
+		t.Fatalf("exit = %d, want 1; stderr=%s", code, stderr.String())
+	}
+	if strings.Contains(stdout.String(), "a`b\nc") {
+		t.Fatalf("stdout embeds raw mutant text unescaped:\n%s", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "<code>a`b\\nc</code> → <code>&lt;x&gt;</code>") {
+		t.Fatalf("stdout missing escaped mutant text:\n%s", stdout.String())
 	}
 }
 

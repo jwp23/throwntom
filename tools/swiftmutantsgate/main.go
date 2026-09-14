@@ -57,9 +57,25 @@ func (v violation) String() string {
 func (v violation) markdown() string {
 	line := fmt.Sprintf("- `%s:%d:%d` %s %s", v.File, v.Line, v.Column, v.Mutator, v.Status)
 	if v.OriginalText != "" || v.Replacement != "" {
-		line += fmt.Sprintf(" (`%s` → `%s`)", v.OriginalText, v.Replacement)
+		line += fmt.Sprintf(" (%s → %s)", escapeForMarkdownCode(v.OriginalText), escapeForMarkdownCode(v.Replacement))
 	}
 	return line
+}
+
+// escapeForMarkdownCode renders arbitrary mutant text as an HTML <code>
+// element instead of backtick-delimited Markdown: OriginalText and
+// Replacement come from the mutation tool's source-derived output and can
+// contain backticks or newlines that would otherwise split a mutant across
+// lines or corrupt the tracking issue body.
+func escapeForMarkdownCode(s string) string {
+	s = strings.NewReplacer(
+		"&", "&amp;",
+		"<", "&lt;",
+		">", "&gt;",
+		"\n", "\\n",
+		"\r", "\\r",
+	).Replace(s)
+	return "<code>" + s + "</code>"
 }
 
 // equivalent names one mutant reviewed and proven equivalent — no test can
@@ -125,6 +141,7 @@ func run(reportPaths []string, equivalentsPath string, stdout, stderr io.Writer)
 		violations = append(violations, found...)
 		unviable += countUnviable(data)
 	}
+	sortViolations(violations)
 	code := exitClean
 	if len(violations) == 0 {
 		_, _ = fmt.Fprintln(stdout, "No unexcluded mutants survived.")
@@ -184,6 +201,14 @@ func findViolations(data []byte, equivalents []equivalent) ([]violation, error) 
 			})
 		}
 	}
+	return violations, nil
+}
+
+// sortViolations orders by file then position, then by every remaining
+// displayed field, so a refreshed tracking issue diffs cleanly week to week
+// regardless of report or shard order and two mutants at the same position
+// don't tie.
+func sortViolations(violations []violation) {
 	sort.Slice(violations, func(i, j int) bool {
 		a, b := violations[i], violations[j]
 		if a.File != b.File {
@@ -195,9 +220,17 @@ func findViolations(data []byte, equivalents []equivalent) ([]violation, error) 
 		if a.Column != b.Column {
 			return a.Column < b.Column
 		}
-		return a.Replacement < b.Replacement
+		if a.Mutator != b.Mutator {
+			return a.Mutator < b.Mutator
+		}
+		if a.Replacement != b.Replacement {
+			return a.Replacement < b.Replacement
+		}
+		if a.OriginalText != b.OriginalText {
+			return a.OriginalText < b.OriginalText
+		}
+		return a.Status < b.Status
 	})
-	return violations, nil
 }
 
 func isReviewedEquivalent(file string, m mutant, equivalents []equivalent) bool {

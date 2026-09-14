@@ -243,7 +243,8 @@ jobs:
             reports+=("$RUNNER_TEMP/reports/report-ThrowntomUI-$index.json")
           done
           code=0
-          go run ./tools/swiftmutantsgate -equivalents .swift-mutation-equivalents.json \
+          go build -o "$RUNNER_TEMP/swiftmutantsgate" ./tools/swiftmutantsgate
+          "$RUNNER_TEMP/swiftmutantsgate" -equivalents .swift-mutation-equivalents.json \
             "${reports[@]}" > "$RUNNER_TEMP/gate.md" || code=$?
           cat "$RUNNER_TEMP/gate.md"
           echo "code=$code" >> "$GITHUB_OUTPUT"
