@@ -206,5 +206,37 @@
     "mutator": "ArithmeticOperatorReplacement",
     "replacement": "+",
     "reason": "Not an equivalence claim: the mutant is a real, deterministic, fast trap, already exercised by the existing TaskWindowModelTests.testMoveSelectionClampsAtEnds (three ids, moveSelection(by: 5) drives current to 6, and `ids.count + 1` is 4 -- out of bounds). Hand-verified: the same filter with this mutation applied by hand aborts the process (`Fatal error: Index out of range`, Swift/ContiguousArrayBuffer.swift:692, exit via signal 5); restored, TaskWindowModelTests passes 11/11. Same reasoning as ReconnectBackoff.swift's Crash entries above for why the tool can only report Crash here and why this is not the poisoning shape: no Timeout mutant exists anywhere in this file's own gated set."
+  },
+  {
+    "file": "Sources/ThrowntomUI/BlockFlowLayout.swift",
+    "line": 23,
+    "column": 40,
+    "mutator": "ArithmeticOperatorReplacement",
+    "replacement": "+",
+    "reason": "Not an equivalence claim: the mutant is a real, deterministic, fast trap. `rows` starts as `[[]]` (count 1); `rows[rows.count + 1]` is index 2 in a one-element array, out of bounds on the very first loop iteration for any non-empty `widths`, which every existing BlockFlowLayoutTests test that calls `rowBreaks` already supplies (e.g. testAllBlocksFitOnOneRow's [80, 80, 80]). Hand-verified: `swift test --filter BlockFlowLayoutTests/testAllBlocksFitOnOneRow` with this mutation applied by hand aborts the process (`Fatal error: Index out of range`, Swift/ContiguousArrayBuffer.swift:692, exit via signal 5); restored, the same filter passes. Not the file+operator-sharing SIGKILL-poisoning pattern docs/decisions/swift-mutation-timeout-poisons-a-later-mutant.md describes and the dispatch forbids excluding this way: there is no Timeout mutant anywhere in this file's 15-mutant gated set to have poisoned it."
+  },
+  {
+    "file": "Sources/ThrowntomUI/BlockFlowLayout.swift",
+    "line": 24,
+    "column": 27,
+    "mutator": "ArithmeticOperatorReplacement",
+    "replacement": "+",
+    "reason": "Not an equivalence claim: the mutant is a real, deterministic, fast trap, the same shape as 23:40's entry above -- `rows[rows.count + 1]` in the wrap-decision's `if` condition, out of bounds on the very first loop iteration for any non-empty `widths`. Hand-verified: `swift test --filter BlockFlowLayoutTests/testAllBlocksFitOnOneRow` with this mutation applied by hand aborts the process (`Fatal error: Index out of range`, Swift/ContiguousArrayBuffer.swift:692, exit via signal 5); restored, the same filter passes. Same reasoning as 23:40 for why this is not the poisoning shape: no Timeout mutant exists anywhere in this file's gated set."
+  },
+  {
+    "file": "Sources/ThrowntomUI/BlockFlowLayout.swift",
+    "line": 28,
+    "column": 23,
+    "mutator": "ArithmeticOperatorReplacement",
+    "replacement": "+",
+    "reason": "Not an equivalence claim: the mutant is a real, deterministic, fast trap, the same shape as 23:40's entry above -- `rows[rows.count + 1].append(index)`, out of bounds on the very first loop iteration for any non-empty `widths`. Hand-verified: `swift test --filter BlockFlowLayoutTests/testAllBlocksFitOnOneRow` with this mutation applied by hand aborts the process (`Fatal error: Index out of range`, Swift/ContiguousArrayBuffer.swift:705, exit via signal 5); restored, the same filter passes. Same reasoning as 23:40 for why this is not the poisoning shape: no Timeout mutant exists anywhere in this file's gated set."
+  },
+  {
+    "file": "Sources/ThrowntomUI/BlockFlowLayout.swift",
+    "line": 29,
+    "column": 36,
+    "mutator": "ArithmeticOperatorReplacement",
+    "replacement": "+",
+    "reason": "Not an equivalence claim: the mutant is a real, deterministic, fast trap, the same shape as 23:40's entry above -- `rows[rows.count + 1].count` in the `rowWidth +=` line, out of bounds right after the original (unmutated) append on the very first loop iteration for any non-empty `widths`. Hand-verified: `swift test --filter BlockFlowLayoutTests/testAllBlocksFitOnOneRow` with this mutation applied by hand aborts the process (`Fatal error: Index out of range`, Swift/ContiguousArrayBuffer.swift:692, exit via signal 5); restored, the same filter passes. Same reasoning as 23:40 for why this is not the poisoning shape: no Timeout mutant exists anywhere in this file's gated set."
   }
 ]
