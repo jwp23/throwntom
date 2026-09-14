@@ -15,13 +15,14 @@ measured what ADR-015 had estimated from a 3.4k-line local spike:
 - `ThrowntomUI`: 1,200 mutants, 651 of them incompatible with the tool's
   shared build, so each pays its own incremental `swift build --build-tests`
   before its tests run. Even at the client's rate that is roughly 12 hours,
-  twice the 6-hour GitHub-hosted job limit, so the job was cancelled. `RemoveSideEffects` alone contributes 704 of
-  the 1,200 (451 of the 651 rebuilds): inside a SwiftUI view builder each
-  child view is a bare call statement, which is what that operator deletes.
+  twice the 6-hour GitHub-hosted job limit, so the job was cancelled.
+  `RemoveSideEffects` alone contributes 704 of the 1,200 (451 of the 651
+  rebuilds): inside a SwiftUI view builder each child view is a bare call
+  statement, which is what that operator deletes.
 - Unviable means a mutant does not compile, so no test can ever kill it.
   The client run had 57. An incompatible mutant is usually found Unviable
-  only after its own build fails, so most of those cost build time as well. ADR-015's bar
-  required a reasoned allowlist entry for every one.
+  only after its own build fails, so most of those cost build time as well.
+  ADR-015's bar required a reasoned allowlist entry for every one.
 - throwntom is a public repository. Standard GitHub-hosted runners,
   `macos-15` included, are free and unlimited for public repositories.
   GitHub's Free and Pro plans both cap concurrent macOS jobs at 5, and every
