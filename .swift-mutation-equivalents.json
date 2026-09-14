@@ -238,5 +238,77 @@
     "mutator": "ArithmeticOperatorReplacement",
     "replacement": "+",
     "reason": "Not an equivalence claim: the mutant is a real, deterministic, fast trap, the same shape as 23:40's entry above -- `rows[rows.count + 1].count` in the `rowWidth +=` line, out of bounds right after the original (unmutated) append on the very first loop iteration for any non-empty `widths`. Hand-verified: `swift test --filter BlockFlowLayoutTests/testAllBlocksFitOnOneRow` with this mutation applied by hand aborts the process (`Fatal error: Index out of range`, Swift/ContiguousArrayBuffer.swift:692, exit via signal 5); restored, the same filter passes. Same reasoning as 23:40 for why this is not the poisoning shape: no Timeout mutant exists anywhere in this file's gated set."
+  },
+  {
+    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
+    "line": 23,
+    "column": 5,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Proven equivalent, empirically. `init` sets every stored property (client, authorizer, presenter) and then calls `super.init()`; with that call deleted by hand, `swift build` produces zero errors and zero warnings, and the whole ThrowntomUITests target (539 tests) still passes byte-for-byte identically. Swift's two-phase initializer rule ordinarily requires an explicit delegating call before an initializer returns, but for a designated initializer whose superclass (NSObject here) has a no-argument initializer, the compiler synthesizes that call itself when the source omits it -- there is nothing left for the deleted statement to do that the compiler was not already going to do. No test can distinguish the two forms because the compiled program is the same program either way."
+  },
+  {
+    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
+    "line": 48,
+    "column": 5,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Proven equivalent for testing purposes. `start()`'s very first statement, `UNUserNotificationCenter.current().delegate = self` (line 47, an assignment rather than a call, so it is not itself a RemoveSideEffects candidate), unconditionally aborts any XCTest process that reaches it: `UNUserNotificationCenter.current()` requires a real app bundle, which no `swift test` process has (documented in this same file's neighbours -- AppEnvironment.swift:79-80, SystemReminderPresenter.swift:6-7, SystemNotificationAuthorizer.swift:4-5, all 'which no test process may reach'). Hand-verified: a test that calls `responder.start()` crashes every run, mutated or not, with `NSInternalInconsistencyException: bundleProxyForCurrentProcess is nil` at exactly that line, before line 48 is ever reached. Since no test, existing or possible, can call `start()` without crashing on its first line, nothing after it -- including this call to `registerReminderButtons()` -- is observable by any XCTest in this package."
+  },
+  {
+    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
+    "line": 49,
+    "column": 5,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Proven equivalent for testing purposes, same mechanism as the 48:5 entry above: `start()` unconditionally crashes on its first statement (line 47, `UNUserNotificationCenter.current().delegate = self`) in any `swift test` process, before this call to `withdrawOnTermination()` is ever reached. `withdrawOnTermination()` itself is directly callable and is covered directly (ReminderResponderTests.swift, ReminderPostingTests.swift's testQuittingTheAppTakesTheBannerDown); only its invocation from inside `start()` is unreachable by any test."
+  },
+  {
+    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
+    "line": 50,
+    "column": 5,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Proven equivalent for testing purposes, same mechanism as the 48:5 entry above: `start()` unconditionally crashes on its first statement (line 47, `UNUserNotificationCenter.current().delegate = self`) in any `swift test` process, before this call to `followDaemonState()` is ever reached. `followDaemonState()` itself is directly callable and is covered directly (ReminderPostingTests.swift); only its invocation from inside `start()` is unreachable by any test."
+  },
+  {
+    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
+    "line": 51,
+    "column": 5,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Proven equivalent for testing purposes, same mechanism as the 48:5 entry above: `start()` unconditionally crashes on its first statement (line 47, `UNUserNotificationCenter.current().delegate = self`) in any `swift test` process, before this `Task { await requestAuthorization(); await present(client.state) }` is ever reached. Both `requestAuthorization()` and `present(_:)` are directly callable and are covered directly by ReminderResponderAuthorizationTests.swift and ReminderPostingTests.swift; only their invocation from inside `start()`'s launch Task is unreachable by any test."
+  },
+  {
+    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
+    "line": 144,
+    "column": 43,
+    "mutator": "BooleanLiteralReplacement",
+    "replacement": "true",
+    "reason": "Proven equivalent. Line 144 runs only inside `requestAuthorization()`'s `catch` block, where `error` is the just-caught, always non-nil error. Its only reader, `ReminderAuthorization.requested(granted:error:)`, opens with `if error != nil { return ReminderAuthorization(problem: refused) }` and never reaches the `granted` parameter on any path where `error` is non-nil. So `granted: false` and `granted: true` produce the identical `ReminderAuthorization` value on this call site whichever the mutant writes; the parameter is dead on this path by construction of `requested(granted:error:)`, not by assumption."
+  },
+  {
+    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
+    "line": 157,
+    "column": 5,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Proven equivalent for testing purposes, the same shape as SMAppServiceRegistrar.swift:52's entry above. `openNotificationSettings()` calls `NSWorkspace.shared.open(url)` directly with no injectable seam (unlike ConfigFile.swift's `open(with opener:)`), so a test cannot substitute a fake. Invoking the real API during an XCTest run would open an actual System Settings window, which is neither safe nor observable in-process -- `open(_:)` on a system URL scheme has no return value or callback a test can assert against. No XCTest, existing or possible, can distinguish this call from a no-op without opening a real window."
+  },
+  {
+    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
+    "line": 203,
+    "column": 5,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Proven equivalent for testing purposes. This line forwards a real `UNNotificationResponse`'s `actionIdentifier` to `respond(to:then:)`, which is itself directly callable and is exhaustively covered by ReminderResponderTests.swift. But `UNNotificationResponse` declares `- (instancetype)init NS_UNAVAILABLE` (UNNotificationResponse.h) and offers no other public initializer, so no test, existing or possible, can construct the argument this delegate method needs in order to call it and observe whether this forwarding line ran."
+  },
+  {
+    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
+    "line": 212,
+    "column": 5,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Proven equivalent for testing purposes, same mechanism as the 203:5 entry above. This delegate method's `notification` parameter is unused (`_: UNNotification`), but the parameter type is non-optional and `UNNotification` likewise declares `- (instancetype)init NS_UNAVAILABLE` (UNNotification.h) with no other public initializer, so no test, existing or possible, can construct any value to pass as that argument in order to call this method and observe whether `completionHandler(Self.presentationOptions)` ran."
   }
 ]
