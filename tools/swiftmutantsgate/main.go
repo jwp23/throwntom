@@ -151,8 +151,9 @@ func unsettledNote(mutants []unsettled) string {
 			"times out, and reports the run it killed as Crash or as Unviable; re-run those mutants in a scope\n" +
 			"with no Timeout and pass both reports. One Timeout spoils at most one run, but no report records\n" +
 			"which, so every unconfirmed verdict from such a run is listed. A kill another run disagreed with is\n" +
-			"a different problem — no run can invent a Survived — and is settled by hand, on whether the killing\n" +
-			"test can reach the mutant. See docs/decisions/swift-mutation-timeout-poisons-a-later-mutant.md.\n")
+			"a different problem — no run can invent a Survived — so the gate keeps the survival and fails on it;\n" +
+			"settle that one by hand, on whether the killing test can reach the mutant. See\n" +
+			"docs/decisions/swift-mutation-timeout-poisons-a-later-mutant.md.\n")
 	return b.String()
 }
 

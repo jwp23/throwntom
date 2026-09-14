@@ -56,14 +56,22 @@ type mutantSet map[mutantIdentity]observation
 // seconds after another mutant times out, which reports a killed mutant as
 // Crash, or as Unviable if the kill landed before its first test marker.
 //
-// Unviable ranks below even an unrecognised status. It is one of the two
-// verdicts the gate lets through, so letting it win a merge would let a mutant
-// out of the gate on the strength of the least informative run there was.
+// Survived outranks Killed, which is the one place this is not about how much a
+// run saw. Both verdicts come from a run that finished, so neither is the
+// disturbed one — a SIGKILLed run exits non-zero and Survived needs an exit code
+// of zero, so no run can invent a Survived. That makes the disagreement a flaky
+// or order-dependent test, with no way to tell which half was right, and
+// ADR-015's bar is zero unexcluded survivors: a kill nobody can reproduce is not
+// a kill. The gate keeps the survival, fails, and says why (see unsettled).
+//
+// Unviable ranks below even an unrecognised status. It is the remaining verdict
+// the gate lets through, so letting it win a merge would let a mutant out of the
+// gate on the strength of the least informative run there was.
 func statusRank(status string) int {
 	switch status {
-	case statusKilled:
-		return 0
 	case statusSurvived:
+		return 0
+	case statusKilled:
 		return 1
 	case statusTimeout:
 		return 2
@@ -155,11 +163,11 @@ func (o observation) verdict() string {
 // SIGKILLed run exits non-zero and Survived needs an exit code of zero, so no
 // run can invent a Survived — which leaves a flaky or order-dependent test, and
 // nothing about the two reports says which run was right. The gate keeps the
-// kill, because ranking a survival first would make a flaky survival
-// unclearable, and says so here rather than quietly.
+// survival and fails on it (see statusRank); this is what tells a reader the
+// difference between that and a mutant no test ever killed.
 func (o observation) unsettled() string {
 	if o.statuses[statusKilled] && o.statuses[statusSurvived] {
-		return "reported Killed by one run and Survived by another; the gate keeps the kill"
+		return "reported Killed by one run and Survived by another; the gate keeps the survival"
 	}
 	verdict := o.verdict()
 	if verdict != statusCrash && verdict != statusUnviable {

@@ -626,9 +626,10 @@ func TestRunDoesNotFlagAnUnviableATimeoutFreeRunConfirms(t *testing.T) {
 
 // The one disagreement no merge rule can resolve. Poisoning cannot produce a
 // Survived — a SIGKILLed run exits non-zero — so this is a flaky or
-// order-dependent test, and the kill the gate keeps may be the wrong half. The
-// gate says so out loud rather than exiting 0 in silence.
-func TestRunFlagsAKillAnotherRunDisagreedWith(t *testing.T) {
+// order-dependent test, and either half may be the wrong one. ADR-015's bar is
+// zero unexcluded survivors, so a run that saw the mutant survive fails the
+// gate: a kill nobody can reproduce is not a kill. The note says why.
+func TestRunGatesAKillAnotherRunDisagreedWith(t *testing.T) {
 	killed := writeReport(t, `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
 		{"mutatorName":"M","status":"Killed","location":{"start":{"line":3,"column":1}}}
 	]}}}`)
@@ -636,12 +637,16 @@ func TestRunFlagsAKillAnotherRunDisagreedWith(t *testing.T) {
 		{"mutatorName":"M","status":"Survived","location":{"start":{"line":3,"column":1}}}
 	]}}}`)
 	var stdout, stderr bytes.Buffer
-	if code := run([]string{killed, survived}, "", "", &stdout, &stderr); code != 0 {
-		t.Fatalf("exit = %d, want 0: the gate keeps the kill; stderr=%s", code, stderr.String())
+	if code := run([]string{killed, survived}, "", "", &stdout, &stderr); code != 1 {
+		t.Fatalf("exit = %d, want 1: a mutant one run survived is not killed; stderr=%s", code, stderr.String())
 	}
-	want := "- `Sources/ThrowntomClient/A.swift:3:1` M Killed — reported Killed by one run and Survived by another; the gate keeps the kill"
+	if !strings.Contains(stdout.String(), "1 unexcluded mutant(s) not killed") ||
+		!strings.Contains(stdout.String(), "- `Sources/ThrowntomClient/A.swift:3:1` M Survived") {
+		t.Fatalf("the disagreement did not reach the gated list:\n%s", stdout.String())
+	}
+	want := "- `Sources/ThrowntomClient/A.swift:3:1` M Survived — reported Killed by one run and Survived by another; the gate keeps the survival"
 	if !strings.Contains(stdout.String(), want) {
-		t.Fatalf("a laundered kill passed in silence:\n%s", stdout.String())
+		t.Fatalf("the gate does not say why it kept the survival:\n%s", stdout.String())
 	}
 }
 

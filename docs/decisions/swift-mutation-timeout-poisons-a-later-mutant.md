@@ -11,13 +11,19 @@ Triaging a file whose gated set contains a genuine Timeout takes two runs:
    so nothing in it can be poisoned.
 
 Both reports go to `tools/swiftmutantsgate`, which merges them by mutant
-identity — file, line, column, mutator, replacement — and keeps the verdict
-from the fullest observation, a kill first of all. It then lists the verdicts
-the reports do not settle between them: a `Crash` or `Unviable` no timeout-free
-run confirms, and a mutant one run killed and another survived. That last one is
-not this defect at all — a SIGKILLed run exits non-zero, so no run can invent a
-`Survived` — it is a flaky or order-dependent test, and the gate keeps the kill
-and says so rather than passing in silence.
+identity — file, line, column, mutator, replacement — and keeps the verdict from
+the fullest observation: a kill ahead of a `Crash`, a `Crash` ahead of an
+`Unviable`. It then lists the verdicts the reports do not settle between them: a
+`Crash` or `Unviable` no timeout-free run confirms, and a mutant one run killed
+and another survived.
+
+That last one is not this defect at all. A SIGKILLed run exits non-zero, so no
+run can invent a `Survived`; both halves come from a run that finished, and
+nothing in the reports says which was right. It is a flaky or order-dependent
+test, so the gate keeps the **survival** and fails on it — ADR-015's bar is zero
+unexcluded survivors, and a kill nobody can reproduce is not a kill. The note
+beside it is what tells a reader that this is a contradiction to settle by hand
+rather than a mutant no test ever killed.
 
 Two conditions on the second run. Delete `.swift-mutation-testing-cache` first:
 the cache replays a stored Crash verbatim, so the second run would otherwise
