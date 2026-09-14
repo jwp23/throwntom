@@ -49,6 +49,32 @@ final class DeadlineTests: XCTestCase {
     await fulfillment(of: [ended], timeout: 2)
   }
 
+  /// A caller cancelled before it gets here has nothing started on its behalf: the work runs on a
+  /// task of its own, which would not inherit the cancellation the way a task group's child does.
+  func testACallCancelledBeforeItStartsRunsNoWork() async {
+    let started = expectation(description: "work that should never have started")
+    started.isInverted = true
+    let ended = expectation(description: "the call to end as cancelled")
+    let call = Task {
+      // Sleeping until cancelled is what puts the cancellation ahead of the call: the task cannot
+      // reach it until it has been cancelled.
+      try? await Task.sleep(for: .seconds(30))
+      do {
+        try await withDeadline(.seconds(5)) { started.fulfill() }
+        XCTFail("the cancelled call ran its work")
+      } catch {
+        XCTAssertTrue(error is CancellationError, "the cancelled call failed with \(error)")
+      }
+      ended.fulfill()
+    }
+
+    call.cancel()
+
+    await fulfillment(of: [ended], timeout: 2)
+    // Work that had started would have said so before the call it belongs to ended.
+    await fulfillment(of: [started], timeout: 0.2)
+  }
+
   /// Work the call walks away from is still asked to stop, so a deadline does not leave the
   /// socket behind it running.
   func testAbandonedWorkIsCancelled() async {

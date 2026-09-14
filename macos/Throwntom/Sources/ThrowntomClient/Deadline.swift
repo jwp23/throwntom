@@ -12,6 +12,10 @@ func withDeadline<T: Sendable>(
   _ timeout: Duration,
   operation: @escaping @Sendable () async throws -> T,
 ) async throws -> T {
+  // A task group's children start cancelled when their parent already is; a task of its own does
+  // not, so a caller that has been cancelled before it got here is answered before any work
+  // starts rather than after something it never wanted had been set going.
+  try Task.checkCancellation()
   // The stream is the handoff: whichever of the two tasks arrives first ends it, and the loser's
   // outcome is dropped rather than overwriting the result the caller already has.
   let (outcomes, sink) = AsyncThrowingStream<T, Error>.makeStream()
