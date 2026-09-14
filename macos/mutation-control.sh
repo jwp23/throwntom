@@ -27,22 +27,36 @@ repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 # sweep wipes every other live run's sandbox for this macOS user (see header comment above),
 # so a second invocation must refuse before it ever launches the tool. Scoped to this script's
 # own invocations only — swift-mutation-testing has no other checked-in local entry point.
-lock_dir="${TMPDIR:-/tmp}/mutation-control.lock"
-if ! mkdir "$lock_dir" 2>/dev/null; then
-  lock_pid="$(cat "$lock_dir/pid" 2>/dev/null || true)"
-  if [[ -n "$lock_pid" ]] && kill -0 "$lock_pid" 2>/dev/null; then
-    echo "mutation-control.sh: another run is already in progress (pid $lock_pid); refusing to start" >&2
+#
+# The lock is a symlink whose target is the holder's pid. `ln -s` is a single atomic syscall
+# that sets the target at creation time, so — unlike a directory-plus-separate-pid-file scheme —
+# no other process can ever observe the lock as "present but pid not yet readable," and only one
+# of any number of simultaneous `ln -s` calls against the same path can succeed.
+lock_path="${TMPDIR:-/tmp}/mutation-control.lock"
+lock_acquired=""
+for _attempt in 1 2; do
+  if ln -s "$$" "$lock_path" 2>/dev/null; then
+    lock_acquired=1
+    break
+  fi
+  holder_pid="$(readlink "$lock_path" 2>/dev/null || true)"
+  if [[ -n "$holder_pid" ]] && kill -0 "$holder_pid" 2>/dev/null; then
+    echo "mutation-control.sh: another run is already in progress (pid $holder_pid); refusing to start" >&2
     exit 1
   fi
   # Lock left by a process that no longer exists (e.g. killed mid-run): stale, reclaim it.
-  echo "mutation-control.sh: found stale lock from dead pid ${lock_pid:-unknown}; reclaiming" >&2
-  rm -rf "$lock_dir"
-  mkdir "$lock_dir"
+  echo "mutation-control.sh: found stale lock from dead pid ${holder_pid:-unknown}; reclaiming" >&2
+  rm -f "$lock_path"
+done
+
+if [[ -z "$lock_acquired" ]]; then
+  echo "mutation-control.sh: lost a race to reclaim the lock; try again" >&2
+  exit 1
 fi
-echo "$$" >"$lock_dir/pid"
+trap 'rm -f "$lock_path"' EXIT
 
 scratch="$(mktemp -d)"
-trap 'rm -rf "$scratch" "$lock_dir"' EXIT
+trap 'rm -rf "$scratch"; rm -f "$lock_path"' EXIT
 
 rsync -a --exclude .git --exclude .build --exclude .claude --exclude .beads \
   --exclude .swift-mutation-testing-cache "$repo_root/" "$scratch/repo/"
