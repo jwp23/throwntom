@@ -272,6 +272,27 @@ func TestRunEscapesMutationTextForMarkdown(t *testing.T) {
 	}
 }
 
+// Shards are passed in matrix order, not file order, so run must sort across
+// reports or the tracking issue reorders whenever shard membership shifts.
+func TestRunOrdersViolationsAcrossReports(t *testing.T) {
+	later := writeReport(t, `{"files":{"Sources/ThrowntomUI/Z.swift":{"mutants":[
+		{"mutatorName":"M","status":"Survived","location":{"start":{"line":1,"column":1}}}
+	]}}}`)
+	earlier := writeReport(t, `{"files":{"Sources/ThrowntomUI/A.swift":{"mutants":[
+		{"mutatorName":"M","status":"Survived","location":{"start":{"line":1,"column":1}}}
+	]}}}`)
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{later, earlier}, "", &stdout, &stderr); code != 1 {
+		t.Fatalf("exit = %d, want 1; stderr=%s", code, stderr.String())
+	}
+	out := stdout.String()
+	a := strings.Index(out, "Sources/ThrowntomUI/A.swift")
+	z := strings.Index(out, "Sources/ThrowntomUI/Z.swift")
+	if a < 0 || z < 0 || a > z {
+		t.Fatalf("want A.swift listed before Z.swift regardless of report order:\n%s", out)
+	}
+}
+
 func TestRunOnlyUnviableIsCleanButCounted(t *testing.T) {
 	first := writeReport(t, `{"files":{"Sources/ThrowntomUI/A.swift":{"mutants":[
 		{"mutatorName":"RemoveSideEffects","status":"Unviable","location":{"start":{"line":1,"column":1}}},

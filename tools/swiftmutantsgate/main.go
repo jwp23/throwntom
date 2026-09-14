@@ -1,10 +1,11 @@
 // Command swiftmutantsgate enforces the Swift mutation-testing bar ADR-015
-// sets: zero unexcluded non-Killed mutants. swift-mutation-testing exits 0
-// whatever it finds, so this reads the JSON reports its --output flag writes
-// (one per target) and fails on any mutant whose status isn't Killed —
-// Survived, Crash, Timeout, Unviable and NoCoverage are each a gap to triage.
-// Its stdout is a Markdown list, so the weekly workflow can paste it straight
-// into the tracking issue.
+// sets, as amended by ADR-016: zero unexcluded Survived, Crash, Timeout and
+// NoCoverage mutants. swift-mutation-testing exits 0 whatever it finds, so
+// this reads the JSON reports its --output flag writes (one per target or
+// shard) and fails on any of those. Unviable mutants do not compile, so no
+// test can kill them; they are counted but not gated. Its stdout is a
+// Markdown list, so the weekly workflow can paste it straight into the
+// tracking issue.
 package main
 
 import (
@@ -175,9 +176,8 @@ func countUnviable(data []byte) int {
 	return count
 }
 
-// findViolations reports every mutant whose status isn't Killed, minus any
-// reviewed equivalents, ordered by file then position so a refreshed tracking
-// issue diffs cleanly week to week.
+// findViolations reports every gated mutant in one report, minus any reviewed
+// equivalents, in no particular order: run sorts once across all reports.
 func findViolations(data []byte, equivalents []equivalent) ([]violation, error) {
 	r, err := parseReport(data)
 	if err != nil {
