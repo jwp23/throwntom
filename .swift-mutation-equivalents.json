@@ -62,5 +62,21 @@
     "mutator": "BooleanLiteralReplacement",
     "replacement": "false",
     "reason": "Proven equivalent. With isFinished left false the settled gate still cannot resume twice: self.continuation is set to nil on the same path (line 152), so a later finish takes the guard let continuation else branch and stores its result instead of resuming. What the mutant changes is that later finish's return value - true from line 149 instead of false from line 144 - and the only reader of that value is the open state handler at line 80, which cannot reach it: settling a gate there cancels the connection (lines 80-81), after which only .cancelled arrives (line 84, result discarded), and a connection that reached .ready over a Unix socket reports the peer's exit to the pending receive rather than as a .waiting or .failed state change."
+  },
+  {
+    "file": "Sources/ThrowntomClient/UnixSocketTransport.swift",
+    "line": 39,
+    "column": 9,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Proven equivalent, because of the close on the next line. The reader task suspends in exactly three places, all of them SocketConnection calls - open (line 44), send (line 45) and the receive inside pumpFrames (line 99); everything between them is synchronous, and AsyncThrowingStream.yield never suspends. connection.close() at line 40 cancels the NWConnection, and a cancelled connection ends every one of those calls: SocketConnectionTests.testSendFailsOnceTheConnectionIsClosed, testReceiveFailsOnceTheConnectionIsClosed and testAFailedOpenLeavesNothingDialling pin that. So the reader stops whether or not it was cancelled first. What the cancel changes is which error the reader ends with, and the stream has already terminated by then - its termination handler is what is running - so that error goes to a continuation that discards it. EventStreamTests.testDroppingTheStreamHangsUpOnTheDaemon and testTheClientHangsUpWhenTheDaemonEndsTheStream cover the two ways the stream ends and pass with this statement deleted; the statement stays because stopping the reader on its own terms rather than through a socket error is the right shape, not because a test can tell the two apart."
+  },
+  {
+    "file": "Sources/ThrowntomClient/UnixSocketTransport.swift",
+    "line": 146,
+    "column": 5,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Not an equivalence claim: the mutant is observable, but no run that observes it can finish. hold() returns still holding the lock, so every later cancel() on that handle blocks its caller for good - including an event stream's termination handler, which runs on whichever thread dropped the stream, the main one included. Run on its own, PendingTaskTests.testCancelDoesNotWaitForTheTasksCancellationHandler fails on its 2s deadline under this mutant (measured: 'Executed 2 tests, with 1 failure (0 unexpected) in 2.111 seconds'). Run as the suite, the first dropped event stream parks the thread that dropped it and the suite never reaches its end (measured: killed at 250s, still inside ClientLoggingSitesTests). A run that never ends is scored Timeout before any output is read, so no test can have this mutant reported killed."
   }
 ]
