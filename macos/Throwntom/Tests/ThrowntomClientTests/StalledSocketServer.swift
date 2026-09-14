@@ -45,6 +45,13 @@ final class StalledSocketServer: @unchecked Sendable {
 
   let path: String
 
+  /// How many connections this peer has accepted since it started. A test that expects a call
+  /// never to have reached the socket has to see that nothing arrived, not only that the call
+  /// failed; the count keeps counting after `stop()`, so it still answers that afterwards.
+  var acceptedConnections: Int {
+    lock.withLock { accepted }
+  }
+
   func stop() {
     lock.lock()
     guard !isStopped else { return lock.unlock() }
@@ -63,6 +70,7 @@ final class StalledSocketServer: @unchecked Sendable {
   private let listener: Int32
   private let lock = NSLock()
   private var acceptedDescriptors = [Int32]()
+  private var accepted = 0
   private var isStopped = false
 
   /// Holds every accepted connection open and unread until `stop()`.
@@ -71,6 +79,7 @@ final class StalledSocketServer: @unchecked Sendable {
       let descriptor = accept(listener, nil, nil)
       guard descriptor >= 0 else { return }
       lock.lock()
+      accepted += 1
       if isStopped {
         lock.unlock()
         Darwin.close(descriptor)

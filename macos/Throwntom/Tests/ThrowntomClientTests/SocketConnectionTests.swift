@@ -104,6 +104,25 @@ final class SocketConnectionTests: XCTestCase {
     assertCancelled(receiving.outcome(within: deadline), "the receive in a cancelled task")
   }
 
+  /// A cancellation that lands first also stops the call from starting: the socket work never
+  /// runs, so a peer that would have accepted the connection never sees one.
+  func testACallStartedInACancelledTaskNeverDialsThePeer() throws {
+    let peer = try XCTUnwrap(server, "the stalled peer failed to start")
+    let connection = SocketConnection(path: peer.path)
+    defer { connection.close() }
+    let opening = RunningOperation {
+      try? await Task.sleep(for: .seconds(30))
+      try await connection.open()
+    }
+
+    opening.cancel()
+
+    assertCancelled(opening.outcome(within: deadline), "the open in a cancelled task")
+    // A dial that should never have happened lands within milliseconds over a Unix socket.
+    Thread.sleep(forTimeInterval: 0.2)
+    XCTAssertEqual(peer.acceptedConnections, 0, "the cancelled open dialled the peer anyway")
+  }
+
   // MARK: Private
 
   /// How long any call here is given before the test reports it as never having finished.
