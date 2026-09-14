@@ -52,6 +52,10 @@ sharding; scoping is `--sources-path` plus substring `--exclude`.
 - **Run parameters are policy, not tuning:** `--timeout 120`,
   `--concurrency 1`, the cache directory deleted before every run, the
   JSON report kept as the artifact because only it records `killedBy`.
+  (2026-09-14: the weekly workflow's mutate jobs pass `--timeout 240`. The
+  floor the 120 s answered is unchanged; the headroom above it is not, now
+  that a mutant breaking `SocketConnection`'s locking leaves the suite
+  failing honestly at about 117 s. See throwntom-vdms and throwntom-aqna.)
 - **A negative control gates every score.** Each run first mutates a
   scratch copy with one assertion removed and must report that mutant
   Survived; otherwise the run fails loudly and files no score. This is
