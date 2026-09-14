@@ -39,21 +39,34 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
       - name: Checkout swift-mutation-testing
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: ericodx/swift-mutation-testing
           ref: ${{ env.SWIFT_MUTATION_TESTING_COMMIT }}
+          path: swift-mutation-testing
           persist-credentials: false
 
+      # The tool's commit tracks no Package.resolved and asks for swift-syntax
+      # "from: 603.0.0", so without this every build would float to whatever
+      # 603.x is newest. The committed file pins the revision the spike
+      # measured, and --force-resolved-versions refuses anything else.
       - name: Build
-        run: swift build -c release
+        working-directory: swift-mutation-testing
+        run: |
+          cp "$GITHUB_WORKSPACE/.github/swift-mutation-testing/Package.resolved" Package.resolved
+          swift build -c release --force-resolved-versions
 
       - name: Upload binary
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: swift-mutation-testing
-          path: .build/release/swift-mutation-testing
+          path: swift-mutation-testing/.build/release/swift-mutation-testing
           if-no-files-found: error
 
   # Fails the whole run before any score exists if the tool would report a
@@ -76,6 +89,9 @@ jobs:
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
+          # These jobs run a third-party binary; saving a Go cache here could
+          # seed one that ci.yml's macos-15 job restores.
+          cache: false
 
       - name: Download swift-mutation-testing
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -123,6 +139,9 @@ jobs:
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
+          # These jobs run a third-party binary; saving a Go cache here could
+          # seed one that ci.yml's macos-15 job restores.
+          cache: false
 
       - name: Download swift-mutation-testing
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -198,6 +217,9 @@ jobs:
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
+          # These jobs run a third-party binary; saving a Go cache here could
+          # seed one that ci.yml's macos-15 job restores.
+          cache: false
 
       - name: Download reports
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
