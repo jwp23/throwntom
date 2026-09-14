@@ -41,4 +41,37 @@ final class ChunkedDecoderTests: XCTestCase {
       XCTAssertEqual(error as? HTTPParseError, .malformedChunkSize("FFFFFFFF"))
     }
   }
+
+  func testChunkedDecoderStartsNotFinished() {
+    let decoder = ChunkedDecoder()
+    XCTAssertFalse(decoder.isFinished)
+  }
+
+  func testChunkedDecoderAllowsSizeLineAtByteLimit() {
+    var decoder = ChunkedDecoder()
+    let sizeLinePrefix = String(repeating: "a", count: 64)
+    XCTAssertNoThrow(try decoder.feed(Data(sizeLinePrefix.utf8)))
+  }
+
+  func testChunkedDecoderAllowsChunkAtSizeLimit() {
+    var decoder = ChunkedDecoder()
+    XCTAssertNoThrow(try decoder.feed(Data("100000\r\n".utf8)))
+  }
+
+  func testFeedReturnsWhenBodyBufferIsEmpty() {
+    let expectation = XCTestExpectation(description: "feed returns without more body data")
+    DispatchQueue.global().async {
+      var decoder = ChunkedDecoder()
+      _ = try? decoder.feed(Data("5\r\n".utf8))
+      expectation.fulfill()
+    }
+    wait(for: [expectation], timeout: 2)
+  }
+
+  func testChunkedDecoderRejectsBadTerminatorAsSoonAsTwoBytesArrive() {
+    var decoder = ChunkedDecoder()
+    XCTAssertThrowsError(try decoder.feed(Data("3\r\nfooXY".utf8))) { error in
+      XCTAssertEqual(error as? HTTPParseError, .malformedChunkTerminator)
+    }
+  }
 }
