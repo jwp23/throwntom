@@ -18,16 +18,16 @@ final class ChunkedDecoderTests: XCTestCase {
     // Bounded: the body and its trailing terminator arrive in one call, which is the
     // shape that stalls the decoder if it fails to move past the body phase exactly
     // when the last body byte matches the announced remaining count.
-    let expectation = XCTestExpectation(description: "feed decodes an extension-tagged, uppercase-hex chunk")
+    let decoded = expectation(description: "feed decodes an extension-tagged, uppercase-hex chunk")
     var result = Result<Data, Error>.success(Data())
     var isFinished = false
-    DispatchQueue.global().async {
+    Thread.detachNewThread {
       var decoder = ChunkedDecoder()
       result = Result { try decoder.feed(Data("A;name=v\r\n0123456789\r\n0\r\n\r\n".utf8)) }
       isFinished = decoder.isFinished
-      expectation.fulfill()
+      decoded.fulfill()
     }
-    wait(for: [expectation], timeout: 2)
+    wait(for: [decoded], timeout: 2)
     let out = try result.get()
     XCTAssertEqual(String(decoding: out, as: UTF8.self), "0123456789")
     XCTAssertTrue(isFinished)
@@ -71,31 +71,31 @@ final class ChunkedDecoderTests: XCTestCase {
   }
 
   func testFeedReturnsWhenBodyBufferIsEmpty() {
-    let expectation = XCTestExpectation(description: "feed returns without more body data")
-    DispatchQueue.global().async {
+    let returned = expectation(description: "feed returns without more body data")
+    Thread.detachNewThread {
       var decoder = ChunkedDecoder()
       _ = try? decoder.feed(Data("5\r\n".utf8))
-      expectation.fulfill()
+      returned.fulfill()
     }
-    wait(for: [expectation], timeout: 2)
+    wait(for: [returned], timeout: 2)
   }
 
   func testChunkedDecoderRejectsBadTerminatorAsSoonAsTwoBytesArrive() {
     // Bounded: the body and the (malformed) terminator arrive in one call, the same
     // exact-body-match shape that can stall the decoder before it ever inspects
     // the terminator bytes.
-    let expectation = XCTestExpectation(description: "feed rejects a malformed terminator without hanging")
+    let rejected = expectation(description: "feed rejects a malformed terminator without hanging")
     var thrown: Error?
-    DispatchQueue.global().async {
+    Thread.detachNewThread {
       var decoder = ChunkedDecoder()
       do {
         _ = try decoder.feed(Data("3\r\nfooXY".utf8))
       } catch {
         thrown = error
       }
-      expectation.fulfill()
+      rejected.fulfill()
     }
-    wait(for: [expectation], timeout: 2)
+    wait(for: [rejected], timeout: 2)
     XCTAssertEqual(thrown as? HTTPParseError, .malformedChunkTerminator)
   }
 }
