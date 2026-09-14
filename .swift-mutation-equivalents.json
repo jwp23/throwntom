@@ -1,5 +1,13 @@
 [
   {
+    "file": "Sources/ThrowntomClient/ChunkedDecoder.swift",
+    "line": 44,
+    "column": 12,
+    "mutator": "NegateConditional",
+    "replacement": "!(buffer.isEmpty)",
+    "reason": "Not an equivalence claim: the mutant is observable and killed by ChunkedDecoderTests.testFeedReturnsWhenBodyBufferIsEmpty, hand-verified (RED under the mutant: an XCTestExpectation times out after 2.0s waiting for feed(_:) to return; GREEN restored: passes in well under a second). The mutant makes the .body case's early return unreachable when the buffer is already empty, so feed(_:) spins forever re-processing a zero-byte take instead of returning - a genuine infinite loop, not merely a slow test. Reported Timeout directly in every file-scoped tool run taken for this bead (both before and after the fix), so no tool run - the tool always runs the whole test target, it has no per-test scope - can report this mutant Killed within its 120s budget."
+  },
+  {
     "file": "Sources/ThrowntomClient/SocketConnection.swift",
     "line": 54,
     "column": 11,
