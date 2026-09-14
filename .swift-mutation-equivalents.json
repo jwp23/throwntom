@@ -150,5 +150,21 @@
     "mutator": "RelationalOperatorReplacement",
     "replacement": "<",
     "reason": "Not an equivalence claim: the mutant is observable and killed by the same two tests as 13:10's entry above, hand-verified the same way (RED: both fail in well under a second; GREEN restored: HTTPParserTests green). `data.count < maxHeadBytes` misfires the same way `!(data.count > maxHeadBytes)` does for every value except data.count == maxHeadBytes, which neither existing test needs to distinguish this from that entry's mutant. Same file, no Timeout mutant present in either of two file-scoped runs, so not the file+operator-sharing poisoning shape either."
+  },
+  {
+    "file": "Sources/ThrowntomClient/SSEFrameSplitter.swift",
+    "line": 50,
+    "column": 76,
+    "mutator": "BooleanLiteralReplacement",
+    "replacement": "true",
+    "reason": "Proven equivalent. omittingEmptySubsequences only controls whether zero-length components of the split are present in the result. payload(of:)'s loop immediately does `guard line.starts(with: dataPrefix) else { continue }` (SSEFrameSplitter.swift:55), and dataPrefix is 5 bytes (\"data:\"), so a zero-length line can never satisfy it -- it is skipped whether or not it appears in the split result. No frame's payload can differ between the two settings."
+  },
+  {
+    "file": "Sources/ThrowntomClient/SSEFrameSplitter.swift",
+    "line": 71,
+    "column": 48,
+    "mutator": "RelationalOperatorReplacement",
+    "replacement": "<",
+    "reason": "Proven equivalent. lf's match starts with 0x0A (\"\\n\\n\") and crlf's match starts with 0x0D (\"\\r\\n\\r\\n\"); the same byte cannot begin both, so l.lowerBound == c.lowerBound is unreachable and `<=` picks the same branch as `<` in every case this switch can actually reach (l.lowerBound < c.lowerBound picks l either way; l.lowerBound > c.lowerBound picks c either way)."
   }
 ]
