@@ -88,6 +88,13 @@ func main() {
 	os.Exit(run(flag.Args(), *equivalentsPath, os.Stdout, os.Stderr))
 }
 
+// Unviable mutants do not compile, so no test can kill them; ADR-016 reports
+// them without gating on them.
+const (
+	statusKilled   = "Killed"
+	statusUnviable = "Unviable"
+)
+
 // Exit codes: the weekly workflow files survivors but must not treat a broken
 // run as a score, so the two failures are distinct.
 const (
@@ -103,6 +110,7 @@ func run(reportPaths []string, equivalentsPath string, stdout, stderr io.Writer)
 		return exitError
 	}
 	var violations []violation
+	unviable := 0
 	for _, path := range reportPaths {
 		data, err := os.ReadFile(path)
 		if err != nil {
@@ -115,16 +123,39 @@ func run(reportPaths []string, equivalentsPath string, stdout, stderr io.Writer)
 			return exitError
 		}
 		violations = append(violations, found...)
+		unviable += countUnviable(data)
 	}
+	code := exitClean
 	if len(violations) == 0 {
 		_, _ = fmt.Fprintln(stdout, "No unexcluded mutants survived.")
-		return exitClean
+	} else {
+		code = exitViolations
+		_, _ = fmt.Fprintf(stdout, "%d unexcluded mutant(s) not killed:\n\n", len(violations))
+		for _, v := range violations {
+			_, _ = fmt.Fprintln(stdout, v.markdown())
+		}
 	}
-	_, _ = fmt.Fprintf(stdout, "%d unexcluded mutant(s) not killed:\n\n", len(violations))
-	for _, v := range violations {
-		_, _ = fmt.Fprintln(stdout, v.markdown())
+	if unviable > 0 {
+		_, _ = fmt.Fprintf(stdout, "\n%d Unviable mutant(s) not gated (ADR-016): they do not compile, so no test can kill them.\n", unviable)
 	}
-	return exitViolations
+	return code
+}
+
+// countUnviable reads a report findViolations has already validated.
+func countUnviable(data []byte) int {
+	r, err := parseReport(data)
+	if err != nil {
+		return 0
+	}
+	count := 0
+	for _, f := range r.Files {
+		for _, m := range f.Mutants {
+			if m.Status == statusUnviable {
+				count++
+			}
+		}
+	}
+	return count
 }
 
 // findViolations reports every mutant whose status isn't Killed, minus any
@@ -139,7 +170,7 @@ func findViolations(data []byte, equivalents []equivalent) ([]violation, error) 
 	for reported, f := range r.Files {
 		file := strings.TrimPrefix(reported, "/")
 		for _, m := range f.Mutants {
-			if m.Status == "Killed" || isReviewedEquivalent(file, m, equivalents) {
+			if m.Status == statusKilled || m.Status == statusUnviable || isReviewedEquivalent(file, m, equivalents) {
 				continue
 			}
 			violations = append(violations, violation{

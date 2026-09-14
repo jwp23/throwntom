@@ -21,7 +21,9 @@ func TestFindViolationsAllKilledIsClean(t *testing.T) {
 	}
 }
 
-func TestFindViolationsReportsEveryNonKilledStatus(t *testing.T) {
+// Unviable is absent: a mutant that does not compile cannot be killed by any
+// test, so ADR-016 reports it without gating on it.
+func TestFindViolationsReportsEveryGatedStatus(t *testing.T) {
 	report := `{"files":{"Sources/ThrowntomClient/Countdown.swift":{"mutants":[
 		{"mutatorName":"RelationalOperatorReplacement","status":"Killed","location":{"start":{"line":10,"column":5}}},
 		{"mutatorName":"RelationalOperatorReplacement","status":"Survived","location":{"start":{"line":11,"column":6}}},
@@ -38,9 +40,9 @@ func TestFindViolationsReportsEveryNonKilledStatus(t *testing.T) {
 	for _, v := range violations {
 		got[v.Status] = true
 	}
-	want := []string{"Survived", "Crash", "Timeout", "Unviable", "NoCoverage"}
+	want := []string{"Survived", "Crash", "Timeout", "NoCoverage"}
 	if len(violations) != len(want) {
-		t.Fatalf("violations = %v, want %d (every non-Killed status)", violations, len(want))
+		t.Fatalf("violations = %v, want %d (every gated status, Unviable excluded)", violations, len(want))
 	}
 	for _, status := range want {
 		if !got[status] {
@@ -232,6 +234,37 @@ func TestRunCombinesReportsAndFailsOnAnyViolation(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "- `Sources/ThrowntomUI/B.swift:4:2` M Survived (`>` → `>=`)") {
 		t.Fatalf("stdout missing the survivor line:\n%s", stdout.String())
+	}
+}
+
+func TestRunOnlyUnviableIsCleanButCounted(t *testing.T) {
+	first := writeReport(t, `{"files":{"Sources/ThrowntomUI/A.swift":{"mutants":[
+		{"mutatorName":"RemoveSideEffects","status":"Unviable","location":{"start":{"line":1,"column":1}}},
+		{"mutatorName":"M","status":"Killed","location":{"start":{"line":2,"column":1}}}
+	]}}}`)
+	second := writeReport(t, `{"files":{"Sources/ThrowntomUI/B.swift":{"mutants":[
+		{"mutatorName":"SwapTernary","status":"Unviable","location":{"start":{"line":1,"column":1}}}
+	]}}}`)
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{first, second}, "", &stdout, &stderr); code != 0 {
+		t.Fatalf("exit = %d, want 0; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "2 Unviable mutant(s) not gated") {
+		t.Fatalf("stdout missing the Unviable count across both reports:\n%s", stdout.String())
+	}
+}
+
+func TestRunViolationsAlsoCountUnviable(t *testing.T) {
+	report := writeReport(t, `{"files":{"Sources/ThrowntomUI/A.swift":{"mutants":[
+		{"mutatorName":"RemoveSideEffects","status":"Unviable","location":{"start":{"line":1,"column":1}}},
+		{"mutatorName":"M","status":"Survived","location":{"start":{"line":2,"column":1}}}
+	]}}}`)
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{report}, "", &stdout, &stderr); code != 1 {
+		t.Fatalf("exit = %d, want 1", code)
+	}
+	if !strings.Contains(stdout.String(), "1 Unviable mutant(s) not gated") {
+		t.Fatalf("stdout missing the Unviable count:\n%s", stdout.String())
 	}
 }
 
