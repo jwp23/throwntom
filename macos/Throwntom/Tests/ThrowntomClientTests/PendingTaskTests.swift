@@ -43,4 +43,29 @@ final class PendingTaskTests: XCTestCase {
     wait(for: [handlerStarted, returned], timeout: 2)
   }
 
+  /// The cancel can arrive before the task does — a consumer that drops the event stream the
+  /// moment it has it. The task handed over afterwards is stopped rather than left reading a
+  /// socket nobody is listening to.
+  func testATaskHeldAfterACancelIsStoppedAnyway() {
+    let stopped = expectation(description: "the late task to be cancelled")
+    let held = expectation(description: "the handover to return")
+    let reader = PendingTask()
+    reader.cancel()
+
+    // On a thread of its own: a handover that does not return would otherwise take the test with
+    // it, and the point of the deadline below is that it says so instead.
+    Thread.detachNewThread {
+      reader.hold(Task {
+        await withTaskCancellationHandler {
+          try? await Task.sleep(for: .seconds(30))
+        } onCancel: {
+          stopped.fulfill()
+        }
+      })
+      held.fulfill()
+    }
+
+    wait(for: [held, stopped], timeout: 2)
+  }
+
 }
