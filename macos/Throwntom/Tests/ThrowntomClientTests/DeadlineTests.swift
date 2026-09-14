@@ -49,6 +49,27 @@ final class DeadlineTests: XCTestCase {
     await fulfillment(of: [ended], timeout: 2)
   }
 
+  /// Work the call walks away from is still asked to stop, so a deadline does not leave the
+  /// socket behind it running.
+  func testAbandonedWorkIsCancelled() async {
+    let cancelled = expectation(description: "the abandoned work to be cancelled")
+    do {
+      try await withDeadline(.milliseconds(100)) {
+        do {
+          try await Task.sleep(for: .seconds(30))
+        } catch {
+          cancelled.fulfill()
+          throw error
+        }
+      }
+      XCTFail("the call returned although its work had not finished")
+    } catch {
+      XCTAssertEqual(error as? DaemonError, .timedOut(after: .milliseconds(100)))
+    }
+
+    await fulfillment(of: [cancelled], timeout: 2)
+  }
+
   func testWorkThatBeatsItsDeadlineReturnsItsValue() async throws {
     let value = try await withDeadline(.seconds(5)) { "answered" }
 
