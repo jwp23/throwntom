@@ -577,8 +577,129 @@ func TestRunFlagsCrashesFromARunThatAlsoTimedOut(t *testing.T) {
 	if code := run([]string{poisoned}, "", "", &stdout, &stderr); code != 1 {
 		t.Fatalf("exit = %d, want 1; stderr=%s", code, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "1 Crash verdict(s) come from a run that also timed a mutant out") {
-		t.Fatalf("stdout missing the suspect-Crash note:\n%s", stdout.String())
+	want := "- `Sources/ThrowntomClient/A.swift:9:2` M Crash — reported Crash only by a run that also timed a mutant out"
+	if !strings.Contains(stdout.String(), want) {
+		t.Fatalf("stdout does not name the suspect Crash:\n%s", stdout.String())
+	}
+}
+
+// A Crash is loud — it fails the gate on its own. An Unviable is the silent
+// half of the same defect: a run SIGKILLed before its first test marker is
+// reported Unviable, which the gate lets through, so a live mutant can pass as
+// one that does not compile. It gets the same note.
+func TestRunFlagsAnUnviableSeenOnlyInARunThatTimedOut(t *testing.T) {
+	poisoned := writeReport(t, `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
+		{"mutatorName":"M","status":"Timeout","location":{"start":{"line":1,"column":1}}},
+		{"mutatorName":"M","status":"Unviable","location":{"start":{"line":9,"column":2}}}
+	]}}}`)
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{poisoned}, "", "", &stdout, &stderr); code != 1 {
+		t.Fatalf("exit = %d, want 1 (the Timeout is gated); stderr=%s", code, stderr.String())
+	}
+	want := "- `Sources/ThrowntomClient/A.swift:9:2` M Unviable — reported Unviable only by a run that also timed a mutant out"
+	if !strings.Contains(stdout.String(), want) {
+		t.Fatalf("stdout does not name the suspect Unviable:\n%s", stdout.String())
+	}
+}
+
+// A mutant that does not compile does not compile in every run. Once a run that
+// timed nothing out has said Unviable too, the verdict is the mutant's own.
+func TestRunDoesNotFlagAnUnviableATimeoutFreeRunConfirms(t *testing.T) {
+	poisoned := writeReport(t, `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
+		{"mutatorName":"M","status":"Timeout","location":{"start":{"line":1,"column":1}}},
+		{"mutatorName":"M","status":"Unviable","location":{"start":{"line":9,"column":2}}}
+	]}}}`)
+	clean := writeReport(t, `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
+		{"mutatorName":"M","status":"Unviable","location":{"start":{"line":9,"column":2}}}
+	]}}}`)
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{poisoned, clean}, "", "", &stdout, &stderr); code != 1 {
+		t.Fatalf("exit = %d, want 1 (the Timeout is gated); stderr=%s", code, stderr.String())
+	}
+	if strings.Contains(stdout.String(), "do not settle") {
+		t.Fatalf("a verdict two runs agree on is settled:\n%s", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "1 Unviable mutant(s) not gated") {
+		t.Fatalf("stdout lost the Unviable count:\n%s", stdout.String())
+	}
+}
+
+// The one disagreement no merge rule can resolve. Poisoning cannot produce a
+// Survived — a SIGKILLed run exits non-zero — so this is a flaky or
+// order-dependent test, and the kill the gate keeps may be the wrong half. The
+// gate says so out loud rather than exiting 0 in silence.
+func TestRunFlagsAKillAnotherRunDisagreedWith(t *testing.T) {
+	killed := writeReport(t, `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
+		{"mutatorName":"M","status":"Killed","location":{"start":{"line":3,"column":1}}}
+	]}}}`)
+	survived := writeReport(t, `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
+		{"mutatorName":"M","status":"Survived","location":{"start":{"line":3,"column":1}}}
+	]}}}`)
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{killed, survived}, "", "", &stdout, &stderr); code != 0 {
+		t.Fatalf("exit = %d, want 0: the gate keeps the kill; stderr=%s", code, stderr.String())
+	}
+	want := "- `Sources/ThrowntomClient/A.swift:3:1` M Killed — reported Killed by one run and Survived by another; the gate keeps the kill"
+	if !strings.Contains(stdout.String(), want) {
+		t.Fatalf("a laundered kill passed in silence:\n%s", stdout.String())
+	}
+}
+
+// Two runs that agree have nothing to settle, however many reports say Killed.
+func TestRunDoesNotFlagAKillNoRunDisagreedWith(t *testing.T) {
+	first := writeReport(t, `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
+		{"mutatorName":"M","status":"Timeout","location":{"start":{"line":1,"column":1}}},
+		{"mutatorName":"M","status":"Killed","location":{"start":{"line":3,"column":1}}}
+	]}}}`)
+	second := writeReport(t, `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
+		{"mutatorName":"M","status":"Killed","location":{"start":{"line":3,"column":1}}}
+	]}}}`)
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{first, second}, "", "", &stdout, &stderr); code != 1 {
+		t.Fatalf("exit = %d, want 1 (the Timeout is gated); stderr=%s", code, stderr.String())
+	}
+	if strings.Contains(stdout.String(), "do not settle") {
+		t.Fatalf("nothing disagreed:\n%s", stdout.String())
+	}
+}
+
+// A reviewed equivalent rests on a written reason, not on a verdict, so it is
+// not something a second run is asked to settle.
+func TestRunDoesNotFlagAReviewedEquivalent(t *testing.T) {
+	poisoned := writeReport(t, `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
+		{"mutatorName":"M","status":"Timeout","location":{"start":{"line":1,"column":1}}},
+		{"mutatorName":"M","status":"Crash","location":{"start":{"line":9,"column":2}}}
+	]}}}`)
+	path := filepath.Join(t.TempDir(), "equivalents.json")
+	body := `[{"file":"Sources/ThrowntomClient/A.swift","line":9,"column":2,"mutator":"M","reason":"proven equivalent"}]`
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{poisoned}, path, "", &stdout, &stderr); code != 1 {
+		t.Fatalf("exit = %d, want 1 (the Timeout is gated); stderr=%s", code, stderr.String())
+	}
+	if strings.Contains(stdout.String(), "A.swift:9:2") {
+		t.Fatalf("an excluded mutant came back through the note:\n%s", stdout.String())
+	}
+}
+
+// Unviable is one of the two verdicts the gate lets through, so it must lose
+// every merge it takes part in — including one against a status this gate does
+// not recognise, which a later version of the tool could introduce.
+func TestRunNeverLetsUnviableDisplaceAnotherVerdict(t *testing.T) {
+	unknown := writeReport(t, `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
+		{"mutatorName":"M","status":"Rescheduled","location":{"start":{"line":3,"column":1}}}
+	]}}}`)
+	unviable := writeReport(t, `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
+		{"mutatorName":"M","status":"Unviable","location":{"start":{"line":3,"column":1}}}
+	]}}}`)
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{unviable, unknown}, "", "", &stdout, &stderr); code != 1 {
+		t.Fatalf("exit = %d, want 1: an unrecognised verdict is gated; stdout=%s", code, stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "A.swift:3:1` M Rescheduled") {
+		t.Fatalf("Unviable displaced the verdict the gate could not read:\n%s", stdout.String())
 	}
 }
 
@@ -596,7 +717,7 @@ func TestRunDoesNotFlagACrashAlreadyCorrected(t *testing.T) {
 	if code := run([]string{poisoned, clean}, "", "", &stdout, &stderr); code != 1 {
 		t.Fatalf("exit = %d, want 1 (the Timeout is still gated); stderr=%s", code, stderr.String())
 	}
-	if strings.Contains(stdout.String(), "Crash verdict(s)") {
+	if strings.Contains(stdout.String(), "do not settle") {
 		t.Fatalf("the note outlived the Crash it was about:\n%s", stdout.String())
 	}
 }
@@ -610,7 +731,7 @@ func TestRunDoesNotFlagACrashFromATimeoutFreeRun(t *testing.T) {
 	if code := run([]string{report}, "", "", &stdout, &stderr); code != 1 {
 		t.Fatalf("exit = %d, want 1; stderr=%s", code, stderr.String())
 	}
-	if strings.Contains(stdout.String(), "Crash verdict(s)") {
+	if strings.Contains(stdout.String(), "do not settle") {
 		t.Fatalf("nothing timed out, so nothing is suspect:\n%s", stdout.String())
 	}
 }

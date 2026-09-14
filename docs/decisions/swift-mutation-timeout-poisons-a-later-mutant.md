@@ -12,10 +12,19 @@ Triaging a file whose gated set contains a genuine Timeout takes two runs:
 
 Both reports go to `tools/swiftmutantsgate`, which merges them by mutant
 identity — file, line, column, mutator, replacement — and keeps the verdict
-from the fullest observation, a kill first of all. Delete
-`.swift-mutation-testing-cache` before each run: the cache replays a stored
-Crash verbatim, so a second run would otherwise agree with the first for the
-wrong reason.
+from the fullest observation, a kill first of all. It then lists the verdicts
+the reports do not settle between them: a `Crash` or `Unviable` no timeout-free
+run confirms, and a mutant one run killed and another survived. That last one is
+not this defect at all — a SIGKILLed run exits non-zero, so no run can invent a
+`Survived` — it is a flaky or order-dependent test, and the gate keeps the kill
+and says so rather than passing in silence.
+
+Two conditions on the second run. Delete `.swift-mutation-testing-cache` first:
+the cache replays a stored Crash verbatim, so the second run would otherwise
+agree with the first for the wrong reason. And run both against the same tree —
+a mutant's identity includes its line and column, so an edit above it between
+the runs leaves the merge matching nothing. That fails safe (the reports are
+then merely concatenated, as before) but it silently buys nothing.
 
 A mutant that shares its file *and* its operator with a Timeout mutant cannot be
 split off by any filter the tool has. That one is verified by hand — the
@@ -46,7 +55,9 @@ mutants no test can distinguish, not for mutants the harness cannot report.
   so the run in flight matches, dies, and exits non-zero with output the parser
   reads as a crash (`Execution/Parsing/TestOutputParser.swift:32`,
   `Execution/Parsing/SPMResultParser.swift:8`) — or as Unviable, which is not
-  gated at all, if the kill landed before the first test printed.
+  gated at all, if the kill landed before the run's first test marker and left
+  some other output behind, build chatter being the usual case
+  (`SPMResultParser.swift:9` reports an empty output as a Crash instead).
 - **One mutant per invocation would be a complete fix**, since each invocation
   makes its own sandbox, but the tool can be scoped by file (`--sources-path`,
   substring `--exclude`) and by operator (`--operator`, `--disable-mutator`) and
@@ -58,6 +69,9 @@ mutants no test can distinguish, not for mutants the harness cannot report.
   `.github/workflows/swift-mutation-weekly.yml`. Re-pinning it is a decision
   about shared infrastructure, not a triage step, so it is not taken from
   inside a triage bead.
-- The weekly run reports Crash counts inflated by the same mechanism. The gate
-  now says so where both statuses meet in one report, which is as far as this
-  goes without a tool change.
+- The weekly run reports Crash counts inflated by the same mechanism, and
+  Unviable counts that may hide a live mutant the same way. The gate names both
+  wherever a report carries a Timeout and nothing else confirms the verdict,
+  which is as far as this goes without a tool change. One Timeout spoils at most
+  one run, but no report records which, so every unconfirmed verdict from such a
+  run is listed.

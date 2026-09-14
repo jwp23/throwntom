@@ -9,7 +9,8 @@
 //
 // Reports are merged by mutant identity rather than concatenated: shards are
 // disjoint, but a triage pass runs the tool over one file more than one way on
-// purpose, and the two runs can disagree about a mutant. See statusRank and
+// purpose, and the two runs can disagree about a mutant. Verdicts that survive
+// the merge unsettled are printed whatever the exit code. See merge.go and
 // docs/decisions/swift-mutation-timeout-poisons-a-later-mutant.md.
 package main
 
@@ -121,146 +122,6 @@ func main() {
 	os.Exit(run(flag.Args(), *equivalentsPath, *summaryPath, os.Stdout, os.Stderr))
 }
 
-// The statuses swift-mutation-testing reports. Killed and Unviable are the two
-// the gate lets through: a mutant that does not compile cannot be killed by any
-// test, so ADR-016 counts it without gating on it.
-const (
-	statusKilled     = "Killed"
-	statusSurvived   = "Survived"
-	statusTimeout    = "Timeout"
-	statusNoCoverage = "NoCoverage"
-	statusCrash      = "Crash"
-	statusUnviable   = "Unviable"
-)
-
-// mutantIdentity names one mutant the way the reviewed-equivalents allowlist
-// does. Two runs that scope the tool differently report the same mutant under
-// the same identity, so one run's verdict can correct the other's.
-type mutantIdentity struct {
-	File        string
-	Line        int
-	Column      int
-	Mutator     string
-	Replacement string
-}
-
-// observation is the verdict one report carried for one mutant, with the text
-// needed to render it.
-type observation struct {
-	identity     mutantIdentity
-	OriginalText string
-	Status       string
-	// crashAfterATimeout marks a Crash reported by a run that also timed a
-	// mutant out, which is the shape of the defect suspectCrashNote describes.
-	crashAfterATimeout bool
-}
-
-// mutantSet holds the best verdict seen for each mutant across every report.
-type mutantSet map[mutantIdentity]observation
-
-// statusRank orders verdicts by how much of a test run the tool actually saw,
-// most first; merging keeps the best-ranked verdict for each mutant. Two runs
-// of one mutant disagree only when something disturbed one of them, and a
-// disturbed run always saw less: the tool SIGKILLs whichever run is in flight
-// five seconds after another mutant times out, which leaves a killed mutant
-// looking like a Crash — or like an Unviable one, if the kill landed before the
-// run's first test. Unviable ranks last for that reason, ungated though it is.
-func statusRank(status string) int {
-	switch status {
-	case statusKilled:
-		return 0
-	case statusSurvived:
-		return 1
-	case statusTimeout:
-		return 2
-	case statusNoCoverage:
-		return 3
-	case statusCrash:
-		return 4
-	case statusUnviable:
-		return 5
-	default:
-		return 6
-	}
-}
-
-// add merges one report into the set.
-func (s mutantSet) add(data []byte) error {
-	r, err := parseReport(data)
-	if err != nil {
-		return err
-	}
-	timedOut := timedOutAMutant(r)
-	for reported, f := range r.Files {
-		file := strings.TrimPrefix(reported, "/")
-		for _, m := range f.Mutants {
-			s.merge(observation{
-				identity: mutantIdentity{
-					File:        file,
-					Line:        m.Location.Start.Line,
-					Column:      m.Location.Start.Column,
-					Mutator:     m.MutatorName,
-					Replacement: m.Replacement,
-				},
-				OriginalText:       m.OriginalText,
-				Status:             m.Status,
-				crashAfterATimeout: timedOut && m.Status == statusCrash,
-			})
-		}
-	}
-	return nil
-}
-
-// merge keeps the better-ranked of two verdicts for one mutant, and remembers a
-// Crash seen after a timeout however the ranking falls.
-func (s mutantSet) merge(candidate observation) {
-	best := candidate
-	if previous, seen := s[candidate.identity]; seen {
-		if statusRank(previous.Status) <= statusRank(candidate.Status) {
-			best = previous
-		}
-		best.crashAfterATimeout = previous.crashAfterATimeout || candidate.crashAfterATimeout
-	}
-	s[candidate.identity] = best
-}
-
-// timedOutAMutant reports whether a run killed any mutant on its own timeout,
-// which is what puts every Crash in the same report in doubt.
-func timedOutAMutant(r report) bool {
-	for _, f := range r.Files {
-		for _, m := range f.Mutants {
-			if m.Status == statusTimeout {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// unviable counts the mutants the gate lets through because they do not
-// compile, once each however many reports carry them.
-func (s mutantSet) unviable() int {
-	count := 0
-	for _, o := range s {
-		if o.Status == statusUnviable {
-			count++
-		}
-	}
-	return count
-}
-
-// suspectCrashes counts the mutants left reported Crash by a run that also
-// timed a mutant out, and that no other run has since given a fuller verdict.
-func (s mutantSet) suspectCrashes() int {
-	count := 0
-	for _, o := range s {
-		if o.Status == statusCrash && o.crashAfterATimeout {
-			count++
-		}
-	}
-	return count
-}
-
 // Exit codes: the weekly workflow files survivors but must not treat a broken
 // run as a score, so the two failures are distinct.
 const (
@@ -274,14 +135,25 @@ func unviableNote(unviable int) string {
 	return fmt.Sprintf("%d Unviable mutant(s) not gated (ADR-016): they do not compile, so no test can kill them.\n", unviable)
 }
 
-// suspectCrashNote names the pinned tool's timeout defect where a reader would
-// otherwise take a Crash for the mutant's own doing.
-func suspectCrashNote(crashes int) string {
-	return fmt.Sprintf(
-		"%d Crash verdict(s) come from a run that also timed a mutant out, which is how that run reports a mutant\n"+
-			"swift-mutation-testing SIGKILLed five seconds after the timeout. Re-run those mutants in a scope with no\n"+
-			"Timeout and pass both reports (docs/decisions/swift-mutation-timeout-poisons-a-later-mutant.md).\n",
-		crashes)
+// unsettledNote lists the verdicts the reports do not settle between them, and
+// says what to do about each shape. It prints whatever the exit code, because
+// both shapes can leave an unkilled mutant behind a verdict the gate lets
+// through: a poisoned Unviable and a kill one run disagreed with are both
+// ungated.
+func unsettledNote(mutants []unsettled) string {
+	var b strings.Builder
+	_, _ = fmt.Fprintf(&b, "%d verdict(s) the reports do not settle:\n\n", len(mutants))
+	for _, m := range mutants {
+		_, _ = fmt.Fprintf(&b, "%s — %s\n", m.mutant.markdown(), m.reason)
+	}
+	b.WriteString(
+		"\nswift-mutation-testing SIGKILLs whichever test run is in flight five seconds after another mutant\n" +
+			"times out, and reports the run it killed as Crash or as Unviable; re-run those mutants in a scope\n" +
+			"with no Timeout and pass both reports. One Timeout spoils at most one run, but no report records\n" +
+			"which, so every unconfirmed verdict from such a run is listed. A kill another run disagreed with is\n" +
+			"a different problem — no run can invent a Survived — and is settled by hand, on whether the killing\n" +
+			"test can reach the mutant. See docs/decisions/swift-mutation-timeout-poisons-a-later-mutant.md.\n")
+	return b.String()
 }
 
 type fileTally struct {
@@ -381,8 +253,8 @@ func run(reportPaths []string, equivalentsPath, summaryPath string, stdout, stde
 			_, _ = fmt.Fprintln(stdout, v.markdown())
 		}
 	}
-	if suspect := merged.suspectCrashes(); suspect > 0 {
-		_, _ = fmt.Fprint(stdout, "\n"+suspectCrashNote(suspect))
+	if unsettled := merged.unsettledVerdicts(equivalents); len(unsettled) > 0 {
+		_, _ = fmt.Fprint(stdout, "\n"+unsettledNote(unsettled))
 	}
 	if unviable > 0 {
 		_, _ = fmt.Fprint(stdout, "\n"+unviableNote(unviable))
@@ -396,63 +268,34 @@ func run(reportPaths []string, equivalentsPath, summaryPath string, stdout, stde
 	return code
 }
 
-// findViolations reports every gated mutant in the merged set, minus any
-// reviewed equivalents, in no particular order: run sorts once at the end.
-func findViolations(merged mutantSet, equivalents []equivalent) []violation {
-	var violations []violation
-	for id, o := range merged {
-		if o.Status == statusKilled || o.Status == statusUnviable || isReviewedEquivalent(id, equivalents) {
-			continue
-		}
-		violations = append(violations, violation{
-			File:         id.File,
-			Line:         id.Line,
-			Column:       id.Column,
-			Mutator:      id.Mutator,
-			Status:       o.Status,
-			OriginalText: o.OriginalText,
-			Replacement:  id.Replacement,
-		})
-	}
-	return violations
+func sortViolations(violations []violation) {
+	sort.Slice(violations, func(i, j int) bool { return violationBefore(violations[i], violations[j]) })
 }
 
-// sortViolations orders by file then position, then by every remaining
+// violationBefore orders by file then position, then by every remaining
 // displayed field, so a refreshed tracking issue diffs cleanly week to week
 // regardless of report or shard order and two mutants at the same position
 // don't tie.
-func sortViolations(violations []violation) {
-	sort.Slice(violations, func(i, j int) bool {
-		a, b := violations[i], violations[j]
-		if a.File != b.File {
-			return a.File < b.File
-		}
-		if a.Line != b.Line {
-			return a.Line < b.Line
-		}
-		if a.Column != b.Column {
-			return a.Column < b.Column
-		}
-		if a.Mutator != b.Mutator {
-			return a.Mutator < b.Mutator
-		}
-		if a.Replacement != b.Replacement {
-			return a.Replacement < b.Replacement
-		}
-		if a.OriginalText != b.OriginalText {
-			return a.OriginalText < b.OriginalText
-		}
-		return a.Status < b.Status
-	})
-}
-
-func isReviewedEquivalent(id mutantIdentity, equivalents []equivalent) bool {
-	for _, e := range equivalents {
-		if e.identity() == id {
-			return true
-		}
+func violationBefore(a, b violation) bool {
+	if a.File != b.File {
+		return a.File < b.File
 	}
-	return false
+	if a.Line != b.Line {
+		return a.Line < b.Line
+	}
+	if a.Column != b.Column {
+		return a.Column < b.Column
+	}
+	if a.Mutator != b.Mutator {
+		return a.Mutator < b.Mutator
+	}
+	if a.Replacement != b.Replacement {
+		return a.Replacement < b.Replacement
+	}
+	if a.OriginalText != b.OriginalText {
+		return a.OriginalText < b.OriginalText
+	}
+	return a.Status < b.Status
 }
 
 // parseReport rejects a report with no mutants at all: that means the tool
