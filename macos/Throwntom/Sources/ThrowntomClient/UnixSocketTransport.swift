@@ -168,8 +168,9 @@ final class PendingTask: @unchecked Sendable {
   /// Cancelling runs the task's own cancellation handlers on whichever thread asks for it, and the
   /// task here reads a socket: its handlers close a connection and resume a call that is waiting
   /// on one. The thread asking is whoever dropped the event stream, often the main one, so the
-  /// cancel goes on a task of its own — detached, because a handler that cannot finish must not be
-  /// able to take an actor down with it.
+  /// cancel goes on a task of its own. What that costs is a pool thread: a handler that blocks for
+  /// good holds the cooperative thread it runs on rather than suspending. Accepted, because it
+  /// gives way one thread at a time where cancelling here stopped the main one on the first.
   private static func stopWithoutWaiting(_ task: Task<Void, Never>) {
     Task.detached { task.cancel() }
   }

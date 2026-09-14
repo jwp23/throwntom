@@ -42,10 +42,13 @@ func withDeadline<T: Sendable>(
     }
     return value
   } catch {
-    // Cancelling runs the work's own cancellation handlers on this thread, and work the caller
-    // has stopped waiting for is exactly the work that may never get through them. So the cancel
-    // goes on a task of its own, detached rather than inherited: a handler that cannot finish
-    // must not be able to take an actor down with it, least of all the main one.
+    // Cancelling runs the work's own cancellation handlers on this thread, and work the caller has
+    // stopped waiting for is exactly the work that may never get through them. So the cancel goes
+    // on a task of its own. (After an ordinary failure the work has already finished, and cancelling
+    // a finished task returns at once.) What that costs is a pool thread: a handler that blocks for
+    // good holds the cooperative thread it runs on rather than suspending, and the deadline above
+    // needs that same pool to fire. Accepted, because it gives way one thread at a time where
+    // cancelling here would stop this caller dead on the first one.
     Task.detached { work.cancel() }
     throw error
   }
