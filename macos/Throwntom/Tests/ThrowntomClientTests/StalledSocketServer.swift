@@ -7,6 +7,30 @@ enum SocketServerError: Error {
   case failed(String)
 }
 
+/// Binds and listens on a fresh Unix socket at `path`. Both socket peers in this suite start the
+/// same way, and the ceremony is long enough to be worth having in one place.
+func boundUnixListener(at path: String) throws -> Int32 {
+  let listener = socket(AF_UNIX, SOCK_STREAM, 0)
+  guard listener >= 0 else { throw SocketServerError.failed("socket() failed: \(errno)") }
+
+  var address = sockaddr_un()
+  address.sun_family = sa_family_t(AF_UNIX)
+  address.sun_len = UInt8(MemoryLayout<sockaddr_un>.size)
+  let pathBytes = Array(path.utf8)
+  guard pathBytes.count < MemoryLayout.size(ofValue: address.sun_path) else {
+    throw SocketServerError.failed("socket path too long: \(path)")
+  }
+  withUnsafeMutableBytes(of: &address.sun_path) { $0.copyBytes(from: pathBytes) }
+
+  let addressSize = socklen_t(MemoryLayout<sockaddr_un>.size)
+  let bound = withUnsafePointer(to: &address) { pointer in
+    pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(listener, $0, addressSize) }
+  }
+  guard bound == 0 else { throw SocketServerError.failed("bind() failed: \(errno)") }
+  guard listen(listener, 4) == 0 else { throw SocketServerError.failed("listen() failed: \(errno)") }
+  return listener
+}
+
 // MARK: - StalledSocketServer
 
 /// A Unix socket peer that accepts connections and never replies, so a client parks in `receive`.
@@ -19,24 +43,7 @@ final class StalledSocketServer: @unchecked Sendable {
 
   init() throws {
     path = "/tmp/tt-stall-\(UUID().uuidString.prefix(8)).sock"
-    listener = socket(AF_UNIX, SOCK_STREAM, 0)
-    guard listener >= 0 else { throw SocketServerError.failed("socket() failed: \(errno)") }
-
-    var address = sockaddr_un()
-    address.sun_family = sa_family_t(AF_UNIX)
-    address.sun_len = UInt8(MemoryLayout<sockaddr_un>.size)
-    let pathBytes = Array(path.utf8)
-    guard pathBytes.count < MemoryLayout.size(ofValue: address.sun_path) else {
-      throw SocketServerError.failed("socket path too long: \(path)")
-    }
-    withUnsafeMutableBytes(of: &address.sun_path) { $0.copyBytes(from: pathBytes) }
-
-    let addressSize = socklen_t(MemoryLayout<sockaddr_un>.size)
-    let bound = withUnsafePointer(to: &address) { pointer in
-      pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(listener, $0, addressSize) }
-    }
-    guard bound == 0 else { throw SocketServerError.failed("bind() failed: \(errno)") }
-    guard listen(listener, 4) == 0 else { throw SocketServerError.failed("listen() failed: \(errno)") }
+    listener = try boundUnixListener(at: path)
 
     Thread.detachNewThread { [self] in acceptLoop() }
   }
