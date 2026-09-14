@@ -166,5 +166,29 @@
     "mutator": "RelationalOperatorReplacement",
     "replacement": "<",
     "reason": "Proven equivalent. lf's match starts with 0x0A (\"\\n\\n\") and crlf's match starts with 0x0D (\"\\r\\n\\r\\n\"); the same byte cannot begin both, so l.lowerBound == c.lowerBound is unreachable and `<=` picks the same branch as `<` in every case this switch can actually reach (l.lowerBound < c.lowerBound picks l either way; l.lowerBound > c.lowerBound picks c either way)."
+  },
+  {
+    "file": "Sources/ThrowntomClient/ReconnectBackoff.swift",
+    "line": 18,
+    "column": 32,
+    "mutator": "RelationalOperatorReplacement",
+    "replacement": "<",
+    "reason": "Not an equivalence claim: the mutant is a real, deterministic, fast trap -- every existing ReconnectBackoffTests test constructs a backoff with a positive registerEvery, and precondition(registerEvery < 0, ...) then fails on the very first construction. Hand-verified: `swift test --filter ReconnectBackoffTests` with this mutation applied by hand aborts the whole process (`Precondition failed: the agent has to be registered at some point`, ReconnectBackoff.swift:18, exit via signal 5) before any test result is read; restored, the same filter passes 7/7. The tool can only ever score a process abort as Crash, never Killed, for a mutant of this shape -- there is no way for it to report a clean pass/fail from inside an aborted process. Not the file+operator-sharing SIGKILL-poisoning pattern docs/decisions/swift-mutation-timeout-poisons-a-later-mutant.md describes and the dispatch forbids excluding this way: there is no Timeout mutant anywhere in this file's own gated set to have poisoned it."
+  },
+  {
+    "file": "Sources/ThrowntomClient/ReconnectBackoff.swift",
+    "line": 18,
+    "column": 32,
+    "mutator": "RelationalOperatorReplacement",
+    "replacement": ">=",
+    "reason": "Proven equivalent for every input a test can safely construct. `registerEvery > 0` and `registerEvery >= 0` agree for every value ReconnectBackoff is ever constructed with in real use (all positive) and for every negative value (both trap). The only value where they disagree is registerEvery == 0, and probing it crashes the correct, unmutated code too -- precondition failures are not catchable in Swift -- so no XCTest can pass while observing that boundary; a test written to try would abort under the original implementation exactly as it is supposed to. There is no input for which a test can observe original and mutant behaving differently."
+  },
+  {
+    "file": "Sources/ThrowntomClient/ReconnectBackoff.swift",
+    "line": 30,
+    "column": 41,
+    "mutator": "ArithmeticOperatorReplacement",
+    "replacement": "+",
+    "reason": "Not an equivalence claim: the mutant is a real, deterministic, fast trap, already exercised by the existing ReconnectBackoffTests.testEscalatesThroughTheDelaysAndHoldsAtTheLast (6 failures against a 4-element delays array drives delayIndex to 5, and `delays.count + 1` is 5 -- out of bounds). Hand-verified: `swift test --filter ReconnectBackoffTests/testEscalatesThroughTheDelaysAndHoldsAtTheLast` with this mutation applied by hand aborts the process (`Fatal error: Index out of range`, Swift/ContiguousArrayBuffer.swift:692, exit via signal 5); restored, the same filter passes. Same reasoning as 18:32's Crash entry above for why the tool can only report Crash here and why this is not the poisoning shape: no Timeout mutant exists anywhere in this file's own gated set."
   }
 ]
