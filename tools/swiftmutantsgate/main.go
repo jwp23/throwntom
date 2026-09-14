@@ -6,6 +6,11 @@
 // test can kill them; they are counted but not gated. Its stdout is a
 // Markdown list, so the weekly workflow can paste it straight into the
 // tracking issue.
+//
+// Reports are merged by mutant identity rather than concatenated: shards are
+// disjoint, but a triage pass runs the tool over one file more than one way on
+// purpose, and the two runs can disagree about a mutant. See statusRank and
+// docs/decisions/swift-mutation-timeout-poisons-a-later-mutant.md.
 package main
 
 import (
@@ -92,6 +97,16 @@ type equivalent struct {
 	Reason      string `json:"reason"`
 }
 
+func (e equivalent) identity() mutantIdentity {
+	return mutantIdentity{
+		File:        e.File,
+		Line:        e.Line,
+		Column:      e.Column,
+		Mutator:     e.Mutator,
+		Replacement: e.Replacement,
+	}
+}
+
 func main() {
 	equivalentsPath := flag.String("equivalents", "", "optional path to a reviewed-equivalents JSON allowlist")
 	summaryPath := flag.String("summary", "", "optional path to write a per-file Markdown summary to")
@@ -106,12 +121,145 @@ func main() {
 	os.Exit(run(flag.Args(), *equivalentsPath, *summaryPath, os.Stdout, os.Stderr))
 }
 
-// Unviable mutants do not compile, so no test can kill them; ADR-016 reports
-// them without gating on them.
+// The statuses swift-mutation-testing reports. Killed and Unviable are the two
+// the gate lets through: a mutant that does not compile cannot be killed by any
+// test, so ADR-016 counts it without gating on it.
 const (
-	statusKilled   = "Killed"
-	statusUnviable = "Unviable"
+	statusKilled     = "Killed"
+	statusSurvived   = "Survived"
+	statusTimeout    = "Timeout"
+	statusNoCoverage = "NoCoverage"
+	statusCrash      = "Crash"
+	statusUnviable   = "Unviable"
 )
+
+// mutantIdentity names one mutant the way the reviewed-equivalents allowlist
+// does. Two runs that scope the tool differently report the same mutant under
+// the same identity, so one run's verdict can correct the other's.
+type mutantIdentity struct {
+	File        string
+	Line        int
+	Column      int
+	Mutator     string
+	Replacement string
+}
+
+// observation is the verdict one report carried for one mutant, with the text
+// needed to render it.
+type observation struct {
+	identity     mutantIdentity
+	OriginalText string
+	Status       string
+	// crashAfterATimeout marks a Crash reported by a run that also timed a
+	// mutant out, which is the shape of the defect suspectCrashNote describes.
+	crashAfterATimeout bool
+}
+
+// mutantSet holds the best verdict seen for each mutant across every report.
+type mutantSet map[mutantIdentity]observation
+
+// statusRank orders verdicts by how much of a test run the tool actually saw,
+// most first; merging keeps the best-ranked verdict for each mutant. Two runs
+// of one mutant disagree only when something disturbed one of them, and a
+// disturbed run always saw less: the tool SIGKILLs whichever run is in flight
+// five seconds after another mutant times out, which leaves a killed mutant
+// looking like a Crash — or like an Unviable one, if the kill landed before the
+// run's first test. Unviable ranks last for that reason, ungated though it is.
+func statusRank(status string) int {
+	switch status {
+	case statusKilled:
+		return 0
+	case statusSurvived:
+		return 1
+	case statusTimeout:
+		return 2
+	case statusNoCoverage:
+		return 3
+	case statusCrash:
+		return 4
+	case statusUnviable:
+		return 5
+	default:
+		return 6
+	}
+}
+
+// add merges one report into the set.
+func (s mutantSet) add(data []byte) error {
+	r, err := parseReport(data)
+	if err != nil {
+		return err
+	}
+	timedOut := timedOutAMutant(r)
+	for reported, f := range r.Files {
+		file := strings.TrimPrefix(reported, "/")
+		for _, m := range f.Mutants {
+			s.merge(observation{
+				identity: mutantIdentity{
+					File:        file,
+					Line:        m.Location.Start.Line,
+					Column:      m.Location.Start.Column,
+					Mutator:     m.MutatorName,
+					Replacement: m.Replacement,
+				},
+				OriginalText:       m.OriginalText,
+				Status:             m.Status,
+				crashAfterATimeout: timedOut && m.Status == statusCrash,
+			})
+		}
+	}
+	return nil
+}
+
+// merge keeps the better-ranked of two verdicts for one mutant, and remembers a
+// Crash seen after a timeout however the ranking falls.
+func (s mutantSet) merge(candidate observation) {
+	best := candidate
+	if previous, seen := s[candidate.identity]; seen {
+		if statusRank(previous.Status) <= statusRank(candidate.Status) {
+			best = previous
+		}
+		best.crashAfterATimeout = previous.crashAfterATimeout || candidate.crashAfterATimeout
+	}
+	s[candidate.identity] = best
+}
+
+// timedOutAMutant reports whether a run killed any mutant on its own timeout,
+// which is what puts every Crash in the same report in doubt.
+func timedOutAMutant(r report) bool {
+	for _, f := range r.Files {
+		for _, m := range f.Mutants {
+			if m.Status == statusTimeout {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// unviable counts the mutants the gate lets through because they do not
+// compile, once each however many reports carry them.
+func (s mutantSet) unviable() int {
+	count := 0
+	for _, o := range s {
+		if o.Status == statusUnviable {
+			count++
+		}
+	}
+	return count
+}
+
+// suspectCrashes counts the mutants left reported Crash by a run that also
+// timed a mutant out, and that no other run has since given a fuller verdict.
+func (s mutantSet) suspectCrashes() int {
+	count := 0
+	for _, o := range s {
+		if o.Status == statusCrash && o.crashAfterATimeout {
+			count++
+		}
+	}
+	return count
+}
 
 // Exit codes: the weekly workflow files survivors but must not treat a broken
 // run as a score, so the two failures are distinct.
@@ -124,6 +272,16 @@ const (
 // unviableNote is the count ADR-016 reports without gating on it.
 func unviableNote(unviable int) string {
 	return fmt.Sprintf("%d Unviable mutant(s) not gated (ADR-016): they do not compile, so no test can kill them.\n", unviable)
+}
+
+// suspectCrashNote names the pinned tool's timeout defect where a reader would
+// otherwise take a Crash for the mutant's own doing.
+func suspectCrashNote(crashes int) string {
+	return fmt.Sprintf(
+		"%d Crash verdict(s) come from a run that also timed a mutant out, which is how that run reports a mutant\n"+
+			"swift-mutation-testing SIGKILLed five seconds after the timeout. Re-run those mutants in a scope with no\n"+
+			"Timeout and pass both reports (docs/decisions/swift-mutation-timeout-poisons-a-later-mutant.md).\n",
+		crashes)
 }
 
 type fileTally struct {
@@ -198,22 +356,20 @@ func run(reportPaths []string, equivalentsPath, summaryPath string, stdout, stde
 		_, _ = fmt.Fprintln(stderr, err)
 		return exitError
 	}
-	var violations []violation
-	unviable := 0
+	merged := mutantSet{}
 	for _, path := range reportPaths {
 		data, err := os.ReadFile(path)
 		if err != nil {
 			_, _ = fmt.Fprintln(stderr, err)
 			return exitError
 		}
-		found, err := findViolations(data, equivalents)
-		if err != nil {
+		if err := merged.add(data); err != nil {
 			_, _ = fmt.Fprintf(stderr, "%s: %v\n", path, err)
 			return exitError
 		}
-		violations = append(violations, found...)
-		unviable += countUnviable(data)
 	}
+	violations := findViolations(merged, equivalents)
+	unviable := merged.unviable()
 	sortViolations(violations)
 	code := exitClean
 	if len(violations) == 0 {
@@ -224,6 +380,9 @@ func run(reportPaths []string, equivalentsPath, summaryPath string, stdout, stde
 		for _, v := range violations {
 			_, _ = fmt.Fprintln(stdout, v.markdown())
 		}
+	}
+	if suspect := merged.suspectCrashes(); suspect > 0 {
+		_, _ = fmt.Fprint(stdout, "\n"+suspectCrashNote(suspect))
 	}
 	if unviable > 0 {
 		_, _ = fmt.Fprint(stdout, "\n"+unviableNote(unviable))
@@ -237,49 +396,25 @@ func run(reportPaths []string, equivalentsPath, summaryPath string, stdout, stde
 	return code
 }
 
-// countUnviable reads a report findViolations has already validated.
-func countUnviable(data []byte) int {
-	r, err := parseReport(data)
-	if err != nil {
-		return 0
-	}
-	count := 0
-	for _, f := range r.Files {
-		for _, m := range f.Mutants {
-			if m.Status == statusUnviable {
-				count++
-			}
-		}
-	}
-	return count
-}
-
-// findViolations reports every gated mutant in one report, minus any reviewed
-// equivalents, in no particular order: run sorts once across all reports.
-func findViolations(data []byte, equivalents []equivalent) ([]violation, error) {
-	r, err := parseReport(data)
-	if err != nil {
-		return nil, err
-	}
+// findViolations reports every gated mutant in the merged set, minus any
+// reviewed equivalents, in no particular order: run sorts once at the end.
+func findViolations(merged mutantSet, equivalents []equivalent) []violation {
 	var violations []violation
-	for reported, f := range r.Files {
-		file := strings.TrimPrefix(reported, "/")
-		for _, m := range f.Mutants {
-			if m.Status == statusKilled || m.Status == statusUnviable || isReviewedEquivalent(file, m, equivalents) {
-				continue
-			}
-			violations = append(violations, violation{
-				File:         file,
-				Line:         m.Location.Start.Line,
-				Column:       m.Location.Start.Column,
-				Mutator:      m.MutatorName,
-				Status:       m.Status,
-				OriginalText: m.OriginalText,
-				Replacement:  m.Replacement,
-			})
+	for id, o := range merged {
+		if o.Status == statusKilled || o.Status == statusUnviable || isReviewedEquivalent(id, equivalents) {
+			continue
 		}
+		violations = append(violations, violation{
+			File:         id.File,
+			Line:         id.Line,
+			Column:       id.Column,
+			Mutator:      id.Mutator,
+			Status:       o.Status,
+			OriginalText: o.OriginalText,
+			Replacement:  id.Replacement,
+		})
 	}
-	return violations, nil
+	return violations
 }
 
 // sortViolations orders by file then position, then by every remaining
@@ -311,11 +446,9 @@ func sortViolations(violations []violation) {
 	})
 }
 
-func isReviewedEquivalent(file string, m mutant, equivalents []equivalent) bool {
+func isReviewedEquivalent(id mutantIdentity, equivalents []equivalent) bool {
 	for _, e := range equivalents {
-		if e.File == file && e.Line == m.Location.Start.Line &&
-			e.Column == m.Location.Start.Column && e.Mutator == m.MutatorName &&
-			e.Replacement == m.Replacement {
+		if e.identity() == id {
 			return true
 		}
 	}

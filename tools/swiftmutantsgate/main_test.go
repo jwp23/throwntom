@@ -8,13 +8,23 @@ import (
 	"testing"
 )
 
-func TestFindViolationsAllKilledIsClean(t *testing.T) {
+// violationsIn gates a single report, which is what the gate does for a run
+// that needed only one. Merging across reports is exercised through run.
+func violationsIn(data []byte, equivalents []equivalent) ([]violation, error) {
+	merged := mutantSet{}
+	if err := merged.add(data); err != nil {
+		return nil, err
+	}
+	return findViolations(merged, equivalents), nil
+}
+
+func TestViolationsInAllKilledIsClean(t *testing.T) {
 	report := `{"files":{"Sources/ThrowntomClient/Countdown.swift":{"mutants":[
 		{"mutatorName":"RelationalOperatorReplacement","status":"Killed","location":{"start":{"line":10,"column":5}},"originalText":">","replacement":">="}
 	]}}}`
-	violations, err := findViolations([]byte(report), nil)
+	violations, err := violationsIn([]byte(report), nil)
 	if err != nil {
-		t.Fatalf("findViolations: %v", err)
+		t.Fatalf("violationsIn: %v", err)
 	}
 	if len(violations) != 0 {
 		t.Fatalf("violations = %v, want none", violations)
@@ -23,7 +33,7 @@ func TestFindViolationsAllKilledIsClean(t *testing.T) {
 
 // Unviable is absent: a mutant that does not compile cannot be killed by any
 // test, so ADR-016 reports it without gating on it.
-func TestFindViolationsReportsEveryGatedStatus(t *testing.T) {
+func TestViolationsInReportsEveryGatedStatus(t *testing.T) {
 	report := `{"files":{"Sources/ThrowntomClient/Countdown.swift":{"mutants":[
 		{"mutatorName":"RelationalOperatorReplacement","status":"Killed","location":{"start":{"line":10,"column":5}}},
 		{"mutatorName":"RelationalOperatorReplacement","status":"Survived","location":{"start":{"line":11,"column":6}}},
@@ -32,9 +42,9 @@ func TestFindViolationsReportsEveryGatedStatus(t *testing.T) {
 		{"mutatorName":"RemoveSideEffects","status":"Unviable","location":{"start":{"line":14,"column":9}}},
 		{"mutatorName":"SwapTernary","status":"NoCoverage","location":{"start":{"line":15,"column":10}}}
 	]}}}`
-	violations, err := findViolations([]byte(report), nil)
+	violations, err := violationsIn([]byte(report), nil)
 	if err != nil {
-		t.Fatalf("findViolations: %v", err)
+		t.Fatalf("violationsIn: %v", err)
 	}
 	got := map[string]bool{}
 	for _, v := range violations {
@@ -51,7 +61,7 @@ func TestFindViolationsReportsEveryGatedStatus(t *testing.T) {
 	}
 }
 
-func TestFindViolationsSortsByFileThenPosition(t *testing.T) {
+func TestViolationsInSortsByFileThenPosition(t *testing.T) {
 	report := `{"files":{
 		"Sources/ThrowntomUI/B.swift":{"mutants":[
 			{"mutatorName":"M","status":"Survived","location":{"start":{"line":3,"column":1}}}
@@ -62,9 +72,9 @@ func TestFindViolationsSortsByFileThenPosition(t *testing.T) {
 			{"mutatorName":"M","status":"Survived","location":{"start":{"line":2,"column":7}}}
 		]}
 	}}`
-	violations, err := findViolations([]byte(report), nil)
+	violations, err := violationsIn([]byte(report), nil)
 	if err != nil {
-		t.Fatalf("findViolations: %v", err)
+		t.Fatalf("violationsIn: %v", err)
 	}
 	sortViolations(violations)
 	var got []string
@@ -84,14 +94,14 @@ func TestFindViolationsSortsByFileThenPosition(t *testing.T) {
 
 // One operator yields several mutants at one position, and the report is a
 // map, so without a replacement tie-break the issue body reorders run to run.
-func TestFindViolationsOrdersSamePositionByReplacement(t *testing.T) {
+func TestViolationsInOrdersSamePositionByReplacement(t *testing.T) {
 	report := `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
 		{"mutatorName":"M","status":"Survived","replacement":">=","location":{"start":{"line":3,"column":11}}},
 		{"mutatorName":"M","status":"Survived","replacement":"<","location":{"start":{"line":3,"column":11}}}
 	]}}}`
-	violations, err := findViolations([]byte(report), nil)
+	violations, err := violationsIn([]byte(report), nil)
 	if err != nil {
-		t.Fatalf("findViolations: %v", err)
+		t.Fatalf("violationsIn: %v", err)
 	}
 	sortViolations(violations)
 	if len(violations) != 2 || violations[0].Replacement != "<" || violations[1].Replacement != ">=" {
@@ -99,7 +109,7 @@ func TestFindViolationsOrdersSamePositionByReplacement(t *testing.T) {
 	}
 }
 
-// findViolations no longer sorts on its own; run sorts once after combining
+// violationsIn no longer sorts on its own; run sorts once after combining
 // every report, so ordering doesn't depend on report or shard order.
 func TestSortViolationsTieBreaksIdenticalPositionAndReplacement(t *testing.T) {
 	violations := []violation{
@@ -112,28 +122,28 @@ func TestSortViolationsTieBreaksIdenticalPositionAndReplacement(t *testing.T) {
 	}
 }
 
-func TestFindViolationsRejectsMalformedJSON(t *testing.T) {
-	if _, err := findViolations([]byte("not json"), nil); err == nil {
+func TestViolationsInRejectsMalformedJSON(t *testing.T) {
+	if _, err := violationsIn([]byte("not json"), nil); err == nil {
 		t.Fatal("expected an error for malformed JSON")
 	}
 }
 
 // A report with no files or no mutants means the tool never mutated anything
 // (wrong --sources-path, a crashed run), not that every mutant was killed.
-func TestFindViolationsRejectsReportWithNoFiles(t *testing.T) {
-	if _, err := findViolations([]byte(`{"files":{}}`), nil); err == nil {
+func TestViolationsInRejectsReportWithNoFiles(t *testing.T) {
+	if _, err := violationsIn([]byte(`{"files":{}}`), nil); err == nil {
 		t.Fatal("expected an error for a report with no files")
 	}
 }
 
-func TestFindViolationsRejectsReportWithNoMutants(t *testing.T) {
+func TestViolationsInRejectsReportWithNoMutants(t *testing.T) {
 	report := `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[]}}}`
-	if _, err := findViolations([]byte(report), nil); err == nil {
+	if _, err := violationsIn([]byte(report), nil); err == nil {
 		t.Fatal("expected an error for a report with no mutants")
 	}
 }
 
-func TestFindViolationsExcludesReviewedEquivalent(t *testing.T) {
+func TestViolationsInExcludesReviewedEquivalent(t *testing.T) {
 	report := `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
 		{"mutatorName":"RelationalOperatorReplacement","status":"Survived","location":{"start":{"line":11,"column":6}}},
 		{"mutatorName":"RelationalOperatorReplacement","status":"Survived","location":{"start":{"line":11,"column":7}}}
@@ -142,16 +152,16 @@ func TestFindViolationsExcludesReviewedEquivalent(t *testing.T) {
 		File: "Sources/ThrowntomClient/A.swift", Line: 11, Column: 6,
 		Mutator: "RelationalOperatorReplacement", Reason: "proven equivalent",
 	}}
-	violations, err := findViolations([]byte(report), equivalents)
+	violations, err := violationsIn([]byte(report), equivalents)
 	if err != nil {
-		t.Fatalf("findViolations: %v", err)
+		t.Fatalf("violationsIn: %v", err)
 	}
 	if len(violations) != 1 || violations[0].Column != 7 {
 		t.Fatalf("violations = %v, want only the column-7 mutant", violations)
 	}
 }
 
-func TestFindViolationsEquivalentMustMatchMutator(t *testing.T) {
+func TestViolationsInEquivalentMustMatchMutator(t *testing.T) {
 	report := `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
 		{"mutatorName":"NegateConditional","status":"Survived","location":{"start":{"line":11,"column":6}}}
 	]}}}`
@@ -159,9 +169,9 @@ func TestFindViolationsEquivalentMustMatchMutator(t *testing.T) {
 		File: "Sources/ThrowntomClient/A.swift", Line: 11, Column: 6,
 		Mutator: "RelationalOperatorReplacement", Reason: "proven equivalent",
 	}}
-	violations, err := findViolations([]byte(report), equivalents)
+	violations, err := violationsIn([]byte(report), equivalents)
 	if err != nil {
-		t.Fatalf("findViolations: %v", err)
+		t.Fatalf("violationsIn: %v", err)
 	}
 	if len(violations) != 1 {
 		t.Fatalf("violations = %v, want the differently-mutated survivor kept", violations)
@@ -171,7 +181,7 @@ func TestFindViolationsEquivalentMustMatchMutator(t *testing.T) {
 // The tool keys files by the absolute path with the package root sliced off,
 // which leaves a leading "/"; equivalents and output use the package-relative
 // spelling a reader would type.
-func TestFindViolationsStripsLeadingSlashFromReportedFile(t *testing.T) {
+func TestViolationsInStripsLeadingSlashFromReportedFile(t *testing.T) {
 	report := `{"files":{"/Sources/ThrowntomClient/A.swift":{"mutants":[
 		{"mutatorName":"M","status":"Survived","replacement":">=","location":{"start":{"line":3,"column":11}}},
 		{"mutatorName":"M","status":"Survived","replacement":"<","location":{"start":{"line":3,"column":11}}}
@@ -180,9 +190,9 @@ func TestFindViolationsStripsLeadingSlashFromReportedFile(t *testing.T) {
 		File: "Sources/ThrowntomClient/A.swift", Line: 3, Column: 11,
 		Mutator: "M", Replacement: ">=", Reason: "proven equivalent",
 	}}
-	violations, err := findViolations([]byte(report), equivalents)
+	violations, err := violationsIn([]byte(report), equivalents)
 	if err != nil {
-		t.Fatalf("findViolations: %v", err)
+		t.Fatalf("violationsIn: %v", err)
 	}
 	if len(violations) != 1 || violations[0].String() != "Sources/ThrowntomClient/A.swift:3:11 M Survived" {
 		t.Fatalf("violations = %v, want only the unexcluded mutant, package-relative", violations)
@@ -191,7 +201,7 @@ func TestFindViolationsStripsLeadingSlashFromReportedFile(t *testing.T) {
 
 // One operator yields several mutants at the same position (`>` becomes both
 // `>=` and `<`), so excluding one must not hide its siblings.
-func TestFindViolationsEquivalentMustMatchReplacement(t *testing.T) {
+func TestViolationsInEquivalentMustMatchReplacement(t *testing.T) {
 	report := `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
 		{"mutatorName":"RelationalOperatorReplacement","status":"Survived","originalText":">","replacement":"<","location":{"start":{"line":3,"column":11}}}
 	]}}}`
@@ -199,9 +209,9 @@ func TestFindViolationsEquivalentMustMatchReplacement(t *testing.T) {
 		File: "Sources/ThrowntomClient/A.swift", Line: 3, Column: 11,
 		Mutator: "RelationalOperatorReplacement", Replacement: ">=", Reason: "proven equivalent",
 	}}
-	violations, err := findViolations([]byte(report), equivalents)
+	violations, err := violationsIn([]byte(report), equivalents)
 	if err != nil {
-		t.Fatalf("findViolations: %v", err)
+		t.Fatalf("violationsIn: %v", err)
 	}
 	if len(violations) != 1 {
 		t.Fatalf("violations = %v, want the `<` survivor kept", violations)
@@ -454,5 +464,153 @@ func TestRunUnwritableSummaryIsAnError(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	if code := run([]string{report}, "", summaryPath, &stdout, &stderr); code != 2 {
 		t.Fatalf("exit = %d, want 2", code)
+	}
+}
+
+// A triage pass scopes the tool more than one way, so the same mutant is
+// reported twice, and the two verdicts can disagree: the pinned tool SIGKILLs
+// whichever test run is in flight five seconds after a mutant times out, so a
+// run containing a Timeout can report a killed mutant as Crash. Reports are
+// merged by mutant identity, keeping the verdict from the fullest observation.
+func TestRunKeepsTheBestVerdictForAMutantSeenTwice(t *testing.T) {
+	poisoned := writeReport(t, `{"files":{"/Sources/ThrowntomClient/A.swift":{"mutants":[
+		{"mutatorName":"RemoveSideEffects","status":"Timeout","location":{"start":{"line":146,"column":5}},"originalText":"lock.unlock()","replacement":""},
+		{"mutatorName":"NegateConditional","status":"Crash","location":{"start":{"line":147,"column":8}},"originalText":"wasCancelled","replacement":"!(wasCancelled)"}
+	]}}}`)
+	clean := writeReport(t, `{"files":{"/Sources/ThrowntomClient/A.swift":{"mutants":[
+		{"mutatorName":"NegateConditional","status":"Killed","location":{"start":{"line":147,"column":8}},"originalText":"wasCancelled","replacement":"!(wasCancelled)"}
+	]}}}`)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{poisoned, clean}, "", "", &stdout, &stderr)
+	if strings.Contains(stdout.String(), "A.swift:147:8") {
+		t.Fatalf("the Crash was not corrected by the run that killed it:\n%s", stdout.String())
+	}
+	if code != 1 || !strings.Contains(stdout.String(), "A.swift:146:5") {
+		t.Fatalf("exit = %d, want 1 with the Timeout still gated:\n%s", code, stdout.String())
+	}
+}
+
+// Neither verdict is a kill, so the gate fails either way — but the status it
+// prints is the one a run actually observed, not the one a SIGKILL invented.
+func TestRunPrefersACompletedRunOverACrash(t *testing.T) {
+	poisoned := writeReport(t, `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
+		{"mutatorName":"M","status":"Timeout","location":{"start":{"line":1,"column":1}}},
+		{"mutatorName":"M","status":"Crash","location":{"start":{"line":9,"column":2}}}
+	]}}}`)
+	clean := writeReport(t, `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
+		{"mutatorName":"M","status":"Survived","location":{"start":{"line":9,"column":2}}}
+	]}}}`)
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{poisoned, clean}, "", "", &stdout, &stderr); code != 1 {
+		t.Fatalf("exit = %d, want 1; stderr=%s", code, stderr.String())
+	}
+	if strings.Count(stdout.String(), "A.swift:9:2") != 1 {
+		t.Fatalf("want one line for the mutant, not one per report:\n%s", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "A.swift:9:2` M Survived") {
+		t.Fatalf("want the completed run's verdict, not the Crash:\n%s", stdout.String())
+	}
+}
+
+// Unviable is the one ungated status the tool reports for a run that produced
+// no test output at all, which is also what a run SIGKILLed before its tests
+// started looks like. A kill anywhere beats it, and the mutant is then not
+// counted as Unviable either.
+func TestRunKeepsAKillOverUnviable(t *testing.T) {
+	first := writeReport(t, `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
+		{"mutatorName":"M","status":"Unviable","location":{"start":{"line":1,"column":1}}}
+	]}}}`)
+	second := writeReport(t, `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
+		{"mutatorName":"M","status":"Killed","location":{"start":{"line":1,"column":1}}}
+	]}}}`)
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{first, second}, "", "", &stdout, &stderr); code != 0 {
+		t.Fatalf("exit = %d, want 0; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
+	}
+	if strings.Contains(stdout.String(), "Unviable mutant(s)") {
+		t.Fatalf("a killed mutant is not an Unviable one:\n%s", stdout.String())
+	}
+}
+
+// Overlapping scopes report the same Unviable mutant more than once; counting
+// it per report would inflate the figure the tracking issue carries.
+func TestRunCountsAMutantSeenTwiceOnce(t *testing.T) {
+	body := `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
+		{"mutatorName":"M","status":"Unviable","location":{"start":{"line":1,"column":1}}},
+		{"mutatorName":"M","status":"Killed","location":{"start":{"line":2,"column":1}}}
+	]}}}`
+	first := writeReport(t, body)
+	second := writeReport(t, body)
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{first, second}, "", "", &stdout, &stderr); code != 0 {
+		t.Fatalf("exit = %d, want 0; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "1 Unviable mutant(s) not gated") {
+		t.Fatalf("want the mutant counted once across both reports:\n%s", stdout.String())
+	}
+}
+
+// One operator yields several mutants at one position, telling them apart only
+// by replacement; merging those would hide a survivor behind its sibling's kill.
+func TestRunDoesNotMergeDistinctReplacementsAtOnePosition(t *testing.T) {
+	report := writeReport(t, `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
+		{"mutatorName":"M","status":"Killed","originalText":">","replacement":">=","location":{"start":{"line":3,"column":11}}},
+		{"mutatorName":"M","status":"Survived","originalText":">","replacement":"<","location":{"start":{"line":3,"column":11}}}
+	]}}}`)
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{report}, "", "", &stdout, &stderr); code != 1 {
+		t.Fatalf("exit = %d, want 1; stdout=%s", code, stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "<code>&lt;</code>") {
+		t.Fatalf("the `<` survivor was merged into its killed sibling:\n%s", stdout.String())
+	}
+}
+
+// A Crash from a run that also timed a mutant out may be the tool's doing
+// rather than the mutant's, and the gate is where both are visible at once.
+func TestRunFlagsCrashesFromARunThatAlsoTimedOut(t *testing.T) {
+	poisoned := writeReport(t, `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
+		{"mutatorName":"M","status":"Timeout","location":{"start":{"line":1,"column":1}}},
+		{"mutatorName":"M","status":"Crash","location":{"start":{"line":9,"column":2}}}
+	]}}}`)
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{poisoned}, "", "", &stdout, &stderr); code != 1 {
+		t.Fatalf("exit = %d, want 1; stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "1 Crash verdict(s) come from a run that also timed a mutant out") {
+		t.Fatalf("stdout missing the suspect-Crash note:\n%s", stdout.String())
+	}
+}
+
+// Once a timeout-free run has reported the same mutant, the Crash is gone and
+// so is the doubt; a note that never clears is one nobody reads.
+func TestRunDoesNotFlagACrashAlreadyCorrected(t *testing.T) {
+	poisoned := writeReport(t, `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
+		{"mutatorName":"M","status":"Timeout","location":{"start":{"line":1,"column":1}}},
+		{"mutatorName":"M","status":"Crash","location":{"start":{"line":9,"column":2}}}
+	]}}}`)
+	clean := writeReport(t, `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
+		{"mutatorName":"M","status":"Killed","location":{"start":{"line":9,"column":2}}}
+	]}}}`)
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{poisoned, clean}, "", "", &stdout, &stderr); code != 1 {
+		t.Fatalf("exit = %d, want 1 (the Timeout is still gated); stderr=%s", code, stderr.String())
+	}
+	if strings.Contains(stdout.String(), "Crash verdict(s)") {
+		t.Fatalf("the note outlived the Crash it was about:\n%s", stdout.String())
+	}
+}
+
+// A Crash in a run that timed nothing out is the mutant's own doing.
+func TestRunDoesNotFlagACrashFromATimeoutFreeRun(t *testing.T) {
+	report := writeReport(t, `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
+		{"mutatorName":"M","status":"Crash","location":{"start":{"line":9,"column":2}}}
+	]}}}`)
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{report}, "", "", &stdout, &stderr); code != 1 {
+		t.Fatalf("exit = %d, want 1; stderr=%s", code, stderr.String())
+	}
+	if strings.Contains(stdout.String(), "Crash verdict(s)") {
+		t.Fatalf("nothing timed out, so nothing is suspect:\n%s", stdout.String())
 	}
 }
