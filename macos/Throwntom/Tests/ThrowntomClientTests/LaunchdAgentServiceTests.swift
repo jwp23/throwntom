@@ -82,6 +82,18 @@ final class LaunchdAgentServiceTests: XCTestCase {
     XCTAssertThrowsError(try service.register())
   }
 
+  /// 83:5 RemoveSideEffects (`process.waitUntilExit()` -> deleted): the real launchctl call, the
+  /// one path every fake in this file stands in for. `print` on a target that cannot exist is
+  /// read-only and exits non-zero fast; without waiting for it, `terminationStatus` reads back
+  /// before the subprocess has reported in, which is never that non-zero code.
+  func testRunLaunchctlWaitsForTheRealProcessToExitBeforeReadingStatus() {
+    let status = LaunchdAgentService.runLaunchctl([
+      "print",
+      "gui/\(getuid())/com.jwp23.throwntom.nonexistent-\(UUID().uuidString)",
+    ])
+    XCTAssertNotEqual(status, 0, "launchctl print on a target that cannot exist must exit non-zero")
+  }
+
   func testAnAgentIsEnabledOnlyWhenItsPlistAndLoadedJobBothMatch() throws {
     let loaded = makeService { _ in 0 }
     try loaded.register()
