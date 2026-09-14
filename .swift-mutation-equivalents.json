@@ -78,5 +78,13 @@
     "mutator": "RemoveSideEffects",
     "replacement": "",
     "reason": "Not an equivalence claim: the mutant is observable, but no run that observes it can finish. hold() returns still holding the lock, so every later cancel() on that handle blocks its caller for good - including an event stream's termination handler, which runs on whichever thread dropped the stream, the main one included. Run on its own, PendingTaskTests.testCancelDoesNotWaitForTheTasksCancellationHandler fails on its 2s deadline under this mutant (measured: 'Executed 2 tests, with 1 failure (0 unexpected) in 2.111 seconds'). Run as the suite, the first dropped event stream parks the thread that dropped it and the suite never reaches its end (measured: killed at 250s, still inside ClientLoggingSitesTests). A run that never ends is scored Timeout before any output is read, so no test can have this mutant reported killed."
+  },
+  {
+    "file": "Sources/ThrowntomClient/DaemonClient.swift",
+    "line": 445,
+    "column": 12,
+    "mutator": "BooleanLiteralReplacement",
+    "replacement": "true",
+    "reason": "Proven equivalent. This is takeTheServiceDown's return value on the path where registrar.stopAgent() succeeds; its only reader is runServiceVerb's `if isServiceUp, press == servicePresses { start() }`. On this path record(.stopped) has already run (line 433), setting intent to .stopped before the return is read, and start()'s own guard requires intent == .running (line 117) - so calling start() with the mutant's isServiceUp=true is a guarded no-op. The only way intent could be .running again by the time isServiceUp is read is a later Start press, but that increments servicePresses first (runServiceVerb's own press/queued bookkeeping), which fails `press == servicePresses` and skips the start() call entirely before intent even matters. No sequence of calls can make the mutant's true reach an unguarded start()."
   }
 ]
