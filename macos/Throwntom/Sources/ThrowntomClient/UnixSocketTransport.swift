@@ -129,7 +129,8 @@ public final class UnixSocketTransport: DaemonTransport {
 // MARK: - PendingTask
 
 /// A cancellation handle that can be handed out before the task it refers to exists.
-/// A cancel that lands first is applied as soon as the task arrives.
+/// A cancel that lands first is applied as soon as the task arrives, and neither cancel is run
+/// where it was asked for.
 // Every mutable member is read and written under `lock`.
 // @unchecked because NSLock-guarded access isn't expressible to the compiler; correct today, but
 // the annotation could go once the deployment target reaches Mutex (macOS 15).
@@ -144,7 +145,7 @@ final class PendingTask: @unchecked Sendable {
     self.task = task
     lock.unlock()
     if wasCancelled {
-      task.cancel()
+      Self.stopWithoutWaiting(task)
     }
   }
 
@@ -153,7 +154,9 @@ final class PendingTask: @unchecked Sendable {
     isCancelled = true
     let task = task
     lock.unlock()
-    task?.cancel()
+    if let task {
+      Self.stopWithoutWaiting(task)
+    }
   }
 
   // MARK: Private
@@ -161,5 +164,14 @@ final class PendingTask: @unchecked Sendable {
   private let lock = NSLock()
   private var task: Task<Void, Never>?
   private var isCancelled = false
+
+  /// Cancelling runs the task's own cancellation handlers on whichever thread asks for it, and the
+  /// task here reads a socket: its handlers close a connection and resume a call that is waiting
+  /// on one. The thread asking is whoever dropped the event stream, often the main one, so the
+  /// cancel goes on a task of its own — detached, because a handler that cannot finish must not be
+  /// able to take an actor down with it.
+  private static func stopWithoutWaiting(_ task: Task<Void, Never>) {
+    Task.detached { task.cancel() }
+  }
 
 }
