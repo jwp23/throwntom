@@ -85,10 +85,13 @@ func escapeForMarkdownCode(s string) string {
 	return "<code>" + s + "</code>"
 }
 
-// equivalent names one mutant reviewed and proven equivalent — no test can
-// ever distinguish it from correct code, so it is not a coverage gap. The
-// tool's --exclude only drops whole files; this covers a single mutant in a
-// file whose other mutants are worth keeping.
+// equivalent names one mutant reviewed and excluded: either proven equivalent
+// (no test can ever distinguish it from correct code) or a hand-verified real
+// kill the tool structurally cannot observe (a Timeout or Crash the harness
+// can never report as Killed — see
+// docs/decisions/swift-mutation-timeout-poisons-a-later-mutant.md). Either
+// way it is not a coverage gap. The tool's --exclude only drops whole files;
+// this covers a single mutant in a file whose other mutants are worth keeping.
 type equivalent struct {
 	File        string `json:"file"`
 	Line        int    `json:"line"`

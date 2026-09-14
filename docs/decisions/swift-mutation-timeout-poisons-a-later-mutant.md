@@ -35,8 +35,51 @@ then merely concatenated, as before) but it silently buys nothing.
 A mutant that shares its file *and* its operator with a Timeout mutant cannot be
 split off by any filter the tool has. That one is verified by hand — the
 replacement applied to the source, the suite run, the outcome recorded on the
-bead — and never written into `.swift-mutation-equivalents.json`, which is for
-mutants no test can distinguish, not for mutants the harness cannot report.
+bead — and never written into `.swift-mutation-equivalents.json`.
+
+## What the equivalents file legitimately holds
+
+`.swift-mutation-equivalents.json` covers three shapes, not one:
+
+1. **Proven equivalent.** Behaviorally identical to the original, provably from
+   the code — no test can ever distinguish the two, regardless of the tool.
+2. **Genuine own-Timeout, hand-verified kill.** A mutant with a real Timeout
+   (not a poisoning artifact) that a fast test provably kills by hand, where
+   the tool cannot observe that because it has no per-test scope: breaking
+   something widely shared makes the *whole* suite exceed the tool's timeout
+   budget, so the run it belongs to can never finish and report Killed.
+3. **Genuine trap-Crash, hand-verified kill.** A mutant that causes a
+   deterministic Swift runtime trap (precondition, array-bounds, force-unwrap)
+   in a file with no Timeout mutant anywhere in its own gated set — which rules
+   out the poisoning mechanism above, since poisoning needs a Timeout mutant
+   present to schedule the delayed kill. A hard trap crashes the whole test
+   process, which the tool's parser can never distinguish from a clean
+   pass/fail run, so "Killed" is permanently unobservable for it — not just
+   unobserved this run.
+
+What stays out, always: a Crash-status mutant that shares *both* file and
+operator with a genuine Timeout mutant. No filter the tool has (`--sources-path`,
+`--exclude`, `--operator`, `--disable-mutator`) can isolate that one from the
+poisoning mechanism this decision describes, so its Crash verdict is not
+trustworthy by the reasoning above — it is a gate violation to record on the
+bead, verified by hand, and left unexcluded.
+
+## For the epic's bd design field (paste verbatim)
+
+`.swift-mutation-equivalents.json` holds three legitimate categories, not one:
+proven equivalents (behaviorally identical to the original, provably from the
+code); genuine own-Timeout hand-verified kills (a real, non-poisoning Timeout
+that a fast test provably kills by hand, unobservable to the tool because it
+has no per-test scope); and genuine trap-Crash hand-verified kills (a
+deterministic runtime trap in a file with no Timeout mutant anywhere in its
+own gated set, so the Crash cannot be poisoning — a hard trap crashes the
+whole process, which the parser can never tell apart from a clean pass/fail
+run). What must never go in the file: a Crash-status mutant that shares both
+file and operator with a genuine Timeout mutant, since no tool filter can
+isolate it from the poisoning mechanism — that shape is verified by hand,
+recorded on the bead, and left as an unexcluded gate violation. See
+docs/decisions/swift-mutation-timeout-poisons-a-later-mutant.md for the full
+mechanism and worked examples of all three categories.
 
 ## Rationale
 
