@@ -64,9 +64,10 @@ measured what ADR-015 had estimated from a 3.4k-line local spike:
 - **Line count is a proxy for mutant count.** Shards will be uneven; a
   shard that runs long is fixed by raising the count.
 - **Accepted cost:** an estimated 15-20 hours of macOS runner time a week,
-  until a sharded run measures it; free on this public repository, with shards beyond the 5-job
-  concurrency cap queueing; weekly wall clock may approach 10 hours. If the
-  repository ever goes private, this decision needs revisiting.
+  until a sharded run measures it; free on this public repository, with
+  shards beyond the 5-job concurrency cap queueing; weekly wall clock may
+  approach 10 hours. If the repository ever goes private, this decision
+  needs revisiting.
 - **Unviable is no longer driven to zero.** A rise in Unviable costs build
   time without failing anything; the count in the tracking issue is the
   only signal.
