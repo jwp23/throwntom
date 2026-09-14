@@ -42,7 +42,12 @@ repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 # without a fixed-fd lock (`flock`), which macOS doesn't ship and which would be a new
 # dependency for a small local guard. So a dead-pid lock always refuses; clearing it is a
 # manual, deliberate act by whoever notices, never something the script races to do itself.
-lock_path="${TMPDIR:-/tmp}/mutation-control.lock"
+# Fixed, not derived from $TMPDIR: TMPDIR is caller-controlled, so two invocations started
+# with different TMPDIR values would each claim a different lock file and both pass the guard.
+# The override exists solely so mutation-control-racetest.sh can point at an isolated lock file
+# instead of racing against (and clobbering) a real invocation's production lock; nothing else
+# should set it.
+lock_path="${MUTATION_CONTROL_LOCK_PATH:-/tmp/mutation-control.lock}"
 if ! ln -s "$$" "$lock_path" 2>/dev/null; then
   holder_pid="$(readlink "$lock_path" 2>/dev/null || true)"
   if [[ -n "$holder_pid" ]] && kill -0 "$holder_pid" 2>/dev/null; then

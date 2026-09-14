@@ -21,10 +21,18 @@ set -euo pipefail
 n="${1:-10}"
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 control="$repo_root/macos/mutation-control.sh"
-lock_path="${TMPDIR:-/tmp}/mutation-control.lock"
 
 work="$(mktemp -d)"
-trap 'rm -rf "$work"; rm -f "$lock_path"' EXIT
+trap 'rm -rf "$work"' EXIT
+
+# Isolated from the production lock file: mutation-control.sh's default lock path is fixed
+# precisely so unrelated callers can't miss each other by having different $TMPDIR values, which
+# means this racetest must not exercise that same fixed path — clearing it here to seed the
+# stale-lock scenario, or between scenarios, would delete a real invocation's live lock out from
+# under it. MUTATION_CONTROL_LOCK_PATH points every racer at a lock file scoped to this run
+# instead.
+lock_path="$work/mutation-control.lock"
+export MUTATION_CONTROL_LOCK_PATH="$lock_path"
 
 # Stands in for swift-mutation-testing: sleeps to hold the lock long enough for racers to
 # collide, then writes a report.json in the shape the negative control checks, so a winning
