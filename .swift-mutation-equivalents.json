@@ -9,14 +9,6 @@
   },
   {
     "file": "Sources/ThrowntomClient/SocketConnection.swift",
-    "line": 129,
-    "column": 7,
-    "mutator": "RemoveSideEffects",
-    "replacement": "",
-    "reason": "Not an equivalence claim: no run that observes this mutant can finish inside the tool's timeout. attach returns still holding lock (line 126), so the first finish on that gate blocks on lock.lock() (line 141) forever and no SocketConnection call ever resumes. UnixSocketTransport.request then parks for good: its task group cancels the exchange child and awaits it (UnixSocketTransport.swift:31-42), and a child suspended on a continuation that can never resume is not cancellable. Measured: swift test --filter UnixSocketTransportTests, five tests that take about 2s unmutated, produced no test output at all in 150s. The tool maps a timed-out run to Timeout before it reads any output, so the SocketConnectionTests deadlines that do fail under this mutant cannot be reported as a kill."
-  },
-  {
-    "file": "Sources/ThrowntomClient/SocketConnection.swift",
     "line": 132,
     "column": 18,
     "mutator": "BooleanLiteralReplacement",
@@ -38,30 +30,6 @@
     "mutator": "BooleanLiteralReplacement",
     "replacement": "true",
     "reason": "Proven equivalent. perform reads this return only to decide whether to start the operation (lines 100-101). On this path the continuation has already been resumed with the result that arrived before attach, and the gate is settled - line 132 sets isFinished and resultBeforeAttach stays non-nil - so line 142 refuses every later result and an operation started here can no longer reach the caller. That result can only have come from the cancellation handler, which cancels the connection immediately after producing it (lines 104-105), so the operation the mutant starts runs on a cancelled NWConnection and performs no I/O. SocketConnectionTests.testACallStartedInACancelledTaskNeverDialsThePeer pins that: with this mutant applied the peer still accepts no connection."
-  },
-  {
-    "file": "Sources/ThrowntomClient/SocketConnection.swift",
-    "line": 142,
-    "column": 11,
-    "mutator": "NegateConditional",
-    "replacement": "!(!isFinished)",
-    "reason": "Not an equivalence claim: no run that observes this mutant can finish inside the tool's timeout. The guard becomes guard isFinished, which is false on a fresh gate, so every finish returns at line 144 without resuming and no SocketConnection call ever completes. UnixSocketTransport.request then parks for good: its task group cancels the exchange child and awaits it (UnixSocketTransport.swift:31-42), and a child suspended on a continuation that can never resume is not cancellable. Measured: the whole suite was still running when it was killed at the tool's 120s bound, and swift test --filter UnixSocketTransportTests alone produced no test output in 150s under the same family of mutants. The tool maps a timed-out run to Timeout before it reads any output, so the SocketConnectionTests deadlines that do fail under this mutant cannot be reported as a kill."
-  },
-  {
-    "file": "Sources/ThrowntomClient/SocketConnection.swift",
-    "line": 142,
-    "column": 24,
-    "mutator": "NegateConditional",
-    "replacement": "!(resultBeforeAttach == nil)",
-    "reason": "Not an equivalence claim: no run that observes this mutant can finish inside the tool's timeout. The guard becomes resultBeforeAttach != nil, which is false on a fresh gate, so every finish returns at line 144 without resuming and no SocketConnection call ever completes. UnixSocketTransport.request then parks for good: its task group cancels the exchange child and awaits it (UnixSocketTransport.swift:31-42), and a child suspended on a continuation that can never resume is not cancellable. Measured: the whole suite was still running when it was killed at the tool's 120s bound. The tool maps a timed-out run to Timeout, and a run it cannot parse to Crash, before either verdict can be a kill."
-  },
-  {
-    "file": "Sources/ThrowntomClient/SocketConnection.swift",
-    "line": 142,
-    "column": 43,
-    "mutator": "RelationalOperatorReplacement",
-    "replacement": "!=",
-    "reason": "Not an equivalence claim: no run that observes this mutant can finish inside the tool's timeout. The guard becomes resultBeforeAttach != nil, which is false on a fresh gate, so every finish returns at line 144 without resuming and no SocketConnection call ever completes. UnixSocketTransport.request then parks for good: its task group cancels the exchange child and awaits it (UnixSocketTransport.swift:31-42), and a child suspended on a continuation that can never resume is not cancellable. Measured: the whole suite was still running when it was killed at the tool's 120s bound. The tool maps a timed-out run to Timeout before it reads any output, so the SocketConnectionTests deadlines that do fail under this mutant cannot be reported as a kill."
   },
   {
     "file": "Sources/ThrowntomClient/SocketConnection.swift",
@@ -94,21 +62,5 @@
     "mutator": "BooleanLiteralReplacement",
     "replacement": "false",
     "reason": "Proven equivalent. With isFinished left false the settled gate still cannot resume twice: self.continuation is set to nil on the same path (line 152), so a later finish takes the guard let continuation else branch and stores its result instead of resuming. What the mutant changes is that later finish's return value - true from line 149 instead of false from line 144 - and the only reader of that value is the open state handler at line 80, which cannot reach it: settling a gate there cancels the connection (lines 80-81), after which only .cancelled arrives (line 84, result discarded), and a connection that reached .ready over a Unix socket reports the peer's exit to the pending receive rather than as a .waiting or .failed state change."
-  },
-  {
-    "file": "Sources/ThrowntomClient/SocketConnection.swift",
-    "line": 154,
-    "column": 5,
-    "mutator": "RemoveSideEffects",
-    "replacement": "",
-    "reason": "Not an equivalence claim: no run that observes this mutant can finish inside the tool's timeout. The settling finish no longer resumes the continuation, so every SocketConnection call stays suspended for good. UnixSocketTransport.request then parks: its task group cancels the exchange child and awaits it (UnixSocketTransport.swift:31-42), and a child suspended on a continuation that can never resume is not cancellable. Measured: the whole suite was still running when it was killed at the tool's 120s bound. The tool maps a timed-out run to Timeout before it reads any output, so the SocketConnectionTests deadlines that do fail under this mutant cannot be reported as a kill."
-  },
-  {
-    "file": "Sources/ThrowntomClient/SocketConnection.swift",
-    "line": 163,
-    "column": 28,
-    "mutator": "BooleanLiteralReplacement",
-    "replacement": "true",
-    "reason": "Not an equivalence claim: no run that observes this mutant can finish inside the tool's timeout. Every gate starts settled, so the guard at line 142 refuses every result and no SocketConnection call ever resumes. UnixSocketTransport.request then parks for good: its task group cancels the exchange child and awaits it (UnixSocketTransport.swift:31-42), and a child suspended on a continuation that can never resume is not cancellable. Measured: swift test --filter UnixSocketTransportTests, five tests that take about 2s unmutated, produced no test output at all in 150s. The tool maps a timed-out run to Timeout before it reads any output, so the SocketConnectionTests deadlines that do fail under this mutant cannot be reported as a kill."
   }
 ]
