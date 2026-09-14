@@ -2,6 +2,9 @@
 
 This ADR covers the Swift side; ADR-014 covers Go.
 
+> Superseded (in part) 2026-09-13 by ADR-016: one job per target, the cost
+> estimate, and triaging Unviable mutants.
+
 ## Context
 
 The 2026-09-12 spikes (docs/spikes/go-swift-mutation-testing/result.md,
