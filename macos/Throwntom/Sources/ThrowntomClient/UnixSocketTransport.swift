@@ -19,27 +19,14 @@ public final class UnixSocketTransport: DaemonTransport {
 
   public let socketPath: String
 
-  /// Races the exchange against the deadline; whichever finishes first decides the outcome, and the
-  /// loser is cancelled. A stalled daemon therefore fails the call instead of parking it forever.
-  /// The deadline only throws: cancelling the group is what closes the connection, so the timeout
-  /// cannot lose the race to the socket error its own close would raise.
+  /// Runs the exchange under the deadline; whichever comes first decides the outcome, and the
+  /// exchange is abandoned if the deadline wins. A stalled daemon therefore fails the call instead
+  /// of parking it forever.
   public func request(_ method: String, _ path: String, body: Data?) async throws -> HTTPResponse {
     let connection = SocketConnection(path: socketPath)
     defer { connection.close() }
     let bytes = Self.requestBytes(method: method, path: path, body: body, streaming: false)
-    let timeout = requestTimeout
-    return try await withThrowingTaskGroup(of: HTTPResponse.self) { group in
-      group.addTask { try await Self.exchange(bytes, over: connection) }
-      group.addTask {
-        try await Task.sleep(for: timeout)
-        throw DaemonError.timedOut(after: timeout)
-      }
-      defer { group.cancelAll() }
-      guard let response = try await group.next() else {
-        throw DaemonError.transport("request ended without a response")
-      }
-      return response
-    }
+    return try await withDeadline(requestTimeout) { try await Self.exchange(bytes, over: connection) }
   }
 
   public func events(_ path: String) -> AsyncThrowingStream<Data, Error> {
@@ -142,12 +129,13 @@ public final class UnixSocketTransport: DaemonTransport {
 // MARK: - PendingTask
 
 /// A cancellation handle that can be handed out before the task it refers to exists.
-/// A cancel that lands first is applied as soon as the task arrives.
+/// A cancel that lands first is applied as soon as the task arrives. Neither path runs the task's
+/// cancellation handlers on the thread that asked for the cancel.
 // Every mutable member is read and written under `lock`.
 // @unchecked because NSLock-guarded access isn't expressible to the compiler; correct today, but
 // the annotation could go once the deployment target reaches Mutex (macOS 15).
 // swiftlint:disable:next no_unchecked_sendable
-private final class PendingTask: @unchecked Sendable {
+final class PendingTask: @unchecked Sendable {
 
   // MARK: Internal
 
@@ -157,7 +145,7 @@ private final class PendingTask: @unchecked Sendable {
     self.task = task
     lock.unlock()
     if wasCancelled {
-      task.cancel()
+      Self.stopWithoutWaiting(task)
     }
   }
 
@@ -166,7 +154,9 @@ private final class PendingTask: @unchecked Sendable {
     isCancelled = true
     let task = task
     lock.unlock()
-    task?.cancel()
+    if let task {
+      Self.stopWithoutWaiting(task)
+    }
   }
 
   // MARK: Private
@@ -174,5 +164,15 @@ private final class PendingTask: @unchecked Sendable {
   private let lock = NSLock()
   private var task: Task<Void, Never>?
   private var isCancelled = false
+
+  /// Cancelling runs the task's own cancellation handlers on whichever thread asks for it, and the
+  /// task here reads a socket: its handlers close a connection and resume a call that is waiting
+  /// on one. The thread asking is whoever dropped the event stream, often the main one, so the
+  /// cancel goes on a task of its own. What that costs is a pool thread: a handler that blocks for
+  /// good holds the cooperative thread it runs on rather than suspending. Accepted, because it
+  /// gives way one thread at a time where cancelling here stopped the main one on the first.
+  private static func stopWithoutWaiting(_ task: Task<Void, Never>) {
+    Task.detached { task.cancel() }
+  }
 
 }

@@ -6,6 +6,12 @@
 // test can kill them; they are counted but not gated. Its stdout is a
 // Markdown list, so the weekly workflow can paste it straight into the
 // tracking issue.
+//
+// Reports are merged by mutant identity rather than concatenated: shards are
+// disjoint, but a triage pass runs the tool over one file more than one way on
+// purpose, and the two runs can disagree about a mutant. Verdicts that survive
+// the merge unsettled are printed whatever the exit code. See merge.go and
+// docs/decisions/swift-mutation-timeout-poisons-a-later-mutant.md.
 package main
 
 import (
@@ -79,10 +85,13 @@ func escapeForMarkdownCode(s string) string {
 	return "<code>" + s + "</code>"
 }
 
-// equivalent names one mutant reviewed and proven equivalent — no test can
-// ever distinguish it from correct code, so it is not a coverage gap. The
-// tool's --exclude only drops whole files; this covers a single mutant in a
-// file whose other mutants are worth keeping.
+// equivalent names one mutant reviewed and excluded: either proven equivalent
+// (no test can ever distinguish it from correct code) or a hand-verified real
+// kill the tool structurally cannot observe (a Timeout or Crash the harness
+// can never report as Killed — see
+// docs/decisions/swift-mutation-timeout-poisons-a-later-mutant.md). Either
+// way it is not a coverage gap. The tool's --exclude only drops whole files;
+// this covers a single mutant in a file whose other mutants are worth keeping.
 type equivalent struct {
 	File        string `json:"file"`
 	Line        int    `json:"line"`
@@ -90,6 +99,16 @@ type equivalent struct {
 	Mutator     string `json:"mutator"`
 	Replacement string `json:"replacement"`
 	Reason      string `json:"reason"`
+}
+
+func (e equivalent) identity() mutantIdentity {
+	return mutantIdentity{
+		File:        e.File,
+		Line:        e.Line,
+		Column:      e.Column,
+		Mutator:     e.Mutator,
+		Replacement: e.Replacement,
+	}
 }
 
 func main() {
@@ -106,13 +125,6 @@ func main() {
 	os.Exit(run(flag.Args(), *equivalentsPath, *summaryPath, os.Stdout, os.Stderr))
 }
 
-// Unviable mutants do not compile, so no test can kill them; ADR-016 reports
-// them without gating on them.
-const (
-	statusKilled   = "Killed"
-	statusUnviable = "Unviable"
-)
-
 // Exit codes: the weekly workflow files survivors but must not treat a broken
 // run as a score, so the two failures are distinct.
 const (
@@ -126,6 +138,28 @@ func unviableNote(unviable int) string {
 	return fmt.Sprintf("%d Unviable mutant(s) not gated (ADR-016): they do not compile, so no test can kill them.\n", unviable)
 }
 
+// unsettledNote lists the verdicts the reports do not settle between them, and
+// says what to do about each shape. It prints whatever the exit code, because
+// both shapes can leave an unkilled mutant behind a verdict the gate lets
+// through: a poisoned Unviable and a kill one run disagreed with are both
+// ungated.
+func unsettledNote(mutants []unsettled) string {
+	var b strings.Builder
+	_, _ = fmt.Fprintf(&b, "%d verdict(s) the reports do not settle:\n\n", len(mutants))
+	for _, m := range mutants {
+		_, _ = fmt.Fprintf(&b, "%s — %s\n", m.mutant.markdown(), m.reason)
+	}
+	b.WriteString(
+		"\nswift-mutation-testing SIGKILLs whichever test run is in flight five seconds after another mutant\n" +
+			"times out, and reports the run it killed as Crash or as Unviable; re-run those mutants in a scope\n" +
+			"with no Timeout and pass both reports. One Timeout spoils at most one run, but no report records\n" +
+			"which, so every unconfirmed verdict from such a run is listed. A kill another run disagreed with is\n" +
+			"a different problem — no run can invent a Survived — so the gate keeps the survival and fails on it;\n" +
+			"settle that one by hand, on whether the killing test can reach the mutant. See\n" +
+			"docs/decisions/swift-mutation-timeout-poisons-a-later-mutant.md.\n")
+	return b.String()
+}
+
 type fileTally struct {
 	file     string
 	gated    int
@@ -135,7 +169,9 @@ type fileTally struct {
 // summarize renders the tracking issue body: one row per file with its gated
 // count and statuses, heaviest file first. GitHub caps an issue body at 65,536
 // characters; a per-mutant list outgrows that, a row per file does not.
-func summarize(violations []violation, unviable int) string {
+// Unsettled verdicts are appended in full, not tallied: they are rare enough
+// that the issue is where triage needs to see them, not just the CI log.
+func summarize(violations []violation, unviable int, unsettled []unsettled) string {
 	var b strings.Builder
 	if len(violations) == 0 {
 		b.WriteString("No unexcluded mutants survived.\n")
@@ -149,6 +185,9 @@ func summarize(violations []violation, unviable int) string {
 	}
 	if unviable > 0 {
 		b.WriteString("\n" + unviableNote(unviable))
+	}
+	if len(unsettled) > 0 {
+		b.WriteString("\n" + unsettledNote(unsettled))
 	}
 	return b.String()
 }
@@ -198,22 +237,20 @@ func run(reportPaths []string, equivalentsPath, summaryPath string, stdout, stde
 		_, _ = fmt.Fprintln(stderr, err)
 		return exitError
 	}
-	var violations []violation
-	unviable := 0
+	merged := mutantSet{}
 	for _, path := range reportPaths {
 		data, err := os.ReadFile(path)
 		if err != nil {
 			_, _ = fmt.Fprintln(stderr, err)
 			return exitError
 		}
-		found, err := findViolations(data, equivalents)
-		if err != nil {
+		if err := merged.add(data); err != nil {
 			_, _ = fmt.Fprintf(stderr, "%s: %v\n", path, err)
 			return exitError
 		}
-		violations = append(violations, found...)
-		unviable += countUnviable(data)
 	}
+	violations := findViolations(merged, equivalents)
+	unviable := merged.unviable()
 	sortViolations(violations)
 	code := exitClean
 	if len(violations) == 0 {
@@ -225,11 +262,15 @@ func run(reportPaths []string, equivalentsPath, summaryPath string, stdout, stde
 			_, _ = fmt.Fprintln(stdout, v.markdown())
 		}
 	}
+	unsettled := merged.unsettledVerdicts(equivalents)
+	if len(unsettled) > 0 {
+		_, _ = fmt.Fprint(stdout, "\n"+unsettledNote(unsettled))
+	}
 	if unviable > 0 {
 		_, _ = fmt.Fprint(stdout, "\n"+unviableNote(unviable))
 	}
 	if summaryPath != "" {
-		if err := os.WriteFile(summaryPath, []byte(summarize(violations, unviable)), 0o600); err != nil {
+		if err := os.WriteFile(summaryPath, []byte(summarize(violations, unviable, unsettled)), 0o600); err != nil {
 			_, _ = fmt.Fprintln(stderr, err)
 			return exitError
 		}
@@ -237,89 +278,34 @@ func run(reportPaths []string, equivalentsPath, summaryPath string, stdout, stde
 	return code
 }
 
-// countUnviable reads a report findViolations has already validated.
-func countUnviable(data []byte) int {
-	r, err := parseReport(data)
-	if err != nil {
-		return 0
-	}
-	count := 0
-	for _, f := range r.Files {
-		for _, m := range f.Mutants {
-			if m.Status == statusUnviable {
-				count++
-			}
-		}
-	}
-	return count
+func sortViolations(violations []violation) {
+	sort.Slice(violations, func(i, j int) bool { return violationBefore(violations[i], violations[j]) })
 }
 
-// findViolations reports every gated mutant in one report, minus any reviewed
-// equivalents, in no particular order: run sorts once across all reports.
-func findViolations(data []byte, equivalents []equivalent) ([]violation, error) {
-	r, err := parseReport(data)
-	if err != nil {
-		return nil, err
-	}
-	var violations []violation
-	for reported, f := range r.Files {
-		file := strings.TrimPrefix(reported, "/")
-		for _, m := range f.Mutants {
-			if m.Status == statusKilled || m.Status == statusUnviable || isReviewedEquivalent(file, m, equivalents) {
-				continue
-			}
-			violations = append(violations, violation{
-				File:         file,
-				Line:         m.Location.Start.Line,
-				Column:       m.Location.Start.Column,
-				Mutator:      m.MutatorName,
-				Status:       m.Status,
-				OriginalText: m.OriginalText,
-				Replacement:  m.Replacement,
-			})
-		}
-	}
-	return violations, nil
-}
-
-// sortViolations orders by file then position, then by every remaining
+// violationBefore orders by file then position, then by every remaining
 // displayed field, so a refreshed tracking issue diffs cleanly week to week
 // regardless of report or shard order and two mutants at the same position
 // don't tie.
-func sortViolations(violations []violation) {
-	sort.Slice(violations, func(i, j int) bool {
-		a, b := violations[i], violations[j]
-		if a.File != b.File {
-			return a.File < b.File
-		}
-		if a.Line != b.Line {
-			return a.Line < b.Line
-		}
-		if a.Column != b.Column {
-			return a.Column < b.Column
-		}
-		if a.Mutator != b.Mutator {
-			return a.Mutator < b.Mutator
-		}
-		if a.Replacement != b.Replacement {
-			return a.Replacement < b.Replacement
-		}
-		if a.OriginalText != b.OriginalText {
-			return a.OriginalText < b.OriginalText
-		}
-		return a.Status < b.Status
-	})
-}
-
-func isReviewedEquivalent(file string, m mutant, equivalents []equivalent) bool {
-	for _, e := range equivalents {
-		if e.File == file && e.Line == m.Location.Start.Line &&
-			e.Column == m.Location.Start.Column && e.Mutator == m.MutatorName &&
-			e.Replacement == m.Replacement {
-			return true
-		}
+func violationBefore(a, b violation) bool {
+	if a.File != b.File {
+		return a.File < b.File
 	}
-	return false
+	if a.Line != b.Line {
+		return a.Line < b.Line
+	}
+	if a.Column != b.Column {
+		return a.Column < b.Column
+	}
+	if a.Mutator != b.Mutator {
+		return a.Mutator < b.Mutator
+	}
+	if a.Replacement != b.Replacement {
+		return a.Replacement < b.Replacement
+	}
+	if a.OriginalText != b.OriginalText {
+		return a.OriginalText < b.OriginalText
+	}
+	return a.Status < b.Status
 }
 
 // parseReport rejects a report with no mutants at all: that means the tool

@@ -1,3 +1,4 @@
+import OSLog
 import XCTest
 @testable import ThrowntomClient
 
@@ -161,6 +162,23 @@ final class ClientLogTests: XCTestCase {
     ClientLog.failed("outer", in: .daemon, error: CancellationError())
 
     XCTAssertEqual(outer.messages, ["outer failed: cancelled"])
+  }
+
+  /// Pins the default sink's own `.error(...)` call (ClientLog.swift:66-71), which every other
+  /// test in this file bypasses by replacing `ClientLog.sink` with a `LogRecorder` first.
+  /// `OSLogStore(scope: .currentProcessIdentifier)` can read back a `Logger.error` entry this
+  /// same process wrote, so that call is not the unobservable dead code it once looked like.
+  func testTheDefaultSinkWritesAnErrorLevelEntryToTheUnifiedLog() throws {
+    let marker = "clientlog-default-sink-\(UUID().uuidString)"
+
+    ClientLog.failed(marker, in: .daemon, error: CancellationError())
+
+    let store = try OSLogStore(scope: .currentProcessIdentifier)
+    let position = store.position(timeIntervalSinceEnd: -60)
+    let entries = try store.getEntries(at: position)
+
+    let found = entries.contains { $0.composedMessage.contains("\(marker) failed: cancelled") }
+    XCTAssertTrue(found, "expected the unified log to contain the entry the default sink wrote")
   }
 
   func testAFailureRecordsTheOperationAndTheShapeOfTheError() throws {

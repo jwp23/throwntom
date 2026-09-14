@@ -55,10 +55,12 @@ public enum ClientLog {
 
   // MARK: Internal
 
-  /// Where a line goes. Replaced only by tests, which is the one way to see that a catch site
-  /// recorded anything: the unified log is not readable from inside the process that wrote it.
-  /// Internal rather than public: redirecting the whole diagnostic channel is not something a
-  /// client of this module should be able to do.
+  /// Where a line goes. Replaced by most tests: `OSLogStore(scope: .currentProcessIdentifier)`
+  /// can read this process's own entries back (ClientLogTests.
+  /// testTheDefaultSinkWritesAnErrorLevelEntryToTheUnifiedLog proves it), but that route needs a
+  /// running unified log and string-matches a composed message, where a replaced sink hands a
+  /// test the structured `Entry` directly. Internal rather than public: redirecting the whole
+  /// diagnostic channel is not something a client of this module should be able to do.
   /// A `Logger` is built per line rather than cached per category. `os_log_create` is cached by
   /// the system, and the alternative — a dictionary keyed by `Area` — returns an optional, which
   /// would drop a line silently on a lookup that cannot fail. That is the wrong trade for a

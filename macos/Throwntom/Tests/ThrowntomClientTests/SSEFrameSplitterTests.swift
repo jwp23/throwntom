@@ -34,4 +34,21 @@ final class SSEFrameSplitterTests: XCTestCase {
       XCTAssertEqual(error as? SSEError, .frameTooLarge)
     }
   }
+
+  func testBufferAtExactlyMaxSizeIsAccepted() throws {
+    // 35:21 RelationalOperatorReplacement (> -> >=): a buffer sitting at exactly maxFrameBytes,
+    // with no complete frame in it, must not throw -- only a buffer strictly larger does.
+    var splitter = SSEFrameSplitter()
+    let data = Data(repeating: UInt8(ascii: "x"), count: SSEFrameSplitter.maxFrameBytes)
+    XCTAssertEqual(try splitter.feed(data), [])
+  }
+
+  func testEarlierLFTerminatorEndsTheFrameBeforeALaterCRLFOne() throws {
+    // 71:48 RelationalOperatorReplacement (<= -> >=): when both an lf and a crlf terminator are
+    // present in one buffer, the earlier one ends the frame. An lf match can never tie with a
+    // crlf match (they start with different bytes), so this only has one correct answer.
+    var splitter = SSEFrameSplitter()
+    let frames = try splitter.feed(Data("data: a\n\ndata: b\r\n\r\n".utf8))
+    XCTAssertEqual(frames.map { String(decoding: $0, as: UTF8.self) }, ["a", "b"])
+  }
 }

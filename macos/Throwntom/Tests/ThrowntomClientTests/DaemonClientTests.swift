@@ -180,6 +180,56 @@ final class DaemonClientTests: XCTestCase {
     XCTAssertEqual(stats.streaks, .init(current: 0, longest: 0))
   }
 
+  /// A fresh client's recorded intent is `.running`, so `start()` must actually dial: it is the
+  /// guard on `intent` and `streamTask` together that decide whether the reconnect loop ever
+  /// begins, and a guard broken either way leaves the stream permanently undialled.
+  func testStartDialsTheEventStreamWhenIntentIsRunning() async throws {
+    let missing = UnixSocketTransport(socketPath: daemon.home.appendingPathComponent("nope.sock").path)
+    let transport = DialCountingTransport(missing)
+    let client = DaemonClient(transport: transport, registrar: registrar, backoff: [.milliseconds(30)])
+    client.start()
+    defer { client.stop() }
+    try await waitUntil("the event stream to be dialled") { transport.dials >= 1 }
+  }
+
+  /// The frame loop's own cancellation guard: a decoded frame must still reach `connection` and
+  /// `state` when the enclosing task has not been cancelled.
+  func testConnectsAfterReceivingTheFirstFrame() async throws {
+    let client = DaemonClient(transport: StubStateTransport(), registrar: registrar)
+    client.start()
+    defer { client.stop() }
+    try await waitUntil("the client to connect") { client.connection == .connected }
+  }
+
+  /// `startStalled` is what tells `.reaching` from `.notAnswering` on the screen, and the two
+  /// must part ways exactly at the third failure past registration, not the fourth.
+  func testServiceReportsNotAnsweringAfterThreeFailuresPastRegistration() async throws {
+    let transport = OutageTransport()
+    let client = DaemonClient(
+      transport: transport,
+      registrar: registrar,
+      backoff: [.milliseconds(1), .milliseconds(1), .milliseconds(1), .seconds(30)],
+    )
+    client.start()
+    defer { client.stop() }
+    try await waitUntil("the third failure past registration to report not answering") {
+      client.serviceStatus == .notAnswering
+    }
+  }
+
+  /// A stop is a fresh footing, not a stall the next Start inherits: `startStalled` from the
+  /// outage being left behind must not survive into the stopped state.
+  func testStoppingTheServiceClearsANotAnsweringStall() async throws {
+    let transport = OutageTransport()
+    let client = DaemonClient(transport: transport, registrar: registrar, backoff: [.milliseconds(1)])
+    client.start()
+    try await waitUntil("the service to report not answering") { client.serviceStatus == .notAnswering }
+
+    await client.stopService()
+
+    XCTAssertFalse(client.startStalled, "stopping the service clears a stall from the outage it is leaving")
+  }
+
   // MARK: Private
 
   // XCTest builds fixtures in setUp, after init, so the property cannot be initialised there.

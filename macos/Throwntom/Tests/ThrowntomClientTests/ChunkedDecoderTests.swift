@@ -15,10 +15,22 @@ final class ChunkedDecoderTests: XCTestCase {
   }
 
   func testChunkedDecoderToleratesExtensionAndUppercaseHex() throws {
-    var decoder = ChunkedDecoder()
-    let out = try decoder.feed(Data("A;name=v\r\n0123456789\r\n0\r\n\r\n".utf8))
+    // Bounded: the body and its trailing terminator arrive in one call, which is the
+    // shape that stalls the decoder if it fails to move past the body phase exactly
+    // when the last body byte matches the announced remaining count.
+    let decoded = expectation(description: "feed decodes an extension-tagged, uppercase-hex chunk")
+    var result = Result<Data, Error>.success(Data())
+    var isFinished = false
+    Thread.detachNewThread {
+      var decoder = ChunkedDecoder()
+      result = Result { try decoder.feed(Data("A;name=v\r\n0123456789\r\n0\r\n\r\n".utf8)) }
+      isFinished = decoder.isFinished
+      decoded.fulfill()
+    }
+    wait(for: [decoded], timeout: 2)
+    let out = try result.get()
     XCTAssertEqual(String(decoding: out, as: UTF8.self), "0123456789")
-    XCTAssertTrue(decoder.isFinished)
+    XCTAssertTrue(isFinished)
   }
 
   func testChunkedDecoderRejectsBadSize() {
@@ -40,5 +52,50 @@ final class ChunkedDecoderTests: XCTestCase {
     XCTAssertThrowsError(try decoder.feed(Data("FFFFFFFF\r\n".utf8))) { error in
       XCTAssertEqual(error as? HTTPParseError, .malformedChunkSize("FFFFFFFF"))
     }
+  }
+
+  func testChunkedDecoderStartsNotFinished() {
+    let decoder = ChunkedDecoder()
+    XCTAssertFalse(decoder.isFinished)
+  }
+
+  func testChunkedDecoderAllowsSizeLineAtByteLimit() {
+    var decoder = ChunkedDecoder()
+    let sizeLinePrefix = String(repeating: "a", count: 64)
+    XCTAssertNoThrow(try decoder.feed(Data(sizeLinePrefix.utf8)))
+  }
+
+  func testChunkedDecoderAllowsChunkAtSizeLimit() {
+    var decoder = ChunkedDecoder()
+    XCTAssertNoThrow(try decoder.feed(Data("100000\r\n".utf8)))
+  }
+
+  func testFeedReturnsWhenBodyBufferIsEmpty() {
+    let returned = expectation(description: "feed returns without more body data")
+    Thread.detachNewThread {
+      var decoder = ChunkedDecoder()
+      _ = try? decoder.feed(Data("5\r\n".utf8))
+      returned.fulfill()
+    }
+    wait(for: [returned], timeout: 2)
+  }
+
+  func testChunkedDecoderRejectsBadTerminatorAsSoonAsTwoBytesArrive() {
+    // Bounded: the body and the (malformed) terminator arrive in one call, the same
+    // exact-body-match shape that can stall the decoder before it ever inspects
+    // the terminator bytes.
+    let rejected = expectation(description: "feed rejects a malformed terminator without hanging")
+    var thrown: Error?
+    Thread.detachNewThread {
+      var decoder = ChunkedDecoder()
+      do {
+        _ = try decoder.feed(Data("3\r\nfooXY".utf8))
+      } catch {
+        thrown = error
+      }
+      rejected.fulfill()
+    }
+    wait(for: [rejected], timeout: 2)
+    XCTAssertEqual(thrown as? HTTPParseError, .malformedChunkTerminator)
   }
 }
