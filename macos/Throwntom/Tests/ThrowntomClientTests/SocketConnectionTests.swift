@@ -216,7 +216,8 @@ final class SocketConnectionTests: XCTestCase {
 
 /// One socket call running on a task of its own, with bounded ways to observe it. Bounded is
 /// the point: a call that never resumes is reported by its deadline, and the test finishes.
-// Every mutable member is read and written under `condition`.
+// `result` is read and written under `condition`; `task` is written once during init, before
+// the instance is handed to another thread, and only read afterwards.
 // swiftlint:disable:next no_unchecked_sendable
 private final class RunningOperation<T: Sendable>: @unchecked Sendable {
 
