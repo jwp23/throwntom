@@ -134,5 +134,21 @@
     "mutator": "NegateConditional",
     "replacement": "!(Task.isCancelled)",
     "reason": "Not an equivalence claim: the mutant is observable and killed by DaemonClientTests.testRegistersTheAgentOnceAndKeepsReportingThePersistentOutage, hand-verified (RED under the mutant: times out after 5.0s waiting for the registration that ends the outage; GREEN restored: passes). The mutated `if !(Task.isCancelled) { return }` returns out of runStream on the very first failed dial, before recordFailure() or registerAgentIfDue() ever run, so the reconnect loop never retries and never registers the launch agent - breaking every test that waits on either. Reported Timeout directly in both of this bead's file-scoped runs; the tool has no per-test scope, so no run can finish within its 120s budget under this mutation for the reasons measured at 117:11's entry above."
+  },
+  {
+    "file": "Sources/ThrowntomClient/HTTPParser.swift",
+    "line": 13,
+    "column": 10,
+    "mutator": "NegateConditional",
+    "replacement": "!(data.count > maxHeadBytes)",
+    "reason": "Not an equivalence claim: the mutant is observable and killed by HTTPParserTests.testIncompleteHeadReturnsNil and HTTPParserTests.testRejectsOversizedHead, hand-verified (RED under the mutant: `swift test --filter HTTPParserTests` fails both, in 0.066s -- XCTAssertNil failed: threw error \"headTooLarge\" on the first, XCTAssertThrowsError failed: did not throw an error on the second; GREEN restored: both pass, whole HTTPParserTests suite green in 0.001s). This file has no other gated mutant and no Timeout mutant anywhere in either of two independent file-scoped runs taken for this bead, so this is not the file+operator-sharing SIGKILL-poisoning shape docs/decisions/swift-mutation-timeout-poisons-a-later-mutant.md describes; reported Crash directly in both runs regardless, with no Timeout in the same report to explain it."
+  },
+  {
+    "file": "Sources/ThrowntomClient/HTTPParser.swift",
+    "line": 13,
+    "column": 21,
+    "mutator": "RelationalOperatorReplacement",
+    "replacement": "<",
+    "reason": "Not an equivalence claim: the mutant is observable and killed by the same two tests as 13:10's entry above, hand-verified the same way (RED: both fail in well under a second; GREEN restored: HTTPParserTests green). `data.count < maxHeadBytes` misfires the same way `!(data.count > maxHeadBytes)` does for every value except data.count == maxHeadBytes, which neither existing test needs to distinguish this from that entry's mutant. Same file, no Timeout mutant present in either of two file-scoped runs, so not the file+operator-sharing poisoning shape either."
   }
 ]
