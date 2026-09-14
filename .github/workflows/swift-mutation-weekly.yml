@@ -91,11 +91,12 @@ jobs:
           chmod +x "$RUNNER_TEMP/bin/swift-mutation-testing"
           macos/mutation-control.sh "$RUNNER_TEMP/bin/swift-mutation-testing"
 
-  # One job per target: the tool has no shard flag, and each target fits well
-  # inside the 6-hour job limit on its own (~1.3 h client, ~2.5 h UI estimated
-  # from the spike).
+  # ADR-016: ThrowntomClient (337 mutants, 195 min measured) fits one job;
+  # ThrowntomUI (1,200 mutants) is split into line-count-balanced file shards
+  # by tools/swiftmutantshard. The UI shard count is repeated in the summary
+  # job's report list, since a matrix cannot read workflow env.
   mutate:
-    name: Mutate (${{ matrix.target }})
+    name: Mutate (${{ matrix.target }} ${{ matrix.index }}/${{ matrix.shards }})
     needs: control
     runs-on: macos-15
     timeout-minutes: 330
@@ -104,7 +105,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [ThrowntomClient, ThrowntomUI]
+        include:
+          - { target: ThrowntomClient, shards: 1, index: 1 }
+          - { target: ThrowntomUI, shards: 8, index: 1 }
+          - { target: ThrowntomUI, shards: 8, index: 2 }
+          - { target: ThrowntomUI, shards: 8, index: 3 }
+          - { target: ThrowntomUI, shards: 8, index: 4 }
+          - { target: ThrowntomUI, shards: 8, index: 5 }
+          - { target: ThrowntomUI, shards: 8, index: 6 }
+          - { target: ThrowntomUI, shards: 8, index: 7 }
+          - { target: ThrowntomUI, shards: 8, index: 8 }
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -130,24 +140,36 @@ jobs:
       # script(1) gives the tool a pseudo-terminal: piped, its stdout is
       # block-buffered and a job killed at its timeout would log no progress
       # at all. script passes the tool's exit status through.
+      # The excludes go to a file first: reading them through a process
+      # substitution would hide a failing swiftmutantshard behind an empty
+      # list, which would silently mutate the whole target in every shard.
       - name: Run swift-mutation-testing
         working-directory: macos/Throwntom
         env:
           TARGET: ${{ matrix.target }}
+          SHARDS: ${{ matrix.shards }}
+          INDEX: ${{ matrix.index }}
         run: |
           chmod +x "$RUNNER_TEMP/bin/swift-mutation-testing"
           rm -rf .swift-mutation-testing-cache
+          (cd ../.. && go run ./tools/swiftmutantshard -sources "macos/Throwntom/Sources/$TARGET" \
+            -shards "$SHARDS" -index "$INDEX") > "$RUNNER_TEMP/excludes.txt"
+          exclude_args=()
+          while IFS= read -r pattern; do
+            exclude_args+=(--exclude "$pattern")
+          done < "$RUNNER_TEMP/excludes.txt"
+          echo "Shard $INDEX/$SHARDS of $TARGET excludes ${#exclude_args[@]} argument(s)."
           script -q /dev/null "$RUNNER_TEMP/bin/swift-mutation-testing" . \
             --testing-framework xctest --timeout 120 --concurrency 1 \
-            --sources-path "Sources/$TARGET" \
-            --output "$RUNNER_TEMP/report-$TARGET.json"
+            --sources-path "Sources/$TARGET" "${exclude_args[@]}" \
+            --output "$RUNNER_TEMP/report-$TARGET-$INDEX.json"
 
       # The JSON report is the forensic record: only it carries killedBy.
       - name: Upload report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: swift-mutation-report-${{ matrix.target }}
-          path: ${{ runner.temp }}/report-${{ matrix.target }}.json
+          name: swift-mutation-report-${{ matrix.target }}-${{ matrix.index }}
+          path: ${{ runner.temp }}/report-${{ matrix.target }}-${{ matrix.index }}.json
           if-no-files-found: error
 
   summary:
@@ -193,10 +215,16 @@ jobs:
         id: gate
         run: |
           set -uo pipefail
+          # Named explicitly, not globbed, so a shard whose report is missing
+          # is an error rather than a smaller clean score. 8 matches the
+          # ThrowntomUI shard count in the mutate matrix.
+          reports=("$RUNNER_TEMP/reports/report-ThrowntomClient-1.json")
+          for index in 1 2 3 4 5 6 7 8; do
+            reports+=("$RUNNER_TEMP/reports/report-ThrowntomUI-$index.json")
+          done
           code=0
           go run ./tools/swiftmutantsgate -equivalents .swift-mutation-equivalents.json \
-            "$RUNNER_TEMP/reports/report-ThrowntomClient.json" \
-            "$RUNNER_TEMP/reports/report-ThrowntomUI.json" > "$RUNNER_TEMP/gate.md" || code=$?
+            "${reports[@]}" > "$RUNNER_TEMP/gate.md" || code=$?
           cat "$RUNNER_TEMP/gate.md"
           echo "code=$code" >> "$GITHUB_OUTPUT"
           [ "$code" -le 1 ]
