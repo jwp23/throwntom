@@ -433,7 +433,8 @@ Schedule supports day aliases: `"weekday"` expands to Mon-Fri, `"weekend"` to Sa
 - `tools/icon-colors.sh` — dominant colours of the app icon as hex (ImageMagick); keeps `DESIGN.md`'s `icon-*` tokens traceable
 - `tools/unmatte-white-background.swift` — recovers the alpha channel of art exported over white; regenerates `docs/images/throwntom.png` from `docs/images/throwntom-source.png` (see `docs/development.md`)
 - `tools/sonar-audit.sh` — reports SonarCloud issues/hotspots on a branch; CI runs it on main to flag drift
-- `tools/swiftmutantsgate/` — fails on any unexcluded non-Killed mutant in swift-mutation-testing JSON reports; the weekly Swift mutation workflow files its output as the tracking issue
+- `tools/swiftmutantsgate/` — fails on any unexcluded Survived, Crash, Timeout or NoCoverage mutant in swift-mutation-testing JSON reports and counts Unviable ones; the weekly Swift mutation workflow files its output as the tracking issue
+- `tools/swiftmutantshard/` — splits a Swift target's files into line-count-balanced shards and prints the `--exclude` patterns for one shard; the weekly Swift mutation workflow runs ThrowntomUI across its shards
 - `tools/dev-quiet.sh` — runs throwntom against an isolated, silent config for manual testing (see [Dev tools](#dev-tools))
 - `tools/mascot-snap.sh` — renders every mascot pose offscreen to PNGs (see `docs/development.md`)
 - `tools/app-capture.sh` — screenshots the app window by window number, no Accessibility permission needed
