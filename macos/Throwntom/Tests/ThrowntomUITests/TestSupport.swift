@@ -246,6 +246,53 @@ final class UnreachableDaemonTransport: DaemonTransport, Sendable {
 
 }
 
+// MARK: - RecordingAgentService
+
+/// The launchd job as a recorder: it notes what it was asked to do instead of running
+/// `launchctl`, so the service verbs the menu bar offers can be exercised without booting out
+/// the agent — and the daemon — of the machine running the tests.
+// `recorded` is only touched under `lock`; LaunchAgentService requires Sendable.
+// swiftlint:disable:next no_unchecked_sendable
+final class RecordingAgentService: LaunchAgentService, @unchecked Sendable {
+
+  // MARK: Internal
+
+  enum Call: Equatable {
+    case register
+    case unregister
+  }
+
+  /// What a fresh machine reports: nothing registered, so `ensureAgentRegistered` registers once
+  /// rather than reloading (`AgentRegistrationPlan.steps(for:)`).
+  var status: AgentStatus {
+    .notRegistered
+  }
+
+  var calls: [Call] {
+    lock.withLock { recorded }
+  }
+
+  func register() throws {
+    lock.withLock { recorded.append(.register) }
+  }
+
+  func unregister() throws {
+    lock.withLock { recorded.append(.unregister) }
+  }
+
+  // MARK: Private
+
+  private let lock = NSLock()
+  private var recorded = [Call]()
+
+}
+
+/// An app whose launchd agent is a recorder rather than the machine's own.
+@MainActor
+func makeEnvironment(transport: DaemonTransport, agent: LaunchAgentService) -> AppEnvironment {
+  AppEnvironment(transport: transport, registrar: SMAppServiceRegistrar(agent: agent))
+}
+
 // MARK: - RecordingRegistrar
 
 /// A launchd stand-in that records what it was asked to do, so the window's service controls can
