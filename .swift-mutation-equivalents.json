@@ -382,5 +382,29 @@
     "mutator": "BooleanLiteralReplacement",
     "replacement": "false",
     "reason": "Proven equivalent, same titles-only call as the returnIsTaken equivalence immediately above (ShortcutList.swift:64-73 only reads `titled.title` and `titled.action` from this MenuModel, never `titled.isEnabled`). Every use of `daemonAvailable` inside MenuModel.timer (MenuModel.swift:30-79) is gated on `state`, which this call passes as the literal `nil`: `available = daemonAvailable ? state.map(TimerActions.available(for:)) ?? [] : []` (line 31) is `[]` on both branches since `state.map` on `nil` is always `nil`; `.start`'s `title: TimerActions.startTitle(for: daemonAvailable ? state : nil)` (line 50) and the pause/resume action `TimerActions.pauseOrResume(for: daemonAvailable ? state?.state : nil)` (line 58) both reduce to the `nil` case on either branch of the ternary because `state` and `state?.state` are already `nil`; `.lunch`/`.meeting`'s `isEnabled: daemonAvailable && state != nil && ...` (lines 72, 76) is `false` regardless because `state != nil` is `false`, and their isEnabled values are titles-only and never read besides. So every field this MenuModel value produces -- title, action identity and the (unread) isEnabled -- is identical whichever way `daemonAvailable` is set. Hand-verified: with this literal flipped to `false`, the full ShortcutSheetTests/ShortcutHintTests/ShortcutRowTests/ShortcutSheetKeyboardTests/ShortcutSheetRenderingTests/MenuCommandsTests set still passes unchanged."
+  },
+  {
+    "file": "Sources/ThrowntomUI/LunchEntryRow.swift",
+    "line": 16,
+    "column": 29,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Not a behavioral-equivalence claim: the app is silent under this mutant. Unobservable by any XCTest: NSSound.beep() is the raw system call with no return value, callback or readable state, and it is a Swift-only overlay (not @objc; class_getClassMethod/responds(to:) return nil/false, probed), so nothing can be swizzled. The seam for this behavior is `alert` one level up, asserted by LunchEntryRowTests.testARefusedLengthBeepsAndLeavesTheFieldOpen; this line is the default's irreducible OS call, and any further seam relocates the literal and reproduces this mutant. Same shape as NewTaskRow.swift:22:29 (adjudicated), SMAppServiceRegistrar.swift:52 and ReminderResponder.swift:157. Brief for .1.32: do not re-derive. Category under review in throwntom-gz9z.6.3."
+  },
+  {
+    "file": "Sources/ThrowntomUI/MeetingEntryRow.swift",
+    "line": 16,
+    "column": 29,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Not a behavioral-equivalence claim: the app is silent under this mutant. Unobservable by any XCTest: NSSound.beep() is the raw system call with no return value, callback or readable state, and it is a Swift-only overlay (not @objc; class_getClassMethod/responds(to:) return nil/false, probed), so nothing can be swizzled. The seam for this behavior is `alert` one level up, asserted by MeetingEntryRowTests.testARefusedLengthBeepsAndLeavesTheFieldOpen; this line is the default's irreducible OS call, and any further seam relocates the literal and reproduces this mutant. Same shape as NewTaskRow.swift:22:29 (adjudicated), SMAppServiceRegistrar.swift:52 and ReminderResponder.swift:157. Brief for .1.32: do not re-derive. Category under review in throwntom-gz9z.6.3."
+  },
+  {
+    "file": "Sources/ThrowntomUI/SnoozeEntryRow.swift",
+    "line": 15,
+    "column": 29,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Not a behavioral-equivalence claim: the app is silent under this mutant. Unobservable by any XCTest: NSSound.beep() is the raw system call with no return value, callback or readable state, and it is a Swift-only overlay (not @objc; class_getClassMethod/responds(to:) return nil/false, probed), so nothing can be swizzled. The seam for this behavior is `alert` one level up, asserted by SnoozeEntryRowTests.testARefusedDurationBeepsAndLeavesTheFieldOpen; this line is the default's irreducible OS call, and any further seam relocates the literal and reproduces this mutant. Same shape as NewTaskRow.swift:22:29 (adjudicated), SMAppServiceRegistrar.swift:52 and ReminderResponder.swift:157. Brief for .1.32: do not re-derive. Category under review in throwntom-gz9z.6.3."
   }
 ]
