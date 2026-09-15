@@ -162,6 +162,18 @@ func hostInWindow(_ rootView: some View) -> (view: NSHostingView<some View>, win
   return (hosting, window)
 }
 
+/// `.onAppear` runs a runloop turn after the view is laid out, and the focus it asks for reaches
+/// AppKit a turn or two after that, so the window is asked repeatedly rather than once. Shared by
+/// every row whose `.onAppear` claims the keyboard: `NewTaskRowTests`, `LunchEntryRowTests`,
+/// `MeetingEntryRowTests`, `SnoozeEntryRowTests`.
+@MainActor
+func waitForKeyboard(in field: NSControl, of window: NSWindow) {
+  let deadline = Date().addingTimeInterval(2)
+  while Date() < deadline, (window.firstResponder as? NSView)?.isDescendant(of: field) != true {
+    RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+  }
+}
+
 /// Walks the AppKit view tree SwiftUI builds to find a `TextField`'s field. Matched by class-name
 /// substring, since the type SwiftUI bridges to is not public API.
 func findTextField(in view: NSView) -> NSControl? {

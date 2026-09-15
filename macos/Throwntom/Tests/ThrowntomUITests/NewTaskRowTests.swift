@@ -168,13 +168,4 @@ final class NewTaskRowTests: XCTestCase {
     try part(layer.rawValue, of: modifierLayers(of: row.body))
   }
 
-  /// `.onAppear` runs a runloop turn after the view is laid out, and the focus it asks for reaches
-  /// AppKit a turn or two after that, so the window is asked repeatedly rather than once.
-  private func waitForKeyboard(in field: NSControl, of window: NSWindow) {
-    let deadline = Date().addingTimeInterval(2)
-    while Date() < deadline, (window.firstResponder as? NSView)?.isDescendant(of: field) != true {
-      RunLoop.current.run(until: Date().addingTimeInterval(0.01))
-    }
-  }
-
 }
