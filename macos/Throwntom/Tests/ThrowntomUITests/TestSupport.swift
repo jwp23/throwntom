@@ -1,4 +1,5 @@
 import Foundation
+import XCTest
 @testable import ThrowntomClient
 @testable import ThrowntomUI
 
@@ -291,6 +292,118 @@ final class RecordingAgentService: LaunchAgentService, @unchecked Sendable {
 @MainActor
 func makeEnvironment(transport: DaemonTransport, agent: LaunchAgentService) -> AppEnvironment {
   AppEnvironment(transport: transport, registrar: SMAppServiceRegistrar(agent: agent))
+}
+
+// MARK: - Reading a built SwiftUI tree
+
+// SwiftUI cannot render a view in a test process, but it does not have to: what a builder block
+// built is still there in the value it returned. Two things are readable, and between them they
+// cover a body statement by statement.
+//
+// The *shape* is the value's own type. `some View` and `some Commands` erase nothing structural:
+// each statement a builder block contributes becomes a generic parameter, so a statement that
+// stops being built changes the type of `body`. `shape(of:)` spells that out.
+//
+// The *wiring* is everything a modifier stored as a value — an action closure, a sheet's content
+// closure, the branch an `if` filled in — reachable with `Mirror` and callable once cast.
+//
+// These helpers are the vocabulary for both, shared rather than re-derived per test file.
+
+/// A value's type, as SwiftUI spells it, with the module names taken out so an expected shape
+/// reads as the view it describes. The opaque context SwiftUI's private types are nested in goes
+/// too: it is an address, and it differs between runs.
+func shape(of value: Any) -> String {
+  var text = String(reflecting: type(of: value))
+  for module in ["SwiftUI.", "ThrowntomUI.", "ThrowntomClient.", "Swift."] {
+    text = text.replacingOccurrences(of: module, with: "")
+  }
+  return text.replacingOccurrences(
+    of: #"\(unknown context at \$[0-9a-f]+\)\."#,
+    with: "",
+    options: .regularExpression,
+  )
+}
+
+/// The name a shape starts with, without its generic parameters.
+func head(_ value: Any) -> String {
+  String(shape(of: value).prefix { $0 != "<" })
+}
+
+func child(_ label: String, of value: Any) throws -> Any {
+  let children = Mirror(reflecting: value).children
+  return try XCTUnwrap(
+    children.first { $0.label == label }?.value,
+    "no \(label) in \(shape(of: value)), which has \(children.compactMap(\.label))",
+  )
+}
+
+func content(of value: Any) throws -> Any {
+  try child("content", of: value)
+}
+
+/// The statements a builder block contributed, out of the `TupleView` it packed them into.
+func tupleParts(of value: Any) throws -> [Any] {
+  Mirror(reflecting: try child("value", of: value)).children.map(\.value)
+}
+
+/// The block a stack lays out, which `VStack` and its siblings keep behind the variadic tree.
+func stackContent(of view: Any) throws -> Any {
+  try content(of: try child("_tree", of: view))
+}
+
+/// A statement's position in a builder block, read as a failure rather than a trap when the
+/// statement is gone: an out-of-range read kills the whole test process, and a mutation run
+/// reads a dead process as a crash rather than as the mutant having been caught.
+func part(_ index: Int, of parts: [Any]) throws -> Any {
+  try XCTUnwrap(
+    parts.indices.contains(index) ? parts[index] : nil,
+    "nothing at position \(index): the block built \(parts.count) of them",
+  )
+}
+
+/// Whether an `if` without an `else` built anything. A builder leaves one as an `Optional` whose
+/// type names the view either way, so the type says what would be drawn and this says whether it
+/// is being drawn now.
+func isBuilt(_ value: Any) -> Bool {
+  Mirror(reflecting: value).displayStyle == .optional && Mirror(reflecting: value).children.first != nil
+}
+
+/// Which half of an `if`/`else` the builder filled in.
+func branch(of view: Any) throws -> String {
+  try XCTUnwrap(Mirror(reflecting: try child("storage", of: view)).children.first?.label)
+}
+
+/// What that half was filled in with.
+func branchContent(of view: Any) throws -> Any {
+  try XCTUnwrap(Mirror(reflecting: try child("storage", of: view)).children.first?.value)
+}
+
+/// A view with what was wrapped around it taken back off: every `.modifier` layer, and the
+/// `if`/`else` storage that holds only the branch that was built.
+func unwrapped(_ view: Any) throws -> Any {
+  var result = view
+  while true {
+    switch head(result) {
+    case "ModifiedContent": result = try content(of: result)
+    case "_ConditionalContent": result = try branchContent(of: result)
+    default: return result
+    }
+  }
+}
+
+/// Every modifier applied to a view, innermost first — one per `.` in the source, in the order
+/// the source wrote them.
+func modifierLayers(of view: Any) -> [Any] {
+  var layers = [Any]()
+  var node = view
+  while
+    let modifier = Mirror(reflecting: node).children.first(where: { $0.label == "modifier" })?.value,
+    let inner = Mirror(reflecting: node).children.first(where: { $0.label == "content" })?.value
+  {
+    layers.append(modifier)
+    node = inner
+  }
+  return layers.reversed()
 }
 
 // MARK: - RecordingRegistrar

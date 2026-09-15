@@ -242,32 +242,6 @@ final class MenuCommandsTests: XCTestCase {
     try part(index, of: try timerMenuParts(of: menus))
   }
 
-  /// A statement's position in a builder block, read as a failure rather than a trap when the
-  /// statement is gone: an out-of-range read kills the whole test process, and a mutation run
-  /// reads a dead process as a crash rather than as the mutant having been caught.
-  private func part(_ index: Int, of parts: [Any]) throws -> Any {
-    try XCTUnwrap(
-      parts.indices.contains(index) ? parts[index] : nil,
-      "nothing at position \(index): the body built \(parts.count) of them",
-    )
-  }
-
-  private func tupleParts(of value: Any) throws -> [Any] {
-    Mirror(reflecting: try child("value", of: value)).children.map(\.value)
-  }
-
-  private func child(_ label: String, of value: Any) throws -> Any {
-    let children = Mirror(reflecting: value).children
-    return try XCTUnwrap(
-      children.first { $0.label == label }?.value,
-      "no \(label) in \(shape(of: value)), which has \(children.compactMap(\.label))",
-    )
-  }
-
-  private func content(of value: Any) throws -> Any {
-    try child("content", of: value)
-  }
-
   /// A `MenuGroups` at some position in the tree, ready to be asked what it builds for an item.
   private func labels(of value: Any) throws -> MenuGroupsLabels {
     try XCTUnwrap(value as? MenuGroupsLabels, "\(shape(of: value)) is not a MenuGroups")
@@ -287,29 +261,6 @@ final class MenuCommandsTests: XCTestCase {
     press()
   }
 
-  /// Which half of an `if`/`else` the builder filled in.
-  private func branch(of view: Any) throws -> String {
-    try XCTUnwrap(Mirror(reflecting: try child("storage", of: view)).children.first?.label)
-  }
-
-  /// What that half was filled in with.
-  private func branchContent(of view: Any) throws -> Any {
-    try XCTUnwrap(Mirror(reflecting: try child("storage", of: view)).children.first?.value)
-  }
-
-  /// A view with what the body wrapped it in taken back off: the `.keyboardShortcut` and
-  /// `.disabled` layers, and the `if`/`else` storage that holds only the branch that was built.
-  private func unwrapped(_ view: Any) throws -> Any {
-    var result = view
-    while true {
-      switch head(result) {
-      case "ModifiedContent": result = try content(of: result)
-      case "_ConditionalContent": result = try branchContent(of: result)
-      default: return result
-      }
-    }
-  }
-
   /// The name a `CommandMenu` shows in the menu bar.
   private func menuName(of command: Any) -> String? {
     guard
@@ -322,20 +273,6 @@ final class MenuCommandsTests: XCTestCase {
       return nil
     }
     return text as? String
-  }
-
-  /// A value's type, as SwiftUI spells it, with the module names taken out so an expected shape
-  /// reads as the menu it describes.
-  private func shape(of value: Any) -> String {
-    var text = String(reflecting: type(of: value))
-    for module in ["SwiftUI.", "ThrowntomUI.", "ThrowntomClient.", "Swift."] {
-      text = text.replacingOccurrences(of: module, with: "")
-    }
-    return text
-  }
-
-  private func head(_ value: Any) -> String {
-    String(shape(of: value).prefix { $0 != "<" })
   }
 
 }
