@@ -358,5 +358,13 @@
     "mutator": "RemoveSideEffects",
     "replacement": "",
     "reason": "Proven equivalent. NewTaskRow.commit()'s catch branch runs only when `model.commitNewTask()` throws (TaskWindowModel.swift), and that function opens with `defer { draft = nil }` (line 70) -- a defer runs before the throw propagates out of the function, so `model.draft` is already nil, and `model.isEditing` (`draft != nil`) already false, by the time this catch block executes. `cancelEdit()` (TaskWindowModel.swift line 64-66) does nothing but `draft = nil`, so calling it here writes nil over an already-nil value: the observable state (draft, isEditing) is byte-identical whether or not line 48 runs. Nothing else reads draft's identity or observes the write count, only its value. Hand-verified: with line 48 deleted, NewTaskRowTests.testTextTheTaskGrammarRefusesClosesTheRow (which drives this exact catch branch and asserts model.isEditing == false afterward) still passes."
+  },
+  {
+    "file": "Sources/ThrowntomUI/NewTaskRow.swift",
+    "line": 22,
+    "column": 29,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Not a behavioral-equivalence claim: the app is silent under this mutant. Unobservable by any XCTest: NSSound.beep() is the raw system call with no return value, callback or readable state, and it is a Swift-only overlay (not @objc; class_getClassMethod/responds(to:) return nil/false, probed), so nothing can be swizzled. The seam for this behavior is `alert` one level up, asserted by NewTaskRowTests.testSubmittingTextTheGrammarRefusesAlertsAndSendsNothing; this line is the default's irreducible OS call, and any further seam relocates the literal and reproduces this mutant. Same shape as SMAppServiceRegistrar.swift:52 and ReminderResponder.swift:157. Category under review in throwntom-gz9z.6.3."
   }
 ]
