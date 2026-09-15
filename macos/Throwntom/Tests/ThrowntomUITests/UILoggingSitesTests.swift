@@ -97,6 +97,26 @@ final class UILoggingSitesTests: XCTestCase {
   /// The command line is what the user typed, so it is the one thing that must not reach the log,
   /// and the daemon quotes it straight back in its refusal (internal/core/core.go's
   /// "unknown command: %s"). The entry names the operation and the status, and nothing else.
+  func testARefusedMeetingRequestIsRecorded() async throws {
+    let recorder = LogRecorder()
+    let client = DaemonClient(transport: RefusingUITransport(), registrar: RecordingRegistrar())
+
+    DaemonDispatch.perform(MeetingRequest.start(minutes: 30), on: client)
+    try await waitUntil { !recorder.messages.isEmpty }
+
+    XCTAssertTrue(recorder.messages.contains("send a meeting request failed: http 409"), "\(recorder.messages)")
+  }
+
+  func testARefusedLunchRequestIsRecorded() async throws {
+    let recorder = LogRecorder()
+    let client = DaemonClient(transport: RefusingUITransport(), registrar: RecordingRegistrar())
+
+    DaemonDispatch.perform(LunchRequest.start(minutes: 30), on: client)
+    try await waitUntil { !recorder.messages.isEmpty }
+
+    XCTAssertTrue(recorder.messages.contains("send a lunch request failed: http 409"), "\(recorder.messages)")
+  }
+
   func testARefusedCommandIsRecordedWithoutTheLineTheUserTyped() async throws {
     let recorder = LogRecorder()
     let client = DaemonClient(transport: RefusingUITransport(), registrar: RecordingRegistrar())

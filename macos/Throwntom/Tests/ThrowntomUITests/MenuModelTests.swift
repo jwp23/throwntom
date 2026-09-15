@@ -259,22 +259,77 @@ final class ViewMenuModelTests: XCTestCase {
 @MainActor
 final class MenuGroupsTests: XCTestCase {
 
-  func testBodyBuilds() {
+  // MARK: Internal
+
+  /// `body` and `groupView` both return `some View`, so there is no public API that lets a test
+  /// read what shape they built. Every test below reflects the actual `TupleView`/`ForEach`
+  /// storage instead of only calling the method and discarding the result -- the discipline
+  /// `MenuGroups.swift`'s own doc comment on `groupView` asks for.
+  func testBodyRendersEachGroupThroughGroupView() {
     let menu = MenuModel.timer(state: makeState(phase: .idle), returnIsTaken: false, daemonAvailable: true)
-    _ = MenuGroups(menu: menu) { item in Text(item.title) }.body
+    let groups = MenuGroups(menu: menu) { item in Text(item.title) }
+
+    XCTAssertTrue(
+      typeDescription(groups.body).contains("TupleView"),
+      "the outer ForEach must build each group by calling groupView(index:group:)",
+    )
   }
 
   func testFirstGroupHasNoLeadingDivider() {
     let menu = MenuModel.timer(state: makeState(phase: .idle), returnIsTaken: false, daemonAvailable: true)
     let groups = MenuGroups(menu: menu) { item in Text(item.title) }
-    _ = groups.groupView(index: 0, group: menu.groups[0])
+
+    XCTAssertNil(divider(in: groups.groupView(index: 0, group: menu.groups[0])), "no divider before the first group")
   }
 
   func testLaterGroupsGetADivider() {
     let menu = MenuModel.timer(state: makeState(phase: .idle), returnIsTaken: false, daemonAvailable: true)
     XCTAssertGreaterThan(menu.groups.count, 1, "the divider branch needs a second group to exercise")
     let groups = MenuGroups(menu: menu) { item in Text(item.title) }
-    _ = groups.groupView(index: 1, group: menu.groups[1])
+
+    guard let divider = divider(in: groups.groupView(index: 1, group: menu.groups[1])) else {
+      return XCTFail("expected a divider before a later group")
+    }
+    XCTAssertEqual(typeDescription(divider), "SwiftUI.Divider")
+  }
+
+  func testGroupViewRendersEachItemWithTheSuppliedLabel() {
+    let menu = MenuModel.timer(state: makeState(phase: .idle), returnIsTaken: false, daemonAvailable: true)
+    let groups = MenuGroups(menu: menu) { item in Text(item.title) }
+
+    guard let content = itemContent(in: groups.groupView(index: 0, group: menu.groups[0])) else {
+      return XCTFail("expected the group's items to be rendered through a ForEach")
+    }
+    XCTAssertTrue(typeDescription(content).contains("SwiftUI.Text"), "each item must be built with the supplied label")
+  }
+
+  // MARK: Private
+
+  private func typeDescription(_ value: Any) -> String {
+    String(reflecting: type(of: value))
+  }
+
+  /// `groupView`'s return value, unwrapped one level from the `TupleView` SwiftUI actually
+  /// builds. `nil` when the mutant collapsed it to something else entirely (a bare
+  /// `Optional<Divider>`, say), not just when the divider itself is absent.
+  private func tupleValue(in view: Any) -> Any? {
+    Mirror(reflecting: view).children.first(where: { $0.label == "value" })?.value
+  }
+
+  /// The `if index > 0 { Divider() }` half of `groupView`'s tuple, unwrapped: the value the `if`
+  /// actually produced, or `nil` when it produced nothing.
+  private func divider(in view: Any) -> Any? {
+    guard let tuple = tupleValue(in: view) else { return nil }
+    guard let wrapped = Mirror(reflecting: tuple).children.first(where: { $0.label == ".0" })?.value else { return nil }
+    return Mirror(reflecting: wrapped).children.first?.value
+  }
+
+  /// The `ForEach(group) { item in label(item) }` half of `groupView`'s tuple: the closure that
+  /// renders one item, whatever it was built to return.
+  private func itemContent(in view: Any) -> Any? {
+    guard let tuple = tupleValue(in: view) else { return nil }
+    guard let forEach = Mirror(reflecting: tuple).children.first(where: { $0.label == ".1" })?.value else { return nil }
+    return Mirror(reflecting: forEach).children.first(where: { $0.label == "content" })?.value
   }
 
 }

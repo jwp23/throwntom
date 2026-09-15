@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import XCTest
 @testable import ThrowntomUI
@@ -37,6 +38,23 @@ final class LiveValueTests: XCTestCase {
   /// and nothing else.
   func testALineWithNothingCountingClaimsNoValueAtAll() {
     XCTAssertNil(LiveValue(label: "Timer service stopped", value: nil).value)
+  }
+
+  /// The counting branch must still put `content` on screen: it decorates the same view with
+  /// accessibility, not a substitute for it. Hosted and measured so a mutant that dropped `content`
+  /// out of the chain (leaving an empty view) reports a fitted size of zero instead of the sized
+  /// text's.
+  func testACountingLineStillShowsItsContentOnScreen() {
+    let host = NSHostingView(rootView: Text("24:59").frame(width: 80, height: 24).liveValue(label: "Pomodoro", value: "24:59"))
+
+    XCTAssertGreaterThan(host.fittingSize.height, 0)
+  }
+
+  /// The still branch (no value) must also keep `content` on screen, for the same reason.
+  func testAStillLineStillShowsItsContentOnScreen() {
+    let host = NSHostingView(rootView: Text("Idle").frame(width: 80, height: 24).liveValue(label: "Idle", value: nil))
+
+    XCTAssertGreaterThan(host.fittingSize.height, 0)
   }
 
 }

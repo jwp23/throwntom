@@ -34,4 +34,30 @@ final class UnitsTests: XCTestCase {
     XCTAssertEqual(path.boundingRect.midX, 27, accuracy: 0.01)
     XCTAssertEqual(path.boundingRect.midY, 42, accuracy: 0.01)
   }
+
+  /// The centre point is rotation-invariant (the ellipse is drawn about the origin, then moved),
+  /// so only its axes prove the degrees-to-radians conversion: at 90 degrees the long and short
+  /// axes swap.
+  func testRotatedEllipseSwapsItsAxesAtNinetyDegrees() {
+    let units = Units(rect: CGRect(x: 0, y: 0, width: 100, height: 100))
+    var path = Path()
+    path.ellipse(units, 50, 50, 10, 5, rotation: 90)
+    XCTAssertEqual(path.boundingRect.width, 10, accuracy: 0.01)
+    XCTAssertEqual(path.boundingRect.height, 20, accuracy: 0.01)
+  }
+
+  func testRoundedRectSizesFromTwiceItsHalfWidthAndHalfHeight() {
+    let units = Units(rect: CGRect(x: 0, y: 0, width: 100, height: 100))
+    var path = Path()
+    path.roundedRect(units, 50, 50, 20, 10, radius: 5)
+    XCTAssertEqual(path.boundingRect.width, 40, accuracy: 0.01)
+    XCTAssertEqual(path.boundingRect.height, 20, accuracy: 0.01)
+  }
+
+  func testPolygonClosesBackToItsStartingPoint() {
+    let units = Units(rect: CGRect(x: 0, y: 0, width: 100, height: 100))
+    var path = Path()
+    path.polygon(units, [(0, 0), (10, 0), (10, 10)])
+    XCTAssertEqual(path.currentPoint, CGPoint(x: 0, y: 0))
+  }
 }

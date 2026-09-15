@@ -84,6 +84,29 @@ final class ReminderPostingTests: XCTestCase {
     XCTAssertEqual(presenter.posts, [.init(title: "Throwntom", body: "Short break 5 min")])
   }
 
+  /// `withObservationTracking`'s `onChange` fires once and then falls silent, so following the
+  /// daemon for more than a single frame means re-installing it after every change. A second
+  /// frame arriving on the event stream is what exercises that: without the re-install, it is
+  /// never seen.
+  func testASecondFrameOnTheEventStreamStillTakesTheBannerDown() async throws {
+    let presenter = StubReminderPresenter()
+    let environment = AppEnvironment(
+      transport: try StubTransport(states: [
+        makeState(phase: .awaitingConfirm, nextStage: shortBreak),
+        makeState(phase: .shortBreak),
+      ]),
+      presenter: presenter,
+    )
+    defer { environment.client.stop() }
+    environment.responder.followDaemonState()
+
+    environment.start()
+
+    try await waitUntil { !presenter.posts.isEmpty }
+    try await waitUntil { presenter.withdrawals > 0 }
+    XCTAssertEqual(presenter.withdrawals, 1)
+  }
+
   func testTheAppPostsTheMorningNudgeTheDaemonIsWaitingOn() async throws {
     let presenter = StubReminderPresenter()
     let responder = try makeResponder(presenter)
@@ -224,6 +247,19 @@ final class ReminderPostingTests: XCTestCase {
     await responder.present(makeState(phase: .awaitingConfirm, nextStage: shortBreak, reminderRings: 5))
 
     XCTAssertEqual(presenter.chimes, 2)
+  }
+
+  /// A wait that has not rung yet must stay quiet even if a previous, unrelated wait left a
+  /// nonzero ring count behind: zero rings is not itself a ring, whatever came before it.
+  func testAWaitWithNoRingsYetDoesNotChime() async throws {
+    let presenter = StubReminderPresenter()
+    let responder = try makeResponder(presenter)
+
+    await responder.present(makeState(phase: .awaitingConfirm, nextStage: shortBreak, reminderRings: 5))
+    let afterTheFirstWait = presenter.chimes
+    await responder.present(makeState(phase: .awaitingConfirm, nextStage: shortBreak, reminderRings: 0))
+
+    XCTAssertEqual(afterTheFirstWait, presenter.chimes, "a wait with zero rings has not rung yet")
   }
 
   /// A repeat of the state the app has already seen is not a new ring, so it stays quiet.

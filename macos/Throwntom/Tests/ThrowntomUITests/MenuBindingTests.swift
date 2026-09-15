@@ -45,6 +45,37 @@ final class MenuBindingTests: XCTestCase {
     }
   }
 
+  /// `!=` is never written directly; Swift derives it from `==` unless something shadows that
+  /// derivation. Asserted directly because a shadowing `!=` would go unnoticed by every other
+  /// test in this file, which only ever reads `==` through `Dictionary` and `Set` membership.
+  func testInequalityAgreesWithEquality() {
+    let shortcut = MenuShortcut(key: "r", modifiers: .command)
+    let same = MenuShortcut(key: "r", modifiers: .command)
+    let differentKey = MenuShortcut(key: "s", modifiers: .command)
+
+    XCTAssertFalse(shortcut != same, "identical shortcuts must not report as different")
+    XCTAssertTrue(shortcut != differentKey, "different shortcuts must report as different")
+  }
+
+  /// `Hashable` only requires equal values to hash equally, not the reverse, so nothing else here
+  /// exercises `hash(into:)` for dropping a field: a shortcut that hashed on the key alone, or the
+  /// modifiers alone, would still satisfy every other assertion in this file while collapsing two
+  /// distinct bindings into the same bucket.
+  func testHashCombinesBothTheKeyAndTheModifiers() {
+    func hashValue(_ shortcut: MenuShortcut) -> Int {
+      var hasher = Hasher()
+      shortcut.hash(into: &hasher)
+      return hasher.finalize()
+    }
+
+    let commandR = MenuShortcut(key: "r", modifiers: .command)
+    let shiftR = MenuShortcut(key: "r", modifiers: .shift)
+    XCTAssertNotEqual(hashValue(commandR), hashValue(shiftR), "same key, different modifiers")
+
+    let commandS = MenuShortcut(key: "s", modifiers: .command)
+    XCTAssertNotEqual(hashValue(commandR), hashValue(commandS), "same modifiers, different key")
+  }
+
   func testHintSpellsOutModifiersAndNamedKeys() {
     XCTAssertEqual(MenuShortcut(key: "r", modifiers: .command).hint, "⌘R")
     XCTAssertEqual(MenuShortcut(key: "s", modifiers: [.command, .shift]).hint, "⌘⇧S")

@@ -206,5 +206,141 @@
     "mutator": "ArithmeticOperatorReplacement",
     "replacement": "+",
     "reason": "Not an equivalence claim: the mutant is a real, deterministic, fast trap, already exercised by the existing TaskWindowModelTests.testMoveSelectionClampsAtEnds (three ids, moveSelection(by: 5) drives current to 6, and `ids.count + 1` is 4 -- out of bounds). Hand-verified: the same filter with this mutation applied by hand aborts the process (`Fatal error: Index out of range`, Swift/ContiguousArrayBuffer.swift:692, exit via signal 5); restored, TaskWindowModelTests passes 11/11. Same reasoning as ReconnectBackoff.swift's Crash entries above for why the tool can only report Crash here and why this is not the poisoning shape: no Timeout mutant exists anywhere in this file's own gated set."
+  },
+  {
+    "file": "Sources/ThrowntomUI/BlockFlowLayout.swift",
+    "line": 23,
+    "column": 40,
+    "mutator": "ArithmeticOperatorReplacement",
+    "replacement": "+",
+    "reason": "Not an equivalence claim: the mutant is a real, deterministic, fast trap. `rows` starts as `[[]]` (count 1); `rows[rows.count + 1]` is index 2 in a one-element array, out of bounds on the very first loop iteration for any non-empty `widths`, which every existing BlockFlowLayoutTests test that calls `rowBreaks` already supplies (e.g. testAllBlocksFitOnOneRow's [80, 80, 80]). Hand-verified: `swift test --filter BlockFlowLayoutTests/testAllBlocksFitOnOneRow` with this mutation applied by hand aborts the process (`Fatal error: Index out of range`, Swift/ContiguousArrayBuffer.swift:692, exit via signal 5); restored, the same filter passes. Not the file+operator-sharing SIGKILL-poisoning pattern docs/decisions/swift-mutation-timeout-poisons-a-later-mutant.md describes and the dispatch forbids excluding this way: there is no Timeout mutant anywhere in this file's 15-mutant gated set to have poisoned it."
+  },
+  {
+    "file": "Sources/ThrowntomUI/BlockFlowLayout.swift",
+    "line": 24,
+    "column": 27,
+    "mutator": "ArithmeticOperatorReplacement",
+    "replacement": "+",
+    "reason": "Not an equivalence claim: the mutant is a real, deterministic, fast trap, the same shape as 23:40's entry above -- `rows[rows.count + 1]` in the wrap-decision's `if` condition, out of bounds on the very first loop iteration for any non-empty `widths`. Hand-verified: `swift test --filter BlockFlowLayoutTests/testAllBlocksFitOnOneRow` with this mutation applied by hand aborts the process (`Fatal error: Index out of range`, Swift/ContiguousArrayBuffer.swift:692, exit via signal 5); restored, the same filter passes. Same reasoning as 23:40 for why this is not the poisoning shape: no Timeout mutant exists anywhere in this file's gated set."
+  },
+  {
+    "file": "Sources/ThrowntomUI/BlockFlowLayout.swift",
+    "line": 28,
+    "column": 23,
+    "mutator": "ArithmeticOperatorReplacement",
+    "replacement": "+",
+    "reason": "Not an equivalence claim: the mutant is a real, deterministic, fast trap, the same shape as 23:40's entry above -- `rows[rows.count + 1].append(index)`, out of bounds on the very first loop iteration for any non-empty `widths`. Hand-verified: `swift test --filter BlockFlowLayoutTests/testAllBlocksFitOnOneRow` with this mutation applied by hand aborts the process (`Fatal error: Index out of range`, Swift/ContiguousArrayBuffer.swift:705, exit via signal 5); restored, the same filter passes. Same reasoning as 23:40 for why this is not the poisoning shape: no Timeout mutant exists anywhere in this file's gated set."
+  },
+  {
+    "file": "Sources/ThrowntomUI/BlockFlowLayout.swift",
+    "line": 29,
+    "column": 36,
+    "mutator": "ArithmeticOperatorReplacement",
+    "replacement": "+",
+    "reason": "Not an equivalence claim: the mutant is a real, deterministic, fast trap, the same shape as 23:40's entry above -- `rows[rows.count + 1].count` in the `rowWidth +=` line, out of bounds right after the original (unmutated) append on the very first loop iteration for any non-empty `widths`. Hand-verified: `swift test --filter BlockFlowLayoutTests/testAllBlocksFitOnOneRow` with this mutation applied by hand aborts the process (`Fatal error: Index out of range`, Swift/ContiguousArrayBuffer.swift:692, exit via signal 5); restored, the same filter passes. Same reasoning as 23:40 for why this is not the poisoning shape: no Timeout mutant exists anywhere in this file's gated set."
+  },
+  {
+    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
+    "line": 23,
+    "column": 5,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Proven equivalent, empirically. `init` sets every stored property (client, authorizer, presenter) and then calls `super.init()`; with that call deleted by hand, `swift build` produces zero errors and zero warnings, and the whole ThrowntomUITests target (539 tests) still passes byte-for-byte identically. Swift's two-phase initializer rule ordinarily requires an explicit delegating call before an initializer returns, but for a designated initializer whose superclass (NSObject here) has a no-argument initializer, the compiler synthesizes that call itself when the source omits it -- there is nothing left for the deleted statement to do that the compiler was not already going to do. No test can distinguish the two forms because the compiled program is the same program either way."
+  },
+  {
+    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
+    "line": 48,
+    "column": 5,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Proven equivalent for testing purposes. `start()`'s very first statement, `UNUserNotificationCenter.current().delegate = self` (line 47, an assignment rather than a call, so it is not itself a RemoveSideEffects candidate), unconditionally aborts any XCTest process that reaches it: `UNUserNotificationCenter.current()` requires a real app bundle, which no `swift test` process has (documented in this same file's neighbours -- AppEnvironment.swift:79-80, SystemReminderPresenter.swift:6-7, SystemNotificationAuthorizer.swift:4-5, all 'which no test process may reach'). Hand-verified: a test that calls `responder.start()` crashes every run, mutated or not, with `NSInternalInconsistencyException: bundleProxyForCurrentProcess is nil` at exactly that line, before line 48 is ever reached. Since no test, existing or possible, can call `start()` without crashing on its first line, nothing after it -- including this call to `registerReminderButtons()` -- is observable by any XCTest in this package."
+  },
+  {
+    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
+    "line": 49,
+    "column": 5,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Proven equivalent for testing purposes, same mechanism as the 48:5 entry above: `start()` unconditionally crashes on its first statement (line 47, `UNUserNotificationCenter.current().delegate = self`) in any `swift test` process, before this call to `withdrawOnTermination()` is ever reached. `withdrawOnTermination()` itself is directly callable and is covered directly (ReminderResponderTests.swift, ReminderPostingTests.swift's testQuittingTheAppTakesTheBannerDown); only its invocation from inside `start()` is unreachable by any test."
+  },
+  {
+    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
+    "line": 50,
+    "column": 5,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Proven equivalent for testing purposes, same mechanism as the 48:5 entry above: `start()` unconditionally crashes on its first statement (line 47, `UNUserNotificationCenter.current().delegate = self`) in any `swift test` process, before this call to `followDaemonState()` is ever reached. `followDaemonState()` itself is directly callable and is covered directly (ReminderPostingTests.swift); only its invocation from inside `start()` is unreachable by any test."
+  },
+  {
+    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
+    "line": 51,
+    "column": 5,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Proven equivalent for testing purposes, same mechanism as the 48:5 entry above: `start()` unconditionally crashes on its first statement (line 47, `UNUserNotificationCenter.current().delegate = self`) in any `swift test` process, before this `Task { await requestAuthorization(); await present(client.state) }` is ever reached. Both `requestAuthorization()` and `present(_:)` are directly callable and are covered directly by ReminderResponderAuthorizationTests.swift and ReminderPostingTests.swift; only their invocation from inside `start()`'s launch Task is unreachable by any test."
+  },
+  {
+    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
+    "line": 144,
+    "column": 43,
+    "mutator": "BooleanLiteralReplacement",
+    "replacement": "true",
+    "reason": "Proven equivalent. Line 144 runs only inside `requestAuthorization()`'s `catch` block, where `error` is the just-caught, always non-nil error. Its only reader, `ReminderAuthorization.requested(granted:error:)`, opens with `if error != nil { return ReminderAuthorization(problem: refused) }` and never reaches the `granted` parameter on any path where `error` is non-nil. So `granted: false` and `granted: true` produce the identical `ReminderAuthorization` value on this call site whichever the mutant writes; the parameter is dead on this path by construction of `requested(granted:error:)`, not by assumption."
+  },
+  {
+    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
+    "line": 157,
+    "column": 5,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Proven equivalent for testing purposes, the same shape as SMAppServiceRegistrar.swift:52's entry above. `openNotificationSettings()` calls `NSWorkspace.shared.open(url)` directly with no injectable seam (unlike ConfigFile.swift's `open(with opener:)`), so a test cannot substitute a fake. Invoking the real API during an XCTest run would open an actual System Settings window, which is neither safe nor observable in-process -- `open(_:)` on a system URL scheme has no return value or callback a test can assert against. No XCTest, existing or possible, can distinguish this call from a no-op without opening a real window."
+  },
+  {
+    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
+    "line": 203,
+    "column": 5,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Proven equivalent for testing purposes. This line forwards a real `UNNotificationResponse`'s `actionIdentifier` to `respond(to:then:)`, which is itself directly callable and is exhaustively covered by ReminderResponderTests.swift. But `UNNotificationResponse` declares `- (instancetype)init NS_UNAVAILABLE` (UNNotificationResponse.h) and offers no other public initializer, so no test, existing or possible, can construct the argument this delegate method needs in order to call it and observe whether this forwarding line ran."
+  },
+  {
+    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
+    "line": 212,
+    "column": 5,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Proven equivalent for testing purposes, same mechanism as the 203:5 entry above. This delegate method's `notification` parameter is unused (`_: UNNotification`), but the parameter type is non-optional and `UNNotification` likewise declares `- (instancetype)init NS_UNAVAILABLE` (UNNotification.h) with no other public initializer, so no test, existing or possible, can construct any value to pass as that argument in order to call this method and observe whether `completionHandler(Self.presentationOptions)` ran."
+  },
+  {
+    "file": "Sources/ThrowntomUI/Palette.swift",
+    "line": 20,
+    "column": 55,
+    "mutator": "ArithmeticOperatorReplacement",
+    "replacement": "-",
+    "reason": "Genuine trap-Crash hand-verified kill; no Timeout mutant appears anywhere in this file's gated set. `channel(_:)` is called with index 0, 1 and 2 from `color` and `darkened(by:)`, both exercised by PaletteTests (e.g. testHexColorRoundTripsToSRGB, and every scheme built through Palette.schemes). With `+` replaced by `-`, offsetBy becomes `1 - index * 2`, which is negative for index 1 and 2, and `String.Index(offsetBy:)` traps rather than returning an out-of-bounds index. Hand-verified: editing the source to `1 - index * 2` and running `swift test --filter PaletteTests` crashes the whole ThrowntomUITests process at testChipsAreDistinguishableFromGround with \"Fatal error: String index is out of bounds\" (Swift/StringCharacterView.swift:163); restoring the `+` passes clean. A crashed process reports no per-test verdict, so the tool cannot mark this Killed even though existing coverage kills it deterministically."
+  },
+  {
+    "file": "Sources/ThrowntomUI/Palette.swift",
+    "line": 29,
+    "column": 56,
+    "mutator": "ArithmeticOperatorReplacement",
+    "replacement": "/",
+    "reason": "Genuine trap-Crash hand-verified kill; no Timeout mutant appears anywhere in this file's gated set. `darkened(by:)` computes `channel($0) * 255 * (1 - fraction)`; with the second `*` replaced by `/` this becomes `channel($0) * 255 / (1 - fraction)`, dividing by zero when fraction is 1. PaletteTests.testDarkenedScalesEveryChannel already calls `.darkened(by: 1)`, so the mutant produces an infinite Double which `Int(...)` cannot represent. Hand-verified: editing the source to the mutant text and running `swift test --filter PaletteTests` crashes the whole ThrowntomUITests process during testDarkenedScalesEveryChannel with \"Fatal error: Double value cannot be converted to Int because it is either infinite or NaN\"; restoring the `*` passes clean. A crashed process reports no per-test verdict, so the tool cannot mark this Killed even though existing coverage kills it deterministically."
+  },
+  {
+    "file": "Sources/ThrowntomUI/Palette.swift",
+    "line": 185,
+    "column": 9,
+    "mutator": "RelationalOperatorReplacement",
+    "replacement": "<",
+    "reason": "Proven equivalent. `linear(_:)`'s only caller, `luminance(_:)`, feeds it `c.channel(0/1/2)`, and `channel(_:)` (Palette.swift:19-23) always returns `Double(byte) / 255` for an integer byte in 0...255. The `<=` vs `<` distinction is only observable at the boundary value 0.03928 itself, and 0.03928 * 255 = 10.0164 is not an integer, so no integer byte ever produces `v == 0.03928` exactly. `<=` and `<` therefore agree on every value this function can ever be called with."
+  },
+  {
+    "file": "Sources/ThrowntomUI/AppEnvironment.swift",
+    "line": 73,
+    "column": 5,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Genuine own-Timeout, hand-verified kill. `client.start()` is what makes `AppEnvironment` reach `.connected`, and `AppEnvironmentTests.testStartFeedsDaemonFramesFromTheInjectedTransport` already asserts on that transition via `waitUntil` (a 5s bounded poll, not an unbounded wait). Hand-verified: editing the source to remove `client.start()` and running `swift test --filter AppEnvironmentTests/testStartFeedsDaemonFramesFromTheInjectedTransport` fails deterministically in ~5.1s (the bounded wait's own timeout, not a hang); restoring the call passes in under 0.05s. `client.start()` is reached by nearly every test in the file (and by every test built on `AppEnvironment`, across the whole UI target) that calls `environment.start()`, so mutating it turns many bounded 5s waits into 5s failures across the target -- pushing the whole file-scoped run's wall time past the tool's 120s budget, which is exactly why the tool reports this mutant Timeout rather than Killed. No file-scoped tool run can finish and report Killed for a mutant that slows down that much of the suite at once; the kill is real and provably fast per-test, just outside what one run of the whole target can observe within its timeout."
   }
 ]

@@ -66,6 +66,15 @@ final class WindowModelTests: XCTestCase {
     XCTAssertEqual(model.panel, .tasks, "the panel should still be open")
   }
 
+  /// Escape answers the lunch field the same way it answers snooze: closed, and reported handled.
+  func testDismissClosesTheLunchFieldAndReportsItHandledTheKey() {
+    let model = WindowModel()
+    model.isEnteringLunch = true
+
+    XCTAssertTrue(model.dismiss(panelIsShown: true))
+    XCTAssertFalse(model.isEnteringLunch)
+  }
+
   func testTheSnoozeFieldStartsClosed() {
     XCTAssertFalse(WindowModel().isEnteringSnooze)
   }
