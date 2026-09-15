@@ -93,7 +93,10 @@ final class StatsPanelTests: XCTestCase {
   /// The legend wraps within whatever width the panel is given rather than spilling past it: a
   /// render proposed a width narrower than the legend's one-line length still reports back close
   /// to that width, because `fixedSize(horizontal: false, ...)` lets it wrap instead of demanding
-  /// its own ideal (single-line) width. StatsPanel.swift:66:69.
+  /// its own ideal (single-line) width. The height floor pins this to the `.loaded` branch: the
+  /// `.failed` branch's one-sentence render never clears it (measured 63pt at this same
+  /// proposal), so a future bug that renders the wrong `switch` case can't pass this test on a
+  /// borrowed, coincidentally-narrow width. StatsPanel.swift:66:69.
   func testTheLegendWrapsWithinTheGivenWidthInsteadOfSpillingPastIt() async throws {
     let transport = try StubTransport(states: [])
     transport.statsBody = body
@@ -102,47 +105,78 @@ final class StatsPanelTests: XCTestCase {
 
     let size = try await renderedSize(panel, proposing: ProposedViewSize(width: 150, height: nil))
 
+    XCTAssertGreaterThan(size.height, Self.loadedBranchHeightFloor, "this rendered the .failed branch, not .loaded")
     XCTAssertLessThan(size.width, 300, "the legend demanded its own width instead of wrapping to fit")
   }
 
-  /// The legend grows to fit its wrapped lines rather than being clipped to whatever height the
-  /// panel is offered: proposing a height far shorter than the wrapped legend needs still reports
-  /// back a taller render, because `fixedSize(..., vertical: true)` refuses the offered height.
-  /// StatsPanel.swift:66:86.
+  /// The legend grows past a squeeze rather than being clipped to it, measured as how much height
+  /// the squeeze actually took away from the legend's own unconstrained size — not the panel's
+  /// absolute rendered height, which also grows with `StatsRows.rows`' row count and would erode
+  /// an absolute threshold's headroom as rows are added. Row count moves the unconstrained and
+  /// squeezed renders by the same amount (the header and grid are unaffected by this mutant), so
+  /// their difference isolates the legend's own compression regardless of how many rows exist.
+  /// The height floor on the squeezed render pins this to the `.loaded` branch, the same way the
+  /// width test above does. StatsPanel.swift:66:86.
   func testTheLegendGrowsToFitInsteadOfBeingClippedToTheOfferedHeight() async throws {
     let transport = try StubTransport(states: [])
     transport.statsBody = body
     let environment = AppEnvironment(transport: transport)
     let panel = StatsPanel(client: environment.client, scheme: Palette.scheme(for: .work))
 
-    let size = try await renderedSize(panel, proposing: ProposedViewSize(width: 150, height: 40))
+    let unconstrained = try await renderedSize(panel, proposing: ProposedViewSize(width: 150, height: nil))
+    let squeezed = try await renderedSize(panel, proposing: ProposedViewSize(width: 150, height: 40))
 
-    XCTAssertGreaterThan(size.height, 200, "the legend was clipped to the offered height instead of growing to fit")
+    XCTAssertGreaterThan(squeezed.height, Self.loadedBranchHeightFloor, "this rendered the .failed branch, not .loaded")
+    XCTAssertLessThan(
+      unconstrained.height - squeezed.height,
+      130,
+      "the legend was clipped to the offered height instead of growing past it",
+    )
   }
 
   /// The failure sentence wraps within whatever width the panel is given, the same as the legend
-  /// does. StatsPanel.swift:69:60.
+  /// does. The height ceiling pins this to the `.failed` branch: the `.loaded` branch's grid at
+  /// this same narrow proposal renders far past it (measured 529pt, against a 115pt `.failed`
+  /// baseline), and the width alone can't tell the branches apart here — both report the same
+  /// proposed width back. StatsPanel.swift:69:60.
   func testTheFailureMessageWrapsWithinTheGivenWidthInsteadOfSpillingPastIt() async throws {
     let environment = AppEnvironment(transport: UnreachableDaemonTransport())
     let panel = StatsPanel(client: environment.client, scheme: Palette.scheme(for: .work))
 
     let size = try await renderedSize(panel, proposing: ProposedViewSize(width: 60, height: 40))
 
+    XCTAssertLessThan(size.height, Self.failedBranchHeightCeiling, "this rendered the .loaded branch, not .failed")
     XCTAssertLessThan(size.width, 150, "the failure message demanded its own width instead of wrapping to fit")
   }
 
   /// The failure sentence grows to fit rather than being clipped to the offered height, the same
-  /// as the legend does. StatsPanel.swift:69:77.
+  /// as the legend does. The ceiling above the behavioural assertion pins this to the `.failed`
+  /// branch the same way the width test above does — there's no separate dimension to check here
+  /// (both branches report the same proposed width), so the two bounds together (`> 80`, `<
+  /// failedBranchHeightCeiling`) box the height into a band only `.failed` can land in.
+  /// StatsPanel.swift:69:77.
   func testTheFailureMessageGrowsToFitInsteadOfBeingClippedToTheOfferedHeight() async throws {
     let environment = AppEnvironment(transport: UnreachableDaemonTransport())
     let panel = StatsPanel(client: environment.client, scheme: Palette.scheme(for: .work))
 
     let size = try await renderedSize(panel, proposing: ProposedViewSize(width: 60, height: 40))
 
+    XCTAssertLessThan(size.height, Self.failedBranchHeightCeiling, "this rendered the .loaded branch, not .failed")
     XCTAssertGreaterThan(size.height, 80, "the failure message was clipped to the offered height instead of growing to fit")
   }
 
   // MARK: Private
+
+  /// Below every measured `.loaded`-branch height in this file (180.5pt at worst, the legend's
+  /// own squeezed render) and above every measured `.failed`-branch one (63pt at widest) at the
+  /// proposals these tests use — the gap between the two branches, not either branch's own
+  /// content, so it stays valid regardless of how tall either branch's content grows.
+  private static let loadedBranchHeightFloor: CGFloat = 150
+
+  /// Below the `.loaded` branch's height at the failure tests' narrow proposal (529pt, driven by
+  /// the grid wrapping hard at 60pt wide) and above every measured `.failed`-branch height at that
+  /// same proposal (50–115pt across this file's mutants).
+  private static let failedBranchHeightCeiling: CGFloat = 200
 
   private let body = Data("""
     {"Today":{"Pomodoros":7,"FocusMinutes":175,"Pauses":0,"Snoozes":0,"DailyCounts":null},
