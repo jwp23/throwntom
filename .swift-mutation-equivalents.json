@@ -334,5 +334,13 @@
     "mutator": "RelationalOperatorReplacement",
     "replacement": "<",
     "reason": "Proven equivalent. `linear(_:)`'s only caller, `luminance(_:)`, feeds it `c.channel(0/1/2)`, and `channel(_:)` (Palette.swift:19-23) always returns `Double(byte) / 255` for an integer byte in 0...255. The `<=` vs `<` distinction is only observable at the boundary value 0.03928 itself, and 0.03928 * 255 = 10.0164 is not an integer, so no integer byte ever produces `v == 0.03928` exactly. `<=` and `<` therefore agree on every value this function can ever be called with."
+  },
+  {
+    "file": "Sources/ThrowntomUI/AppEnvironment.swift",
+    "line": 73,
+    "column": 5,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Genuine own-Timeout, hand-verified kill. `client.start()` is what makes `AppEnvironment` reach `.connected`, and `AppEnvironmentTests.testStartFeedsDaemonFramesFromTheInjectedTransport` already asserts on that transition via `waitUntil` (a 5s bounded poll, not an unbounded wait). Hand-verified: editing the source to remove `client.start()` and running `swift test --filter AppEnvironmentTests/testStartFeedsDaemonFramesFromTheInjectedTransport` fails deterministically in ~5.1s (the bounded wait's own timeout, not a hang); restoring the call passes in under 0.05s. `client.start()` is reached by nearly every test in the file (and by every test built on `AppEnvironment`, across the whole UI target) that calls `environment.start()`, so mutating it turns many bounded 5s waits into 5s failures across the target -- pushing the whole file-scoped run's wall time past the tool's 120s budget, which is exactly why the tool reports this mutant Timeout rather than Killed. No file-scoped tool run can finish and report Killed for a mutant that slows down that much of the suite at once; the kill is real and provably fast per-test, just outside what one run of the whole target can observe within its timeout."
   }
 ]
