@@ -366,5 +366,21 @@
     "mutator": "RemoveSideEffects",
     "replacement": "",
     "reason": "Not a behavioral-equivalence claim: the app is silent under this mutant. Unobservable by any XCTest: NSSound.beep() is the raw system call with no return value, callback or readable state, and it is a Swift-only overlay (not @objc; class_getClassMethod/responds(to:) return nil/false, probed), so nothing can be swizzled. The seam for this behavior is `alert` one level up, asserted by NewTaskRowTests.testSubmittingTextTheGrammarRefusesAlertsAndSendsNothing; this line is the default's irreducible OS call, and any further seam relocates the literal and reproduces this mutant. Same shape as SMAppServiceRegistrar.swift:52 and ReminderResponder.swift:157. Category under review in throwntom-gz9z.6.3."
+  },
+  {
+    "file": "Sources/ThrowntomUI/ShortcutList.swift",
+    "line": 65,
+    "column": 62,
+    "mutator": "BooleanLiteralReplacement",
+    "replacement": "true",
+    "reason": "Proven equivalent. ShortcutList.sections(for:) passes this MenuModel.timer(...) call's result only as the `titles:` half of entries(titles:enablement:...) (ShortcutList.swift:64-73); entries() (ShortcutList.swift:110-127) reads only `titled.title`, `titled.action` and `hint`/`condition` derived from that action -- it never reads `titled.isEnabled`. `returnIsTaken` reaches exactly one place in MenuModel.timer: `.confirm`'s `isEnabled: available.contains(.confirm) && !returnIsTaken` (MenuModel.swift:55). `available` is computed as `daemonAvailable ? state.map(TimerActions.available(for:)) ?? [] : []` (MenuModel.swift:31), and this call passes `state: nil`, so `state.map(...)` is `nil` on both branches, making `available` == `[]` regardless of `daemonAvailable` or `returnIsTaken`. With `available` always empty, `available.contains(.confirm)` is always `false`, so the whole expression `false && !returnIsTaken` is `false` whichever way `returnIsTaken` is set -- and that value is never read anyway (isEnabled comes from the separate `enablement:` MenuModel built from live state, ShortcutList.swift:66-70). Hand-verified: with this literal flipped to `true`, the full ShortcutSheetTests/ShortcutHintTests/ShortcutRowTests/ShortcutSheetKeyboardTests/ShortcutSheetRenderingTests/MenuCommandsTests set still passes unchanged."
+  },
+  {
+    "file": "Sources/ThrowntomUI/ShortcutList.swift",
+    "line": 65,
+    "column": 86,
+    "mutator": "BooleanLiteralReplacement",
+    "replacement": "false",
+    "reason": "Proven equivalent, same titles-only call as the returnIsTaken equivalence immediately above (ShortcutList.swift:64-73 only reads `titled.title` and `titled.action` from this MenuModel, never `titled.isEnabled`). Every use of `daemonAvailable` inside MenuModel.timer (MenuModel.swift:30-79) is gated on `state`, which this call passes as the literal `nil`: `available = daemonAvailable ? state.map(TimerActions.available(for:)) ?? [] : []` (line 31) is `[]` on both branches since `state.map` on `nil` is always `nil`; `.start`'s `title: TimerActions.startTitle(for: daemonAvailable ? state : nil)` (line 50) and the pause/resume action `TimerActions.pauseOrResume(for: daemonAvailable ? state?.state : nil)` (line 58) both reduce to the `nil` case on either branch of the ternary because `state` and `state?.state` are already `nil`; `.lunch`/`.meeting`'s `isEnabled: daemonAvailable && state != nil && ...` (lines 72, 76) is `false` regardless because `state != nil` is `false`, and their isEnabled values are titles-only and never read besides. So every field this MenuModel value produces -- title, action identity and the (unread) isEnabled -- is identical whichever way `daemonAvailable` is set. Hand-verified: with this literal flipped to `false`, the full ShortcutSheetTests/ShortcutHintTests/ShortcutRowTests/ShortcutSheetKeyboardTests/ShortcutSheetRenderingTests/MenuCommandsTests set still passes unchanged."
   }
 ]
