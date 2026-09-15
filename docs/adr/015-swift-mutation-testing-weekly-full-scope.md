@@ -5,6 +5,10 @@ This ADR covers the Swift side; ADR-014 covers Go.
 > Superseded (in part) 2026-09-13 by ADR-016: one job per target, the cost
 > estimate, and triaging Unviable mutants.
 
+> Superseded (in part) 2026-09-15 by ADR-017: the tool is forked rather
+> than patched upstream, and the diff-scoped PR gate's revisit condition no
+> longer waits on upstream issue closure.
+
 ## Context
 
 The 2026-09-12 spikes (docs/spikes/go-swift-mutation-testing/result.md,
