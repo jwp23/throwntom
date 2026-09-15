@@ -1,4 +1,6 @@
+import AppKit
 import Foundation
+import SwiftUI
 import XCTest
 @testable import ThrowntomClient
 @testable import ThrowntomUI
@@ -139,6 +141,39 @@ final class StubReminderPresenter: ReminderPresenter {
 
 func makeTask(id: Int, description: String = "task", done: Bool = false) -> TaskItem {
   TaskItem(id: id, description: description, done: done, createdAt: Date(), completedAt: Date())
+}
+
+/// Hosts a view in a real AppKit window and lays it out, so SwiftUI builds the AppKit views its
+/// body describes and runs its lifecycle — `.onAppear`, and the focus it asks for — against them.
+/// The window is deliberately never made key: `makeKeyAndOrderFront` hands the keyboard to the
+/// window's own initial first responder, which would mask whether the view asked for focus itself.
+@MainActor
+func hostInWindow(_ rootView: some View) -> (view: NSHostingView<some View>, window: NSWindow) {
+  let hosting = NSHostingView(rootView: rootView)
+  hosting.frame = NSRect(x: 0, y: 0, width: 300, height: 400)
+  let window = NSWindow(
+    contentRect: hosting.frame,
+    styleMask: [.titled, .closable, .fullSizeContentView],
+    backing: .buffered,
+    defer: false,
+  )
+  window.contentView = hosting
+  hosting.layoutSubtreeIfNeeded()
+  return (hosting, window)
+}
+
+/// Walks the AppKit view tree SwiftUI builds to find a `TextField`'s field. Matched by class-name
+/// substring, since the type SwiftUI bridges to is not public API.
+func findTextField(in view: NSView) -> NSControl? {
+  if "\(type(of: view))".contains("AppKitTextField"), let control = view as? NSControl {
+    return control
+  }
+  for subview in view.subviews {
+    if let found = findTextField(in: subview) {
+      return found
+    }
+  }
+  return nil
 }
 
 // MARK: - StubTransport

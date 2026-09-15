@@ -1,3 +1,5 @@
+import AppKit
+import SwiftUI
 import XCTest
 @testable import ThrowntomClient
 @testable import ThrowntomUI
@@ -123,6 +125,26 @@ final class NewTaskRowTests: XCTestCase {
     XCTAssertFalse(model.isEditing, "Escape closed the row that was open")
   }
 
+  /// The row opens with the caret already in it: ⌘N is meant to be followed by typing, not by a
+  /// click. `@FocusState` only reaches the keyboard through a view SwiftUI has actually rendered —
+  /// its setter is a silent no-op on a value that was never hosted — so this asks the real window
+  /// who holds the keyboard, and gets the field's own editor rather than the window itself.
+  /// NewTaskRow.swift:30:19.
+  func testOpeningTheRowPutsTheKeyboardInTheField() throws {
+    let model = TaskWindowModel()
+    model.beginNewTask()
+    let (hosting, window) = hostInWindow(makeRow(model).frame(width: 300))
+    let field = try XCTUnwrap(findTextField(in: hosting), "no text field found for the new-task row")
+
+    waitForKeyboard(in: field, of: window)
+
+    let holder = try XCTUnwrap(
+      window.firstResponder as? NSView,
+      "the window itself still holds the keyboard; the row never asked for it",
+    )
+    XCTAssertTrue(holder.isDescendant(of: field), "the keyboard went somewhere other than the new-task field")
+  }
+
   // MARK: Private
 
   /// Where each modifier sits in the stack the body hangs off the field, counted from the
@@ -144,6 +166,15 @@ final class NewTaskRowTests: XCTestCase {
 
   private func layer(_ layer: Layer, of row: NewTaskRow) throws -> Any {
     try part(layer.rawValue, of: modifierLayers(of: row.body))
+  }
+
+  /// `.onAppear` runs a runloop turn after the view is laid out, and the focus it asks for reaches
+  /// AppKit a turn or two after that, so the window is asked repeatedly rather than once.
+  private func waitForKeyboard(in field: NSControl, of window: NSWindow) {
+    let deadline = Date().addingTimeInterval(2)
+    while Date() < deadline, (window.firstResponder as? NSView)?.isDescendant(of: field) != true {
+      RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+    }
   }
 
 }

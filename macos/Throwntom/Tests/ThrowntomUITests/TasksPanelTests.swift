@@ -124,7 +124,7 @@ final class TasksPanelTests: XCTestCase {
     hosting.layoutSubtreeIfNeeded()
 
     let field = try XCTUnwrap(
-      Self.findTextField(in: hosting),
+      findTextField(in: hosting),
       "no text field found for the inline new-task row",
     )
     _ = field.sendAction(field.action, to: field.target)
@@ -253,17 +253,7 @@ final class TasksPanelTests: XCTestCase {
   /// Hosts a fresh copy of the panel's current state in a real AppKit window and lays it out, so
   /// `List` actually builds the rows its content closures describe.
   private static func host(_ panel: TasksPanel) -> (view: NSHostingView<some View>, window: NSWindow) {
-    let hosting = NSHostingView(rootView: panel.frame(width: 300))
-    hosting.frame = NSRect(x: 0, y: 0, width: 300, height: 400)
-    let window = NSWindow(
-      contentRect: hosting.frame,
-      styleMask: [.titled, .closable, .fullSizeContentView],
-      backing: .buffered,
-      defer: false,
-    )
-    window.contentView = hosting
-    hosting.layoutSubtreeIfNeeded()
-    return (hosting, window)
+    hostInWindow(panel.frame(width: 300))
   }
 
   private static func countTableRows(in view: NSView) -> Int {
@@ -315,20 +305,6 @@ final class TasksPanelTests: XCTestCase {
     }
     for subview in view.subviews {
       if let found = findDisclosureButton(in: subview) {
-        return found
-      }
-    }
-    return nil
-  }
-
-  /// Walks the AppKit view tree `List` builds to find the inline new-task row's text field.
-  /// Matched by class-name substring, the same discipline as `findScrollClipView`.
-  private static func findTextField(in view: NSView) -> NSControl? {
-    if "\(type(of: view))".contains("AppKitTextField"), let control = view as? NSControl {
-      return control
-    }
-    for subview in view.subviews {
-      if let found = findTextField(in: subview) {
         return found
       }
     }
