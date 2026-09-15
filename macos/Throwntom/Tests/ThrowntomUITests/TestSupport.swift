@@ -9,6 +9,12 @@ import XCTest
 
 struct TimeoutError: Error { }
 
+// MARK: - UnexpectedShapeError
+
+/// Thrown after `XCTFail` has already recorded why, to abort a helper that cannot go on — the
+/// `XCTFail` message is the real reason; this only stops execution once it's been read.
+struct UnexpectedShapeError: Error { }
+
 extension MenuModel {
   func item(for action: Action) -> MenuItem<Action>? {
     items.first { $0.action == action }
@@ -455,12 +461,26 @@ func modifierLayers(of view: Any) -> [Any] {
 
 // MARK: - Reading a built SplitChip
 
+/// The `SplitChip` a chip's `body` has to be built from, checked by shape before its own `body`
+/// is read — calling `.body` on whatever a wrong-shaped value turned out to be (`EmptyView`'s is
+/// `Never`) traps the process, which a mutant that empties the whole statement would otherwise
+/// turn into an unkillable crash instead of a clean, assertable failure.
+@MainActor
+func splitChip(of chip: some View) throws -> some View {
+  let built = chip.body
+  guard shape(of: built).hasPrefix("SplitChip<") else {
+    XCTFail("\(shape(of: built)) is not a SplitChip")
+    throw UnexpectedShapeError()
+  }
+  return built
+}
+
 /// The label region's own `Button` action — a `SplitChip`'s primary tap — reached the same way
 /// `MenuCommandsTests.fire` reaches a menu button's stored action. Shared by `LunchChipTests`,
 /// `MeetingChipTests` and `SnoozeChipTests`, whose chips are all built from `SplitChip`.
 @MainActor
 func splitChipPrimaryAction(_ chip: some View) throws -> @MainActor () -> Void {
-  let parts = try tupleParts(of: try stackContent(of: try unwrapped(chip.body.body)))
+  let parts = try tupleParts(of: try stackContent(of: try unwrapped(try splitChip(of: chip).body)))
   let labelRegion = try unwrapped(try part(0, of: parts))
   return try XCTUnwrap(
     try child("closure", of: try child("action", of: labelRegion)) as? @MainActor () -> Void,
@@ -472,7 +492,7 @@ func splitChipPrimaryAction(_ chip: some View) throws -> @MainActor () -> Void {
 /// `MenuGroupsLabels` technique `MenuCommandsTests` uses to reach `AppMenus`' menus.
 @MainActor
 func splitChipMenuGroups(_ chip: some View) throws -> MenuGroupsLabels {
-  let parts = try tupleParts(of: try stackContent(of: try unwrapped(chip.body.body)))
+  let parts = try tupleParts(of: try stackContent(of: try unwrapped(try splitChip(of: chip).body)))
   let chevron = try unwrapped(try part(1, of: parts))
   return try XCTUnwrap(
     try child("content", of: chevron) as? MenuGroupsLabels,
