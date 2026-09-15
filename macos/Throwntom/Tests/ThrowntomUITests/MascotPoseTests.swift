@@ -81,6 +81,13 @@ final class MascotPoseTests: XCTestCase {
     XCTAssertFalse(HeldProp.drink.drawnBehindHands)
   }
 
+  func testEveryPoseIsCrownedExceptAsleep() {
+    for pose in [MascotPose.work, .meeting, .shortBreak, .longBreak, .lunch, .idle, .awaitingConfirm, .disconnected] {
+      XCTAssertTrue(pose.crowned, "\(pose.held.map { "\($0)" } ?? "laptop")")
+    }
+    XCTAssertFalse(MascotPose.asleep.crowned)
+  }
+
   func testEveryPoseHangsItsArmsFromTheSameShoulders() {
     for pose in [MascotPose.work, .meeting, .shortBreak, .longBreak, .lunch, .idle, .awaitingConfirm, .asleep, .disconnected] {
       XCTAssertEqual(pose.leftArm.shoulder, MascotPose.leftShoulder, "\(pose.held.map { "\($0)" } ?? "laptop") left")
