@@ -55,10 +55,14 @@ final class SystemReminderPresenterTests: XCTestCase {
   /// window that was never raised crashes the whole process asynchronously (confirmed by hand:
   /// `NSWindow.close()` on one that never had `orderFrontRegardless`/`makeKeyAndOrderFront` called
   /// on it segfaults on this toolchain, deferred or not — this is why no test file in this target,
-  /// including this one, ever calls `close()` on a window it merely constructed), so the fix here
-  /// is not to clean the environment but to prove it's already clean and fail loudly, naming the
-  /// culprit, if some future test leaves a window alive past its own method instead of letting ARC
-  /// drop it the way every window test in this target relies on today.
+  /// including this one, ever calls `close()` on a window it merely constructed). This test's own
+  /// window really is raised, by the code under test, and closing a raised window is itself safe —
+  /// but AppKit only reflects that close back into `NSApp.windows` after the run loop turns, and
+  /// spinning the run loop even once here was measured to crash elsewhere in the full suite (stray
+  /// half-torn-down windows other tests in this target already leave behind, never before exposed
+  /// because nothing in this synchronous suite ever pumped a run loop). So this window is left
+  /// alive on purpose, the same as every other window test's, and registered below so
+  /// `assertNoOtherEligibleWindow()` knows it is accounted for rather than stray.
   func testTheEligibleWindowIsOrderedFrontWithoutBecomingKey() {
     _ = NSApplication.shared
     assertNoOtherEligibleWindow()
@@ -73,6 +77,8 @@ final class SystemReminderPresenterTests: XCTestCase {
     )
     XCTAssertTrue(window.isVisible, "the eligible window must be raised")
     XCTAssertFalse(window.isKeyWindow, "raising it must never hand it the keyboard")
+
+    Self.acknowledgedWindows.insert(ObjectIdentifier(window))
   }
 
   /// A window that cannot become key is not a candidate at all: `&&` excludes it however its
@@ -94,6 +100,13 @@ final class SystemReminderPresenterTests: XCTestCase {
 
   // MARK: Private
 
+  /// Windows this file has deliberately raised and left alive rather than fought AppKit to remove
+  /// — see `testTheEligibleWindowIsOrderedFrontWithoutBecomingKey`'s doc comment for why. Tracked
+  /// by identity, not by strong reference: this exists so `assertNoOtherEligibleWindow()` can tell
+  /// "a window this file already accounted for" from "a window some test forgot," not to keep any
+  /// of them alive — AppKit is already doing that.
+  private static var acknowledgedWindows = Set<ObjectIdentifier>()
+
   private func makeWindow(styleMask: NSWindow.StyleMask) -> NSWindow {
     NSWindow(
       contentRect: NSRect(x: 0, y: 0, width: 100, height: 100),
@@ -103,13 +116,17 @@ final class SystemReminderPresenterTests: XCTestCase {
     )
   }
 
-  /// Fails loudly, naming the offending window, if a titled non-sheet window from some other test
-  /// is still alive in this process. Every window test in this target (here, `WindowElevationTests`,
-  /// `TasksPanelTests`) creates its window as a method-local `let` and never retains it beyond that
-  /// method, so ARC deallocates it — and `NSApp.windows` drops it — before the next test method
-  /// starts; this only fires if a future test breaks that convention.
+  /// Fails loudly, naming the offending window, if a titled non-sheet window neither this file
+  /// acknowledged nor merely constructed-and-dropped by ARC is still alive in this process. A
+  /// window that is only ever constructed, never shown, is a method-local `let` that ARC
+  /// deallocates — dropping it from `NSApp.windows` — before the next test method starts. A window
+  /// that has actually been ordered front is different: AppKit keeps its own retain on a shown
+  /// window, so ARC scope exit alone does not deallocate it, and it stays in `NSApp.windows` for
+  /// the rest of the process — `acknowledgedWindows` is what lets this check see past the one this
+  /// file already knows about instead of misreporting it as some future test's stray window.
   private func assertNoOtherEligibleWindow(file: StaticString = #filePath, line: UInt = #line) {
-    let stray = NSApp.windows.filter { $0.canBecomeKey && !$0.isSheet }
+    let stray = NSApp.windows
+      .filter { $0.canBecomeKey && !$0.isSheet && !Self.acknowledgedWindows.contains(ObjectIdentifier($0)) }
     XCTAssertTrue(
       stray.isEmpty,
       "an eligible window from another test is still alive and would race this one: \(stray)",

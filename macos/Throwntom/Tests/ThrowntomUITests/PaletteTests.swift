@@ -89,10 +89,11 @@ final class PaletteTests: XCTestCase {
     XCTAssertEqual(Contrast.ratio(HexColor("#F68C31"), HexColor("#000000")), 8.71, accuracy: 0.05)
   }
 
-  /// WCAG's linear segment (`v <= 0.03928`) divides by 12.92; every colour tested elsewhere in
-  /// this file has at least one channel above that threshold, so this is the one case that puts a
-  /// channel inside the linear segment with a nonzero value, where dividing and multiplying by
-  /// 12.92 diverge (0/12.92 and 0*12.92 both vanish, so pure black cannot tell them apart).
+  /// WCAG's linear segment (`v <= 0.03928`) divides by 12.92; every nonzero channel byte used
+  /// elsewhere in this file is above that threshold (0x0C, the smallest, is already past it), so
+  /// this is the one case that puts a channel inside the linear segment with a nonzero value,
+  /// where dividing and multiplying by 12.92 diverge (0/12.92 and 0*12.92 both vanish, so pure
+  /// black cannot tell them apart).
   func testDarkChannelUsesLinearDivisionNotMultiplication() {
     XCTAssertEqual(Contrast.ratio(HexColor("#FFFFFF"), HexColor("#050505")), 20.38, accuracy: 0.01)
   }

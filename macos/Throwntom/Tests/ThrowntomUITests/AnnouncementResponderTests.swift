@@ -119,7 +119,7 @@ final class AnnouncementResponderTests: XCTestCase {
     XCTAssertEqual(speaker.lines, [], "the screen the app opened on is not something that changed under the reader")
   }
 
-  /// `start()` reads the baseline before it arms `follow()` (throwntom-9w9's ordering), so the
+  /// `start()` arms `follow()` before it reads the baseline (throwntom-9w9's ordering), so the
   /// true situation the app came up in is what the first real change is measured against. Calling
   /// `announce` directly afterwards stands in for that first change without needing a live
   /// transport: `ServiceAnnouncer`'s own first call is always silent regardless of the value it is
