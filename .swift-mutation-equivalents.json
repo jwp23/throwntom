@@ -336,6 +336,14 @@
     "reason": "Proven equivalent. `linear(_:)`'s only caller, `luminance(_:)`, feeds it `c.channel(0/1/2)`, and `channel(_:)` (Palette.swift:19-23) always returns `Double(byte) / 255` for an integer byte in 0...255. The `<=` vs `<` distinction is only observable at the boundary value 0.03928 itself, and 0.03928 * 255 = 10.0164 is not an integer, so no integer byte ever produces `v == 0.03928` exactly. `<=` and `<` therefore agree on every value this function can ever be called with."
   },
   {
+    "file": "Sources/ThrowntomUI/TasksPanel.swift",
+    "line": 94,
+    "column": 40,
+    "mutator": "BooleanLiteralReplacement",
+    "replacement": "false",
+    "reason": "Proven equivalent. `initial` only controls whether the onChange action also runs once, for the starting value, on the view's very first appearance -- it has no effect on any later change (SwiftUI's own semantics for onChange(of:initial:)), and taskList's action just scrolls to whatever topRowID currently names. On a first appearance the List has never been scrolled at all, so it is already sitting at its native top position; scrollTo(topRowID, anchor: .top) at that instant asks it to go exactly where it already is. Hand-verified with 50 active tasks and selectedID set to the 50th (so if List auto-scrolled to reveal the selection on mount, that would be the case most likely to show a difference): hosting the panel with initial left true and, separately, hand-edited to false, the scroll clip view's bounds.origin.y is 0 in both -- List does not auto-scroll to a selection on first layout in this bridge, so there is nothing for the initial firing to correct that the default position was not already correct."
+  },
+  {
     "file": "Sources/ThrowntomUI/AppEnvironment.swift",
     "line": 73,
     "column": 5,
