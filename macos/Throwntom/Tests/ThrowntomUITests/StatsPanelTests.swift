@@ -109,28 +109,39 @@ final class StatsPanelTests: XCTestCase {
     XCTAssertLessThan(size.width, 300, "the legend demanded its own width instead of wrapping to fit")
   }
 
-  /// The legend grows past a squeeze rather than being clipped to it, measured as how much height
-  /// the squeeze actually took away from the legend's own unconstrained size — not the panel's
-  /// absolute rendered height, which also grows with `StatsRows.rows`' row count and would erode
-  /// an absolute threshold's headroom as rows are added. Row count moves the unconstrained and
-  /// squeezed renders by the same amount (the header and grid are unaffected by this mutant), so
-  /// their difference isolates the legend's own compression regardless of how many rows exist.
-  /// The height floor on the squeezed render pins this to the `.loaded` branch, the same way the
-  /// width test above does. StatsPanel.swift:66:86.
+  /// The legend grows past a squeeze rather than being clipped to it, measured as the *difference*
+  /// a narrower width makes to an already-squeezed render, not an absolute or unconstrained-minus-
+  /// squeezed panel height. A first attempt at this test compared the whole panel's unconstrained
+  /// height against its squeezed height, which does grow with `StatsRows.rows`' row count — not
+  /// identically for the two measurements (an unconstrained render lets the grid take its full
+  /// per-row height, a squeezed one partially compresses it too, so they drift apart at different
+  /// rates as rows are added) — so that comparison's margin eroded as rows were added and its own
+  /// doc comment's invariance claim was false. This version instead squeezes the height the same
+  /// (40pt) at two widths and compares those: at 300pt the legend fits its natural few lines, at
+  /// 150pt it needs several more wrapped ones, while the header and grid (unaffected by this
+  /// mutant) render at whatever width they're given either way, so their contribution to both
+  /// measurements is identical and cancels out of the subtraction — leaving only the legend's own
+  /// response to needing more wrapped lines: growing past the squeeze to show them (baseline) or
+  /// staying flat because it was already clipped regardless of width (mutant). Confirmed genuinely
+  /// row-count invariant, not just less sensitive: hand-adding 3 and then 14 extra rows to
+  /// `StatsRows.rows` (9 and 20 rows total) left this delta at exactly 51.5pt for the correct code
+  /// and exactly −0.5pt for the mutant, unchanged from the 6-row measurement at every row count
+  /// tried. The height floor on the narrow render pins this to the `.loaded` branch, the same way
+  /// the width test above does. StatsPanel.swift:66:86.
   func testTheLegendGrowsToFitInsteadOfBeingClippedToTheOfferedHeight() async throws {
     let transport = try StubTransport(states: [])
     transport.statsBody = body
     let environment = AppEnvironment(transport: transport)
     let panel = StatsPanel(client: environment.client, scheme: Palette.scheme(for: .work))
 
-    let unconstrained = try await renderedSize(panel, proposing: ProposedViewSize(width: 150, height: nil))
-    let squeezed = try await renderedSize(panel, proposing: ProposedViewSize(width: 150, height: 40))
+    let wide = try await renderedSize(panel, proposing: ProposedViewSize(width: 300, height: 40))
+    let narrow = try await renderedSize(panel, proposing: ProposedViewSize(width: 150, height: 40))
 
-    XCTAssertGreaterThan(squeezed.height, Self.loadedBranchHeightFloor, "this rendered the .failed branch, not .loaded")
-    XCTAssertLessThan(
-      unconstrained.height - squeezed.height,
-      130,
-      "the legend was clipped to the offered height instead of growing past it",
+    XCTAssertGreaterThan(narrow.height, Self.loadedBranchHeightFloor, "this rendered the .failed branch, not .loaded")
+    XCTAssertGreaterThan(
+      narrow.height - wide.height,
+      25,
+      "the legend was clipped to the offered height instead of growing to fit the narrower width's wrapped lines",
     )
   }
 
