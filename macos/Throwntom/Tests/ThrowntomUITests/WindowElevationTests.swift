@@ -128,6 +128,18 @@ final class WindowElevationTests: XCTestCase {
     XCTAssertNil(ElevatedHostView().hitTest(NSPoint(x: 1, y: 1)))
   }
 
+  /// A freshly made view has not been told to float yet: nothing raises the level until
+  /// `updateNSView` says a reminder is waiting.
+  func testTheHostViewStartsNotFloating() {
+    XCTAssertFalse(ElevatedHostView().floating)
+  }
+
+  /// Nothing is drawn or clicked here, so the view must not claim to be opaque: an opaque view
+  /// tells AppKit it paints every pixel of its bounds, and this one paints none of them.
+  func testTheHostViewIsNotOpaque() {
+    XCTAssertFalse(ElevatedHostView().isOpaque)
+  }
+
   // MARK: Private
 
   private let shortBreak = DaemonState.Stage(state: .shortBreak, duration: 300)
