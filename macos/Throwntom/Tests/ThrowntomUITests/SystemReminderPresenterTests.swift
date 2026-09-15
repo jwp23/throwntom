@@ -30,6 +30,22 @@ final class SystemReminderPresenterTests: XCTestCase {
     XCTAssertEqual(afterSecondCall, afterFirstCall, "a second call must not ask again while one is outstanding")
   }
 
+  /// `cancelAttention()` leaves `attentionRequest` nil whether or not it tells `NSApp` to stop
+  /// bouncing the Dock, so the field is not the signal: the counter is, again. A request that was
+  /// really cancelled lets the counter fall back to its unclaimed baseline; one that was not stays
+  /// outstanding, so every later probe has to claim a new number instead of reusing that baseline.
+  func testCancellingAttentionReleasesTheOutstandingRequest() {
+    _ = NSApplication.shared
+    let baseline = probeAttentionCounter()
+
+    let presenter = SystemReminderPresenter()
+    presenter.requestAttention()
+    presenter.cancelAttention()
+
+    XCTAssertEqual(probeAttentionCounter(), baseline, "cancelling must hand the request back to NSApp")
+    XCTAssertEqual(probeAttentionCounter(), baseline, "the request must not still be outstanding afterwards")
+  }
+
   /// The one window eligible to be raised — not a sheet, and able to become key even though this
   /// never asks it to — is the one that ends up on screen.
   func testTheEligibleWindowIsOrderedFrontWithoutBecomingKey() {
