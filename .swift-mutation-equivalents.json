@@ -310,5 +310,29 @@
     "mutator": "RemoveSideEffects",
     "replacement": "",
     "reason": "Proven equivalent for testing purposes, same mechanism as the 203:5 entry above. This delegate method's `notification` parameter is unused (`_: UNNotification`), but the parameter type is non-optional and `UNNotification` likewise declares `- (instancetype)init NS_UNAVAILABLE` (UNNotification.h) with no other public initializer, so no test, existing or possible, can construct any value to pass as that argument in order to call this method and observe whether `completionHandler(Self.presentationOptions)` ran."
+  },
+  {
+    "file": "Sources/ThrowntomUI/Palette.swift",
+    "line": 20,
+    "column": 55,
+    "mutator": "ArithmeticOperatorReplacement",
+    "replacement": "-",
+    "reason": "Genuine trap-Crash hand-verified kill; no Timeout mutant appears anywhere in this file's gated set. `channel(_:)` is called with index 0, 1 and 2 from `color` and `darkened(by:)`, both exercised by PaletteTests (e.g. testHexColorRoundTripsToSRGB, and every scheme built through Palette.schemes). With `+` replaced by `-`, offsetBy becomes `1 - index * 2`, which is negative for index 1 and 2, and `String.Index(offsetBy:)` traps rather than returning an out-of-bounds index. Hand-verified: editing the source to `1 - index * 2` and running `swift test --filter PaletteTests` crashes the whole ThrowntomUITests process at testChipsAreDistinguishableFromGround with \"Fatal error: String index is out of bounds\" (Swift/StringCharacterView.swift:163); restoring the `+` passes clean. A crashed process reports no per-test verdict, so the tool cannot mark this Killed even though existing coverage kills it deterministically."
+  },
+  {
+    "file": "Sources/ThrowntomUI/Palette.swift",
+    "line": 29,
+    "column": 56,
+    "mutator": "ArithmeticOperatorReplacement",
+    "replacement": "/",
+    "reason": "Genuine trap-Crash hand-verified kill; no Timeout mutant appears anywhere in this file's gated set. `darkened(by:)` computes `channel($0) * 255 * (1 - fraction)`; with the second `*` replaced by `/` this becomes `channel($0) * 255 / (1 - fraction)`, dividing by zero when fraction is 1. PaletteTests.testDarkenedScalesEveryChannel already calls `.darkened(by: 1)`, so the mutant produces an infinite Double which `Int(...)` cannot represent. Hand-verified: editing the source to the mutant text and running `swift test --filter PaletteTests` crashes the whole ThrowntomUITests process during testDarkenedScalesEveryChannel with \"Fatal error: Double value cannot be converted to Int because it is either infinite or NaN\"; restoring the `*` passes clean. A crashed process reports no per-test verdict, so the tool cannot mark this Killed even though existing coverage kills it deterministically."
+  },
+  {
+    "file": "Sources/ThrowntomUI/Palette.swift",
+    "line": 185,
+    "column": 9,
+    "mutator": "RelationalOperatorReplacement",
+    "replacement": "<",
+    "reason": "Proven equivalent. `linear(_:)`'s only caller, `luminance(_:)`, feeds it `c.channel(0/1/2)`, and `channel(_:)` (Palette.swift:19-23) always returns `Double(byte) / 255` for an integer byte in 0...255. The `<=` vs `<` distinction is only observable at the boundary value 0.03928 itself, and 0.03928 * 255 = 10.0164 is not an integer, so no integer byte ever produces `v == 0.03928` exactly. `<=` and `<` therefore agree on every value this function can ever be called with."
   }
 ]
