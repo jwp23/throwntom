@@ -310,21 +310,5 @@
     "mutator": "RemoveSideEffects",
     "replacement": "",
     "reason": "Proven equivalent for testing purposes, same mechanism as the 203:5 entry above. This delegate method's `notification` parameter is unused (`_: UNNotification`), but the parameter type is non-optional and `UNNotification` likewise declares `- (instancetype)init NS_UNAVAILABLE` (UNNotification.h) with no other public initializer, so no test, existing or possible, can construct any value to pass as that argument in order to call this method and observe whether `completionHandler(Self.presentationOptions)` ran."
-  },
-  {
-    "file": "Sources/ThrowntomUI/MenuShortcut.swift",
-    "line": 37,
-    "column": 23,
-    "mutator": "RelationalOperatorReplacement",
-    "replacement": "!=",
-    "reason": "Not an equivalence claim: the mutant is a real, deterministic, fast trap. MenuShortcut.swift has no Timeout mutant anywhere in its own gated set, so this cannot be the poisoning shape docs/decisions/swift-mutation-timeout-poisons-a-later-mutant.md describes. Mutating `lhs.key.character == rhs.key.character` to `!=` inside `==` breaks Hashable's contract (equal-hash-implies-possibly-unequal becomes possible in the other direction: distinct keys collide as equal), and MenuBindingTests.swift's `Self.reserved` dictionary literal -- built from 15 distinct MenuShortcut keys -- has two of those keys collapse to `==` under the mutant. Hand-verified: `swift test --filter MenuBindingTests/testNoTwoCommandsShareAKeyEquivalent` with this mutation applied by hand aborts the process (`Swift/Dictionary.swift:840: Fatal error: Dictionary literal contains duplicate keys`, signal 5); restored, the same filter passes clean."
-  },
-  {
-    "file": "Sources/ThrowntomUI/MenuShortcut.swift",
-    "line": 37,
-    "column": 44,
-    "mutator": "LogicalOperatorReplacement",
-    "replacement": "||",
-    "reason": "Not an equivalence claim: the mutant is a real, deterministic, fast trap, the same shape as 37:23's entry above -- MenuShortcut.swift has no Timeout mutant anywhere in its own gated set. Mutating `&&` to `||` in `==` makes two reserved shortcuts that share only a key or only their modifiers report equal, which breaks the same `Self.reserved` dictionary literal in MenuBindingTests.swift. Hand-verified: `swift test --filter MenuBindingTests/testNoTwoCommandsShareAKeyEquivalent` with this mutation applied by hand aborts the process (`Swift/Dictionary.swift:840: Fatal error: Dictionary literal contains duplicate keys` after two XCTFail lines are printed for the collisions that don't crash outright); restored, the same filter passes clean."
   }
 ]
