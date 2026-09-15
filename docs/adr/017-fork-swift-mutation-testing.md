@@ -78,12 +78,15 @@ Alternatives measured the same day:
   (`.github/workflows/swift-mutation-weekly.yml:29,50-51`) and the local
   build move to the fork's repository and a pinned SHA once the first
   correctness fix lands.
-- **Fix first, in this order, each proven by the two-run race test with
-  revert-fail-restore:** the startup sweep removes only sandboxes whose
-  owning process is dead; escaped-child cleanup kills only descendants of
-  the run's own test process; `--no-cache` disables writes as well as
-  reads, or the cache module is removed; the race test becomes a required
-  check in the fork's CI.
+- **Fix first, in this order:** the startup sweep removes only sandboxes
+  whose owning process is dead; escaped-child cleanup kills only
+  descendants of the run's own test process; `--no-cache` disables writes
+  as well as reads, or the cache module is removed. The two-run race test
+  with revert-fail-restore proves the sandbox and escaped-child fixes and
+  becomes a required check in the fork's CI. The cache fix is proved
+  separately: a direct test asserting `--no-cache` creates or modifies no
+  cache entries if the cache module remains, or its removal if it does
+  not.
 - **Then improve, each measured against a baseline before merge:** run the
   built `.xctest` bundle directly instead of `swift test --skip-build`,
   one sandbox per worker, which removes the build lock; likely-killer tests
