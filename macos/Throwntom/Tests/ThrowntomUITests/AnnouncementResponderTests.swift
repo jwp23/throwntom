@@ -119,6 +119,23 @@ final class AnnouncementResponderTests: XCTestCase {
     XCTAssertEqual(speaker.lines, [], "the screen the app opened on is not something that changed under the reader")
   }
 
+  /// `start()` reads the baseline before it arms `follow()` (throwntom-9w9's ordering), so the
+  /// true situation the app came up in is what the first real change is measured against. Calling
+  /// `announce` directly afterwards stands in for that first change without needing a live
+  /// transport: `ServiceAnnouncer`'s own first call is always silent regardless of the value it is
+  /// given, so a responder that skipped the baseline read would record *this* call's status as the
+  /// baseline instead and stay silent here too, where the wiring is owed a line.
+  func testStartReadsTheBaselineBeforeAnythingElseCanBeMistakenForIt() throws {
+    let speaker = RecordingSpeaker()
+    let client = DaemonClient(transport: try StubTransport(states: []), registrar: RecordingRegistrar())
+    let responder = AnnouncementResponder(client: client, speaker: speaker)
+
+    responder.start()
+    responder.announce(.stopped)
+
+    XCTAssertEqual(speaker.lines, ["Timer service stopped. " + (try XCTUnwrap(ServiceStatus.stopped.explanation))])
+  }
+
   /// throwntom-92i, through the wiring rather than the wording: the mark the window puts on its
   /// title is spoken at the moment it appears, and again when it goes.
   func testTheReconnectMarkIsSpokenAtBothEdges() throws {
