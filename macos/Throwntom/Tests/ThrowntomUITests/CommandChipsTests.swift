@@ -1,3 +1,4 @@
+import SwiftUI
 import ThrowntomClient
 import XCTest
 @testable import ThrowntomUI
@@ -55,6 +56,25 @@ final class CommandChipsTests: XCTestCase {
 
   func testChipRowBodyBuilds() throws {
     _ = try makeChips().body
+  }
+
+  /// `chip(for:)` on its own (already exercised above) never proves the row's `ForEach` is what
+  /// actually walks `menu.items` and builds each one through `chip(for:).disabled(...)`, rather
+  /// than through nothing.
+  func testTheRowsForEachWalksEveryItemAndBuildsItThroughChipFor() throws {
+    let chips = try makeChips()
+    let forEach = try child("content", of: chips.body)
+    XCTAssertTrue(shape(of: forEach).hasPrefix("ForEach<"), shape(of: forEach))
+
+    let closure = try XCTUnwrap(
+      try child("content", of: forEach) as? (MenuItem<ViewAction>) -> ModifiedContent<
+        Chip,
+        _EnvironmentKeyTransformModifier<Bool>,
+      >,
+      "the row is no longer built through chip(for:).disabled(...)",
+    )
+    let built = closure(try item(chips, .tasks))
+    XCTAssertEqual(shape(of: try content(of: built)), "Chip")
   }
 
   // MARK: Private
