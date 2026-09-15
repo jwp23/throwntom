@@ -6,8 +6,13 @@ condition on the diff-scoped PR gate. The rest of ADR-015 and all of ADR-016
 stand: weekly full-scope runs, the negative control, the run parameters, the
 per-target shards and the zero-survivor bar.
 
-Sequenced after the Swift survivor triage (throwntom-gz9z.1) finishes;
-nothing here changes how that triage runs.
+The fork, its beads and its fixes proceed in parallel with the running
+Swift survivor triage (throwntom-gz9z.1). Only the switch-over, re-pinning
+throwntom and retiring its workarounds (throwntom-gz9z.8), waits for that
+triage to run its course; nothing here changes how it runs. Until the
+fork's sandbox fix is merged, no swift-mutation-testing binary, fork or
+pinned, runs on the triage machine while a triage run is in flight, because
+the pinned tool's startup sweep would wipe it.
 
 ## Context
 
