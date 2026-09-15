@@ -350,5 +350,13 @@
     "mutator": "RemoveSideEffects",
     "replacement": "",
     "reason": "Genuine own-Timeout, hand-verified kill. `client.start()` is what makes `AppEnvironment` reach `.connected`, and `AppEnvironmentTests.testStartFeedsDaemonFramesFromTheInjectedTransport` already asserts on that transition via `waitUntil` (a 5s bounded poll, not an unbounded wait). Hand-verified: editing the source to remove `client.start()` and running `swift test --filter AppEnvironmentTests/testStartFeedsDaemonFramesFromTheInjectedTransport` fails deterministically in ~5.1s (the bounded wait's own timeout, not a hang); restoring the call passes in under 0.05s. `client.start()` is reached by nearly every test in the file (and by every test built on `AppEnvironment`, across the whole UI target) that calls `environment.start()`, so mutating it turns many bounded 5s waits into 5s failures across the target -- pushing the whole file-scoped run's wall time past the tool's 120s budget, which is exactly why the tool reports this mutant Timeout rather than Killed. No file-scoped tool run can finish and report Killed for a mutant that slows down that much of the suite at once; the kill is real and provably fast per-test, just outside what one run of the whole target can observe within its timeout."
+  },
+  {
+    "file": "Sources/ThrowntomUI/NewTaskRow.swift",
+    "line": 48,
+    "column": 7,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Proven equivalent. NewTaskRow.commit()'s catch branch runs only when `model.commitNewTask()` throws (TaskWindowModel.swift), and that function opens with `defer { draft = nil }` (line 70) -- a defer runs before the throw propagates out of the function, so `model.draft` is already nil, and `model.isEditing` (`draft != nil`) already false, by the time this catch block executes. `cancelEdit()` (TaskWindowModel.swift line 64-66) does nothing but `draft = nil`, so calling it here writes nil over an already-nil value: the observable state (draft, isEditing) is byte-identical whether or not line 48 runs. Nothing else reads draft's identity or observes the write count, only its value. Hand-verified: with line 48 deleted, NewTaskRowTests.testTextTheTaskGrammarRefusesClosesTheRow (which drives this exact catch branch and asserts model.isEditing == false afterward) still passes."
   }
 ]
