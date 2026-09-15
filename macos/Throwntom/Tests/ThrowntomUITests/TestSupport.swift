@@ -453,6 +453,33 @@ func modifierLayers(of view: Any) -> [Any] {
   return layers.reversed()
 }
 
+// MARK: - Reading a built SplitChip
+
+/// The label region's own `Button` action — a `SplitChip`'s primary tap — reached the same way
+/// `MenuCommandsTests.fire` reaches a menu button's stored action. Shared by `LunchChipTests`,
+/// `MeetingChipTests` and `SnoozeChipTests`, whose chips are all built from `SplitChip`.
+@MainActor
+func splitChipPrimaryAction(_ chip: some View) throws -> @MainActor () -> Void {
+  let parts = try tupleParts(of: try stackContent(of: try unwrapped(chip.body.body)))
+  let labelRegion = try unwrapped(try part(0, of: parts))
+  return try XCTUnwrap(
+    try child("closure", of: try child("action", of: labelRegion)) as? @MainActor () -> Void,
+    "\(shape(of: labelRegion)) has no button action to press",
+  )
+}
+
+/// The chevron's own `MenuGroups`, ready to be asked what it built for an item — the same
+/// `MenuGroupsLabels` technique `MenuCommandsTests` uses to reach `AppMenus`' menus.
+@MainActor
+func splitChipMenuGroups(_ chip: some View) throws -> MenuGroupsLabels {
+  let parts = try tupleParts(of: try stackContent(of: try unwrapped(chip.body.body)))
+  let chevron = try unwrapped(try part(1, of: parts))
+  return try XCTUnwrap(
+    try child("content", of: chevron) as? MenuGroupsLabels,
+    "\(shape(of: chevron)) has no MenuGroups content",
+  )
+}
+
 // MARK: - RecordingRegistrar
 
 /// A launchd stand-in that records what it was asked to do, so the window's service controls can
