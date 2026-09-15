@@ -1,5 +1,6 @@
 // Tests/ThrowntomUITests/TimerHeaderTests.swift
 import AppKit
+import SwiftUI
 import ThrowntomClient
 import XCTest
 @testable import ThrowntomUI
@@ -58,6 +59,74 @@ final class TimerHeaderTests: XCTestCase {
     XCTAssertNil(TimerHeader.titleLineLimit)
   }
 
+  /// Every statement `body` builds, spelled out as the type SwiftUI actually composed. A statement
+  /// that stops being built — the mascot, the inner stack, the title, or either optional line —
+  /// changes this string, whether or not that line is built for this particular content: the type
+  /// is fixed by the source, not by the countdown/next-stage values in hand (`StatsPanelTests`
+  /// draws the same distinction). TimerHeader.swift:24:5/25:7/27:7/28:9/34:11/37:11.
+  func testBodyIsTheMascotAndTheTitleStackWithItsOptionalLines() {
+    let content = MainWindowContent(
+      state: makeState(phase: .idle),
+      connection: .connected,
+      status: .running,
+      tasks: TaskList(),
+      error: nil,
+      panel: nil,
+      now: .now,
+    )
+
+    XCTAssertEqual(
+      shape(of: TimerHeader(content: content).body),
+      "ModifiedContent<VStack<TupleView<(ModifiedContent<MascotView, _FlexFrameLayout>, ModifiedContent<VStack<"
+        + "TupleView<(ModifiedContent<ModifiedContent<ModifiedContent<Text, _EnvironmentKeyWritingModifier<TextAlignment>>, "
+        + "_EnvironmentKeyWritingModifier<Optional<Int>>>, _FixedSizeLayout>, Optional<Text>, Optional<Text>)>>, "
+        + "LiveValue>)>>, _FlexFrameLayout>",
+    )
+  }
+
+  /// `.fixedSize(horizontal: false, vertical: true)` on the title: compressible in width, so a long
+  /// title wraps at whatever width the header is given instead of demanding its own single-line
+  /// width, but not in height, so a squeezed header still draws the whole wrapped title rather
+  /// than a fragment clipped to fit. Measured on the title `Text` pulled out of the built tree
+  /// alone (`Self.titleView`), not the whole header, so nothing the mascot or the optional
+  /// countdown/next lines draw can dilute — or, per the `StatsPanel` lesson, silently erode as they
+  /// change — what only the title responds to.
+  ///
+  /// The longest title the window builds (`deepestTitle` above) is required: a short title like
+  /// "Idle" already fits inside the squeeze on unmutated code (measured ink 26pt, indistinguishable
+  /// from either mutant's clipped/single-line ink), so it exercises nothing. One render, squeezed in
+  /// both dimensions at once, kills both booleans the same way `ShortcutHintTests` does: a
+  /// `horizontal: true` mutant refuses to wrap so it never reaches past the squeezed height
+  /// (measured ink 30pt); a `vertical: false` mutant wraps but is then clipped to the squeezed
+  /// height (measured ink 26pt). Only the unmutated pairing does both — wraps into several lines
+  /// and draws all of them (measured ink 126pt). TimerHeader.swift:32:34/32:51.
+  func testTheTitleWrapsAndGrowsRatherThanBeingClippedWhenSqueezed() throws {
+    let content = MainWindowContent(
+      state: makeState(phase: .idle, dayEnded: true),
+      connection: .reconnecting(attempt: 1),
+      status: .reaching,
+      tasks: TaskList(),
+      error: nil,
+      panel: nil,
+      now: .now,
+    )
+    XCTAssertNil(content.countdown, "the countdown line would dilute a measurement of the title alone")
+    XCTAssertNil(content.nextStage, "the next-stage line would dilute a measurement of the title alone")
+
+    let titleView = try Self.titleView(of: content)
+    let ink = try Self.inkHeight(
+      of: titleView.frame(width: Self.squeezeWidth, height: Self.squeezeHeight, alignment: .top),
+      width: Self.squeezeWidth,
+      canvasHeight: 300,
+    )
+
+    XCTAssertGreaterThan(
+      ink,
+      Self.squeezeHeight * 2,
+      "“\(content.title)” was clipped to its squeezed height instead of wrapping past it",
+    )
+  }
+
   // MARK: Private
 
   /// The default, and the enlargements the header must survive. Nothing here asserts that macOS
@@ -66,6 +135,11 @@ final class TimerHeaderTests: XCTestCase {
   private static let textScales: [CGFloat] = [1, 1.2, 1.5, 2, 3]
 
   private static let largeTitlePointSize = NSFont.preferredFont(forTextStyle: .largeTitle).pointSize
+
+  /// Narrow enough that the longest title needs several lines, and short enough that "clipped to
+  /// one line" and "wrapped to several" are unmistakably different amounts of ink.
+  private static let squeezeWidth: CGFloat = 120
+  private static let squeezeHeight: CGFloat = 24
 
   /// The worst case across every title and every size: which one wraps deepest, and how far.
   private static func deepestTitle() -> (title: String, scale: CGFloat, lines: Int) {
@@ -173,6 +247,49 @@ final class TimerHeaderTests: XCTestCase {
     let style = NSFont.preferredFont(forTextStyle: .largeTitle)
     let bold = NSFontManager.shared.convert(style, toHaveTrait: .boldFontMask)
     return NSFont(descriptor: bold.fontDescriptor, size: pointSize) ?? bold
+  }
+
+  /// The exact statement `fixedSize(horizontal: false, vertical: true)` is attached to — the title
+  /// `Text` alone, pulled out of the built tree rather than measured through the whole header, so
+  /// nothing the mascot or the optional countdown/next lines draw can dilute what only the title
+  /// responds to.
+  private static func titleView(of content: MainWindowContent) throws -> AnyView {
+    let inner = try unwrapped(try part(1, of: try tupleParts(of: try stackContent(of: try unwrapped(
+      TimerHeader(content: content).body
+    )))))
+    let titlePart = try part(0, of: try tupleParts(of: try stackContent(of: inner)))
+    let view = try XCTUnwrap(titlePart as? any View, "the title text was not a View: \(shape(of: titlePart))")
+    return open(view)
+  }
+
+  private static func open(_ view: some View) -> AnyView {
+    AnyView(view)
+  }
+
+  /// The height of the lowest non-white pixel row: how far the view actually drew, regardless of
+  /// what size its enclosing frame reports upward. Technique from `ShortcutHintTests.inkHeight`.
+  private static func inkHeight(of view: some View, width: CGFloat, canvasHeight: CGFloat) throws -> CGFloat {
+    let renderer = ImageRenderer(
+      content: view.frame(width: width, height: canvasHeight, alignment: .top).background(Color.white)
+    )
+    renderer.scale = 1
+    let image = try XCTUnwrap(renderer.nsImage, "the view did not render")
+    let cgImage = try XCTUnwrap(image.cgImage(forProposedRect: nil, context: nil, hints: nil))
+    let data = try XCTUnwrap(cgImage.dataProvider?.data)
+    let pixels = try XCTUnwrap(CFDataGetBytePtr(data))
+    let bytesPerRow = cgImage.bytesPerRow
+
+    var lastInkedRow = 0
+    for y in 0 ..< cgImage.height {
+      for x in 0 ..< cgImage.width {
+        let offset = y * bytesPerRow + x * 4
+        if pixels[offset] < 250 || pixels[offset + 1] < 250 || pixels[offset + 2] < 250 {
+          lastInkedRow = y
+          break
+        }
+      }
+    }
+    return CGFloat(lastInkedRow + 1)
   }
 
 }
