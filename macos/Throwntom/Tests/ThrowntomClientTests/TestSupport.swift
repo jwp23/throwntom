@@ -31,6 +31,9 @@ struct GoBuildError: Error, CustomStringConvertible {
 
 /// Waits for `condition` and fails the test at the call site, naming `what`, if it never holds.
 /// MainActor-isolated so tests can read DaemonClient's MainActor properties inside `condition`.
+/// `timeout`'s default bounds every waiter in this target that doesn't pass its own, not just the
+/// daemon-reconnect ones it was last tuned for — widen it explicitly at the call site rather than
+/// raising the default if a new wait is legitimately slower than 2s.
 @MainActor
 func waitUntil(
   _ what: String,
