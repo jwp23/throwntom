@@ -112,16 +112,7 @@ final class TasksPanelTests: XCTestCase {
     let panel = TasksPanel(environment: environment, scheme: Palette.scheme(for: .work))
     panel.model.beginNewTask()
     panel.model.draft = "buy milk"
-    let hosting = NSHostingView(rootView: panel.frame(width: 300))
-    hosting.frame = NSRect(x: 0, y: 0, width: 300, height: 400)
-    let window = NSWindow(
-      contentRect: hosting.frame,
-      styleMask: [.titled, .closable, .fullSizeContentView],
-      backing: .buffered,
-      defer: false,
-    )
-    window.contentView = hosting
-    hosting.layoutSubtreeIfNeeded()
+    let (hosting, _) = Self.host(panel)
 
     let field = try XCTUnwrap(
       findTextField(in: hosting),
