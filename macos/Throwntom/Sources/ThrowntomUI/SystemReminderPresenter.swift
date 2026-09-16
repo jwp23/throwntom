@@ -7,6 +7,7 @@ import UserNotifications
 /// process without an app bundle. Everything that decides anything lives behind
 /// `ReminderPresenter` instead, in `ReminderBanner`. Left out of coverage measurement for that
 /// reason; see `sonar.coverage.exclusions` in sonar-project.properties.
+@MainActor
 final class SystemReminderPresenter: ReminderPresenter {
 
   // MARK: Lifecycle
@@ -20,11 +21,15 @@ final class SystemReminderPresenter: ReminderPresenter {
       object: nil,
       queue: nil,
     ) { [weak self] _ in
-      self?.attentionRequest = nil
+      // `queue: nil` runs the block on the thread that posted, and AppKit posts activation on
+      // the main one, so this is already where the presenter lives.
+      MainActor.assumeIsolated { self?.attentionRequest = nil }
     }
   }
 
   deinit {
+    // A block-based observation outlives the object that made it until it is handed back, and
+    // the deinit is the only place left to do that.
     if let activationObserver {
       NotificationCenter.default.removeObserver(activationObserver)
     }
@@ -102,6 +107,10 @@ final class SystemReminderPresenter: ReminderPresenter {
   private let chimeName = NSSound.Name("Glass")
 
   private var attentionRequest: Int?
-  private var activationObserver: NSObjectProtocol?
+
+  /// Outside the main actor because `deinit` has to reach it and runs with no isolation of its
+  /// own. Safe without a lock: it is written once, while the initialiser holds the only
+  /// reference there is, and read once, after the last one has gone.
+  private nonisolated(unsafe) var activationObserver: (any NSObjectProtocol)?
 
 }

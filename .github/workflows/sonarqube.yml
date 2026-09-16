@@ -12,8 +12,14 @@ jobs:
     # Dependabot runs don't receive Actions secrets, so SONAR_TOKEN is empty and
     # the scan can't authenticate; skip — dependency bumps carry no analyzable code.
     if: github.actor != 'dependabot[bot]'
-    # macos-latest: the Swift analyzer needs a completed `swift build` before it can scan.
-    runs-on: macos-latest
+    # macOS, because the Swift analyzer needs a completed `swift build` before it can scan.
+    # The runner is named rather than left to float: `macos-latest` rolled to macos-26 and this
+    # job then compiled the same SwiftUI source into different private type names than ci.yml's
+    # did, which failed PR #220 with nothing in the diff to explain it. `xcode-27` carries the
+    # Xcode a developer here builds with as its default toolchain, so the two jobs agree without
+    # a `DEVELOPER_DIR` override to keep in step. This line has to keep saying what ci.yml's
+    # macOS job says; the reasoning and the fallback are written out there.
+    runs-on: xcode-27
     permissions:
       contents: read
     steps:
@@ -35,9 +41,13 @@ jobs:
 
       - name: Generate Swift coverage report
         run: |
+          # `swift test` builds one .xctest bundle per test target rather than a single merged
+          # "PackageTests" bundle, so llvm-cov needs each target's binary named explicitly —
+          # `default.profdata` already carries the merged instrumentation for all of them.
           BIN_PATH="$(swift build --package-path macos/Throwntom --show-bin-path --force-resolved-versions)"
           xcrun llvm-cov show \
-            "$BIN_PATH/ThrowntomPackageTests.xctest/Contents/MacOS/ThrowntomPackageTests" \
+            "$BIN_PATH/ThrowntomClientTests.xctest/Contents/MacOS/ThrowntomClientTests" \
+            -object "$BIN_PATH/ThrowntomUITests.xctest/Contents/MacOS/ThrowntomUITests" \
             -instr-profile "$BIN_PATH/codecov/default.profdata" \
             -ignore-filename-regex='\.build|Tests/' \
             > swift-coverage.txt

@@ -30,19 +30,29 @@ struct GoBuildError: Error, CustomStringConvertible {
 }
 
 /// Waits for `condition` and fails the test at the call site, naming `what`, if it never holds.
-/// MainActor-isolated so tests can read DaemonClient's MainActor properties inside `condition`.
+/// Runs on the caller's actor, so a MainActor test's `condition` reads DaemonClient's MainActor
+/// properties directly and a test fixture's reads its own.
 /// `timeout`'s default bounds every waiter in this target that doesn't pass its own, not just the
 /// daemon-reconnect ones it was last tuned for — widen it explicitly at the call site rather than
 /// raising the default if a new wait is legitimately slower than 2s.
-@MainActor
 func waitUntil(
   _ what: String,
   timeout: Double = 2,
   file: StaticString = #filePath,
   line: UInt = #line,
+  isolation: isolated (any Actor)? = #isolation,
   _ condition: () -> Bool,
 ) async throws {
-  guard let failure = await pollUntil(what, timeout: timeout, file: file, line: line, condition) else {
+  guard
+    let failure = await pollUntil(
+      what,
+      timeout: timeout,
+      file: file,
+      line: line,
+      isolation: isolation,
+      condition,
+    )
+  else {
     return
   }
   // Both, deliberately: the XCTFail is what puts the failure on the waiting line rather than on
@@ -55,12 +65,12 @@ func waitUntil(
 /// The wait without the reporting: polls `condition` every 20 ms and returns nil once it holds,
 /// or the failure to report if it never does. Separate from `waitUntil` so the suite can assert
 /// on what a failed wait says without XCTest recording the very failure under test.
-@MainActor
 func pollUntil(
   _ what: String,
   timeout: Double = 2,
   file: StaticString = #filePath,
   line: UInt = #line,
+  isolation _: isolated (any Actor)? = #isolation,
   _ condition: () -> Bool,
 ) async -> TimeoutError? {
   let deadline = Date.now.addingTimeInterval(timeout)
@@ -162,7 +172,7 @@ final class DaemonHarness {
     try binaryResult.get()
   }
 
-  func start() async throws {
+  func start(isolation: isolated (any Actor)? = #isolation) async throws {
     let p = Process()
     p.executableURL = try Self.binary()
     var env = ProcessInfo.processInfo.environment
@@ -172,7 +182,7 @@ final class DaemonHarness {
     p.standardError = FileHandle.nullDevice
     try p.run()
     process = p
-    try await waitUntil("the daemon to open its socket", timeout: 5) {
+    try await waitUntil("the daemon to open its socket", timeout: 5, isolation: isolation) {
       FileManager.default.fileExists(atPath: socketPath)
     }
   }

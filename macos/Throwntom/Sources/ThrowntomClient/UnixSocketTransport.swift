@@ -132,8 +132,9 @@ public final class UnixSocketTransport: DaemonTransport {
 /// A cancel that lands first is applied as soon as the task arrives. Neither path runs the task's
 /// cancellation handlers on the thread that asked for the cancel.
 // Every mutable member is read and written under `lock`.
-// @unchecked because NSLock-guarded access isn't expressible to the compiler; correct today, but
-// the annotation could go once the deployment target reaches Mutex (macOS 15).
+// @unchecked because NSLock-guarded access isn't expressible to the compiler; correct today. The
+// deployment target is macOS 15 now, so `Mutex` could carry this instead and the annotation
+// could go with it.
 // swiftlint:disable:next no_unchecked_sendable
 final class PendingTask: @unchecked Sendable {
 

@@ -5,6 +5,7 @@ import UserNotifications
 /// refuses to answer a process without an app bundle. Everything that decides anything lives behind
 /// `NotificationAuthorizer` instead, in `ReminderAuthorization`. Left out of coverage measurement
 /// for that reason; see `sonar.coverage.exclusions` in sonar-project.properties.
+@MainActor
 struct SystemNotificationAuthorizer: NotificationAuthorizer {
   func authorizationStatus() async -> UNAuthorizationStatus {
     await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
