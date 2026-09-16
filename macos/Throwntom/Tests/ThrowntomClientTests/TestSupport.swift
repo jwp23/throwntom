@@ -31,10 +31,13 @@ struct GoBuildError: Error, CustomStringConvertible {
 
 /// Waits for `condition` and fails the test at the call site, naming `what`, if it never holds.
 /// MainActor-isolated so tests can read DaemonClient's MainActor properties inside `condition`.
+/// `timeout`'s default bounds every waiter in this target that doesn't pass its own, not just the
+/// daemon-reconnect ones it was last tuned for — widen it explicitly at the call site rather than
+/// raising the default if a new wait is legitimately slower than 2s.
 @MainActor
 func waitUntil(
   _ what: String,
-  timeout: Double = 5,
+  timeout: Double = 2,
   file: StaticString = #filePath,
   line: UInt = #line,
   _ condition: () -> Bool,
@@ -55,7 +58,7 @@ func waitUntil(
 @MainActor
 func pollUntil(
   _ what: String,
-  timeout: Double = 5,
+  timeout: Double = 2,
   file: StaticString = #filePath,
   line: UInt = #line,
   _ condition: () -> Bool,
@@ -169,7 +172,9 @@ final class DaemonHarness {
     p.standardError = FileHandle.nullDevice
     try p.run()
     process = p
-    try await waitUntil("the daemon to open its socket") { FileManager.default.fileExists(atPath: socketPath) }
+    try await waitUntil("the daemon to open its socket", timeout: 5) {
+      FileManager.default.fileExists(atPath: socketPath)
+    }
   }
 
   /// Asks the daemon to exit and escalates to SIGKILL rather than waiting on it forever,
