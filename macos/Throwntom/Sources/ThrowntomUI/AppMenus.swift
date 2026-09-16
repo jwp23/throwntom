@@ -12,7 +12,6 @@ struct AppMenus: Commands {
   /// The three items that reach outside the app are held as values rather than written as calls
   /// into their buttons, so a test can press one without an editor or a System Settings pane
   /// coming up. What they start out as is the call each button says it makes.
-  @MainActor
   init(environment: AppEnvironment) {
     self.environment = environment
     openLoginItemsSettings = environment.registrar.openLoginItemsSettings

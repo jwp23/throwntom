@@ -214,17 +214,17 @@ final class MenuEntryWindowTests: XCTestCase {
   // MARK: Private
 
   /// What SwiftUI files when `openWindow` is called with no app lifecycle around it.
-  private static let openWindowNote = "Use of OpenWindowAction requires the SwiftUI App Lifecycle."
+  nonisolated private static let openWindowNote = "Use of OpenWindowAction requires the SwiftUI App Lifecycle."
 
   /// Both notes one `openWindow(id:)` files: reading the environment action outside a view, and
   /// then using it. Anything else XCTest hands `record(_:)` is a real failure and is passed on.
-  private static let expectedNotes = [
+  nonisolated private static let expectedNotes = [
     openWindowNote,
     "Accessing Environment<<private>>'s value outside of being installed on a View. "
       + "This will always read the default value and will not update.",
   ]
 
-  private static let issues = IssueLog()
+  nonisolated private static let issues = IssueLog()
 
 }
 

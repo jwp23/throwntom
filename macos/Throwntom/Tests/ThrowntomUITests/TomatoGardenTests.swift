@@ -2,6 +2,7 @@ import SwiftUI
 import XCTest
 @testable import ThrowntomUI
 
+@MainActor
 final class TomatoGardenTests: XCTestCase {
   /// Every statement `body` builds, spelled out as the type SwiftUI actually composed: the
   /// VStack's block grid and summary text, the grid's `BlockFlowLayout` wrapping a `ForEach` of

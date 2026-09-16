@@ -6,7 +6,7 @@ enum ConfigFile {
   /// What opens the file on a real machine: whatever macOS has registered for the file. Named
   /// rather than written inline so everything that stands in front of `open(with:)` — the menu
   /// bar's own item, by way of `ViewActionDispatch.show` — defaults to the same opener.
-  static let workspaceOpener: (URL) -> Bool = { NSWorkspace.shared.open($0) }
+  static let workspaceOpener: @Sendable (URL) -> Bool = { NSWorkspace.shared.open($0) }
 
   /// `open` answers whether anything took the file, and nothing else reports: a menu item that
   /// quietly does nothing looks identical to one that worked. The opener is injectable so that
