@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 /// JSON conventions of the throwntomd API: snake_case keys and Go RFC3339Nano timestamps.
 public enum DaemonJSON {
@@ -31,21 +32,26 @@ public enum DaemonJSON {
 
   /// Go emits fractional seconds only when the time has them; each formatter accepts exactly one form.
   static func parseGoTime(_ raw: String) -> Date? {
-    fractionalSeconds.date(from: raw) ?? wholeSeconds.date(from: raw)
+    fractionalSeconds.withLock { $0.date(from: raw) }
+      ?? wholeSeconds.withLock { $0.date(from: raw) }
   }
 
   // MARK: Private
 
-  private static let fractionalSeconds: ISO8601DateFormatter = {
+  /// A decoder runs wherever its caller does — the event stream decodes off the main actor — so
+  /// the two formatters are shared across tasks. Foundation does not declare `ISO8601DateFormatter`
+  /// `Sendable`, and nothing else vouches for parsing through one from two tasks at once, so each
+  /// is reached only under its own mutex rather than passed around as if it were a value.
+  private static let fractionalSeconds = Mutex<ISO8601DateFormatter>({
     let f = ISO8601DateFormatter()
     f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     return f
-  }()
+  }())
 
-  private static let wholeSeconds: ISO8601DateFormatter = {
+  private static let wholeSeconds = Mutex<ISO8601DateFormatter>({
     let f = ISO8601DateFormatter()
     f.formatOptions = [.withInternetDateTime]
     return f
-  }()
+  }())
 
 }

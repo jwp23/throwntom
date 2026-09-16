@@ -61,7 +61,15 @@ struct ReconnectBackoff {
   ///
   /// `register` must not touch this backoff: the call holds exclusive access for its duration,
   /// so reading `delay` or `failures` from inside it traps on overlapping access.
-  mutating func registerAgentIfDue(_ register: () async -> Bool) async {
+  ///
+  /// The backoff has no isolation of its own: it is a value its caller owns, and `register` is
+  /// that caller's work. Running on the caller's actor is what lets the reconnect loop hand in a
+  /// closure that talks to the client, with no hop to a shared executor and nothing crossing an
+  /// isolation boundary in either direction.
+  mutating func registerAgentIfDue(
+    isolation _: isolated (any Actor)? = #isolation,
+    _ register: () async -> Bool,
+  ) async {
     guard !hasAskedLaunchdToStart, failures > 0, failures % registerEvery == 0 else { return }
     guard await register() else { return }
     hasAskedLaunchdToStart = true

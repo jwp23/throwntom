@@ -46,13 +46,15 @@ final class DaemonClientTests: XCTestCase {
 
   // MARK: Internal
 
+  @MainActor
   override func setUp() async throws {
     daemon = try DaemonHarness()
     try await daemon.start()
     registrar = RecordingRegistrar()
   }
 
-  override func tearDown() {
+  @MainActor
+  override func tearDown() async throws {
     daemon.cleanup()
   }
 

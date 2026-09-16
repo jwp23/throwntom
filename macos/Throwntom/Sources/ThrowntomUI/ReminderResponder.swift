@@ -165,6 +165,10 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
       completion()
       return
     }
+    // UserNotifications hands the handler over without saying it is safe to call from another
+    // task, and the compiler has to take that at face value. It is called exactly once, by the
+    // one task started here, and nothing else ever holds it.
+    nonisolated(unsafe) let reportBack = completion
     Task { @MainActor in
       // The banner is the one dispatch path the user can reach without the window, so it needs
       // the same service gate every chip and menu item has. Without it a button pressed over a
@@ -180,7 +184,7 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
         // pulled out of whatever they were typing in.
         withdrawIfTheServiceIsGone()
         presenter.showWindowWithoutFocus()
-        completion()
+        reportBack()
         return
       }
       do {
@@ -191,7 +195,7 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
         // closed and the caption may never be read.
         ClientLog.failed("answer a reminder", in: .reminders, error: error)
       }
-      completion()
+      reportBack()
     }
   }
 

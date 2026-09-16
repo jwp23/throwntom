@@ -6,6 +6,10 @@ import UserNotifications
 
 /// The notification-centre operations a reminder needs, so what the app shows can be worked out
 /// without the user's real notification centre, which no test process may reach.
+///
+/// Main actor, because every one of these is a window, a Dock icon or a sound: the app's own
+/// presentation, which AppKit serves from the main thread and nowhere else.
+@MainActor
 protocol ReminderPresenter {
   /// Attaches each reminder's buttons to its category. Without it macOS shows the banner
   /// with no buttons on it and the reminder cannot be answered.

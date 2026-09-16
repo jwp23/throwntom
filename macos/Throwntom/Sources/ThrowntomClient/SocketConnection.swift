@@ -93,7 +93,7 @@ final class SocketConnection: @unchecked Sendable {
   /// Runs one Network.framework operation as a cancellable async call. Cancellation resumes the
   /// caller with `CancellationError` before closing the connection, so the reported error is the
   /// cancellation rather than whichever socket error the close happens to produce.
-  private func perform<T>(_ operation: (ResumeOnce<T>) -> Void) async throws -> T {
+  private func perform<T: Sendable>(_ operation: (ResumeOnce<T>) -> Void) async throws -> T {
     let gate = ResumeOnce<T>()
     return try await withTaskCancellationHandler {
       try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<T, Error>) in
@@ -116,7 +116,7 @@ final class SocketConnection: @unchecked Sendable {
 // @unchecked because NSLock-guarded access isn't expressible to the compiler; correct today, but
 // the annotation could go once the deployment target reaches Mutex (macOS 15).
 // swiftlint:disable:next no_unchecked_sendable
-private final class ResumeOnce<T>: @unchecked Sendable {
+private final class ResumeOnce<T: Sendable>: @unchecked Sendable {
 
   // MARK: Internal
 
