@@ -7,6 +7,10 @@ import UserNotifications
 /// The notification-centre operations a reminder needs, so what the app shows can be worked out
 /// without the user's real notification centre, which no test process may reach.
 protocol ReminderPresenter {
+  /// Puts `delegate` in the one seat macOS delivers a reminder's answer to. Handed the delegate
+  /// rather than reaching for it, so this one call into `UNUserNotificationCenter` goes through a
+  /// presenter; `NotificationAuthorizer`'s own calls are the other half startup needs stubbed.
+  func claimNotificationDelegate(_ delegate: UNUserNotificationCenterDelegate)
   /// Attaches each reminder's buttons to its category. Without it macOS shows the banner
   /// with no buttons on it and the reminder cannot be answered.
   func registerReminderButtons()

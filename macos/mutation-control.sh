@@ -23,44 +23,17 @@ set -euo pipefail
 tool="${1:?usage: macos/mutation-control.sh <path-to-swift-mutation-testing>}"
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 
-# Guard against two mutation-control.sh invocations racing each other: the tool's startup
-# sweep wipes every other live run's sandbox for this macOS user (see header comment above),
-# so a second invocation must refuse before it ever launches the tool. Scoped to this script's
-# own invocations only — swift-mutation-testing has no other checked-in local entry point.
-#
-# The lock is a symlink whose target is the holder's pid. `ln -s` is a single atomic syscall
-# that sets the target at creation time, so — unlike a directory-plus-separate-pid-file scheme —
-# no other process can ever observe the lock as "present but pid not yet readable," and only one
-# of any number of simultaneous `ln -s` calls against the same path can succeed.
-#
-# No automatic reclaim of a dead-pid lock: checking the pid and removing the lock are two
-# separate operations, and `rm -f` deletes whatever is at the path *at that moment* — not
-# specifically the stale link that was inspected. Two racing processes can each see the same
-# dead pid, and whichever removes second deletes the *other's* freshly claimed live lock, not
-# the stale one it inspected — letting both through. There is no reclaim shape (including
-# `mv`-based, which is atomic but has the identical steal-a-live-lock problem) that avoids this
-# without a fixed-fd lock (`flock`), which macOS doesn't ship and which would be a new
-# dependency for a small local guard. So a dead-pid lock always refuses; clearing it is a
-# manual, deliberate act by whoever notices, never something the script races to do itself.
-# Fixed, not derived from $TMPDIR: TMPDIR is caller-controlled, so two invocations started
-# with different TMPDIR values would each claim a different lock file and both pass the guard.
-# The override exists solely so mutation-control-racetest.sh can point at an isolated lock file
-# instead of racing against (and clobbering) a real invocation's production lock; nothing else
-# should set it.
-lock_path="${MUTATION_CONTROL_LOCK_PATH:-/tmp/mutation-control.lock}"
-if ! ln -s "$$" "$lock_path" 2>/dev/null; then
-  holder_pid="$(readlink "$lock_path" 2>/dev/null || true)"
-  if [[ -n "$holder_pid" ]] && kill -0 "$holder_pid" 2>/dev/null; then
-    echo "mutation-control.sh: another run is already in progress (pid $holder_pid); refusing to start" >&2
-  else
-    echo "mutation-control.sh: stale lock from dead pid ${holder_pid:-unknown} at $lock_path; remove it manually and retry" >&2
-  fi
-  exit 1
-fi
-trap 'rm -f "$lock_path"' EXIT
+# Guard against two mutation-control.sh invocations racing each other, and against racing
+# mutate-file.sh: the tool's startup sweep wipes every other live run's sandbox for this macOS
+# user (see header comment above), so a second invocation must refuse before it ever launches
+# the tool. See macos/mutation-lock.sh for the guard's atomicity guarantees.
+# shellcheck disable=SC1091 # dynamic path via $repo_root; file exists at macos/mutation-lock.sh
+source "$repo_root/macos/mutation-lock.sh"
+mutation_control_acquire_lock
+trap 'mutation_control_release_lock' EXIT
 
 scratch="$(mktemp -d)"
-trap 'rm -rf "$scratch"; rm -f "$lock_path"' EXIT
+trap 'rm -rf "$scratch"; mutation_control_release_lock' EXIT
 
 rsync -a --exclude .git --exclude .build --exclude .claude --exclude .beads \
   --exclude .swift-mutation-testing-cache "$repo_root/" "$scratch/repo/"

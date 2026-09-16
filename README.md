@@ -443,6 +443,7 @@ Schedule supports day aliases: `"weekday"` expands to Mon-Fri, `"weekend"` to Sa
 - `macos/build.sh` — builds `Throwntom.app` with `throwntomd` embedded (see `macos/README.md`)
 - `macos/install.sh` — the dev loop: quit, stop the agent, build, install to `~/Applications`, open
 - `macos/mutation-control.sh` — negative control for Swift mutation testing: a planted survivor must be reported Survived before any score is trusted (ADR-015)
+- `macos/mutate-file.sh` — runs swift-mutation-testing and the survivor gate over the files matching a keep-regex, for local triage of one file at a time
 - `docs/development.md` — driving the daemon and checking the app from a terminal
 - `e2e/` — end-to-end tests (build tag: `e2e`)
 - `integration/` — integration tests (build tag: `integration`)

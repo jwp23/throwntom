@@ -7,21 +7,33 @@ import ThrowntomClient
 /// somewhere; this is where the shortcuts are bound and discoverable.
 struct AppMenus: Commands {
 
+  // MARK: Lifecycle
+
+  /// The three items that reach outside the app are held as values rather than written as calls
+  /// into their buttons, so a test can press one without an editor or a System Settings pane
+  /// coming up. What they start out as is the call each button says it makes.
+  init(environment: AppEnvironment) {
+    self.environment = environment
+    openLoginItemsSettings = environment.registrar.openLoginItemsSettings
+    openNotificationSettings = environment.responder.openNotificationSettings
+    openConfigFile = ConfigFile.workspaceOpener
+  }
+
+  // MARK: Internal
+
   @Environment(\.openWindow) var openWindow
 
   let environment: AppEnvironment
 
+  /// The System Settings panes the two items below the divider open.
+  var openLoginItemsSettings: () -> Void
+  var openNotificationSettings: () -> Void
+  /// What "Open Config File…" hands the daemon's TOML to, passed down through
+  /// `ViewActionDispatch.show` to `ConfigFile.open(with:)`.
+  var openConfigFile: (URL) -> Bool
+
   var body: some Commands {
-    CommandGroup(replacing: .appSettings) {
-      MenuGroups(menu: MenuModel.appConfig()) { item in
-        Button(item.title) { show(item.action) }
-          .keyboardShortcut(item.shortcut?.keyboardShortcut)
-      }
-      Divider()
-      LoginItemToggle(registrar: environment.registrar)
-      Button("Open Login Items Settings…") { environment.registrar.openLoginItemsSettings() }
-      Button("Open Notification Settings…") { environment.responder.openNotificationSettings() }
-    }
+    CommandGroup(replacing: .appSettings) { appSettingsMenu }
     CommandMenu("Timer") {
       MenuGroups(menu: timerMenu) { item in
         // Lunch alone grows a length picker here, the way the window chip's own split chip does:
@@ -71,6 +83,26 @@ struct AppMenus: Commands {
           .disabled(!item.isEnabled)
       }
     }
+  }
+
+  /// The group that replaces the Settings item macOS installs: the config file, then the launch
+  /// and notification settings under a divider.
+  ///
+  /// It is a view of its own rather than a builder block written into the `CommandGroup` above
+  /// because a `CommandGroup` keeps whatever it was built with behind an opaque resolver closure
+  /// that nothing outside SwiftUI can call, which put every button in this group out of reach of
+  /// the tests. As a plain view value the same items are readable, and their actions runnable, the
+  /// way the window's own rows are.
+  @ViewBuilder
+  var appSettingsMenu: some View {
+    MenuGroups(menu: MenuModel.appConfig()) { item in
+      Button(item.title) { show(item.action) }
+        .keyboardShortcut(item.shortcut?.keyboardShortcut)
+    }
+    Divider()
+    LoginItemToggle(registrar: environment.registrar)
+    Button("Open Login Items Settings…") { openLoginItemsSettings() }
+    Button("Open Notification Settings…") { openNotificationSettings() }
   }
 
   /// Whether there is a daemon for these menus to dispatch to. Every menu that sends a command
@@ -176,7 +208,7 @@ struct AppMenus: Commands {
   }
 
   func show(_ action: ViewAction) {
-    ViewActionDispatch.show(action, in: environment.windowModel)
+    ViewActionDispatch.show(action, in: environment.windowModel, opener: openConfigFile)
   }
 
 }

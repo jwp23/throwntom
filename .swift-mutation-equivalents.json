@@ -249,38 +249,6 @@
   },
   {
     "file": "Sources/ThrowntomUI/ReminderResponder.swift",
-    "line": 48,
-    "column": 5,
-    "mutator": "RemoveSideEffects",
-    "replacement": "",
-    "reason": "Proven equivalent for testing purposes. `start()`'s very first statement, `UNUserNotificationCenter.current().delegate = self` (line 47, an assignment rather than a call, so it is not itself a RemoveSideEffects candidate), unconditionally aborts any XCTest process that reaches it: `UNUserNotificationCenter.current()` requires a real app bundle, which no `swift test` process has (documented in this same file's neighbours -- AppEnvironment.swift:79-80, SystemReminderPresenter.swift:6-7, SystemNotificationAuthorizer.swift:4-5, all 'which no test process may reach'). Hand-verified: a test that calls `responder.start()` crashes every run, mutated or not, with `NSInternalInconsistencyException: bundleProxyForCurrentProcess is nil` at exactly that line, before line 48 is ever reached. Since no test, existing or possible, can call `start()` without crashing on its first line, nothing after it -- including this call to `registerReminderButtons()` -- is observable by any XCTest in this package."
-  },
-  {
-    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
-    "line": 49,
-    "column": 5,
-    "mutator": "RemoveSideEffects",
-    "replacement": "",
-    "reason": "Proven equivalent for testing purposes, same mechanism as the 48:5 entry above: `start()` unconditionally crashes on its first statement (line 47, `UNUserNotificationCenter.current().delegate = self`) in any `swift test` process, before this call to `withdrawOnTermination()` is ever reached. `withdrawOnTermination()` itself is directly callable and is covered directly (ReminderResponderTests.swift, ReminderPostingTests.swift's testQuittingTheAppTakesTheBannerDown); only its invocation from inside `start()` is unreachable by any test."
-  },
-  {
-    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
-    "line": 50,
-    "column": 5,
-    "mutator": "RemoveSideEffects",
-    "replacement": "",
-    "reason": "Proven equivalent for testing purposes, same mechanism as the 48:5 entry above: `start()` unconditionally crashes on its first statement (line 47, `UNUserNotificationCenter.current().delegate = self`) in any `swift test` process, before this call to `followDaemonState()` is ever reached. `followDaemonState()` itself is directly callable and is covered directly (ReminderPostingTests.swift); only its invocation from inside `start()` is unreachable by any test."
-  },
-  {
-    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
-    "line": 51,
-    "column": 5,
-    "mutator": "RemoveSideEffects",
-    "replacement": "",
-    "reason": "Proven equivalent for testing purposes, same mechanism as the 48:5 entry above: `start()` unconditionally crashes on its first statement (line 47, `UNUserNotificationCenter.current().delegate = self`) in any `swift test` process, before this `Task { await requestAuthorization(); await present(client.state) }` is ever reached. Both `requestAuthorization()` and `present(_:)` are directly callable and are covered directly by ReminderResponderAuthorizationTests.swift and ReminderPostingTests.swift; only their invocation from inside `start()`'s launch Task is unreachable by any test."
-  },
-  {
-    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
     "line": 144,
     "column": 43,
     "mutator": "BooleanLiteralReplacement",
@@ -336,11 +304,83 @@
     "reason": "Proven equivalent. `linear(_:)`'s only caller, `luminance(_:)`, feeds it `c.channel(0/1/2)`, and `channel(_:)` (Palette.swift:19-23) always returns `Double(byte) / 255` for an integer byte in 0...255. The `<=` vs `<` distinction is only observable at the boundary value 0.03928 itself, and 0.03928 * 255 = 10.0164 is not an integer, so no integer byte ever produces `v == 0.03928` exactly. `<=` and `<` therefore agree on every value this function can ever be called with."
   },
   {
+    "file": "Sources/ThrowntomUI/TasksPanel.swift",
+    "line": 94,
+    "column": 40,
+    "mutator": "BooleanLiteralReplacement",
+    "replacement": "false",
+    "reason": "Proven equivalent. `initial` only controls whether the onChange action also runs once, for the starting value, on the view's very first appearance -- it has no effect on any later change (SwiftUI's own semantics for onChange(of:initial:)), and taskList's action just scrolls to whatever topRowID currently names. On a first appearance the List has never been scrolled at all, so it is already sitting at its native top position; scrollTo(topRowID, anchor: .top) at that instant asks it to go exactly where it already is. Hand-verified with 50 active tasks and selectedID set to the 50th (so if List auto-scrolled to reveal the selection on mount, that would be the case most likely to show a difference): hosting the panel with initial left true and, separately, hand-edited to false, the scroll clip view's bounds.origin.y is 0 in both -- List does not auto-scroll to a selection on first layout in this bridge, so there is nothing for the initial firing to correct that the default position was not already correct."
+  },
+  {
     "file": "Sources/ThrowntomUI/AppEnvironment.swift",
-    "line": 73,
+    "line": 77,
     "column": 5,
     "mutator": "RemoveSideEffects",
     "replacement": "",
     "reason": "Genuine own-Timeout, hand-verified kill. `client.start()` is what makes `AppEnvironment` reach `.connected`, and `AppEnvironmentTests.testStartFeedsDaemonFramesFromTheInjectedTransport` already asserts on that transition via `waitUntil` (a 5s bounded poll, not an unbounded wait). Hand-verified: editing the source to remove `client.start()` and running `swift test --filter AppEnvironmentTests/testStartFeedsDaemonFramesFromTheInjectedTransport` fails deterministically in ~5.1s (the bounded wait's own timeout, not a hang); restoring the call passes in under 0.05s. `client.start()` is reached by nearly every test in the file (and by every test built on `AppEnvironment`, across the whole UI target) that calls `environment.start()`, so mutating it turns many bounded 5s waits into 5s failures across the target -- pushing the whole file-scoped run's wall time past the tool's 120s budget, which is exactly why the tool reports this mutant Timeout rather than Killed. No file-scoped tool run can finish and report Killed for a mutant that slows down that much of the suite at once; the kill is real and provably fast per-test, just outside what one run of the whole target can observe within its timeout."
+  },
+  {
+    "file": "Sources/ThrowntomUI/NewTaskRow.swift",
+    "line": 48,
+    "column": 7,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Proven equivalent. NewTaskRow.commit()'s catch branch runs only when `model.commitNewTask()` throws (TaskWindowModel.swift), and that function opens with `defer { draft = nil }` (line 70) -- a defer runs before the throw propagates out of the function, so `model.draft` is already nil, and `model.isEditing` (`draft != nil`) already false, by the time this catch block executes. `cancelEdit()` (TaskWindowModel.swift line 64-66) does nothing but `draft = nil`, so calling it here writes nil over an already-nil value: the observable state (draft, isEditing) is byte-identical whether or not line 48 runs. Nothing else reads draft's identity or observes the write count, only its value. Hand-verified: with line 48 deleted, NewTaskRowTests.testTextTheTaskGrammarRefusesClosesTheRow (which drives this exact catch branch and asserts model.isEditing == false afterward) still passes."
+  },
+  {
+    "file": "Sources/ThrowntomUI/NewTaskRow.swift",
+    "line": 22,
+    "column": 29,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Not a behavioral-equivalence claim: the app is silent under this mutant. Unobservable by any XCTest: NSSound.beep() is the raw system call with no return value, callback or readable state, and it is a Swift-only overlay (not @objc; class_getClassMethod/responds(to:) return nil/false, probed), so nothing can be swizzled. The seam for this behavior is `alert` one level up, asserted by NewTaskRowTests.testSubmittingTextTheGrammarRefusesAlertsAndSendsNothing; this line is the default's irreducible OS call, and any further seam relocates the literal and reproduces this mutant. Same shape as SMAppServiceRegistrar.swift:52 and ReminderResponder.swift:157. Category under review in throwntom-gz9z.6.3. Adjudicated (commit e96a685): this shape was specifically ruled on, not decided unilaterally by whoever wrote the test."
+  },
+  {
+    "file": "Sources/ThrowntomUI/ShortcutList.swift",
+    "line": 65,
+    "column": 62,
+    "mutator": "BooleanLiteralReplacement",
+    "replacement": "true",
+    "reason": "Proven equivalent. ShortcutList.sections(for:) passes this MenuModel.timer(...) call's result only as the `titles:` half of entries(titles:enablement:...) (ShortcutList.swift:64-73); entries() (ShortcutList.swift:110-127) reads only `titled.title`, `titled.action` and `hint`/`condition` derived from that action -- it never reads `titled.isEnabled`. `returnIsTaken` reaches exactly one place in MenuModel.timer: `.confirm`'s `isEnabled: available.contains(.confirm) && !returnIsTaken` (MenuModel.swift:55). `available` is computed as `daemonAvailable ? state.map(TimerActions.available(for:)) ?? [] : []` (MenuModel.swift:31), and this call passes `state: nil`, so `state.map(...)` is `nil` on both branches, making `available` == `[]` regardless of `daemonAvailable` or `returnIsTaken`. With `available` always empty, `available.contains(.confirm)` is always `false`, so the whole expression `false && !returnIsTaken` is `false` whichever way `returnIsTaken` is set -- and that value is never read anyway (isEnabled comes from the separate `enablement:` MenuModel built from live state, ShortcutList.swift:66-70). Hand-verified: with this literal flipped to `true`, the full ShortcutSheetTests/ShortcutHintTests/ShortcutRowTests/ShortcutSheetKeyboardTests/ShortcutSheetRenderingTests/MenuCommandsTests set still passes unchanged."
+  },
+  {
+    "file": "Sources/ThrowntomUI/ShortcutList.swift",
+    "line": 65,
+    "column": 86,
+    "mutator": "BooleanLiteralReplacement",
+    "replacement": "false",
+    "reason": "Proven equivalent, same titles-only call as the returnIsTaken equivalence immediately above (ShortcutList.swift:64-73 only reads `titled.title` and `titled.action` from this MenuModel, never `titled.isEnabled`). Every use of `daemonAvailable` inside MenuModel.timer (MenuModel.swift:30-79) is gated on `state`, which this call passes as the literal `nil`: `available = daemonAvailable ? state.map(TimerActions.available(for:)) ?? [] : []` (line 31) is `[]` on both branches since `state.map` on `nil` is always `nil`; `.start`'s `title: TimerActions.startTitle(for: daemonAvailable ? state : nil)` (line 50) and the pause/resume action `TimerActions.pauseOrResume(for: daemonAvailable ? state?.state : nil)` (line 58) both reduce to the `nil` case on either branch of the ternary because `state` and `state?.state` are already `nil`; `.lunch`/`.meeting`'s `isEnabled: daemonAvailable && state != nil && ...` (lines 72, 76) is `false` regardless because `state != nil` is `false`, and their isEnabled values are titles-only and never read besides. So every field this MenuModel value produces -- title, action identity and the (unread) isEnabled -- is identical whichever way `daemonAvailable` is set. Hand-verified: with this literal flipped to `false`, the full ShortcutSheetTests/ShortcutHintTests/ShortcutRowTests/ShortcutSheetKeyboardTests/ShortcutSheetRenderingTests/MenuCommandsTests set still passes unchanged."
+  },
+  {
+    "file": "Sources/ThrowntomUI/LunchEntryRow.swift",
+    "line": 16,
+    "column": 29,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Not a behavioral-equivalence claim: the app is silent under this mutant. Unobservable by any XCTest: NSSound.beep() is the raw system call with no return value, callback or readable state, and it is a Swift-only overlay (not @objc; class_getClassMethod/responds(to:) return nil/false, probed), so nothing can be swizzled. The seam for this behavior is `alert` one level up, asserted by LunchEntryRowTests.testARefusedLengthBeepsAndLeavesTheFieldOpen; this line is the default's irreducible OS call, and any further seam relocates the literal and reproduces this mutant. Same shape as NewTaskRow.swift:22:29 (adjudicated), SMAppServiceRegistrar.swift:52 and ReminderResponder.swift:157. Category under review in throwntom-gz9z.6.3."
+  },
+  {
+    "file": "Sources/ThrowntomUI/MeetingEntryRow.swift",
+    "line": 16,
+    "column": 29,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Not a behavioral-equivalence claim: the app is silent under this mutant. Unobservable by any XCTest: NSSound.beep() is the raw system call with no return value, callback or readable state, and it is a Swift-only overlay (not @objc; class_getClassMethod/responds(to:) return nil/false, probed), so nothing can be swizzled. The seam for this behavior is `alert` one level up, asserted by MeetingEntryRowTests.testARefusedLengthBeepsAndLeavesTheFieldOpen; this line is the default's irreducible OS call, and any further seam relocates the literal and reproduces this mutant. Same shape as NewTaskRow.swift:22:29 (adjudicated), SMAppServiceRegistrar.swift:52 and ReminderResponder.swift:157. Category under review in throwntom-gz9z.6.3."
+  },
+  {
+    "file": "Sources/ThrowntomUI/SnoozeEntryRow.swift",
+    "line": 15,
+    "column": 29,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Not a behavioral-equivalence claim: the app is silent under this mutant. Unobservable by any XCTest: NSSound.beep() is the raw system call with no return value, callback or readable state, and it is a Swift-only overlay (not @objc; class_getClassMethod/responds(to:) return nil/false, probed), so nothing can be swizzled. The seam for this behavior is `alert` one level up, asserted by SnoozeEntryRowTests.testARefusedDurationBeepsAndLeavesTheFieldOpen; this line is the default's irreducible OS call, and any further seam relocates the literal and reproduces this mutant. Same shape as NewTaskRow.swift:22:29 (adjudicated), SMAppServiceRegistrar.swift:52 and ReminderResponder.swift:157. Category under review in throwntom-gz9z.6.3."
+  },
+  {
+    "file": "Sources/ThrowntomUI/ThrowntomScenes.swift",
+    "line": 15,
+    "column": 17,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Genuine trap-Crash hand-verified kill; no Timeout mutant appears anywhere in this file's own gated set (its other two mutants, 10:5 and 11:7, are both Killed by ThrowntomScenesTests.testTheSceneIsTheMainWindowStyledAndCarryingTheAppMenus). Reported Crash directly in this bead's own file-scoped tool run (/tmp/report-ThrowntomUI.json, mutant swift-mutation-testing_8). With `AppMenus(environment: environment)` deleted, `.commands { }` closes over a `CommandsBuilder.buildBlock()` with zero statements. Hand-verified: editing the source to `.commands { }` by hand and running `swift test --filter ThrowntomScenesTests` (and, separately, a scratch test that only evaluates `ThrowntomScenes(environment:).body`, no assertion) crashes the whole ThrowntomUITests process with EXC_BAD_ACCESS inside the test method itself, at the line that evaluates `.body` -- confirmed under lldb (`bt all`: frame #0 is the test method itself, `stop reason = EXC_BAD_ACCESS (code=1, address=0xfffffffffffffff8)`), so the trap happens while SwiftUI builds the scene tree, before any reflection or assertion runs. Restoring `AppMenus(environment: environment)` passes clean. No test, of any shape, can observe this mutant without crashing the process: evaluating `.body` is the only way to reach the removed statement's absence, and every way of evaluating it under this mutant traps."
   }
 ]

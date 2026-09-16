@@ -1,4 +1,5 @@
 // Tests/ThrowntomUITests/ChipTests.swift
+import SwiftUI
 import ThrowntomClient
 import XCTest
 @testable import ThrowntomUI
@@ -115,6 +116,28 @@ final class ChipTests: XCTestCase {
     XCTAssertTrue(commandRow.contains("_LayoutRoot<BlockFlowLayout>"), "both chip rows flow: \(commandRow)")
   }
 
+  /// `ChipFace` only draws the hint's `Text` when there is one; a hint kept off the face when
+  /// present, or drawn when there is none, is the `if !hint.isEmpty` conditional (and the `Text`
+  /// it guards) going wrong.
+  func testChipFaceDrawsTheHintOnlyWhenItIsPresent() throws {
+    let withHint = try tupleParts(of: try stackContent(of: ChipFace(title: "Pause", hint: "⌘⇧P").body))
+    let hintSlot = try part(1, of: withHint)
+    XCTAssertTrue(isBuilt(hintSlot), shape(of: hintSlot))
+    XCTAssertTrue(shape(of: try child("some", of: hintSlot)).contains("Text"), shape(of: hintSlot))
+
+    let withoutHint = try tupleParts(of: try stackContent(of: ChipFace(title: "Pause", hint: "").body))
+    XCTAssertFalse(isBuilt(try part(1, of: withoutHint)))
+  }
+
+  /// `Chip.body` has to be a plain button wrapping `ChipLabel`, the only thing a mutant reaching
+  /// the whole statement or just the `ChipLabel(...)` call inside it would leave silently unbuilt.
+  func testChipBodyIsAButtonWrappingChipLabel() {
+    let scheme = Palette.scheme(for: .idle)
+    let bodyShape = shape(of: Chip(title: "Pause", hint: "⌘⇧P", isPrimary: false, scheme: scheme) { }.body)
+    XCTAssertTrue(bodyShape.contains("Button"), bodyShape)
+    XCTAssertTrue(bodyShape.contains("ChipLabel"), bodyShape)
+  }
+
   func testChipForActionMatchesTheActionAndDispatchesOnTap() async throws {
     let transport = try StubTransport(states: [makeState(phase: .idle)])
     let environment = AppEnvironment(transport: transport)
@@ -138,5 +161,31 @@ final class ChipTests: XCTestCase {
     primary.action()
     try await waitUntil { !transport.commands.isEmpty }
     XCTAssertEqual(transport.commands.map(\.path), ["/v1/timer/confirm"])
+  }
+
+  /// `row(for:)` on its own (already exercised above) never proves the row's `ForEach` is what
+  /// actually walks `content.chips` and builds each one through it, rather than through nothing.
+  func testTheRowsForEachWalksEveryChipAndBuildsItThroughRowFor() throws {
+    let environment = AppEnvironment(transport: try StubTransport(states: []))
+    let content = MainWindowContent(
+      state: makeState(phase: .awaitingConfirm),
+      connection: .connected,
+      status: .running,
+      tasks: TaskList(),
+      error: nil,
+      panel: nil,
+      now: .now,
+    )
+    let chips = ActionChips(content: content, client: environment.client, model: environment.windowModel)
+    let forEach = try child("content", of: chips.body)
+    XCTAssertTrue(shape(of: forEach).hasPrefix("ForEach<"), shape(of: forEach))
+
+    typealias RowContent = _ConditionalContent<_ConditionalContent<SnoozeChip, MeetingChip>, _ConditionalContent<LunchChip, Chip>>
+    let closure = try XCTUnwrap(
+      try child("content", of: forEach) as? (TimerAction) -> RowContent,
+      "the row is no longer built through row(for:)",
+    )
+    XCTAssertEqual(shape(of: try unwrapped(closure(.snooze))), "SnoozeChip")
+    XCTAssertEqual(shape(of: try unwrapped(closure(.pause))), "Chip")
   }
 }
