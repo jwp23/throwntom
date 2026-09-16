@@ -140,10 +140,11 @@ final class PendingTask: @unchecked Sendable {
   // MARK: Internal
 
   func hold(_ task: Task<Void, Never>) {
-    lock.lock()
-    let wasCancelled = isCancelled
-    self.task = task
-    lock.unlock()
+    let wasCancelled = lock.withLock {
+      let wasCancelled = isCancelled
+      self.task = task
+      return wasCancelled
+    }
     if wasCancelled {
       Self.stopWithoutWaiting(task)
     }
