@@ -248,16 +248,21 @@ jobs:
 
   macos:
     name: macOS app
-    runs-on: macos-15
+    # Named, never `macos-latest`: two jobs on two toolchains compile the same SwiftUI source
+    # into different private type names, which is how this workflow and sonarqube.yml came to
+    # disagree about the same commit (PR #220). What is named is the Xcode a developer here
+    # builds with, as the image's own default — so no `DEVELOPER_DIR` override has to be kept
+    # in step with it, and a failure can be reproduced on the machine the code is written on.
+    # Pinning an older Xcode for stability bought the opposite: 26.3 refused to compile
+    # DeadlineTests.swift on the runner and nothing local could reproduce it (PR #221).
+    # The `xcode-27` label is a public preview rather than GA, which is the deliberate trade:
+    # a less settled image for one that matches local. The fallback, if it proves too
+    # unstable, is `runs-on: macos-15` plus
+    # `DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer` on this job and
+    # sonarqube.yml's.
+    runs-on: xcode-27
     permissions:
       contents: read
-    env:
-      # Both the runner and the Xcode on it are named, never `macos-latest` or the image
-      # default. Two jobs on two toolchains compile the same SwiftUI source into different
-      # private type names, which is how this workflow and sonarqube.yml came to disagree
-      # about the same commit (PR #220). Xcode 26.3 is the one swift-mutation-weekly.yml
-      # already pins on this image.
-      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
