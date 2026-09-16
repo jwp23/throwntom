@@ -36,7 +36,7 @@
 # marks the claim by exporting MUTATION_CONTROL_LOCK_HELD, which the child inherits and checks
 # before attempting its own claim. Only an explicit export from a prior successful claim sets
 # this, so two independent (sibling, not parent/child) invocations never share it and still
-# serialize against each other normally.
+# serialize against each other normally. Nothing else should set this.
 #
 # Usage: source this file, then:
 #   mutation_control_acquire_lock [lock_path]   # defaults to $MUTATION_CONTROL_LOCK_PATH or

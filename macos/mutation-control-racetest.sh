@@ -9,12 +9,17 @@
 # This launches many truly simultaneous invocations of mutation-control.sh (backgrounded with
 # `&`, no stagger) against a fast stub tool instead of the real swift-mutation-testing binary,
 # so it never risks two real mutation runs colliding, and asserts exactly one winner — once
-# against a clean start, once against a pre-seeded lock from a dead pid.
+# against a clean start, once against a pre-seeded lock from a dead pid. A third scenario
+# covers the reentrant-claim path mutation-lock.sh added for mutate-file.sh: a parent claims
+# the lock, a child subprocess inherits the claim and no-ops its own acquire/release, and the
+# lock must still belong to the parent after the child exits — proving the child's release
+# didn't touch it.
 #
 # Usage:
 #   macos/mutation-control-racetest.sh [N]     # N simultaneous racers per scenario, default 10
 #
-# Exit status: 0 when both scenarios show exactly one winner; 1 otherwise.
+# Exit status: 0 when the two winner-count scenarios and the reentrant-lock scenario all pass;
+# 1 otherwise.
 
 set -euo pipefail
 
@@ -90,6 +95,30 @@ ln -s 999999 "$lock_path"
 stale_winners="$(run_race "$stale_logs")"
 echo "racetest: stale-lock winners=$stale_winners (want 0, since a dead-pid lock always refuses; see mutation-control.sh)"
 
+echo "racetest: reentrant claim, parent then subprocess child"
+reentrant_lock="$work/reentrant.lock"
+rm -f "$reentrant_lock"
+# shellcheck disable=SC1091 # dynamic path via $repo_root; file exists at macos/mutation-lock.sh
+source "$repo_root/macos/mutation-lock.sh"
+mutation_control_acquire_lock "$reentrant_lock"
+parent_pid="$$"
+
+child_script="$work/reentrant-child.sh"
+cat >"$child_script" <<CHILD
+#!/usr/bin/env bash
+set -euo pipefail
+source "$repo_root/macos/mutation-lock.sh"
+mutation_control_acquire_lock "$reentrant_lock"
+mutation_control_release_lock
+CHILD
+chmod +x "$child_script"
+"$child_script"
+
+reentrant_holder="$(readlink "$reentrant_lock" 2>/dev/null || true)"
+echo "racetest: reentrant scenario lock holder after child exit = [$reentrant_holder] (want parent pid $parent_pid)"
+
+mutation_control_release_lock
+
 status=0
 if [[ "$clean_winners" != "1" ]]; then
   echo "racetest: FAIL clean-start scenario let $clean_winners racers win (want exactly 1)" >&2
@@ -97,6 +126,10 @@ if [[ "$clean_winners" != "1" ]]; then
 fi
 if [[ "$stale_winners" != "0" ]]; then
   echo "racetest: FAIL stale-lock scenario let $stale_winners racers win (want 0: a dead-pid lock always refuses, never auto-reclaims)" >&2
+  status=1
+fi
+if [[ "$reentrant_holder" != "$parent_pid" ]]; then
+  echo "racetest: FAIL reentrant scenario left lock holder [$reentrant_holder] (want parent pid $parent_pid: the child's release must be a no-op)" >&2
   status=1
 fi
 
