@@ -36,7 +36,7 @@ trap 'mutation_control_release_lock' EXIT
 
 "$repo_root/macos/mutation-control.sh" "$tool"
 
-target="$(cd "$package" && find Sources -name '*.swift' | grep -E "$keep" | sed -E 's|^Sources/([^/]+)/.*|\1|' | sort -u)"
+target="$(cd "$package" && find Sources -name '*.swift' | grep -E "$keep" | sed -E 's|^Sources/([^/]+)/.*|\1|' | sort -u || true)"
 if [[ -z "$target" || $(wc -l <<<"$target") -ne 1 ]]; then
   echo "keep-regex must match files in exactly one target under Sources/; matched: [$target]" >&2
   exit 1
