@@ -37,9 +37,11 @@ final class SystemReminderPresenterTests: XCTestCase {
   /// bouncing the Dock, so the field is not the signal: the counter is, again. Probing once while
   /// the presenter's request is still outstanding and once right after cancelling it isolates the
   /// same "did the counter move" signal `testASecondCallWhileARequestIsOutstandingIssuesNothingNew`
-  /// uses, without assuming cancelling hands back any particular number — only documented AppKit
-  /// behavior (the ID's role in cancellation) is relied on, not the specific reuse scheme AppKit
-  /// happens to use today.
+  /// uses, without assuming cancelling hands back any particular number. It still leans on
+  /// today's observed AppKit behavior, not a documented contract: that the counter is
+  /// observably affected by what's currently outstanding, the same reliance the other test's
+  /// comment above already discloses for sequential-vs-reused IDs, here applied to
+  /// outstanding-vs-cancelled instead.
   func testCancellingAttentionReleasesTheOutstandingRequest() {
     _ = NSApplication.shared
     let presenter = SystemReminderPresenter()
