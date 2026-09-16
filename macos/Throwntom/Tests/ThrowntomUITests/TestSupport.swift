@@ -22,6 +22,59 @@ extension MenuModel {
   }
 }
 
+// MARK: - MenuGroupsLabels
+
+/// `MenuGroups` keeps the closure that turns one menu item into its button, but the type that
+/// closure returns cannot be named outside the body that built it — it is a stack of SwiftUI's
+/// own modifier types. A protocol declared here and adopted by `MenuGroups` reaches it anyway:
+/// the conformance is generic over `Action`, so matching an item to its menu stays the
+/// compiler's job rather than a cast of ours.
+@MainActor
+protocol MenuGroupsLabels {
+  var labelledItems: [Any] { get }
+
+  func builtLabel(for item: Any) -> Any?
+}
+
+// MARK: - MenuGroups + MenuGroupsLabels
+
+extension MenuGroups: MenuGroupsLabels {
+  var labelledItems: [Any] {
+    menu.items
+  }
+
+  func builtLabel(for item: Any) -> Any? {
+    guard let item = item as? MenuItem<Action> else { return nil }
+    return label(item)
+  }
+}
+
+/// How SwiftUI spells a plain menu button in a type. Shared by `MenuCommandsTests` and
+/// `TaskContextMenuTests`.
+let button = "Button<Text>"
+
+/// What `.disabled(_:)` wraps a view in. Shared by `MenuCommandsTests` and `TaskContextMenuTests`.
+func disabled(_ view: String) -> String {
+  "ModifiedContent<\(view), _EnvironmentKeyTransformModifier<Bool>>"
+}
+
+/// Builds the button for one action and presses it, the way choosing that item would. Shared by
+/// `MenuCommandsTests`, `LunchChipTests`, `MeetingChipTests`, `SnoozeChipTests` and
+/// `TaskContextMenuTests`.
+@MainActor
+func press<Action: MenuAction>(_ action: Action, in groups: MenuGroupsLabels) throws {
+  let item = try XCTUnwrap(
+    groups.labelledItems.first { ($0 as? MenuItem<Action>)?.action == action },
+    "no \(action) in this menu",
+  )
+  let view = try unwrapped(try XCTUnwrap(groups.builtLabel(for: item)))
+  let press = try XCTUnwrap(
+    try child("closure", of: try child("action", of: view)) as? @MainActor () -> Void,
+    "\(shape(of: view)) has no button action to press",
+  )
+  press()
+}
+
 /// Polls `condition` every 20 ms until it holds or `timeout` seconds pass.
 /// MainActor-isolated so tests can read DaemonClient's MainActor properties inside `condition`.
 @MainActor
@@ -191,6 +244,7 @@ func waitForKeyboard(in field: NSControl, of window: NSWindow) {
 
 /// Walks the AppKit view tree SwiftUI builds to find a `TextField`'s field. Matched by class-name
 /// substring, since the type SwiftUI bridges to is not public API.
+@MainActor
 func findTextField(in view: NSView) -> NSControl? {
   if "\(type(of: view))".contains("AppKitTextField"), let control = view as? NSControl {
     return control
@@ -524,6 +578,36 @@ func splitChipMenuGroups(_ chip: some View) throws -> MenuGroupsLabels {
     try child("content", of: chevron) as? MenuGroupsLabels,
     "\(shape(of: chevron)) has no MenuGroups content",
   )
+}
+
+/// The height of the lowest non-white pixel row: how far the view actually drew, regardless of
+/// what size its enclosing frame reports upward. A `.frame(width:height:)` always reports its own
+/// fixed size to its parent no matter what its child does, so measuring that reported size cannot
+/// tell a wrapped view from a clipped one — only the pixels can. Shared by `ShortcutHintTests`,
+/// `TimerHeaderTests` and `WindowNotesWrappingTests`.
+@MainActor
+func inkHeight(of view: some View, width: CGFloat, canvasHeight: CGFloat) throws -> CGFloat {
+  let renderer = ImageRenderer(
+    content: view.frame(width: width, height: canvasHeight, alignment: .top).background(Color.white)
+  )
+  renderer.scale = 1
+  let image = try XCTUnwrap(renderer.nsImage, "the view did not render")
+  let cgImage = try XCTUnwrap(image.cgImage(forProposedRect: nil, context: nil, hints: nil))
+  let data = try XCTUnwrap(cgImage.dataProvider?.data)
+  let pixels = try XCTUnwrap(CFDataGetBytePtr(data))
+  let bytesPerRow = cgImage.bytesPerRow
+
+  var lastInkedRow = 0
+  for y in 0 ..< cgImage.height {
+    for x in 0 ..< cgImage.width {
+      let offset = y * bytesPerRow + x * 4
+      if pixels[offset] < 250 || pixels[offset + 1] < 250 || pixels[offset + 2] < 250 {
+        lastInkedRow = y
+        break
+      }
+    }
+  }
+  return CGFloat(lastInkedRow + 1)
 }
 
 // MARK: - RecordingRegistrar

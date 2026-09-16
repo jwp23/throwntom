@@ -174,28 +174,13 @@ final class MeetingChipTests: XCTestCase {
     )
     let groups = try splitChipMenuGroups(chip)
 
-    try press(.start(minutes: 30), in: groups)
+    try press(MeetingAction.start(minutes: 30), in: groups)
 
     try await waitUntil { !transport.commands.isEmpty }
     XCTAssertEqual(transport.commands.map(\.path), ["/v1/timer/meeting"])
   }
 
   // MARK: Private
-
-  /// Builds the button for one action and presses it, the way choosing that item would — the same
-  /// technique `MenuCommandsTests.fire` and `TaskContextMenuTests.press` use.
-  private func press(_ action: MeetingAction, in groups: MenuGroupsLabels) throws {
-    let item = try XCTUnwrap(
-      groups.labelledItems.first { ($0 as? MenuItem<MeetingAction>)?.action == action },
-      "no \(action) in this menu",
-    )
-    let view = try unwrapped(try XCTUnwrap(groups.builtLabel(for: item)))
-    let press = try XCTUnwrap(
-      try child("closure", of: try child("action", of: view)) as? @MainActor () -> Void,
-      "\(shape(of: view)) has no button action to press",
-    )
-    press()
-  }
 
   /// The chip in its own box on the phase ground, the way the window draws the row.
   private func framed(_ view: some View, scheme: PhaseScheme) -> some View {

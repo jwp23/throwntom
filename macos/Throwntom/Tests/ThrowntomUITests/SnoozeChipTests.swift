@@ -196,7 +196,7 @@ final class SnoozeChipTests: XCTestCase {
     let chip = SnoozeChip(content: content, client: environment.client, model: environment.windowModel)
     let groups = try splitChipMenuGroups(chip)
 
-    try press(.snooze(minutes: 10), in: groups)
+    try press(SnoozeAction.snooze(minutes: 10), in: groups)
 
     try await waitUntil { !transport.commands.isEmpty }
     XCTAssertEqual(transport.commands.map(\.path), ["/v1/timer/snooze"])
@@ -207,21 +207,6 @@ final class SnoozeChipTests: XCTestCase {
   /// The chip in its own box on the phase ground, the way the window draws the row.
   private func framed(_ view: some View, scheme: PhaseScheme) -> some View {
     AppearanceRender.onGround(view, scheme: scheme, width: 200, height: 44)
-  }
-
-  /// Builds the button for one action and presses it, the way choosing that item would — the same
-  /// technique `MenuCommandsTests.fire` and `TaskContextMenuTests.press` use.
-  private func press(_ action: SnoozeAction, in groups: MenuGroupsLabels) throws {
-    let item = try XCTUnwrap(
-      groups.labelledItems.first { ($0 as? MenuItem<SnoozeAction>)?.action == action },
-      "no \(action) in this menu",
-    )
-    let view = try unwrapped(try XCTUnwrap(groups.builtLabel(for: item)))
-    let press = try XCTUnwrap(
-      try child("closure", of: try child("action", of: view)) as? @MainActor () -> Void,
-      "\(shape(of: view)) has no button action to press",
-    )
-    press()
   }
 
   private func makeChip(snoozeUntil: Date?) throws -> SnoozeChip {

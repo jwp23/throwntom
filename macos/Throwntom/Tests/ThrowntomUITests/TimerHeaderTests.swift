@@ -114,7 +114,7 @@ final class TimerHeaderTests: XCTestCase {
     XCTAssertNil(content.nextStage, "the next-stage line would dilute a measurement of the title alone")
 
     let titleView = try Self.titleView(of: content)
-    let ink = try Self.inkHeight(
+    let ink = try inkHeight(
       of: titleView.frame(width: Self.squeezeWidth, height: Self.squeezeHeight, alignment: .top),
       width: Self.squeezeWidth,
       canvasHeight: 300,
@@ -264,32 +264,6 @@ final class TimerHeaderTests: XCTestCase {
 
   private static func open(_ view: some View) -> AnyView {
     AnyView(view)
-  }
-
-  /// The height of the lowest non-white pixel row: how far the view actually drew, regardless of
-  /// what size its enclosing frame reports upward. Technique from `ShortcutHintTests.inkHeight`.
-  private static func inkHeight(of view: some View, width: CGFloat, canvasHeight: CGFloat) throws -> CGFloat {
-    let renderer = ImageRenderer(
-      content: view.frame(width: width, height: canvasHeight, alignment: .top).background(Color.white)
-    )
-    renderer.scale = 1
-    let image = try XCTUnwrap(renderer.nsImage, "the view did not render")
-    let cgImage = try XCTUnwrap(image.cgImage(forProposedRect: nil, context: nil, hints: nil))
-    let data = try XCTUnwrap(cgImage.dataProvider?.data)
-    let pixels = try XCTUnwrap(CFDataGetBytePtr(data))
-    let bytesPerRow = cgImage.bytesPerRow
-
-    var lastInkedRow = 0
-    for y in 0 ..< cgImage.height {
-      for x in 0 ..< cgImage.width {
-        let offset = y * bytesPerRow + x * 4
-        if pixels[offset] < 250 || pixels[offset + 1] < 250 || pixels[offset + 2] < 250 {
-          lastInkedRow = y
-          break
-        }
-      }
-    }
-    return CGFloat(lastInkedRow + 1)
   }
 
 }

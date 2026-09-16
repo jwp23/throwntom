@@ -3,32 +3,6 @@ import XCTest
 @testable import ThrowntomClient
 @testable import ThrowntomUI
 
-// MARK: - MenuGroupsLabels
-
-/// `MenuGroups` keeps the closure that turns one menu item into its button, but the type that
-/// closure returns cannot be named outside the body that built it — it is a stack of SwiftUI's
-/// own modifier types. A protocol declared here and adopted by `MenuGroups` reaches it anyway:
-/// the conformance is generic over `Action`, so matching an item to its menu stays the
-/// compiler's job rather than a cast of ours.
-protocol MenuGroupsLabels {
-  var labelledItems: [Any] { get }
-
-  func builtLabel(for item: Any) -> Any?
-}
-
-// MARK: - MenuGroups + MenuGroupsLabels
-
-extension MenuGroups: MenuGroupsLabels {
-  var labelledItems: [Any] {
-    menu.items
-  }
-
-  func builtLabel(for item: Any) -> Any? {
-    guard let item = item as? MenuItem<Action> else { return nil }
-    return label(item)
-  }
-}
-
 // MARK: - MenuCommandsTests
 
 /// What the menu bar is actually made of, read back out of `AppMenus.body`.
@@ -84,7 +58,7 @@ final class MenuCommandsTests: XCTestCase {
       return true
     }
 
-    try fire(try labels(of: try settingsGroupPart(0, of: menus)), action: ViewAction.openConfig)
+    try press(ViewAction.openConfig, in: try labels(of: try settingsGroupPart(0, of: menus)))
 
     XCTAssertEqual(opened, DaemonPaths.configFileToOpen())
   }
@@ -97,7 +71,7 @@ final class MenuCommandsTests: XCTestCase {
     menus.openLoginItemsSettings = { opens += 1 }
     menus.openNotificationSettings = { XCTFail("the login items item opened the notifications pane") }
 
-    try press(try settingsGroupPart(3, of: menus))
+    try pressButton(try settingsGroupPart(3, of: menus))
 
     XCTAssertEqual(opens, 1)
   }
@@ -108,7 +82,7 @@ final class MenuCommandsTests: XCTestCase {
     menus.openNotificationSettings = { opens += 1 }
     menus.openLoginItemsSettings = { XCTFail("the notifications item opened the login items pane") }
 
-    try press(try settingsGroupPart(4, of: menus))
+    try pressButton(try settingsGroupPart(4, of: menus))
 
     XCTAssertEqual(opens, 1)
   }
@@ -165,7 +139,7 @@ final class MenuCommandsTests: XCTestCase {
     let menus = try makeMenus(transport)
     let verbs = try labels(of: try timerMenuPart(0, of: menus))
 
-    try fire(verbs, action: TimerAction.start)
+    try press(TimerAction.start, in: verbs)
 
     try await waitUntil { !transport.commands.isEmpty }
     XCTAssertEqual(transport.commands, [StubTransport.Request(method: "POST", path: "/v1/timer/start", body: "")])
@@ -178,7 +152,7 @@ final class MenuCommandsTests: XCTestCase {
     let lunchItem = try XCTUnwrap(verbs.labelledItems.first { ($0 as? MenuItem<TimerAction>)?.action == .lunch })
     let submenu = try unwrapped(try XCTUnwrap(verbs.builtLabel(for: lunchItem)))
 
-    try fire(try labels(of: try child("content", of: submenu)), action: LunchAction.start(minutes: 30))
+    try press(LunchAction.start(minutes: 30), in: try labels(of: try child("content", of: submenu)))
 
     try await waitUntil { !transport.commands.isEmpty }
     XCTAssertEqual(
@@ -192,7 +166,7 @@ final class MenuCommandsTests: XCTestCase {
     let menus = try makeMenus(transport)
     let submenu = try unwrapped(try timerMenuPart(1, of: menus))
 
-    try fire(try labels(of: try child("content", of: submenu)), action: SnoozeAction.snooze(minutes: 15))
+    try press(SnoozeAction.snooze(minutes: 15), in: try labels(of: try child("content", of: submenu)))
 
     try await waitUntil { !transport.commands.isEmpty }
     XCTAssertEqual(
@@ -209,7 +183,7 @@ final class MenuCommandsTests: XCTestCase {
     let menus = AppMenus(environment: environment)
     XCTAssertEqual(menus.serviceMenu.items.map(\.title), ["Stop Timer Service"], "a dialling service offers Stop")
 
-    try fire(try labels(of: try timerMenuPart(3, of: menus)), action: ServiceAction.stop)
+    try press(ServiceAction.stop, in: try labels(of: try timerMenuPart(3, of: menus)))
 
     try await waitUntil { environment.client.serviceStatus == .stopped }
     XCTAssertEqual(agent.calls, [.unregister])
@@ -218,7 +192,7 @@ final class MenuCommandsTests: XCTestCase {
   func testAViewMenuButtonOpensThatPanel() throws {
     let menus = try makeMenus()
 
-    try fire(try labels(of: try content(of: try commandBlock(2, of: menus))), action: ViewAction.stats)
+    try press(ViewAction.stats, in: try labels(of: try content(of: try commandBlock(2, of: menus))))
 
     XCTAssertEqual(menus.environment.windowModel.panel, .stats)
   }
@@ -226,15 +200,12 @@ final class MenuCommandsTests: XCTestCase {
   func testATasksMenuButtonRunsThatVerb() throws {
     let menus = try makeMenus()
 
-    try fire(try labels(of: try content(of: try commandBlock(3, of: menus))), action: TaskAction.newTask)
+    try press(TaskAction.newTask, in: try labels(of: try content(of: try commandBlock(3, of: menus))))
 
     XCTAssertTrue(menus.environment.model.isEditing)
   }
 
   // MARK: Private
-
-  /// How SwiftUI spells a plain menu button in a type.
-  private let button = "Button<Text>"
 
   /// One Timer verb: the lunch submenu or a plain button, whichever the `if` in the body chose.
   private var timerVerb: String {
@@ -258,11 +229,6 @@ final class MenuCommandsTests: XCTestCase {
       + "_EnvironmentKeyWritingModifier<Optional<KeyboardShortcut>>>, "
       + "ViewInputFlagModifier<HasKeyboardShortcut>>, "
       + "_TraitWritingModifier<KeyboardShortcutPickerOptionTraitKey>>"
-  }
-
-  /// What `.disabled(_:)` wraps a view in.
-  private func disabled(_ view: String) -> String {
-    "ModifiedContent<\(view), _EnvironmentKeyTransformModifier<Bool>>"
   }
 
   /// The four blocks of the menu bar: the settings group and the three named menus.
@@ -298,17 +264,8 @@ final class MenuCommandsTests: XCTestCase {
     try XCTUnwrap(value as? MenuGroupsLabels, "\(shape(of: value)) is not a MenuGroups")
   }
 
-  /// Builds the button for one action and runs it, the way choosing that item would.
-  private func fire<Action: MenuAction>(_ groups: MenuGroupsLabels, action: Action) throws {
-    let item = try XCTUnwrap(
-      groups.labelledItems.first { ($0 as? MenuItem<Action>)?.action == action },
-      "no \(action) in this menu",
-    )
-    try press(try XCTUnwrap(groups.builtLabel(for: item)))
-  }
-
   /// Runs a button's stored action, the way choosing it would.
-  private func press(_ view: Any) throws {
+  private func pressButton(_ view: Any) throws {
     let button = try unwrapped(view)
     let action = try XCTUnwrap(
       try child("closure", of: try child("action", of: button)) as? @MainActor () -> Void,

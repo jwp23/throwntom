@@ -32,7 +32,7 @@ final class ShortcutHintTests: XCTestCase {
   /// Technique from `WindowNotesWrappingTests.assertWrapsRatherThanClipping`, which the doc
   /// comment on `ShortcutHint` already draws the parallel to. ShortcutHint.swift:27:30/27:47.
   func testTheHintWrapsRatherThanBeingClippedWhenSqueezed() throws {
-    let ink = try Self.inkHeight(
+    let ink = try inkHeight(
       of: ShortcutHint(Self.longHint).frame(width: Self.squeezeWidth, height: Self.squeezeHeight, alignment: .top),
       width: Self.squeezeWidth,
       canvasHeight: 300,
@@ -53,33 +53,5 @@ final class ShortcutHintTests: XCTestCase {
 
   private static let squeezeWidth: CGFloat = 120
   private static let squeezeHeight: CGFloat = 24
-
-  /// The height of the lowest non-white pixel row: how far the view actually drew, regardless of
-  /// what size its enclosing frame reports upward. A `.frame(width:height:)` always reports its
-  /// own fixed size to its parent no matter what its child does, so measuring that reported size
-  /// cannot tell a wrapped hint from a clipped one — only the pixels can.
-  private static func inkHeight(of view: some View, width: CGFloat, canvasHeight: CGFloat) throws -> CGFloat {
-    let renderer = ImageRenderer(
-      content: view.frame(width: width, height: canvasHeight, alignment: .top).background(Color.white)
-    )
-    renderer.scale = 1
-    let image = try XCTUnwrap(renderer.nsImage, "the view did not render")
-    let cgImage = try XCTUnwrap(image.cgImage(forProposedRect: nil, context: nil, hints: nil))
-    let data = try XCTUnwrap(cgImage.dataProvider?.data)
-    let pixels = try XCTUnwrap(CFDataGetBytePtr(data))
-    let bytesPerRow = cgImage.bytesPerRow
-
-    var lastInkedRow = 0
-    for y in 0 ..< cgImage.height {
-      for x in 0 ..< cgImage.width {
-        let offset = y * bytesPerRow + x * 4
-        if pixels[offset] < 250 || pixels[offset + 1] < 250 || pixels[offset + 2] < 250 {
-          lastInkedRow = y
-          break
-        }
-      }
-    }
-    return CGFloat(lastInkedRow + 1)
-  }
 
 }

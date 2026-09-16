@@ -66,7 +66,7 @@ final class TaskContextMenuTests: XCTestCase {
     environment.model.selectedID = 7
     let menu = TaskContextMenu(task: makeTask(id: 8), environment: environment)
 
-    try press(.complete, in: try labels(of: menu.body))
+    try press(TaskAction.complete, in: try labels(of: menu.body))
 
     try await waitUntil { !transport.commands.isEmpty }
     XCTAssertEqual(transport.commands.first?.body, #"{"line":"task done 2"}"#)
@@ -75,32 +75,10 @@ final class TaskContextMenuTests: XCTestCase {
 
   // MARK: Private
 
-  /// How SwiftUI spells a plain menu button in a type.
-  private let button = "Button<Text>"
-
-  /// What `.disabled(_:)` wraps a view in.
-  private func disabled(_ view: String) -> String {
-    "ModifiedContent<\(view), _EnvironmentKeyTransformModifier<Bool>>"
-  }
-
   /// A `MenuGroups` built by the body, ready to be asked what it built for an item — the same
   /// `MenuGroupsLabels` technique `MenuCommandsTests` uses to reach `AppMenus`' menus.
   private func labels(of value: Any) throws -> MenuGroupsLabels {
     try XCTUnwrap(value as? MenuGroupsLabels, "\(shape(of: value)) is not a MenuGroups")
-  }
-
-  /// Builds the button for one action and presses it, the way choosing that item would.
-  private func press(_ action: TaskAction, in groups: MenuGroupsLabels) throws {
-    let item = try XCTUnwrap(
-      groups.labelledItems.first { ($0 as? MenuItem<TaskAction>)?.action == action },
-      "no \(action) in this menu",
-    )
-    let view = try unwrapped(try XCTUnwrap(groups.builtLabel(for: item)))
-    let press = try XCTUnwrap(
-      try child("closure", of: try child("action", of: view)) as? @MainActor () -> Void,
-      "\(shape(of: view)) has no button action to press",
-    )
-    press()
   }
 
 }
