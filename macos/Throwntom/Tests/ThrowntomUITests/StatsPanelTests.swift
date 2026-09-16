@@ -86,7 +86,7 @@ final class StatsPanelTests: XCTestCase {
         + "Grid<ForEach<Array<StatsRows.Row>, String, GridRow<TupleView<(Text, Text)>>>>, ModifiedContent<"
         + "Text, _FixedSizeLayout>)>>, ModifiedContent<Text, _FixedSizeLayout>>)>>, _PaddingLayout>, "
         + "_FlexFrameLayout>, _ForegroundStyleModifier<Color>>, "
-        + "_InsettableBackgroundShapeModifier<Color, RoundedRectangle>>, _TaskModifier2>",
+        + "_InsettableBackgroundShapeModifier<Color, RoundedRectangle>>, _TaskModifier>",
     )
   }
 

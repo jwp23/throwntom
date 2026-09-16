@@ -68,7 +68,7 @@ final class MainWindowBodyTests: XCTestCase {
       "_AppearanceActionModifier",
       "_ValueActionModifier2<Optional<Array<Int>>>",
       "_AppearanceActionModifier",
-      "_TaskModifier2",
+      "_TaskModifier",
     ])
   }
 
