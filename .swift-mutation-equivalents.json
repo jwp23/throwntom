@@ -249,38 +249,6 @@
   },
   {
     "file": "Sources/ThrowntomUI/ReminderResponder.swift",
-    "line": 48,
-    "column": 5,
-    "mutator": "RemoveSideEffects",
-    "replacement": "",
-    "reason": "Proven equivalent for testing purposes. `start()`'s very first statement, `UNUserNotificationCenter.current().delegate = self` (line 47, an assignment rather than a call, so it is not itself a RemoveSideEffects candidate), unconditionally aborts any XCTest process that reaches it: `UNUserNotificationCenter.current()` requires a real app bundle, which no `swift test` process has (documented in this same file's neighbours -- AppEnvironment.swift:79-80, SystemReminderPresenter.swift:6-7, SystemNotificationAuthorizer.swift:4-5, all 'which no test process may reach'). Hand-verified: a test that calls `responder.start()` crashes every run, mutated or not, with `NSInternalInconsistencyException: bundleProxyForCurrentProcess is nil` at exactly that line, before line 48 is ever reached. Since no test, existing or possible, can call `start()` without crashing on its first line, nothing after it -- including this call to `registerReminderButtons()` -- is observable by any XCTest in this package."
-  },
-  {
-    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
-    "line": 49,
-    "column": 5,
-    "mutator": "RemoveSideEffects",
-    "replacement": "",
-    "reason": "Proven equivalent for testing purposes, same mechanism as the 48:5 entry above: `start()` unconditionally crashes on its first statement (line 47, `UNUserNotificationCenter.current().delegate = self`) in any `swift test` process, before this call to `withdrawOnTermination()` is ever reached. `withdrawOnTermination()` itself is directly callable and is covered directly (ReminderResponderTests.swift, ReminderPostingTests.swift's testQuittingTheAppTakesTheBannerDown); only its invocation from inside `start()` is unreachable by any test."
-  },
-  {
-    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
-    "line": 50,
-    "column": 5,
-    "mutator": "RemoveSideEffects",
-    "replacement": "",
-    "reason": "Proven equivalent for testing purposes, same mechanism as the 48:5 entry above: `start()` unconditionally crashes on its first statement (line 47, `UNUserNotificationCenter.current().delegate = self`) in any `swift test` process, before this call to `followDaemonState()` is ever reached. `followDaemonState()` itself is directly callable and is covered directly (ReminderPostingTests.swift); only its invocation from inside `start()` is unreachable by any test."
-  },
-  {
-    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
-    "line": 51,
-    "column": 5,
-    "mutator": "RemoveSideEffects",
-    "replacement": "",
-    "reason": "Proven equivalent for testing purposes, same mechanism as the 48:5 entry above: `start()` unconditionally crashes on its first statement (line 47, `UNUserNotificationCenter.current().delegate = self`) in any `swift test` process, before this `Task { await requestAuthorization(); await present(client.state) }` is ever reached. Both `requestAuthorization()` and `present(_:)` are directly callable and are covered directly by ReminderResponderAuthorizationTests.swift and ReminderPostingTests.swift; only their invocation from inside `start()`'s launch Task is unreachable by any test."
-  },
-  {
-    "file": "Sources/ThrowntomUI/ReminderResponder.swift",
     "line": 144,
     "column": 43,
     "mutator": "BooleanLiteralReplacement",

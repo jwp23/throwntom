@@ -8,6 +8,9 @@ import XCTest
 /// is taken from `AppEnvironment`, so these also pin down that the app wires it to its client.
 @MainActor
 final class ReminderResponderTests: XCTestCase {
+
+  // MARK: Internal
+
   func testSnoozeButtonSnoozesTheDaemon() async throws {
     let transport = try StubTransport(states: [])
     let responder = AppEnvironment(transport: transport).responder
@@ -150,7 +153,7 @@ final class ReminderResponderTests: XCTestCase {
   /// nothing else, so a banner raised before the claim offers buttons with nowhere to report to.
   func testStartingClaimsTheNotificationDelegate() throws {
     let presenter = StubReminderPresenter()
-    let responder = AppEnvironment(transport: try StubTransport(states: []), presenter: presenter).responder
+    let responder = try startableEnvironment(presenter).responder
 
     responder.start()
 
@@ -161,7 +164,7 @@ final class ReminderResponderTests: XCTestCase {
   /// asks about cannot be answered from the banner at all.
   func testStartingPutsTheReminderButtonsOnRecord() throws {
     let presenter = StubReminderPresenter()
-    let responder = AppEnvironment(transport: try StubTransport(states: []), presenter: presenter).responder
+    let responder = try startableEnvironment(presenter).responder
 
     responder.start()
 
@@ -172,7 +175,7 @@ final class ReminderResponderTests: XCTestCase {
   /// starting up is also where the app arranges to take it down on the way out.
   func testStartingArrangesForTheBannerToGoWhenTheAppQuits() throws {
     let presenter = StubReminderPresenter()
-    let responder = AppEnvironment(transport: try StubTransport(states: []), presenter: presenter).responder
+    let responder = try startableEnvironment(presenter).responder
     responder.start()
 
     NotificationCenter.default.post(name: NSApplication.willTerminateNotification, object: nil)
@@ -229,4 +232,20 @@ final class ReminderResponderTests: XCTestCase {
   func testThePresentationOptionsAskForNoBannerSound() {
     XCTAssertFalse(ReminderResponder.presentationOptions.contains(.sound))
   }
+
+  // MARK: Private
+
+  /// An environment whose notification centre is stand-ins on both sides, which is what `start()`
+  /// needs to be callable at all: the live presenter and the live authorizer each go to
+  /// `UNUserNotificationCenter.current()`, and that aborts a process without an app bundle. The
+  /// authorizer's is reached from inside `start()`'s own task, so leaving it live aborts whichever
+  /// test happens to be running by the time the task gets there.
+  private func startableEnvironment(_ presenter: StubReminderPresenter) throws -> AppEnvironment {
+    AppEnvironment(
+      transport: try StubTransport(states: []),
+      authorizer: StubAuthorizer(),
+      presenter: presenter,
+    )
+  }
+
 }

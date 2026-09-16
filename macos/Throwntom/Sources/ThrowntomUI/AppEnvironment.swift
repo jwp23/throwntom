@@ -80,8 +80,8 @@ final class AppEnvironment {
   }
 
   /// Claims the notification delegate and begins raising the reminder banner. Kept apart from
-  /// `start()` because it reaches for `UNUserNotificationCenter.current()`, which no process
-  /// without an app bundle may do.
+  /// `start()` because the live presenter behind it reaches for `UNUserNotificationCenter.current()`,
+  /// which no process without an app bundle may do.
   func startReminderResponder() {
     responder.start()
   }
