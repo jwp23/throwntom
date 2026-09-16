@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 @testable import ThrowntomUI
 
@@ -126,8 +127,12 @@ private final class RecordingLoginItemRegistrar: LoginItemRegistrar {
 
   // MARK: Lifecycle
 
-  init(loginItemEnabled: Bool, refusal: Error? = nil) {
+  /// `thenEnabled` is what macOS answers from the second read on. Its answer is live: approval
+  /// revoked while the menu is open leaves the state the toggle read when it appeared stale by the
+  /// time it acts on that state. Defaults to the same answer throughout.
+  init(loginItemEnabled: Bool, thenEnabled: Bool? = nil, refusal: Error? = nil) {
     enabledValue = loginItemEnabled
+    laterValue = thenEnabled ?? loginItemEnabled
     self.refusal = refusal
   }
 
@@ -139,7 +144,7 @@ private final class RecordingLoginItemRegistrar: LoginItemRegistrar {
 
   var loginItemEnabled: Bool {
     enabledReads += 1
-    return enabledValue
+    return enabledReads == 1 ? enabledValue : laterValue
   }
 
   func setLoginItem(_ enabled: Bool) throws {
@@ -152,16 +157,18 @@ private final class RecordingLoginItemRegistrar: LoginItemRegistrar {
   // MARK: Private
 
   private let enabledValue: Bool
+  private let laterValue: Bool
 
 }
 
 // MARK: - LoginItemToggleWiringTests
 
 /// What `LoginItemToggle.body` is actually made of and does: the toggle wired to `onChange` and
-/// `onAppear`, and the state it starts in before either has run. `SwiftUI` never installs a real
-/// `@State` location in this process (confirmed by hand: hosting the view in a real `NSWindow` and
-/// firing its `onChange` still leaves `_location` nil), so this reads the wiring's own effects on
-/// the registrar rather than reading `setting` back out of a second `body` evaluation.
+/// `onAppear`, and the state it starts in before either has run. These fire the wiring on a value
+/// SwiftUI was never handed, where `@State` has no backing store, so they read the wiring's own
+/// effects on the registrar rather than reading `setting` back out of a second `body` evaluation.
+/// `LoginItemToggleRenderingTests` below takes the other route, hosting the view so SwiftUI runs
+/// the wiring itself against installed state.
 @MainActor
 final class LoginItemToggleWiringTests: XCTestCase {
 
@@ -218,6 +225,51 @@ final class LoginItemToggleWiringTests: XCTestCase {
     let storage = try child("_storage", of: lazyState)
     let thunk = try XCTUnwrap(try child("thunk", of: storage) as? () -> LoginItemSetting)
     return thunk()
+  }
+
+}
+
+// MARK: - LoginItemToggleRenderingTests
+
+/// Whether the refusal reaches the screen. Hosted in a real window, so SwiftUI installs the
+/// toggle's `@State`, runs the view's own `onAppear` and the `onChange` that follows from it, and
+/// lays out whatever they leave behind — which is the only place the message is observable.
+@MainActor
+final class LoginItemToggleRenderingTests: XCTestCase {
+
+  // MARK: Internal
+
+  /// The refused message is a whole extra line under the switch, so a toggle carrying one fits
+  /// taller than one that does not. Both registrars report the login item on when the toggle
+  /// appears and off by the time it writes that back, so both are asked for the same change and
+  /// the refusal is the only difference between the two windows.
+  func testARefusedChangePutsItsMessageUnderTheSwitch() {
+    let refusing = RecordingLoginItemRegistrar(loginItemEnabled: true, thenEnabled: false, refusal: LoginItemRefused())
+    let accepting = RecordingLoginItemRegistrar(loginItemEnabled: true, thenEnabled: false)
+
+    let refused = hostInWindow(LoginItemToggle(registrar: refusing))
+    let accepted = hostInWindow(LoginItemToggle(registrar: accepting))
+    waitForTheExtraLine(in: refused.view, against: accepted.view)
+
+    XCTAssertEqual(refusing.setValues, [true], "the refused toggle never asked macOS for the change")
+    XCTAssertEqual(accepting.setValues, [true], "the accepted toggle never asked macOS for the change")
+    XCTAssertGreaterThan(
+      refused.view.fittingSize.height,
+      accepted.view.fittingSize.height,
+      "the refusal is not on screen: the refused toggle fits in the same height as the accepted one",
+    )
+  }
+
+  // MARK: Private
+
+  /// `onAppear` runs a runloop turn after the window lays the view out and the `onChange` it sets
+  /// off lands a turn after that, so the size is asked for repeatedly rather than once. Only a
+  /// genuine failure pays the full deadline.
+  private func waitForTheExtraLine(in refused: NSView, against accepted: NSView) {
+    let deadline = Date().addingTimeInterval(2)
+    while Date() < deadline, refused.fittingSize.height <= accepted.fittingSize.height {
+      RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+    }
   }
 
 }
