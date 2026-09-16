@@ -333,7 +333,7 @@
     "column": 29,
     "mutator": "RemoveSideEffects",
     "replacement": "",
-    "reason": "Not a behavioral-equivalence claim: the app is silent under this mutant. Unobservable by any XCTest: NSSound.beep() is the raw system call with no return value, callback or readable state, and it is a Swift-only overlay (not @objc; class_getClassMethod/responds(to:) return nil/false, probed), so nothing can be swizzled. The seam for this behavior is `alert` one level up, asserted by NewTaskRowTests.testSubmittingTextTheGrammarRefusesAlertsAndSendsNothing; this line is the default's irreducible OS call, and any further seam relocates the literal and reproduces this mutant. Same shape as SMAppServiceRegistrar.swift:52 and ReminderResponder.swift:157. Category under review in throwntom-gz9z.6.3."
+    "reason": "Not a behavioral-equivalence claim: the app is silent under this mutant. Unobservable by any XCTest: NSSound.beep() is the raw system call with no return value, callback or readable state, and it is a Swift-only overlay (not @objc; class_getClassMethod/responds(to:) return nil/false, probed), so nothing can be swizzled. The seam for this behavior is `alert` one level up, asserted by NewTaskRowTests.testSubmittingTextTheGrammarRefusesAlertsAndSendsNothing; this line is the default's irreducible OS call, and any further seam relocates the literal and reproduces this mutant. Same shape as SMAppServiceRegistrar.swift:52 and ReminderResponder.swift:157. Category under review in throwntom-gz9z.6.3. Adjudicated (commit e96a685): this shape was specifically ruled on, not decided unilaterally by whoever wrote the test."
   },
   {
     "file": "Sources/ThrowntomUI/ShortcutList.swift",
@@ -357,7 +357,7 @@
     "column": 29,
     "mutator": "RemoveSideEffects",
     "replacement": "",
-    "reason": "Not a behavioral-equivalence claim: the app is silent under this mutant. Unobservable by any XCTest: NSSound.beep() is the raw system call with no return value, callback or readable state, and it is a Swift-only overlay (not @objc; class_getClassMethod/responds(to:) return nil/false, probed), so nothing can be swizzled. The seam for this behavior is `alert` one level up, asserted by LunchEntryRowTests.testARefusedLengthBeepsAndLeavesTheFieldOpen; this line is the default's irreducible OS call, and any further seam relocates the literal and reproduces this mutant. Same shape as NewTaskRow.swift:22:29 (adjudicated), SMAppServiceRegistrar.swift:52 and ReminderResponder.swift:157. Brief for .1.32: do not re-derive. Category under review in throwntom-gz9z.6.3."
+    "reason": "Not a behavioral-equivalence claim: the app is silent under this mutant. Unobservable by any XCTest: NSSound.beep() is the raw system call with no return value, callback or readable state, and it is a Swift-only overlay (not @objc; class_getClassMethod/responds(to:) return nil/false, probed), so nothing can be swizzled. The seam for this behavior is `alert` one level up, asserted by LunchEntryRowTests.testARefusedLengthBeepsAndLeavesTheFieldOpen; this line is the default's irreducible OS call, and any further seam relocates the literal and reproduces this mutant. Same shape as NewTaskRow.swift:22:29 (adjudicated), SMAppServiceRegistrar.swift:52 and ReminderResponder.swift:157. Category under review in throwntom-gz9z.6.3."
   },
   {
     "file": "Sources/ThrowntomUI/MeetingEntryRow.swift",
@@ -365,7 +365,7 @@
     "column": 29,
     "mutator": "RemoveSideEffects",
     "replacement": "",
-    "reason": "Not a behavioral-equivalence claim: the app is silent under this mutant. Unobservable by any XCTest: NSSound.beep() is the raw system call with no return value, callback or readable state, and it is a Swift-only overlay (not @objc; class_getClassMethod/responds(to:) return nil/false, probed), so nothing can be swizzled. The seam for this behavior is `alert` one level up, asserted by MeetingEntryRowTests.testARefusedLengthBeepsAndLeavesTheFieldOpen; this line is the default's irreducible OS call, and any further seam relocates the literal and reproduces this mutant. Same shape as NewTaskRow.swift:22:29 (adjudicated), SMAppServiceRegistrar.swift:52 and ReminderResponder.swift:157. Brief for .1.32: do not re-derive. Category under review in throwntom-gz9z.6.3."
+    "reason": "Not a behavioral-equivalence claim: the app is silent under this mutant. Unobservable by any XCTest: NSSound.beep() is the raw system call with no return value, callback or readable state, and it is a Swift-only overlay (not @objc; class_getClassMethod/responds(to:) return nil/false, probed), so nothing can be swizzled. The seam for this behavior is `alert` one level up, asserted by MeetingEntryRowTests.testARefusedLengthBeepsAndLeavesTheFieldOpen; this line is the default's irreducible OS call, and any further seam relocates the literal and reproduces this mutant. Same shape as NewTaskRow.swift:22:29 (adjudicated), SMAppServiceRegistrar.swift:52 and ReminderResponder.swift:157. Category under review in throwntom-gz9z.6.3."
   },
   {
     "file": "Sources/ThrowntomUI/SnoozeEntryRow.swift",
@@ -373,7 +373,7 @@
     "column": 29,
     "mutator": "RemoveSideEffects",
     "replacement": "",
-    "reason": "Not a behavioral-equivalence claim: the app is silent under this mutant. Unobservable by any XCTest: NSSound.beep() is the raw system call with no return value, callback or readable state, and it is a Swift-only overlay (not @objc; class_getClassMethod/responds(to:) return nil/false, probed), so nothing can be swizzled. The seam for this behavior is `alert` one level up, asserted by SnoozeEntryRowTests.testARefusedDurationBeepsAndLeavesTheFieldOpen; this line is the default's irreducible OS call, and any further seam relocates the literal and reproduces this mutant. Same shape as NewTaskRow.swift:22:29 (adjudicated), SMAppServiceRegistrar.swift:52 and ReminderResponder.swift:157. Brief for .1.32: do not re-derive. Category under review in throwntom-gz9z.6.3."
+    "reason": "Not a behavioral-equivalence claim: the app is silent under this mutant. Unobservable by any XCTest: NSSound.beep() is the raw system call with no return value, callback or readable state, and it is a Swift-only overlay (not @objc; class_getClassMethod/responds(to:) return nil/false, probed), so nothing can be swizzled. The seam for this behavior is `alert` one level up, asserted by SnoozeEntryRowTests.testARefusedDurationBeepsAndLeavesTheFieldOpen; this line is the default's irreducible OS call, and any further seam relocates the literal and reproduces this mutant. Same shape as NewTaskRow.swift:22:29 (adjudicated), SMAppServiceRegistrar.swift:52 and ReminderResponder.swift:157. Category under review in throwntom-gz9z.6.3."
   },
   {
     "file": "Sources/ThrowntomUI/ThrowntomScenes.swift",
