@@ -46,6 +46,10 @@ extension MenuGroups: MenuGroupsLabels {
 ///
 /// The *wiring* is the label closures `MenuGroups` stores, which are values and can be called
 /// with a menu item and then fired, driving the same dispatch a click would.
+///
+/// The settings group's own buttons are not in the resolver's gift: they are read off
+/// `AppMenus.appSettingsMenu`, the view the `CommandGroup` is built from, which is why they can be
+/// pressed here at all.
 @MainActor
 final class MenuCommandsTests: XCTestCase {
 
@@ -66,6 +70,47 @@ final class MenuCommandsTests: XCTestCase {
       "CommandGroup<TupleView<(MenuGroups<ViewAction, \(shortcut(button))>, "
         + "Divider, LoginItemToggle, \(button), \(button))>>",
     )
+  }
+
+  /// The config item's wiring, read off `appSettingsMenu` rather than the `CommandGroup` that
+  /// carries it — a `CommandGroup` hides its content behind a resolver closure, so the group's
+  /// buttons are only reachable because the items are a view of their own. The opener is the
+  /// app's own, injected, so nothing is handed to a real editor here.
+  func testTheConfigItemHandsOverTheFileTheDaemonReads() throws {
+    var opened: URL?
+    var menus = try makeMenus()
+    menus.openConfigFile = { url in
+      opened = url
+      return true
+    }
+
+    try fire(try labels(of: try settingsGroupPart(0, of: menus)), action: ViewAction.openConfig)
+
+    XCTAssertEqual(opened, DaemonPaths.configFileToOpen())
+  }
+
+  /// The two panes below the divider. Both are System Settings windows on a real machine, so both
+  /// are injected: what is asserted is that the item is wired to the one it names.
+  func testTheLoginItemsSettingsItemOpensTheLoginItemsPane() throws {
+    var opens = 0
+    var menus = try makeMenus()
+    menus.openLoginItemsSettings = { opens += 1 }
+    menus.openNotificationSettings = { XCTFail("the login items item opened the notifications pane") }
+
+    try press(try settingsGroupPart(3, of: menus))
+
+    XCTAssertEqual(opens, 1)
+  }
+
+  func testTheNotificationSettingsItemOpensTheNotificationsPane() throws {
+    var opens = 0
+    var menus = try makeMenus()
+    menus.openNotificationSettings = { opens += 1 }
+    menus.openLoginItemsSettings = { XCTFail("the notifications item opened the login items pane") }
+
+    try press(try settingsGroupPart(4, of: menus))
+
+    XCTAssertEqual(opens, 1)
   }
 
   func testTheTimerMenuCarriesTheVerbsTheSnoozeSubmenuADividerAndTheServiceGroup() throws {
@@ -231,6 +276,12 @@ final class MenuCommandsTests: XCTestCase {
     try part(index, of: try commandBlocks(of: menus))
   }
 
+  /// The settings group's own statements: the config item, a divider, the login toggle and the
+  /// two settings items.
+  private func settingsGroupPart(_ index: Int, of menus: AppMenus) throws -> Any {
+    try part(index, of: try tupleParts(of: menus.appSettingsMenu))
+  }
+
   /// The Timer menu's own statements: the verbs, the snooze submenu, the divider and the
   /// service group.
   private func timerMenuParts(of menus: AppMenus) throws -> [Any] {
@@ -253,12 +304,17 @@ final class MenuCommandsTests: XCTestCase {
       groups.labelledItems.first { ($0 as? MenuItem<Action>)?.action == action },
       "no \(action) in this menu",
     )
-    let view = try unwrapped(try XCTUnwrap(groups.builtLabel(for: item)))
-    let press = try XCTUnwrap(
-      try child("closure", of: try child("action", of: view)) as? @MainActor () -> Void,
-      "\(shape(of: view)) has no button action to press",
+    try press(try XCTUnwrap(groups.builtLabel(for: item)))
+  }
+
+  /// Runs a button's stored action, the way choosing it would.
+  private func press(_ view: Any) throws {
+    let button = try unwrapped(view)
+    let action = try XCTUnwrap(
+      try child("closure", of: try child("action", of: button)) as? @MainActor () -> Void,
+      "\(shape(of: button)) has no button action to press",
     )
-    press()
+    action()
   }
 
   /// The name a `CommandMenu` shows in the menu bar.
