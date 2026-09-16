@@ -34,7 +34,7 @@ struct GoBuildError: Error, CustomStringConvertible {
 @MainActor
 func waitUntil(
   _ what: String,
-  timeout: Double = 5,
+  timeout: Double = 2,
   file: StaticString = #filePath,
   line: UInt = #line,
   _ condition: () -> Bool,
@@ -55,7 +55,7 @@ func waitUntil(
 @MainActor
 func pollUntil(
   _ what: String,
-  timeout: Double = 5,
+  timeout: Double = 2,
   file: StaticString = #filePath,
   line: UInt = #line,
   _ condition: () -> Bool,
