@@ -41,9 +41,13 @@ jobs:
 
       - name: Generate Swift coverage report
         run: |
+          # `swift test` builds one .xctest bundle per test target rather than a single merged
+          # "PackageTests" bundle, so llvm-cov needs each target's binary named explicitly —
+          # `default.profdata` already carries the merged instrumentation for all of them.
           BIN_PATH="$(swift build --package-path macos/Throwntom --show-bin-path --force-resolved-versions)"
           xcrun llvm-cov show \
-            "$BIN_PATH/ThrowntomPackageTests.xctest/Contents/MacOS/ThrowntomPackageTests" \
+            "$BIN_PATH/ThrowntomClientTests.xctest/Contents/MacOS/ThrowntomClientTests" \
+            -object "$BIN_PATH/ThrowntomUITests.xctest/Contents/MacOS/ThrowntomUITests" \
             -instr-profile "$BIN_PATH/codecov/default.profdata" \
             -ignore-filename-regex='\.build|Tests/' \
             > swift-coverage.txt
