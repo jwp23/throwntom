@@ -406,5 +406,13 @@
     "mutator": "RemoveSideEffects",
     "replacement": "",
     "reason": "Not a behavioral-equivalence claim: the app is silent under this mutant. Unobservable by any XCTest: NSSound.beep() is the raw system call with no return value, callback or readable state, and it is a Swift-only overlay (not @objc; class_getClassMethod/responds(to:) return nil/false, probed), so nothing can be swizzled. The seam for this behavior is `alert` one level up, asserted by SnoozeEntryRowTests.testARefusedDurationBeepsAndLeavesTheFieldOpen; this line is the default's irreducible OS call, and any further seam relocates the literal and reproduces this mutant. Same shape as NewTaskRow.swift:22:29 (adjudicated), SMAppServiceRegistrar.swift:52 and ReminderResponder.swift:157. Brief for .1.32: do not re-derive. Category under review in throwntom-gz9z.6.3."
+  },
+  {
+    "file": "Sources/ThrowntomUI/ThrowntomScenes.swift",
+    "line": 15,
+    "column": 17,
+    "mutator": "RemoveSideEffects",
+    "replacement": "",
+    "reason": "Genuine trap-Crash hand-verified kill; no Timeout mutant appears anywhere in this file's own gated set (its other two mutants, 10:5 and 11:7, are both Killed by ThrowntomScenesTests.testTheSceneIsTheMainWindowStyledAndCarryingTheAppMenus). Reported Crash directly in this bead's own file-scoped tool run (/tmp/report-ThrowntomUI.json, mutant swift-mutation-testing_8). With `AppMenus(environment: environment)` deleted, `.commands { }` closes over a `CommandsBuilder.buildBlock()` with zero statements. Hand-verified: editing the source to `.commands { }` by hand and running `swift test --filter ThrowntomScenesTests` (and, separately, a scratch test that only evaluates `ThrowntomScenes(environment:).body`, no assertion) crashes the whole ThrowntomUITests process with EXC_BAD_ACCESS inside the test method itself, at the line that evaluates `.body` -- confirmed under lldb (`bt all`: frame #0 is the test method itself, `stop reason = EXC_BAD_ACCESS (code=1, address=0xfffffffffffffff8)`), so the trap happens while SwiftUI builds the scene tree, before any reflection or assertion runs. Restoring `AppMenus(environment: environment)` passes clean. No test, of any shape, can observe this mutant without crashing the process: evaluating `.body` is the only way to reach the removed statement's absence, and every way of evaluating it under this mutant traps."
   }
 ]
