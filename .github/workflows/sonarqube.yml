@@ -12,10 +12,16 @@ jobs:
     # Dependabot runs don't receive Actions secrets, so SONAR_TOKEN is empty and
     # the scan can't authenticate; skip — dependency bumps carry no analyzable code.
     if: github.actor != 'dependabot[bot]'
-    # macos-latest: the Swift analyzer needs a completed `swift build` before it can scan.
-    runs-on: macos-latest
+    # macOS, because the Swift analyzer needs a completed `swift build` before it can scan.
+    # The runner and its Xcode are both named rather than left to float: `macos-latest` rolled
+    # to macos-26 and this job then compiled the same SwiftUI source into different private
+    # type names than ci.yml's macos-15 did, which failed PR #220 with nothing in the diff to
+    # explain it. These two lines have to keep saying what ci.yml's macOS job says.
+    runs-on: macos-15
     permissions:
       contents: read
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
