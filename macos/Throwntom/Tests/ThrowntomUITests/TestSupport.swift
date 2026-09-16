@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import SwiftUI
+import UserNotifications
 import XCTest
 @testable import ThrowntomClient
 @testable import ThrowntomUI
@@ -97,6 +98,10 @@ final class StubReminderPresenter: ReminderPresenter {
   /// What macOS answers when it will not accept the reminder; nil when it accepts.
   var refusal: Error?
 
+  /// Whoever claimed the delegate. Weak: the responder that claims it owns this presenter, and a
+  /// strong record here would keep the pair alive as a cycle for the rest of the run.
+  private(set) weak var claimedDelegate: UNUserNotificationCenterDelegate?
+
   private(set) var registeredButtons = false
   private(set) var posts = [Post]()
   private(set) var morningPosts = [Post]()
@@ -105,6 +110,10 @@ final class StubReminderPresenter: ReminderPresenter {
   private(set) var attentionCancels = 0
   private(set) var windowReveals = 0
   private(set) var chimes = 0
+
+  func claimNotificationDelegate(_ delegate: UNUserNotificationCenterDelegate) {
+    claimedDelegate = delegate
+  }
 
   func registerReminderButtons() {
     registeredButtons = true
@@ -227,6 +236,12 @@ final class StubTransport: DaemonTransport, @unchecked Sendable {
     lock.withLock { recorded }
   }
 
+  /// Whether the client has asked for the event stream yet. A frame sent before it has is yielded
+  /// into nothing, so a test that feeds the stream waits for this first.
+  var isStreaming: Bool {
+    lock.withLock { live != nil }
+  }
+
   /// Everything but the task-list refresh the client runs after each frame.
   var commands: [Request] {
     requests.filter { $0.path != Self.tasksPath }
@@ -254,10 +269,18 @@ final class StubTransport: DaemonTransport, @unchecked Sendable {
 
   func events(_: String) -> AsyncThrowingStream<Data, Error> {
     AsyncThrowingStream { continuation in
+      lock.withLock { live = continuation }
       for frame in frames {
         continuation.yield(frame)
       }
     }
+  }
+
+  /// Feeds one more state down the open stream, for tests that need the client to see states
+  /// arrive one at a time rather than all together at connection.
+  func send(_ state: DaemonState) throws {
+    let frame = try daemonEncoder.encode(state)
+    lock.withLock { live }?.yield(frame)
   }
 
   // MARK: Private
@@ -270,6 +293,9 @@ final class StubTransport: DaemonTransport, @unchecked Sendable {
   private let taskList: Data
   private let lock = NSLock()
   private var recorded = [Request]()
+
+  /// The open stream's continuation, once the client has asked for one.
+  private var live: AsyncThrowingStream<Data, Error>.Continuation?
 
 }
 
