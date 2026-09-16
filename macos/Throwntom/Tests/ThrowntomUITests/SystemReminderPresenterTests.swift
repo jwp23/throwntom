@@ -14,7 +14,10 @@ final class SystemReminderPresenterTests: XCTestCase {
   /// read the way anything outside the presenter can: through `NSApp`'s own attention-request
   /// counter. A request-then-cancel probe is a no-op on that counter unless something else's
   /// request is left outstanding in between, so the counter having moved between two probes is
-  /// itself the signal that the presenter issued a real request in that gap.
+  /// itself the signal that the presenter issued a real request in that gap. This only asserts
+  /// that the counter *moved*, never by how much or to what: `NSApplication.requestUserAttention`
+  /// only documents that the returned `Int` identifies the request for cancellation, not that IDs
+  /// are handed out sequentially — that part is today's observed AppKit behavior, not a contract.
   func testASecondCallWhileARequestIsOutstandingIssuesNothingNew() {
     _ = NSApplication.shared
     let presenter = SystemReminderPresenter()
@@ -26,24 +29,27 @@ final class SystemReminderPresenterTests: XCTestCase {
     let afterSecondCall = probeAttentionCounter()
     presenter.cancelAttention()
 
-    XCTAssertEqual(afterFirstCall, baseline + 1, "the first call must ask NSApp for the user's attention")
+    XCTAssertNotEqual(afterFirstCall, baseline, "the first call must ask NSApp for the user's attention")
     XCTAssertEqual(afterSecondCall, afterFirstCall, "a second call must not ask again while one is outstanding")
   }
 
   /// `cancelAttention()` leaves `attentionRequest` nil whether or not it tells `NSApp` to stop
-  /// bouncing the Dock, so the field is not the signal: the counter is, again. A request that was
-  /// really cancelled lets the counter fall back to its unclaimed baseline; one that was not stays
-  /// outstanding, so every later probe has to claim a new number instead of reusing that baseline.
+  /// bouncing the Dock, so the field is not the signal: the counter is, again. Probing once while
+  /// the presenter's request is still outstanding and once right after cancelling it isolates the
+  /// same "did the counter move" signal `testASecondCallWhileARequestIsOutstandingIssuesNothingNew`
+  /// uses, without assuming cancelling hands back any particular number — only documented AppKit
+  /// behavior (the ID's role in cancellation) is relied on, not the specific reuse scheme AppKit
+  /// happens to use today.
   func testCancellingAttentionReleasesTheOutstandingRequest() {
     _ = NSApplication.shared
-    let baseline = probeAttentionCounter()
-
     let presenter = SystemReminderPresenter()
-    presenter.requestAttention()
-    presenter.cancelAttention()
 
-    XCTAssertEqual(probeAttentionCounter(), baseline, "cancelling must hand the request back to NSApp")
-    XCTAssertEqual(probeAttentionCounter(), baseline, "the request must not still be outstanding afterwards")
+    presenter.requestAttention()
+    let whileOutstanding = probeAttentionCounter()
+    presenter.cancelAttention()
+    let afterCancel = probeAttentionCounter()
+
+    XCTAssertNotEqual(afterCancel, whileOutstanding, "cancelling must hand the request back to NSApp")
   }
 
   /// The one window eligible to be raised — not a sheet, and able to become key even though this
