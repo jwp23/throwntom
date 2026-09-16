@@ -313,7 +313,7 @@
   },
   {
     "file": "Sources/ThrowntomUI/AppEnvironment.swift",
-    "line": 73,
+    "line": 77,
     "column": 5,
     "mutator": "RemoveSideEffects",
     "replacement": "",
