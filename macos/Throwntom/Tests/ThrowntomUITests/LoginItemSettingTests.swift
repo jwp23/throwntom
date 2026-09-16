@@ -116,3 +116,108 @@ final class LoginItemSettingTests: XCTestCase {
     XCTAssertEqual(afterBounce, afterFailure, "the bounce must not erase the failure message")
   }
 }
+
+// MARK: - RecordingLoginItemRegistrar
+
+/// Counts what `LoginItemToggle`'s own wiring asks for and does, rather than what `afterSetting`
+/// decides for it — `LoginItemSettingTests` above covers the decision; `LoginItemToggleWiringTests`
+/// below covers whether the view actually calls into it.
+private final class RecordingLoginItemRegistrar: LoginItemRegistrar {
+
+  // MARK: Lifecycle
+
+  init(loginItemEnabled: Bool, refusal: Error? = nil) {
+    enabledValue = loginItemEnabled
+    self.refusal = refusal
+  }
+
+  // MARK: Internal
+
+  private(set) var enabledReads = 0
+  private(set) var setValues = [Bool]()
+  var refusal: Error?
+
+  var loginItemEnabled: Bool {
+    enabledReads += 1
+    return enabledValue
+  }
+
+  func setLoginItem(_ enabled: Bool) throws {
+    setValues.append(enabled)
+    if let refusal {
+      throw refusal
+    }
+  }
+
+  // MARK: Private
+
+  private let enabledValue: Bool
+
+}
+
+// MARK: - LoginItemToggleWiringTests
+
+/// What `LoginItemToggle.body` is actually made of and does: the toggle wired to `onChange` and
+/// `onAppear`, and the state it starts in before either has run. `SwiftUI` never installs a real
+/// `@State` location in this process (confirmed by hand: hosting the view in a real `NSWindow` and
+/// firing its `onChange` still leaves `_location` nil), so this reads the wiring's own effects on
+/// the registrar rather than reading `setting` back out of a second `body` evaluation.
+@MainActor
+final class LoginItemToggleWiringTests: XCTestCase {
+
+  // MARK: Internal
+
+  func testTheToggleAsksTheRegistrarForTheCurrentStateWhenItAppears() throws {
+    let registrar = RecordingLoginItemRegistrar(loginItemEnabled: true)
+    let toggle = LoginItemToggle(registrar: registrar)
+    let onAppear = try XCTUnwrap(try onAppearAction(of: toggle), "the toggle has no onAppear wiring")
+
+    onAppear()
+
+    XCTAssertEqual(registrar.enabledReads, 1, "onAppear must read the registrar's own answer, not assume one")
+  }
+
+  func testChangingTheToggleAsksTheRegistrarToApplyTheNewValue() throws {
+    let registrar = RecordingLoginItemRegistrar(loginItemEnabled: true)
+    let toggle = LoginItemToggle(registrar: registrar)
+    let onChange = try XCTUnwrap(try onChangeAction(of: toggle), "the toggle has no onChange wiring")
+
+    onChange(true, false)
+
+    XCTAssertEqual(registrar.setValues, [false], "the toggle's own onChange must hand the new value to the registrar")
+  }
+
+  /// LoginItemToggle.swift:22:55. The toggle starts off until `onAppear` corrects it from the
+  /// registrar; the initial literal is only ever observable before that runs, which is exactly
+  /// what `@State`'s own lazy-default thunk still is at this point.
+  func testTheDefaultSettingStartsWithTheToggleOff() throws {
+    let toggle = LoginItemToggle(registrar: RecordingLoginItemRegistrar(loginItemEnabled: false))
+
+    XCTAssertEqual(try defaultSetting(of: toggle), LoginItemSetting(isOn: false, message: nil))
+  }
+
+  // MARK: Private
+
+  private func toggleLayers(of toggle: LoginItemToggle) throws -> [Any] {
+    modifierLayers(of: try part(0, of: try tupleParts(of: toggle.body)))
+  }
+
+  private func onChangeAction(of toggle: LoginItemToggle) throws -> ((Bool, Bool) -> Void)? {
+    try child("action", of: try part(0, of: try toggleLayers(of: toggle))) as? (Bool, Bool) -> Void
+  }
+
+  private func onAppearAction(of toggle: LoginItemToggle) throws -> (() -> Void)? {
+    try child("appear", of: try part(2, of: try toggleLayers(of: toggle))) as? () -> Void
+  }
+
+  /// `@State`'s own uninstalled backing storage: a lazy thunk that produces the property's default
+  /// value, read the same way regardless of whether anything has run yet — reached by name because
+  /// there is no public API for it.
+  private func defaultSetting(of toggle: LoginItemToggle) throws -> LoginItemSetting {
+    let lazyState = try child("__setting", of: toggle)
+    let storage = try child("_storage", of: lazyState)
+    let thunk = try XCTUnwrap(try child("thunk", of: storage) as? () -> LoginItemSetting)
+    return thunk()
+  }
+
+}
