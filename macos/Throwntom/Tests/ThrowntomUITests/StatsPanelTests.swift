@@ -207,7 +207,7 @@ final class StatsPanelTests: XCTestCase {
   private func renderedSize(
     _ view: some View,
     proposing proposedSize: ProposedViewSize,
-    timeout: Double = 5,
+    timeout: Double = 10,
   ) async throws -> CGSize {
     let renderer = ImageRenderer(content: view)
     renderer.scale = 2

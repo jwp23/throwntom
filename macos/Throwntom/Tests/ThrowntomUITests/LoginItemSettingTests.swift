@@ -217,17 +217,21 @@ final class LoginItemToggleWiringTests: XCTestCase {
     try child("appear", of: try part(2, of: try toggleLayers(of: toggle))) as? () -> Void
   }
 
-  /// `@State`'s own uninstalled backing storage: a lazy thunk that produces the property's default
-  /// value, read the same way regardless of whether anything has run yet — reached by name because
-  /// there is no public API for it. The compiler's backing-storage name for a `@State var setting`
-  /// has varied across toolchains (`__setting` vs `_setting`); match by suffix rather than pinning
-  /// one spelling.
+  /// `@State`'s own uninstalled backing storage, read the same way regardless of whether anything
+  /// has run yet — reached by name because there is no public API for it. Both the backing
+  /// property's own name (`__setting` vs `_setting`) and `State`'s internal representation of an
+  /// unread default have varied across toolchains: some store it directly as `_value`, others
+  /// behind a lazy `_storage` thunk. Try both rather than pinning one toolchain's layout.
   private func defaultSetting(of toggle: LoginItemToggle) throws -> LoginItemSetting {
     let children = Mirror(reflecting: toggle).children
     let lazyState = try XCTUnwrap(
       children.first { $0.label?.lowercased().hasSuffix("setting") == true }?.value,
       "no *setting property in \(shape(of: toggle)), which has \(children.compactMap(\.label))",
     )
+    let stateChildren = Mirror(reflecting: lazyState).children
+    if let direct = stateChildren.first(where: { $0.label == "_value" })?.value as? LoginItemSetting {
+      return direct
+    }
     let storage = try child("_storage", of: lazyState)
     let thunk = try XCTUnwrap(try child("thunk", of: storage) as? () -> LoginItemSetting)
     return thunk()
