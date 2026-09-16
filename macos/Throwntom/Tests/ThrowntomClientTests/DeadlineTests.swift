@@ -15,7 +15,15 @@ final class DeadlineTests: XCTestCase {
   func testTheDeadlineFailsTheCallWhenTheWorkNeverFinishes() async {
     let timeout = Duration.milliseconds(200)
     let failed = expectation(description: "the call to fail on its deadline")
-    let call = Task { await Self.runExpectingDeadline(timeout, expectation: failed) }
+    let call = Task {
+      do {
+        try await withDeadline(timeout) { await Self.suspendsForever() }
+        XCTFail("the call returned although its work never finished")
+      } catch {
+        XCTAssertEqual(error as? DaemonError, .timedOut(after: timeout))
+      }
+      failed.fulfill()
+    }
     defer { call.cancel() }
 
     await fulfillment(of: [failed], timeout: 2)
@@ -24,7 +32,15 @@ final class DeadlineTests: XCTestCase {
   /// Cancelling is the other way a caller stops waiting, and it is bounded for the same reason.
   func testCancellingTheCallerEndsTheCallWhenTheWorkNeverFinishes() async {
     let ended = expectation(description: "the call to end as cancelled")
-    let call = Task { await Self.runExpectingCancellation(expectation: ended) }
+    let call = Task {
+      do {
+        try await withDeadline(.seconds(30)) { await Self.suspendsForever() }
+        XCTFail("the call returned although it was cancelled")
+      } catch {
+        XCTAssertTrue(error is CancellationError, "the cancelled call failed with \(error)")
+      }
+      ended.fulfill()
+    }
 
     // Cancel once the call is waiting rather than before it starts, so the test covers the wait.
     try? await Task.sleep(for: .milliseconds(100))
@@ -104,28 +120,6 @@ final class DeadlineTests: XCTestCase {
   /// on the console when it is released, and this one is leaked on purpose.
   private static func suspendsForever() async {
     await withUnsafeContinuation { (_: UnsafeContinuation<Void, Never>) in }
-  }
-
-  /// Runs work that never finishes under a deadline, asserting it fails with a timeout.
-  private static func runExpectingDeadline(_ timeout: Duration, expectation: XCTestExpectation) async {
-    do {
-      try await withDeadline(timeout) { await Self.suspendsForever() }
-      XCTFail("the call returned although its work never finished")
-    } catch {
-      XCTAssertEqual(error as? DaemonError, .timedOut(after: timeout))
-    }
-    expectation.fulfill()
-  }
-
-  /// Runs work that never finishes under a deadline, asserting it fails when cancelled.
-  private static func runExpectingCancellation(expectation: XCTestExpectation) async {
-    do {
-      try await withDeadline(.seconds(30)) { await Self.suspendsForever() }
-      XCTFail("the call returned although it was cancelled")
-    } catch {
-      XCTAssertTrue(error is CancellationError, "the cancelled call failed with \(error)")
-    }
-    expectation.fulfill()
   }
 
   /// Work that fails on its own terms, well inside its deadline.
