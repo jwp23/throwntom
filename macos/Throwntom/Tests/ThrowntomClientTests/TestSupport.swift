@@ -172,7 +172,9 @@ final class DaemonHarness {
     p.standardError = FileHandle.nullDevice
     try p.run()
     process = p
-    try await waitUntil("the daemon to open its socket") { FileManager.default.fileExists(atPath: socketPath) }
+    try await waitUntil("the daemon to open its socket", timeout: 5) {
+      FileManager.default.fileExists(atPath: socketPath)
+    }
   }
 
   /// Asks the daemon to exit and escalates to SIGKILL rather than waiting on it forever,
