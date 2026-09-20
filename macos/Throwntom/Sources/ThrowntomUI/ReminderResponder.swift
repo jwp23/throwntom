@@ -44,7 +44,7 @@ final class ReminderResponder: NSObject, UNUserNotificationCenterDelegate {
   /// Called from the app's initialiser: a banner posted before a delegate is in place has nowhere
   /// to deliver its answer.
   func start() {
-    UNUserNotificationCenter.current().delegate = self
+    presenter.claimNotificationDelegate(self)
     presenter.registerReminderButtons()
     withdrawOnTermination()
     followDaemonState()

@@ -28,11 +28,69 @@ final class ShortcutSheetTests: XCTestCase {
     _ = ShortcutSheet(environment: environment).body
   }
 
+  /// Every statement `body` builds, spelled out as the type SwiftUI actually composed — the same
+  /// technique `StatsPanelTests` uses. A statement that stops being built anywhere in the tree
+  /// (the title, a section header, the footnote, the whole Done row, or either of its two
+  /// children) changes this string, because each is a generic parameter of some ancestor's type.
+  /// ShortcutSheet.swift:10:7/13:11/24:7/25:7/26:9/27:9.
+  func testBodyIsBuiltFromTheTitleSectionsFootnoteAndDoneRow() throws {
+    let environment = AppEnvironment(transport: try StubTransport(states: []))
+
+    XCTAssertEqual(
+      shape(of: ShortcutSheet(environment: environment).body),
+      "ModifiedContent<ModifiedContent<ModifiedContent<VStack<TupleView<(Text, ForEach<Array<ShortcutList"
+        + ".Section>, String, VStack<TupleView<(ModifiedContent<ModifiedContent<Text, _EnvironmentKeyWriting"
+        + "Modifier<Optional<Text.Case>>>, _ForegroundStyleModifier<HierarchicalShapeStyle>>, Grid<ForEach<"
+        + "Array<ShortcutList.Entry>, String, ShortcutRow>>)>>>, Text, HStack<TupleView<(Spacer, Modified"
+        + "Content<ModifiedContent<ModifiedContent<Button<Text>, _EnvironmentKeyWritingModifier<Optional<"
+        + "KeyboardShortcut>>>, ViewInputFlagModifier<HasKeyboardShortcut>>, _TraitWritingModifier<"
+        + "KeyboardShortcutPickerOptionTraitKey>>)>>)>>, _PaddingLayout>, _FlexFrameLayout>, OnCommandModifier>",
+    )
+  }
+
   func testEscapeClosesTheSheet() throws {
     let environment = AppEnvironment(transport: try StubTransport(states: []))
     environment.windowModel.showsShortcuts = true
     ShortcutSheet(environment: environment).close()
     XCTAssertFalse(environment.windowModel.showsShortcuts)
+  }
+
+  /// `testEscapeClosesTheSheet` calls `close()` directly; this presses the Done button's own
+  /// wired action, which is what actually needs to call it. ShortcutSheet.swift:27:26.
+  func testPressingDoneClosesTheSheet() throws {
+    let environment = AppEnvironment(transport: try StubTransport(states: []))
+    environment.windowModel.showsShortcuts = true
+    let sheet = ShortcutSheet(environment: environment)
+    let parts = try tupleParts(of: try stackContent(of: try unwrapped(sheet.body)))
+    let hstack = try part(3, of: parts)
+    let hstackParts = try tupleParts(of: try stackContent(of: hstack))
+    let button = try unwrapped(try part(1, of: hstackParts))
+    let press = try XCTUnwrap(
+      try child("closure", of: try child("action", of: button)) as? @MainActor () -> Void,
+      "the Done button has no action to press",
+    )
+
+    press()
+
+    XCTAssertFalse(environment.windowModel.showsShortcuts, "pressing Done did not close the sheet")
+  }
+
+  /// `testEscapeClosesTheSheet` calls `close()` directly; this fires the `.onExitCommand`
+  /// wiring itself, the way pressing Escape while the sheet is key actually would.
+  /// ShortcutSheet.swift:33:22.
+  func testEscapeFiresTheOnExitCommandWiring() throws {
+    let environment = AppEnvironment(transport: try StubTransport(states: []))
+    environment.windowModel.showsShortcuts = true
+    let sheet = ShortcutSheet(environment: environment)
+    let exit = try part(2, of: modifierLayers(of: sheet.body))
+    let cancel = try XCTUnwrap(
+      try child("action", of: try child("action", of: exit)) as? () -> Void,
+      "the exit command has nothing to run",
+    )
+
+    cancel()
+
+    XCTAssertFalse(environment.windowModel.showsShortcuts, "the onExitCommand wiring did not close the sheet")
   }
 
   /// Escape is bound in the window and in this sheet and in no menu model, so the one list of what

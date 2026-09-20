@@ -1,7 +1,26 @@
+import SwiftUI
 import XCTest
 @testable import ThrowntomUI
 
+@MainActor
 final class TomatoGardenTests: XCTestCase {
+  /// Every statement `body` builds, spelled out as the type SwiftUI actually composed: the
+  /// VStack's block grid and summary text, the grid's `BlockFlowLayout` wrapping a `ForEach` of
+  /// blocks, each block's `HStack` of an inner `ForEach` of tomato glyphs. A statement dropped
+  /// anywhere in that nesting collapses its builder block to `EmptyView` instead, changing this
+  /// string — one test standing in for all seven of that chain's `RemoveSideEffects` mutants.
+  func testBodyIsBuiltFromTheBlockGridAndSummary() {
+    let g = TomatoGarden(completedToday: 1, inBlock: 1, every: 4)
+    XCTAssertEqual(
+      shape(of: TomatoGardenView(garden: g).body),
+      "ModifiedContent<ModifiedContent<ModifiedContent<VStack<TupleView<(_VariadicView.Tree<"
+        + "_LayoutRoot<BlockFlowLayout>, ForEach<Array<(offset: Int, element: Array<Bool>)>, Int, "
+        + "HStack<ForEach<Array<(offset: Int, element: Bool)>, Int, ModifiedContent<ModifiedContent<"
+        + "Text, _OpacityEffect>, _FrameLayout>>>>>, Text)>>, _FlexFrameLayout>, "
+        + "AccessibilityContainerModifier>, AccessibilityAttachmentModifier>",
+    )
+  }
+
   func testEmptyDayShowsOneDimBlock() {
     let g = TomatoGarden(completedToday: 0, inBlock: 0, every: 4)
     XCTAssertEqual(g.blocks, [[false, false, false, false]])

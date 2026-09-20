@@ -6,6 +6,65 @@ import XCTest
 @MainActor
 final class SplitChipTests: XCTestCase {
 
+  /// The chevron opens the menu items through `MenuGroups`, not through nothing: pressing the
+  /// button an item built has to run the label the caller supplied for it.
+  func testTheChevronOpensAMenuGroupsOfTheCallersLabels() throws {
+    let scheme = Palette.scheme(for: .idle)
+    let style = ChipStyle.style(primary: false, scheme: scheme)
+    let menu = MenuModel.snooze(canDefer: true, isSnoozed: false)
+    var pressed = [SnoozeAction]()
+    let chip = SplitChip(
+      title: "Snooze",
+      hint: "",
+      style: style,
+      menu: menu,
+      menuAccessibilityLabel: "Snooze",
+      primaryAction: { },
+    ) { item in
+      Button(item.title) { pressed.append(item.action) }.disabled(!item.isEnabled)
+    }
+
+    let parts = try tupleParts(of: try stackContent(of: try unwrapped(chip.body)))
+    let chevron = try unwrapped(try part(1, of: parts))
+    let groups = try XCTUnwrap(
+      try child("content", of: chevron) as? MenuGroupsLabels,
+      "\(shape(of: chevron)) has no MenuGroups content",
+    )
+    let item = try XCTUnwrap(groups.labelledItems.first)
+    let action = try XCTUnwrap((item as? MenuItem<SnoozeAction>)?.action)
+    let built = try unwrapped(try XCTUnwrap(groups.builtLabel(for: item)))
+    let press = try XCTUnwrap(try child("closure", of: try child("action", of: built)) as? @MainActor () -> Void)
+
+    press()
+
+    XCTAssertEqual(pressed, [action])
+  }
+
+  /// The chevron's own control fixes its width — so a squeezed row does not compress the two-tap
+  /// target the chevron and its click area rely on — but leaves its height alone, so the earlier
+  /// `.frame(maxHeight: .infinity)` can still stretch it to match the label region's row height.
+  func testTheChevronFixesItsWidthButNotItsHeight() throws {
+    let scheme = Palette.scheme(for: .idle)
+    let style = ChipStyle.style(primary: false, scheme: scheme)
+    let menu = MenuModel.snooze(canDefer: true, isSnoozed: false)
+    let chip = SplitChip(
+      title: "Snooze",
+      hint: "",
+      style: style,
+      menu: menu,
+      menuAccessibilityLabel: "Snooze",
+      primaryAction: { },
+    ) { item in
+      Button(item.title) { }.disabled(!item.isEnabled)
+    }
+    let parts = try tupleParts(of: try stackContent(of: try unwrapped(chip.body)))
+    let chevronLayers = modifierLayers(of: try part(1, of: parts))
+    let fixedSize = try XCTUnwrap(chevronLayers.first { shape(of: $0).hasPrefix("_FixedSizeLayout") })
+
+    XCTAssertEqual(try child("horizontal", of: fixedSize) as? Bool, true)
+    XCTAssertEqual(try child("vertical", of: fixedSize) as? Bool, false)
+  }
+
   /// The chip has to look like a chip before anything else — the same fill and text colours
   /// every plain chip wears, painted by SwiftUI itself rather than by an AppKit control's own
   /// tinting (throwntom-bxd.2, throwntom-bxd.29).

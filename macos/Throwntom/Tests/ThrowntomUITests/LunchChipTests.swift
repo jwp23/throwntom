@@ -113,6 +113,69 @@ final class LunchChipTests: XCTestCase {
     XCTAssertEqual(chip.title, "Lunch")
   }
 
+  /// Lunch has no way out of its own (unlike meeting and snooze), so every length in its menu —
+  /// the presets and `Custom…` alike — stays enabled: `canStart` is unconditionally `true`.
+  func testEveryLunchMenuItemIsEnabled() throws {
+    let chip = try makeChip(phase: .idle)
+    XCTAssertFalse(chip.menu.items.isEmpty, "the menu needs an item to exercise")
+    XCTAssertTrue(chip.menu.items.allSatisfy(\.isEnabled))
+  }
+
+  /// The wiring behind `testTheChipIsBuiltFromSplitChipRatherThanPressAndHold`: a plain click on
+  /// the label region has to run `run(nil)` — not merely `chip.run(nil)` called directly, which
+  /// the primary-action closure built into `body` never proves runs at all.
+  func testPressingTheLabelRegionSendsNoExplicitLength() async throws {
+    let transport = try StubTransport(states: [makeState(phase: .idle)])
+    let environment = AppEnvironment(transport: transport)
+    defer { environment.client.stop() }
+    environment.start()
+    try await waitUntil { environment.client.state != nil }
+    let chip = LunchChip(
+      content: content(phase: .idle),
+      client: environment.client,
+      model: environment.windowModel,
+    )
+
+    try splitChipPrimaryAction(chip)()
+
+    try await waitUntil { !transport.commands.isEmpty }
+    XCTAssertEqual(transport.commands.map(\.path), ["/v1/timer/lunch"])
+    XCTAssertEqual(transport.commands.last?.body, "")
+  }
+
+  /// `menuButton(for:)` (already built directly above) has to be what the chevron's `MenuGroups`
+  /// actually builds for each item, not merely a method that can be called on the side.
+  func testTheChevronMenuBuildsEveryItemThroughMenuButtonFor() throws {
+    let chip = try makeChip(phase: .idle)
+    let groups = try splitChipMenuGroups(chip)
+    for item in groups.labelledItems {
+      let built = try XCTUnwrap(groups.builtLabel(for: item))
+      XCTAssertTrue(shape(of: built).contains("Button"), shape(of: built))
+    }
+  }
+
+  /// The wiring behind `testMenuButtonBuildsForAnEnabledAndADisabledItem`: pressing the button a
+  /// menu item built runs `run(item.action)`, the same dispatch a click would drive.
+  func testPressingAMenuItemsButtonRunsItsAction() async throws {
+    let transport = try StubTransport(states: [makeState(phase: .idle)])
+    let environment = AppEnvironment(transport: transport)
+    defer { environment.client.stop() }
+    environment.start()
+    try await waitUntil { environment.client.state != nil }
+    let chip = LunchChip(
+      content: content(phase: .idle),
+      client: environment.client,
+      model: environment.windowModel,
+    )
+    let groups = try splitChipMenuGroups(chip)
+
+    try press(LunchAction.start(minutes: 30), in: groups)
+
+    try await waitUntil { !transport.commands.isEmpty }
+    XCTAssertEqual(transport.commands.map(\.path), ["/v1/timer/lunch"])
+    XCTAssertEqual(transport.commands.last?.body, #"{"minutes":30}"#)
+  }
+
   // MARK: Private
 
   private func framed(_ view: some View, scheme: PhaseScheme) -> some View {

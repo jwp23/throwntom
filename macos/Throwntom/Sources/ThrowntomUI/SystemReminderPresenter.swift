@@ -37,6 +37,10 @@ final class SystemReminderPresenter: ReminderPresenter {
 
   // MARK: Internal
 
+  func claimNotificationDelegate(_ delegate: UNUserNotificationCenterDelegate) {
+    UNUserNotificationCenter.current().delegate = delegate
+  }
+
   func registerReminderButtons() {
     UNUserNotificationCenter.current().setNotificationCategories([ReminderAlert.category, ReminderAlert.morningCategory])
   }

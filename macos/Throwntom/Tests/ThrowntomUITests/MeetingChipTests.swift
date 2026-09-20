@@ -116,6 +116,70 @@ final class MeetingChipTests: XCTestCase {
     XCTAssertEqual(chip.title, "Meeting")
   }
 
+  /// The lengths and `Custom…` stay enabled whether or not a meeting is running — only `.end`
+  /// answers for `isMeeting` (`canStart` is unconditionally `true`).
+  func testEveryLengthStaysEnabledWhetherOrNotAMeetingIsRunning() throws {
+    for phase in [DaemonState.Phase.idle, .meeting] {
+      let chip = try makeChip(phase: phase)
+      let lengths = chip.menu.items.filter { $0.action != .end }
+      XCTAssertFalse(lengths.isEmpty, "the menu needs a length to exercise")
+      XCTAssertTrue(lengths.allSatisfy(\.isEnabled), "\(phase)")
+    }
+  }
+
+  /// The wiring behind `testTheChipIsBuiltFromSplitChipRatherThanPressAndHold`: a plain click on
+  /// the label region has to run `primaryAction` — start a meeting when idle, end one when
+  /// running — not merely `chip.run(...)` called directly.
+  func testPressingTheLabelRegionRunsThePrimaryAction() async throws {
+    let transport = try StubTransport(states: [makeState(phase: .meeting)])
+    let environment = AppEnvironment(transport: transport)
+    defer { environment.client.stop() }
+    environment.start()
+    try await waitUntil { environment.client.state != nil }
+    let chip = MeetingChip(
+      content: content(phase: .meeting),
+      client: environment.client,
+      model: environment.windowModel,
+    )
+
+    try splitChipPrimaryAction(chip)()
+
+    try await waitUntil { !transport.commands.isEmpty }
+    XCTAssertEqual(transport.commands.map(\.path), ["/v1/timer/skip"], "meeting's primaryAction is .end while it runs")
+  }
+
+  /// `menuButton(for:)` (already built directly above) has to be what the chevron's `MenuGroups`
+  /// actually builds for each item, not merely a method that can be called on the side.
+  func testTheChevronMenuBuildsEveryItemThroughMenuButtonFor() throws {
+    let chip = try makeChip(phase: .idle)
+    let groups = try splitChipMenuGroups(chip)
+    for item in groups.labelledItems {
+      let built = try XCTUnwrap(groups.builtLabel(for: item))
+      XCTAssertTrue(shape(of: built).contains("Button"), shape(of: built))
+    }
+  }
+
+  /// The wiring behind `testMenuButtonBuildsForAnEnabledAndADisabledItem`: pressing the button a
+  /// menu item built runs `run(item.action)`, the same dispatch a click would drive.
+  func testPressingAMenuItemsButtonRunsItsAction() async throws {
+    let transport = try StubTransport(states: [makeState(phase: .idle)])
+    let environment = AppEnvironment(transport: transport)
+    defer { environment.client.stop() }
+    environment.start()
+    try await waitUntil { environment.client.state != nil }
+    let chip = MeetingChip(
+      content: content(phase: .idle),
+      client: environment.client,
+      model: environment.windowModel,
+    )
+    let groups = try splitChipMenuGroups(chip)
+
+    try press(MeetingAction.start(minutes: 30), in: groups)
+
+    try await waitUntil { !transport.commands.isEmpty }
+    XCTAssertEqual(transport.commands.map(\.path), ["/v1/timer/meeting"])
+  }
+
   // MARK: Private
 
   /// The chip in its own box on the phase ground, the way the window draws the row.
