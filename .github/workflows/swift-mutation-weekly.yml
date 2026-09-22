@@ -23,19 +23,30 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # ADR-015 pins a source build: the tool is young (3 stars) and publishes only
-  # through an untrusted Homebrew tap. f271976 is the commit the 2026-09-12
-  # spike measured.
-  SWIFT_MUTATION_TESTING_COMMIT: f27197668228077b60666f0b6db4f9d52b438ddd
-  # The tool needs swift-tools-version 6.2; the image's default Xcode (16.4)
-  # ships Swift 6.1. /usr/bin/swift, which the tool invokes for every mutant,
-  # honours DEVELOPER_DIR.
-  DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+  # ADR-017 forks the tool to jwp23/swift-mutation-testing and this pins that
+  # fork. ADR-015's reason for building from source still holds — the tool
+  # publishes only through an untrusted Homebrew tap — and the fork publishes no
+  # binary at all. 2b1ab48 is the fork's main tip, carrying the three
+  # correctness fixes ADR-017 required before switching over (startup sandbox
+  # sweep scoped to ownership, escaped-child cleanup scoped to the run's own
+  # descendants, --no-cache that does not write), with a green CI run on that
+  # exact commit. ADR-017 makes the two-run race test a required check on the
+  # fork, so no commit on its main can have regressed the first two silently.
+  SWIFT_MUTATION_TESTING_COMMIT: 2b1ab4823d38fb70912c98e24688e0a9cd6fbad7
 
 jobs:
   build-tool:
     name: Build swift-mutation-testing
-    runs-on: macos-15
+    # The image ci.yml's macOS job and sonarqube.yml both name, for the reasons
+    # spelled out at ci.yml's `macos` job: the label names the Xcode a developer
+    # here builds with as the image's own default, so no `DEVELOPER_DIR` override
+    # has to be kept in step with it. This workflow carried such an override, for
+    # Xcode 26.3 — and 26.3 is the Xcode that refused to compile
+    # macos/Throwntom/Tests/ThrowntomClientTests/DeadlineTests.swift on a runner
+    # (PR #221), a file the control and mutate jobs below both build. Xcode 27
+    # ships Swift 6.4, well past the swift-tools-version 6.2 the tool's
+    # Package.swift asks for.
+    runs-on: xcode-27
     permissions:
       contents: read
     steps:
@@ -47,15 +58,17 @@ jobs:
       - name: Checkout swift-mutation-testing
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          repository: ericodx/swift-mutation-testing
+          repository: jwp23/swift-mutation-testing
           ref: ${{ env.SWIFT_MUTATION_TESTING_COMMIT }}
           path: swift-mutation-testing
           persist-credentials: false
 
-      # The tool's commit tracks no Package.resolved and asks for swift-syntax
-      # "from: 603.0.0", so without this every build would float to whatever
-      # 603.x is newest. The committed file pins the revision the spike
-      # measured, and --force-resolved-versions refuses anything else.
+      # The tool asks for swift-syntax "from: 603.0.0", so without this every
+      # build would float to whatever 603.x is newest. The fork's pinned commit
+      # does track a Package.resolved of its own, byte-identical to this one, but
+      # the copy stays: it keeps the swift-syntax revision this repo builds
+      # against reviewable in this repo rather than inherited from a checkout,
+      # and --force-resolved-versions refuses anything else.
       - name: Build
         working-directory: swift-mutation-testing
         run: |
@@ -74,7 +87,9 @@ jobs:
   control:
     name: Negative control
     needs: build-tool
-    runs-on: macos-15
+    # Same image as build-tool, and for the stronger of its two reasons: this job
+    # compiles throwntom's own Swift tests.
+    runs-on: xcode-27
     timeout-minutes: 30
     permissions:
       contents: read
@@ -90,7 +105,7 @@ jobs:
         with:
           go-version-file: go.mod
           # These jobs run a third-party binary; saving a Go cache here could
-          # seed one that ci.yml's macos-15 job restores.
+          # seed one that ci.yml restores.
           cache: false
 
       - name: Download swift-mutation-testing
@@ -112,7 +127,10 @@ jobs:
   mutate:
     name: Mutate (${{ matrix.target }} ${{ matrix.index }}/${{ matrix.shards }})
     needs: control
-    runs-on: macos-15
+    # Same image as build-tool and control: these jobs compile throwntom's own
+    # Swift too, and the control that gates them speaks only for the toolchain it
+    # ran on.
+    runs-on: xcode-27
     timeout-minutes: 330
     permissions:
       contents: read
@@ -140,7 +158,7 @@ jobs:
         with:
           go-version-file: go.mod
           # These jobs run a third-party binary; saving a Go cache here could
-          # seed one that ci.yml's macos-15 job restores.
+          # seed one that ci.yml restores.
           cache: false
 
       - name: Download swift-mutation-testing
@@ -225,7 +243,7 @@ jobs:
         with:
           go-version-file: go.mod
           # These jobs run a third-party binary; saving a Go cache here could
-          # seed one that ci.yml's macos-15 job restores.
+          # seed one that ci.yml restores.
           cache: false
 
       - name: Download reports
