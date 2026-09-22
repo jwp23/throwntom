@@ -167,9 +167,7 @@ jobs:
           name: swift-mutation-testing
           path: ${{ runner.temp }}/bin
 
-      # ADR-015 run parameters. The cache is deleted first because it replays
-      # stale Killed verdicts after test edits and --no-cache still writes it
-      # (upstream #67, #68). 240 s: a mutant that breaks SocketConnection's
+      # ADR-015 run parameters. 240 s: a mutant that breaks SocketConnection's
       # locking makes the suite fail honestly but slowly — 117 s of it on a
       # developer machine before throwntom-aqna shortened the daemon-backed
       # tests' connect/request timeouts to leave real headroom rather than a
@@ -193,7 +191,6 @@ jobs:
           INDEX: ${{ matrix.index }}
         run: |
           chmod +x "$RUNNER_TEMP/bin/swift-mutation-testing"
-          rm -rf .swift-mutation-testing-cache
           (cd ../.. && go run ./tools/swiftmutantshard -sources "macos/Throwntom/Sources/$TARGET" \
             -shards "$SHARDS" -index "$INDEX") > "$RUNNER_TEMP/excludes.txt"
           exclude_args=()
