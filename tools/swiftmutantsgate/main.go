@@ -7,11 +7,9 @@
 // Markdown list, so the weekly workflow can paste it straight into the
 // tracking issue.
 //
-// Reports are merged by mutant identity rather than concatenated: shards are
-// disjoint, but a triage pass runs the tool over one file more than one way on
-// purpose, and the two runs can disagree about a mutant. Verdicts that survive
-// the merge unsettled are printed whatever the exit code. See merge.go and
-// docs/decisions/swift-mutation-timeout-poisons-a-later-mutant.md.
+// The reports it is given cover disjoint scopes — one target or shard each —
+// so it concatenates them and takes every verdict at face value. See
+// violations.go.
 package main
 
 import (
@@ -138,28 +136,6 @@ func unviableNote(unviable int) string {
 	return fmt.Sprintf("%d Unviable mutant(s) not gated (ADR-016): they do not compile, so no test can kill them.\n", unviable)
 }
 
-// unsettledNote lists the verdicts the reports do not settle between them, and
-// says what to do about each shape. It prints whatever the exit code, because
-// both shapes can leave an unkilled mutant behind a verdict the gate lets
-// through: a poisoned Unviable and a kill one run disagreed with are both
-// ungated.
-func unsettledNote(mutants []unsettled) string {
-	var b strings.Builder
-	_, _ = fmt.Fprintf(&b, "%d verdict(s) the reports do not settle:\n\n", len(mutants))
-	for _, m := range mutants {
-		_, _ = fmt.Fprintf(&b, "%s — %s\n", m.mutant.markdown(), m.reason)
-	}
-	b.WriteString(
-		"\nswift-mutation-testing SIGKILLs whichever test run is in flight five seconds after another mutant\n" +
-			"times out, and reports the run it killed as Crash or as Unviable; re-run those mutants in a scope\n" +
-			"with no Timeout and pass both reports. One Timeout spoils at most one run, but no report records\n" +
-			"which, so every unconfirmed verdict from such a run is listed. A kill another run disagreed with is\n" +
-			"a different problem — no run can invent a Survived — so the gate keeps the survival and fails on it;\n" +
-			"settle that one by hand, on whether the killing test can reach the mutant. See\n" +
-			"docs/decisions/swift-mutation-timeout-poisons-a-later-mutant.md.\n")
-	return b.String()
-}
-
 type fileTally struct {
 	file     string
 	gated    int
@@ -169,9 +145,7 @@ type fileTally struct {
 // summarize renders the tracking issue body: one row per file with its gated
 // count and statuses, heaviest file first. GitHub caps an issue body at 65,536
 // characters; a per-mutant list outgrows that, a row per file does not.
-// Unsettled verdicts are appended in full, not tallied: they are rare enough
-// that the issue is where triage needs to see them, not just the CI log.
-func summarize(violations []violation, unviable int, unsettled []unsettled) string {
+func summarize(violations []violation, unviable int) string {
 	var b strings.Builder
 	if len(violations) == 0 {
 		b.WriteString("No unexcluded mutants survived.\n")
@@ -185,9 +159,6 @@ func summarize(violations []violation, unviable int, unsettled []unsettled) stri
 	}
 	if unviable > 0 {
 		b.WriteString("\n" + unviableNote(unviable))
-	}
-	if len(unsettled) > 0 {
-		b.WriteString("\n" + unsettledNote(unsettled))
 	}
 	return b.String()
 }
@@ -237,20 +208,22 @@ func run(reportPaths []string, equivalentsPath, summaryPath string, stdout, stde
 		_, _ = fmt.Fprintln(stderr, err)
 		return exitError
 	}
-	merged := mutantSet{}
+	var mutants []reportedMutant
 	for _, path := range reportPaths {
 		data, err := os.ReadFile(path)
 		if err != nil {
 			_, _ = fmt.Fprintln(stderr, err)
 			return exitError
 		}
-		if err := merged.add(data); err != nil {
+		reported, err := mutantsIn(data)
+		if err != nil {
 			_, _ = fmt.Fprintf(stderr, "%s: %v\n", path, err)
 			return exitError
 		}
+		mutants = append(mutants, reported...)
 	}
-	violations := findViolations(merged, equivalents)
-	unviable := merged.unviable()
+	violations := findViolations(mutants, equivalents)
+	unviable := countUnviable(mutants)
 	sortViolations(violations)
 	code := exitClean
 	if len(violations) == 0 {
@@ -262,15 +235,11 @@ func run(reportPaths []string, equivalentsPath, summaryPath string, stdout, stde
 			_, _ = fmt.Fprintln(stdout, v.markdown())
 		}
 	}
-	unsettled := merged.unsettledVerdicts(equivalents)
-	if len(unsettled) > 0 {
-		_, _ = fmt.Fprint(stdout, "\n"+unsettledNote(unsettled))
-	}
 	if unviable > 0 {
 		_, _ = fmt.Fprint(stdout, "\n"+unviableNote(unviable))
 	}
 	if summaryPath != "" {
-		if err := os.WriteFile(summaryPath, []byte(summarize(violations, unviable, unsettled)), 0o600); err != nil {
+		if err := os.WriteFile(summaryPath, []byte(summarize(violations, unviable)), 0o600); err != nil {
 			_, _ = fmt.Fprintln(stderr, err)
 			return exitError
 		}

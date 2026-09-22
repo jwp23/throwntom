@@ -1,5 +1,17 @@
 # A swift-mutation-testing timeout SIGKILLs a later mutant's run
 
+> **2026-09-22 — the mechanism below is fixed and the workarounds are gone.**
+> ADR-017 re-pinned the tool to the fork `jwp23/swift-mutation-testing` at
+> `2b1ab4823d38fb70912c98e24688e0a9cd6fbad7`, which includes fork PR #5
+> (`fix/8jq-2-escaped-child-scope`): `killEscapedChildren` now kills a snapshot
+> of the timed-out run's own frozen descendants instead of every process on the
+> machine whose arguments name the sandbox, so a Timeout can no longer corrupt
+> another mutant's verdict. The two runs per file this decision prescribes, and
+> the reconciliation `tools/swiftmutantsgate` did to merge them, were retired in
+> throwntom-gz9z.8.2; the gate now takes one report per target and every verdict
+> at face value. What the mechanism was, and why the equivalents file holds the
+> categories it does, is recorded below unchanged.
+
 ## Decision
 
 A mutation report is trusted only where it contains no `Timeout` mutant.

@@ -23,7 +23,7 @@ func TestSummarizeGroupsByFileWithCountsAndStatuses(t *testing.T) {
 		"| `Sources/B.swift` | 1 | Timeout 1 |\n" +
 		"\n" +
 		"5 Unviable mutant(s) not gated (ADR-016): they do not compile, so no test can kill them.\n"
-	if got := summarize(violations, 5, nil); got != want {
+	if got := summarize(violations, 5); got != want {
 		t.Fatalf("summarize =\n%s\nwant\n%s", got, want)
 	}
 }
@@ -40,7 +40,7 @@ func TestSummarizeOrdersFilesByGatedCountThenPath(t *testing.T) {
 		{File: "Sources/A.swift", Status: "Survived"},
 		{File: "Sources/A.swift", Status: "Survived"},
 	}
-	got := summarize(violations, 0, nil)
+	got := summarize(violations, 0)
 	c := strings.Index(got, "Sources/C.swift")
 	a := strings.Index(got, "Sources/A.swift")
 	b := strings.Index(got, "Sources/B.swift")
@@ -50,13 +50,13 @@ func TestSummarizeOrdersFilesByGatedCountThenPath(t *testing.T) {
 }
 
 func TestSummarizeCleanRunSaysSo(t *testing.T) {
-	if got, want := summarize(nil, 0, nil), "No unexcluded mutants survived.\n"; got != want {
+	if got, want := summarize(nil, 0), "No unexcluded mutants survived.\n"; got != want {
 		t.Fatalf("summarize(nil, 0) = %q, want %q", got, want)
 	}
 	want := "No unexcluded mutants survived.\n" +
 		"\n" +
 		"2 Unviable mutant(s) not gated (ADR-016): they do not compile, so no test can kill them.\n"
-	if got := summarize(nil, 2, nil); got != want {
+	if got := summarize(nil, 2); got != want {
 		t.Fatalf("summarize(nil, 2) = %q, want %q", got, want)
 	}
 }
