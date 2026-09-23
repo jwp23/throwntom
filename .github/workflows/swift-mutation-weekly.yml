@@ -167,14 +167,23 @@ jobs:
           name: swift-mutation-testing
           path: ${{ runner.temp }}/bin
 
-      # ADR-015 run parameters. 240 s: a mutant that breaks SocketConnection's
-      # locking makes the suite fail honestly but slowly — 117 s of it on a
-      # developer machine before throwntom-aqna shortened the daemon-backed
-      # tests' connect/request timeouts to leave real headroom rather than a
-      # 3 s margin. 240 s keeps that headroom comfortable even on a slower CI
-      # runner, and below 30 s a true survivor was reported Crash (#69). A
-      # verdict that depends on the runner's mood is worse than a slow one,
-      # and only a mutant that does time out pays the difference.
+      # ADR-015 run parameters. Fork PR #12 turned --timeout from a ceiling into
+      # a floor: each mutant is really given 5x what the tests it runs measured
+      # unmutated, or --timeout, whichever is longer (USAGE.MD "Per-mutant
+      # timeouts"), so 240 s no longer needs to cover a legitimately slow but
+      # honest suite run — the coefficient already does that adaptively. What
+      # 240 s still buys is patience for a mutant that genuinely hangs (a
+      # SocketConnection-locking mutant was the case that motivated it): a
+      # measured live run of that file's ResumeOnce lock mutations, on fork PR
+      # #8's direct-.xctest-bundle execution against the now-shortened
+      # daemon-backed test timeouts (throwntom-aqna, PR #222), finished all 18
+      # mutants in 3m24s total with none timing out — order 10 s per mutant,
+      # not the 117 s of a 120 s budget the old swift test --skip-build path
+      # spent on this same shape of mutant. 240 s stays as comfortable headroom
+      # above the known Crash floor (below 30 s a true survivor was reported
+      # Crash, #69), now purely as a hang budget rather than slow-suite
+      # insurance. A verdict that depends on the runner's mood is worse than a
+      # slow one, and only a mutant that does time out pays the difference.
       # One worker, because parallel workers only queue on SwiftPM's build lock
       # inside each mutant's timeout (#70).
       # script(1) gives the tool a pseudo-terminal: piped, its stdout is
