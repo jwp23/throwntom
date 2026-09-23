@@ -11,6 +11,12 @@
 > throwntom-gz9z.8.2; the gate now takes one report per target and every verdict
 > at face value. What the mechanism was, and why the equivalents file holds the
 > categories it does, is recorded below unchanged.
+>
+> Below, "permanently unobservable" and "can never tell apart" describe this
+> tool's current parser, not an exemption from re-checking: ADR-017:115-122
+> treats a mutant the fixed tool still cannot see as a live fork defect to fix,
+> and the trap-Crash entries this decision produced are re-verified against
+> that fork as it changes, not retired as a settled fact.
 
 ## Decision
 

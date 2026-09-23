@@ -208,7 +208,7 @@ jobs:
           done < "$RUNNER_TEMP/excludes.txt"
           echo "Shard $INDEX/$SHARDS of $TARGET excludes ${#exclude_args[@]} argument(s)."
           script -q /dev/null "$RUNNER_TEMP/bin/swift-mutation-testing" . \
-            --testing-framework xctest --timeout 240 --concurrency 1 \
+            --testing-framework xctest --timeout 240 --concurrency 1 --no-cache \
             --sources-path "Sources/$TARGET" "${exclude_args[@]}" \
             --output "$RUNNER_TEMP/report-$TARGET-$INDEX.json"
 
