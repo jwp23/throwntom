@@ -170,25 +170,42 @@ func TestRunWritesSummaryAndKeepsFullListOnStdout(t *testing.T) {
 	}
 }
 
-// The tracking issue body is summary.md, not stdout — an unsettled verdict
-// that only reached stdout would never surface there, hiding a timeout-poisoned
-// or contradictory report from the one place triage actually reads.
-func TestRunWritesUnsettledVerdictsIntoSummary(t *testing.T) {
-	poisoned := writeReport(t, `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
+// Every verdict in a report is its own mutant's: the tool the weekly workflow
+// pins scopes a timed-out run's cleanup to that run's own descendants, so one
+// mutant timing out no longer corrupts the verdict of whichever mutant is then
+// in flight. The gate reports what the run measured and casts no doubt of its
+// own, on stdout or in the tracking issue body.
+func TestRunTakesEveryVerdictInAReportAtFaceValue(t *testing.T) {
+	report := writeReport(t, `{"files":{"Sources/ThrowntomClient/A.swift":{"mutants":[
 		{"mutatorName":"M","status":"Timeout","location":{"start":{"line":1,"column":1}}},
-		{"mutatorName":"M","status":"Crash","location":{"start":{"line":9,"column":2}}}
+		{"mutatorName":"M","status":"Crash","location":{"start":{"line":9,"column":2}}},
+		{"mutatorName":"M","status":"Unviable","location":{"start":{"line":12,"column":3}}}
 	]}}}`)
 	summaryPath := filepath.Join(t.TempDir(), "summary.md")
 	var stdout, stderr bytes.Buffer
-	if code := run([]string{poisoned}, "", summaryPath, &stdout, &stderr); code != 1 {
+	if code := run([]string{report}, "", summaryPath, &stdout, &stderr); code != 1 {
 		t.Fatalf("exit = %d, want 1; stderr=%s", code, stderr.String())
 	}
 	data, err := os.ReadFile(summaryPath)
 	if err != nil {
 		t.Fatalf("summary not written: %v", err)
 	}
-	if !strings.Contains(string(data), "reported Crash only by a run that also timed a mutant out") {
-		t.Fatalf("summary lost the unsettled verdict:\n%s", data)
+	for _, want := range []string{
+		"- `Sources/ThrowntomClient/A.swift:1:1` M Timeout",
+		"- `Sources/ThrowntomClient/A.swift:9:2` M Crash",
+		"1 Unviable mutant(s) not gated",
+	} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("stdout missing %q:\n%s", want, stdout.String())
+		}
+	}
+	for _, unwanted := range []string{"do not settle", "timed a mutant out", "SIGKILL"} {
+		if strings.Contains(stdout.String(), unwanted) {
+			t.Fatalf("stdout still doubts a verdict over %q:\n%s", unwanted, stdout.String())
+		}
+		if strings.Contains(string(data), unwanted) {
+			t.Fatalf("summary still doubts a verdict over %q:\n%s", unwanted, data)
+		}
 	}
 }
 

@@ -7,14 +7,14 @@ import (
 	"testing"
 )
 
-// violationsIn gates a single report, which is what the gate does for a run
-// that needed only one. Merging across reports is exercised through run.
+// violationsIn gates a single report. Combining the disjoint reports of a
+// sharded run is exercised through run.
 func violationsIn(data []byte, equivalents []equivalent) ([]violation, error) {
-	merged := mutantSet{}
-	if err := merged.add(data); err != nil {
+	mutants, err := mutantsIn(data)
+	if err != nil {
 		return nil, err
 	}
-	return findViolations(merged, equivalents), nil
+	return findViolations(mutants, equivalents), nil
 }
 
 func TestViolationsInAllKilledIsClean(t *testing.T) {
