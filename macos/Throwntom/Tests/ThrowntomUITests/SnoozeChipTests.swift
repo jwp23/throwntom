@@ -48,7 +48,10 @@ final class SnoozeChipTests: XCTestCase {
   func testAnOrdinaryVerbDispatchesToTheDaemonRatherThanOpeningTheField() async throws {
     let transport = try StubTransport(states: [makeState(phase: .idle)])
     let environment = AppEnvironment(transport: transport)
-    defer { environment.client.stop() }
+    defer {
+      environment.client.stop()
+      environment.ticker.stop()
+    }
     environment.start()
     try await waitUntil { environment.client.state != nil }
     let content = MainWindowContent(
@@ -126,6 +129,86 @@ final class SnoozeChipTests: XCTestCase {
       XCTAssertGreaterThan(AppearanceRender.pixels(of: fill, in: drawn), 500, appearance.name)
       XCTAssertGreaterThan(AppearanceRender.pixels(of: text, in: drawn), 0, appearance.name)
     }
+  }
+
+  /// The durations and `Custom…` stay enabled whether or not a snooze is running — only `.cancel`
+  /// answers for `isSnoozed` (`canDefer` is unconditionally `true`, per the doc comment on `menu`).
+  func testEveryDurationStaysEnabledWhetherOrNotASnoozeIsRunning() throws {
+    for snoozeUntil in [nil, Date().addingTimeInterval(600)] {
+      let chip = try makeChip(snoozeUntil: snoozeUntil)
+      let durations = chip.menu.items.filter { $0.action != .cancel }
+      XCTAssertFalse(durations.isEmpty, "the menu needs a duration to exercise")
+      XCTAssertTrue(durations.allSatisfy(\.isEnabled), "\(String(describing: snoozeUntil))")
+    }
+  }
+
+  /// The wiring behind `testTheChipIsBuiltFromSplitChipRatherThanPressAndHold`: a plain click on
+  /// the label region has to run `primaryAction` — cancel the running snooze — not merely
+  /// `chip.run(...)` called directly.
+  func testPressingTheLabelRegionRunsThePrimaryAction() async throws {
+    let transport = try StubTransport(states: [makeState(phase: .awaitingConfirm, snoozeUntil: Date().addingTimeInterval(600))])
+    let environment = AppEnvironment(transport: transport)
+    defer {
+      environment.client.stop()
+      environment.ticker.stop()
+    }
+    environment.start()
+    try await waitUntil { environment.client.state != nil }
+    let content = MainWindowContent(
+      state: makeState(phase: .awaitingConfirm, snoozeUntil: Date().addingTimeInterval(600)),
+      connection: .connected,
+      status: .running,
+      tasks: TaskList(),
+      error: nil,
+      panel: nil,
+      now: .now,
+    )
+    let chip = SnoozeChip(content: content, client: environment.client, model: environment.windowModel)
+
+    try splitChipPrimaryAction(chip)()
+
+    try await waitUntil { !transport.commands.isEmpty }
+    XCTAssertEqual(transport.commands.map(\.path), ["/v1/timer/unsnooze"], "primaryAction is .cancel while snoozed")
+  }
+
+  /// `menuButton(for:)` (already built directly above) has to be what the chevron's `MenuGroups`
+  /// actually builds for each item, not merely a method that can be called on the side.
+  func testTheChevronMenuBuildsEveryItemThroughMenuButtonFor() throws {
+    let chip = try makeChip(snoozeUntil: nil)
+    let groups = try splitChipMenuGroups(chip)
+    for item in groups.labelledItems {
+      let built = try XCTUnwrap(groups.builtLabel(for: item))
+      XCTAssertTrue(shape(of: built).contains("Button"), shape(of: built))
+    }
+  }
+
+  /// The wiring behind `testMenuButtonBuildsForAnEnabledAndADisabledItem`: pressing the button a
+  /// menu item built runs `run(item.action)`, the same dispatch a click would drive.
+  func testPressingAMenuItemsButtonRunsItsAction() async throws {
+    let transport = try StubTransport(states: [makeState(phase: .awaitingConfirm)])
+    let environment = AppEnvironment(transport: transport)
+    defer {
+      environment.client.stop()
+      environment.ticker.stop()
+    }
+    environment.start()
+    try await waitUntil { environment.client.state != nil }
+    let content = MainWindowContent(
+      state: makeState(phase: .awaitingConfirm),
+      connection: .connected,
+      status: .running,
+      tasks: TaskList(),
+      error: nil,
+      panel: nil,
+      now: .now,
+    )
+    let chip = SnoozeChip(content: content, client: environment.client, model: environment.windowModel)
+    let groups = try splitChipMenuGroups(chip)
+
+    try press(SnoozeAction.snooze(minutes: 10), in: groups)
+
+    try await waitUntil { !transport.commands.isEmpty }
+    XCTAssertEqual(transport.commands.map(\.path), ["/v1/timer/snooze"])
   }
 
   // MARK: Private

@@ -15,8 +15,8 @@ final class AppEnvironment {
     presenter: ReminderPresenter = SystemReminderPresenter(),
     intents: ServiceIntentStore = MemoryServiceIntentStore(),
     speaker: SpeechAnnouncer = SystemSpeechAnnouncer(),
+    registrar: SMAppServiceRegistrar = SMAppServiceRegistrar(),
   ) {
-    let registrar = SMAppServiceRegistrar()
     let client = DaemonClient(transport: transport, registrar: registrar, intents: intents)
     self.registrar = registrar
     self.ticker = ticker ?? Ticker()
@@ -29,6 +29,10 @@ final class AppEnvironment {
 
   let client: DaemonClient
   let ticker: Ticker
+  /// Drives the launchd agent behind the timer service, and the app's own login item. Injected
+  /// like the transport, and for a sharper reason: a Stop run against the live one boots out the
+  /// launch agent of the machine running it (`SMAppServiceRegistrar.stopAgent`), so a test that
+  /// exercises a service verb has to hand in an agent of its own.
   let registrar: SMAppServiceRegistrar
   let responder: ReminderResponder
   /// What tells assistive technology the timer service went down or came back. Held here rather
@@ -76,8 +80,8 @@ final class AppEnvironment {
   }
 
   /// Claims the notification delegate and begins raising the reminder banner. Kept apart from
-  /// `start()` because it reaches for `UNUserNotificationCenter.current()`, which no process
-  /// without an app bundle may do.
+  /// `start()` because the live presenter and authorizer behind it both reach for
+  /// `UNUserNotificationCenter.current()`, which no process without an app bundle may do.
   func startReminderResponder() {
     responder.start()
   }

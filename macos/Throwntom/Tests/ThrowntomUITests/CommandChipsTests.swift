@@ -1,3 +1,4 @@
+import SwiftUI
 import ThrowntomClient
 import XCTest
 @testable import ThrowntomUI
@@ -57,7 +58,44 @@ final class CommandChipsTests: XCTestCase {
     _ = try makeChips().body
   }
 
+  /// `chip(for:)` on its own (already exercised above) never proves the row's `ForEach` is what
+  /// actually walks `menu.items` and builds each one through `chip(for:).disabled(...)`, rather
+  /// than through nothing.
+  func testTheRowsForEachWalksEveryItemAndBuildsItThroughChipFor() throws {
+    let chips = try makeChips()
+    let forEach = try child("content", of: chips.body)
+    XCTAssertTrue(shape(of: forEach).hasPrefix("ForEach<"), shape(of: forEach))
+
+    // Spelled as a typealias rather than inline: a multi-line generic argument list's trailing
+    // comma (required by this repo's own formatter) doesn't parse on every Swift toolchain this
+    // project builds with, and a single line here would run well past the column limit.
+    typealias DisabledChip = ModifiedContent<Chip, _EnvironmentKeyTransformModifier<Bool>>
+    let closure = try XCTUnwrap(
+      try child("content", of: forEach) as? (MenuItem<ViewAction>) -> DisabledChip,
+      "the row is no longer built through chip(for:).disabled(...)",
+    )
+    let built = closure(try item(chips, .tasks))
+    XCTAssertEqual(shape(of: try content(of: built)), "Chip")
+    XCTAssertTrue(try isEnabled(under: built), "an enabled item's chip must stay enabled")
+
+    chips.environment.windowModel.showsShortcuts = true
+    let dead = closure(try item(chips, .shortcuts))
+    XCTAssertFalse(try isEnabled(under: dead), "a disabled item's chip must be disabled")
+  }
+
   // MARK: Private
+
+  /// Whether `.disabled(_:)` left the chip enabled: the modifier is a transform over the
+  /// environment's `isEnabled`, so running it on `true` reads back the Bool it was built with.
+  private func isEnabled(under built: Any) throws -> Bool {
+    let transform = try XCTUnwrap(
+      try child("transform", of: try child("modifier", of: built)) as? (inout Bool) -> Void,
+      "\(shape(of: built)) has no environment transform to run",
+    )
+    var isEnabled = true
+    transform(&isEnabled)
+    return isEnabled
+  }
 
   private func makeChips() throws -> CommandChips {
     let environment = AppEnvironment(transport: try StubTransport(states: []))

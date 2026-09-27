@@ -1,3 +1,5 @@
+import AppKit
+import SwiftUI
 import XCTest
 @testable import ThrowntomClient
 @testable import ThrowntomUI
@@ -75,10 +77,95 @@ final class NewTaskRowTests: XCTestCase {
     XCTAssertTrue(committed.isEmpty)
   }
 
+  /// What the body is actually made of: the field, styled, focus-bound, and wired to appear,
+  /// change, submit and exit. Named by SwiftUI's own types, the way `MainWindowBodyTests` pins
+  /// `MainWindow`.
+  func testBodyIsTheFieldStyledFocusedAndWiredToAppearChangeSubmitAndExit() {
+    XCTAssertEqual(modifierLayers(of: makeRow(TaskWindowModel()).body).map(shape), [
+      "TextFieldStyleModifier<RoundedBorderTextFieldStyle>",
+      "FocusStateBindingModifier<Bool>",
+      "_AppearanceActionModifier",
+      "_ValueActionModifier2<String>",
+      "_AppearanceActionModifier",
+      "OnSubmitModifier",
+      "OnCommandModifier",
+    ])
+  }
+
+  /// Pressing Return in the field is what actually calls `submit()` — not merely `submit()`
+  /// called directly, which every other test in this file does.
+  func testSubmittingFromTheFieldSendsTheDraft() throws {
+    let model = TaskWindowModel()
+    model.beginNewTask()
+    model.draft = "write the report"
+    var committed = [String]()
+    let row = NewTaskRow(model: model) { committed.append($0) }
+    let onSubmit = try XCTUnwrap(try child("action", of: try layer(.submit, of: row)) as? () -> Void)
+
+    onSubmit()
+
+    XCTAssertEqual(committed, ["task add write the report"])
+  }
+
+  /// Escape is the row's own Cancel command — `MainWindow`'s Escape closes panels, but inside an
+  /// open row it is this wiring, not that one, that answers it.
+  func testExitCommandCancelsTheDraft() throws {
+    let model = TaskWindowModel()
+    model.beginNewTask()
+    model.draft = "half-typed"
+    let row = NewTaskRow(model: model) { _ in }
+    let exit = try layer(.exitCommand, of: row)
+    let cancel = try XCTUnwrap(
+      try child("action", of: try child("action", of: exit)) as? () -> Void,
+      "the Cancel command has nothing to run",
+    )
+
+    cancel()
+
+    XCTAssertFalse(model.isEditing, "Escape closed the row that was open")
+  }
+
+  /// The row opens with the caret already in it: ⌘N is meant to be followed by typing, not by a
+  /// click. `@FocusState` only reaches the keyboard through a view SwiftUI has actually rendered —
+  /// its setter is a silent no-op on a value that was never hosted — so this asks the real window
+  /// who holds the keyboard, and gets the field's own editor rather than the window itself.
+  /// NewTaskRow.swift:30:19.
+  func testOpeningTheRowPutsTheKeyboardInTheField() throws {
+    let model = TaskWindowModel()
+    model.beginNewTask()
+    let (hosting, window) = hostInWindow(makeRow(model).frame(width: 300))
+    let field = try XCTUnwrap(findTextField(in: hosting), "no text field found for the new-task row")
+
+    waitForKeyboard(in: field, of: window)
+
+    let holder = try XCTUnwrap(
+      window.firstResponder as? NSView,
+      "the window itself still holds the keyboard; the row never asked for it",
+    )
+    XCTAssertTrue(holder.isDescendant(of: field), "the keyboard went somewhere other than the new-task field")
+  }
+
   // MARK: Private
+
+  /// Where each modifier sits in the stack the body hangs off the field, counted from the
+  /// innermost. `testBodyIsTheFieldStyledFocusedAndWiredToAppearChangeSubmitAndExit` is what
+  /// holds these to the source.
+  private enum Layer: Int {
+    case textFieldStyle
+    case focused
+    case appear
+    case textChange
+    case textChangeAppear
+    case submit
+    case exitCommand
+  }
 
   private func makeRow(_ model: TaskWindowModel) -> NewTaskRow {
     NewTaskRow(model: model) { _ in }
+  }
+
+  private func layer(_ layer: Layer, of row: NewTaskRow) throws -> Any {
+    try part(layer.rawValue, of: modifierLayers(of: row.body))
   }
 
 }

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import ThrowntomClient
 import XCTest
@@ -66,7 +67,83 @@ final class LunchEntryRowTests: XCTestCase {
     }
   }
 
+  /// Every statement `body` builds, spelled out as the type SwiftUI actually composed: the rule
+  /// under a row that labels the field on both sides. A statement that stops being built — either
+  /// label, the row that lays them out, or the stack around it — changes this string.
+  /// LunchEntryRow.swift:19:5, :20:7, :21:9, :23:9.
+  func testBodyIsTheRuleUnderALabeledFieldFlankedByItsUnitLabels() throws {
+    let (row, _, _, _) = try makeRow()
+
+    XCTAssertEqual(
+      shape(of: row.body),
+      "VStack<TupleView<(HStack<TupleView<(Text, ModifiedContent<ModifiedContent<ModifiedContent<"
+        + "ModifiedContent<ModifiedContent<ModifiedContent<ModifiedContent<ModifiedContent<"
+        + "ModifiedContent<ModifiedContent<ModifiedContent<TextField<Text>, "
+        + "TextFieldStyleModifier<PlainTextFieldStyle>>, _ForegroundStyleModifier<Color>>, "
+        + "_PaddingLayout>, _PaddingLayout>, _InsettableBackgroundShapeModifier<Color, "
+        + "RoundedRectangle>>, _FrameLayout>, FocusStateBindingModifier<Bool>>, "
+        + "AccessibilityAttachmentModifier>, _AppearanceActionModifier>, OnSubmitModifier>, "
+        + "OnCommandModifier>, Text)>>, Text)>>",
+    )
+  }
+
+  /// The row opens with the caret already in it: `Custom…` is meant to be followed by typing, not
+  /// by a click. `@FocusState` only reaches the keyboard through a view SwiftUI has actually
+  /// rendered, so this asks the real window who holds the keyboard, and gets the field's own
+  /// editor rather than the window itself. LunchEntryRow.swift:42:31.
+  func testOpeningTheRowPutsTheKeyboardInTheField() throws {
+    let (row, _, _, _) = try makeRow()
+    let (hosting, window) = hostInWindow(row.frame(width: 300))
+    let field = try XCTUnwrap(findTextField(in: hosting), "no text field found for the lunch entry row")
+
+    waitForKeyboard(in: field, of: window)
+
+    let holder = try XCTUnwrap(
+      window.firstResponder as? NSView,
+      "the window itself still holds the keyboard; the row never asked for it",
+    )
+    XCTAssertTrue(holder.isDescendant(of: field), "the keyboard went somewhere other than the lunch field")
+  }
+
+  /// Pressing Return in the field is what actually calls `submit(text)` — not merely `submit()`
+  /// called directly, which every other test in this file does. The field's own text is empty when
+  /// read outside a hosted view, so firing this wiring refuses and alerts rather than starting
+  /// lunch — still the one observable difference the mutant erases. LunchEntryRow.swift:43:19.
+  func testSubmittingFromTheFieldRefusesItsEmptyTextAndAlerts() throws {
+    let (row, _, model, refusals) = try makeRow()
+    let onSubmit = try XCTUnwrap(try child("action", of: try layer(.submit, of: row)) as? () -> Void)
+
+    onSubmit()
+
+    XCTAssertEqual(refusals.count, 1)
+    XCTAssertTrue(model.isEnteringLunch, "a refusal must leave the field open")
+  }
+
+  /// Escape is the field's own Cancel command — closing it without starting lunch.
+  /// LunchEntryRow.swift:44:48.
+  func testExitCommandClosesTheFieldWithoutStartingLunch() throws {
+    let (row, transport, model, _) = try makeRow()
+    let exit = try layer(.exitCommand, of: row)
+    let cancel = try XCTUnwrap(
+      try child("action", of: try child("action", of: exit)) as? () -> Void,
+      "the exit command has nothing to run",
+    )
+
+    cancel()
+
+    XCTAssertFalse(model.isEnteringLunch, "Escape closed the field that was open")
+    XCTAssertEqual(transport.requests.count, 0, "Escape must not start lunch")
+  }
+
   // MARK: Private
+
+  /// Where each modifier sits in `field`'s stack, counted from the innermost.
+  /// `testBodyIsTheRuleUnderALabeledFieldFlankedByItsUnitLabels` pins the field's own shape;
+  /// this only names the two positions the wiring tests read.
+  private enum Layer: Int {
+    case submit = 9
+    case exitCommand = 10
+  }
 
   /// A counter the row can report a refusal into, so the beep is observable.
   private final class RefusalLog {
@@ -85,6 +162,10 @@ final class LunchEntryRowTests: XCTestCase {
     let refusals = RefusalLog()
     let row = LunchEntryRow(client: environment.client, model: model) { refusals.count += 1 }
     return (row, transport, model, refusals)
+  }
+
+  private func layer(_ layer: Layer, of row: LunchEntryRow) throws -> Any {
+    try part(layer.rawValue, of: modifierLayers(of: row.field))
   }
 
   private func waitForRequest(_ transport: StubTransport) throws {

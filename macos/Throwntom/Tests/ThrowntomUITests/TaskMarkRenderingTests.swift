@@ -32,6 +32,20 @@ final class TaskMarkRenderingTests: XCTestCase {
     XCTAssertNotEqual(ink, cream, "the row's mark is drawn in a fixed colour, not the one passed in")
   }
 
+  /// The row's own statements, spelled out as the type SwiftUI composed: the marked icon, the
+  /// description text and the trailing spacer that pushes it to the row's left. `Text` and
+  /// `Spacer` are silent draws with no observable effect a rendered-pixel or accessibility
+  /// assertion could catch on their own, so what pins them here is that removing either changes
+  /// the `HStack`'s builder tuple's arity — three statements become two. TaskRow.swift:31:7/33:7.
+  func testRowIsBuiltFromTheMarkTheTextAndATrailingSpacer() {
+    XCTAssertEqual(
+      shape(of: row(markColor: PhaseScheme.work.taskMark).body),
+      "ModifiedContent<ModifiedContent<ModifiedContent<HStack<TupleView<(ModifiedContent<Image, "
+        + "_ForegroundStyleModifier<Color>>, Text, Spacer)>>, _PaddingLayout>, "
+        + "AccessibilityContainerModifier>, AccessibilityAttachmentModifier>",
+    )
+  }
+
   // MARK: Private
 
   private func row(markColor: HexColor) -> TaskRow {

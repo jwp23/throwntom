@@ -49,6 +49,21 @@ final class WindowSectionBodyTests: XCTestCase {
     _ = TomatoGardenView(garden: TomatoGarden(completedToday: 23, inBlock: 3, every: 4)).body
   }
 
+  /// Every statement `body` builds when there is at least one task, spelled out as the type
+  /// SwiftUI actually composed. A statement that stops being built — the "Focus" caption above the
+  /// list — changes this string. FocusSection.swift:25:9.
+  func testFocusBodyIsTheCaptionAboveTheTaskRows() {
+    let scheme = Palette.scheme(for: .work)
+
+    XCTAssertEqual(
+      shape(of: FocusSection(tasks: [makeTask(id: 1)], scheme: scheme).body),
+      "Optional<VStack<TupleView<(ModifiedContent<Text, _EnvironmentKeyWritingModifier<Optional<Text.Case>>>, "
+        + "ForEach<Array<TaskItem>, Int, ModifiedContent<ModifiedContent<Label<Text, ModifiedContent<Image, "
+        + "_ForegroundStyleModifier<Color>>>, _EnvironmentKeyWritingModifier<Optional<Font>>>, "
+        + "AccessibilityAttachmentModifier>>)>>>",
+    )
+  }
+
   func testFocusAndNotesBuild() throws {
     let scheme = Palette.scheme(for: .work)
     _ = FocusSection(tasks: [], scheme: scheme).body

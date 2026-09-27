@@ -42,6 +42,17 @@ final class ShortcutRowTests: XCTestCase {
     XCTAssertEqual(enabled, disabled, accuracy: 0.5, "the condition column dims with the row's own state")
   }
 
+  /// Every statement `body` builds, spelled out as the type SwiftUI actually composed. A
+  /// statement that stops being built — either cell that carries the dim — changes this string.
+  /// ShortcutRow.swift:40:7/43:7.
+  func testBodyIsTheThreeCellsOfTheGridRow() {
+    XCTAssertEqual(
+      shape(of: ShortcutRow(entry: Self.entry(isEnabled: true)).body),
+      "GridRow<TupleView<(ModifiedContent<Text, _OpacityEffect>, ModifiedContent<ShortcutHint, "
+        + "_OpacityEffect>, ModifiedContent<Text, _OpacityEffect>)>>",
+    )
+  }
+
   /// The dim is the row's whole answer to "can I press this now", and it is drawn — a reader who
   /// cannot see it is told nothing at all. `DESIGN.md` does not let a meaning rest on how something
   /// is painted, so the row says it in the title cell, the way a task row says "focused" aloud.

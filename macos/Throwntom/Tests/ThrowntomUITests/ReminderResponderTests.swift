@@ -1,3 +1,4 @@
+import AppKit
 import UserNotifications
 import XCTest
 @testable import ThrowntomClient
@@ -7,6 +8,9 @@ import XCTest
 /// is taken from `AppEnvironment`, so these also pin down that the app wires it to its client.
 @MainActor
 final class ReminderResponderTests: XCTestCase {
+
+  // MARK: Internal
+
   func testSnoozeButtonSnoozesTheDaemon() async throws {
     let transport = try StubTransport(states: [])
     let responder = AppEnvironment(transport: transport).responder
@@ -145,6 +149,80 @@ final class ReminderResponderTests: XCTestCase {
     XCTAssertEqual(presenter.withdrawals, 0)
   }
 
+  /// The claim is `start()`'s first act. macOS hands a reminder's answer to the delegate and to
+  /// nothing else, so a banner raised before the claim offers buttons with nowhere to report to.
+  func testStartingClaimsTheNotificationDelegate() throws {
+    let presenter = StubReminderPresenter()
+    let responder = try startableEnvironment(presenter).responder
+
+    responder.start()
+
+    XCTAssertTrue(presenter.claimedDelegate === responder)
+  }
+
+  /// Without the categories macOS shows the banner with no buttons on it, and the reminder it
+  /// asks about cannot be answered from the banner at all.
+  func testStartingPutsTheReminderButtonsOnRecord() throws {
+    let presenter = StubReminderPresenter()
+    let responder = try startableEnvironment(presenter).responder
+
+    responder.start()
+
+    XCTAssertTrue(presenter.registeredButtons)
+  }
+
+  /// A banner outliving the app that posted it offers buttons macOS can no longer deliver, so
+  /// starting up is also where the app arranges to take it down on the way out.
+  func testStartingArrangesForTheBannerToGoWhenTheAppQuits() throws {
+    let presenter = StubReminderPresenter()
+    let responder = try startableEnvironment(presenter).responder
+    responder.start()
+
+    NotificationCenter.default.post(name: NSApplication.willTerminateNotification, object: nil)
+
+    XCTAssertEqual(presenter.withdrawals, 1)
+  }
+
+  /// Permission is asked for at startup and what macOS answered is kept: a refusal is the one
+  /// thing that makes every later reminder silently invisible, and the window is where it shows.
+  func testStartingAsksMacOSToDeliverRemindersAndKeepsTheAnswer() async throws {
+    let environment = AppEnvironment(
+      transport: try StubTransport(states: []),
+      authorizer: StubAuthorizer(granted: false),
+      presenter: StubReminderPresenter(),
+    )
+
+    environment.responder.start()
+
+    try await waitUntil { environment.responder.authorization.problem != nil }
+  }
+
+  /// From `start()` on, the banner follows the daemon with nothing on screen driving it: the
+  /// window is closed or behind something else for almost every reminder that is ever raised.
+  ///
+  /// The two states are fed one at a time, and the second only once the first has been seen. A
+  /// responder that read the daemon once at startup and never again could post the first banner
+  /// by luck of timing; only one that is following takes it back down.
+  func testStartingFollowsTheDaemonsStateFromThereOn() async throws {
+    let presenter = StubReminderPresenter()
+    let transport = try StubTransport(states: [])
+    let environment = AppEnvironment(
+      transport: transport,
+      authorizer: StubAuthorizer(granted: true),
+      presenter: presenter,
+    )
+    defer { environment.client.stop() }
+    environment.responder.start()
+    environment.client.start()
+    try await waitUntil { transport.isStreaming }
+
+    try transport.send(makeState(phase: .awaitingConfirm))
+    try await waitUntil { presenter.posts.count == 1 }
+    try transport.send(makeState(phase: .shortBreak))
+
+    try await waitUntil { presenter.withdrawals == 1 }
+  }
+
   func testTheReminderIsShownEvenWhileThrowntomIsFrontmost() {
     XCTAssertTrue(ReminderResponder.presentationOptions.contains(.banner))
   }
@@ -154,4 +232,20 @@ final class ReminderResponderTests: XCTestCase {
   func testThePresentationOptionsAskForNoBannerSound() {
     XCTAssertFalse(ReminderResponder.presentationOptions.contains(.sound))
   }
+
+  // MARK: Private
+
+  /// An environment whose notification centre is stand-ins on both sides, which is what `start()`
+  /// needs to be callable at all: the live presenter and the live authorizer each go to
+  /// `UNUserNotificationCenter.current()`, and that aborts a process without an app bundle. The
+  /// authorizer's is reached from inside `start()`'s own task, so leaving it live aborts whichever
+  /// test happens to be running by the time the task gets there.
+  private func startableEnvironment(_ presenter: StubReminderPresenter) throws -> AppEnvironment {
+    AppEnvironment(
+      transport: try StubTransport(states: []),
+      authorizer: StubAuthorizer(),
+      presenter: presenter,
+    )
+  }
+
 }

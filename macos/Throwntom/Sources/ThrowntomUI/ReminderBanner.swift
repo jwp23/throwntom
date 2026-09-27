@@ -11,6 +11,10 @@ import UserNotifications
 /// presentation, which AppKit serves from the main thread and nowhere else.
 @MainActor
 protocol ReminderPresenter {
+  /// Puts `delegate` in the one seat macOS delivers a reminder's answer to. Handed the delegate
+  /// rather than reaching for it, so this one call into `UNUserNotificationCenter` goes through a
+  /// presenter; `NotificationAuthorizer`'s own calls are the other half startup needs stubbed.
+  func claimNotificationDelegate(_ delegate: UNUserNotificationCenterDelegate)
   /// Attaches each reminder's buttons to its category. Without it macOS shows the banner
   /// with no buttons on it and the reminder cannot be answered.
   func registerReminderButtons()

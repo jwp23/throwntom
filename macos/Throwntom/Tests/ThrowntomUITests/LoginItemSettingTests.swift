@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 @testable import ThrowntomUI
 
@@ -115,4 +116,170 @@ final class LoginItemSettingTests: XCTestCase {
 
     XCTAssertEqual(afterBounce, afterFailure, "the bounce must not erase the failure message")
   }
+}
+
+// MARK: - RecordingLoginItemRegistrar
+
+/// Counts what `LoginItemToggle`'s own wiring asks for and does, rather than what `afterSetting`
+/// decides for it — `LoginItemSettingTests` above covers the decision; `LoginItemToggleWiringTests`
+/// below covers whether the view actually calls into it.
+private final class RecordingLoginItemRegistrar: LoginItemRegistrar {
+
+  // MARK: Lifecycle
+
+  /// `thenEnabled` is what macOS answers from the second read on. Its answer is live: approval
+  /// revoked while the menu is open leaves the state the toggle read when it appeared stale by the
+  /// time it acts on that state. Defaults to the same answer throughout.
+  init(loginItemEnabled: Bool, thenEnabled: Bool? = nil, refusal: Error? = nil) {
+    enabledValue = loginItemEnabled
+    laterValue = thenEnabled ?? loginItemEnabled
+    self.refusal = refusal
+  }
+
+  // MARK: Internal
+
+  private(set) var enabledReads = 0
+  private(set) var setValues = [Bool]()
+  var refusal: Error?
+
+  var loginItemEnabled: Bool {
+    enabledReads += 1
+    return enabledReads == 1 ? enabledValue : laterValue
+  }
+
+  func setLoginItem(_ enabled: Bool) throws {
+    setValues.append(enabled)
+    if let refusal {
+      throw refusal
+    }
+  }
+
+  // MARK: Private
+
+  private let enabledValue: Bool
+  private let laterValue: Bool
+
+}
+
+// MARK: - LoginItemToggleWiringTests
+
+/// What `LoginItemToggle.body` is actually made of and does: the toggle wired to `onChange` and
+/// `onAppear`, and the state it starts in before either has run. These fire the wiring on a value
+/// SwiftUI was never handed, where `@State` has no backing store, so they read the wiring's own
+/// effects on the registrar rather than reading `setting` back out of a second `body` evaluation.
+/// `LoginItemToggleRenderingTests` below takes the other route, hosting the view so SwiftUI runs
+/// the wiring itself against installed state.
+@MainActor
+final class LoginItemToggleWiringTests: XCTestCase {
+
+  // MARK: Internal
+
+  func testTheToggleAsksTheRegistrarForTheCurrentStateWhenItAppears() throws {
+    let registrar = RecordingLoginItemRegistrar(loginItemEnabled: true)
+    let toggle = LoginItemToggle(registrar: registrar)
+    let onAppear = try XCTUnwrap(try onAppearAction(of: toggle), "the toggle has no onAppear wiring")
+
+    onAppear()
+
+    XCTAssertEqual(registrar.enabledReads, 1, "onAppear must read the registrar's own answer, not assume one")
+  }
+
+  func testChangingTheToggleAsksTheRegistrarToApplyTheNewValue() throws {
+    let registrar = RecordingLoginItemRegistrar(loginItemEnabled: true)
+    let toggle = LoginItemToggle(registrar: registrar)
+    let onChange = try XCTUnwrap(try onChangeAction(of: toggle), "the toggle has no onChange wiring")
+
+    onChange(true, false)
+
+    XCTAssertEqual(registrar.setValues, [false], "the toggle's own onChange must hand the new value to the registrar")
+  }
+
+  /// LoginItemToggle.swift:22:55. The toggle starts off until `onAppear` corrects it from the
+  /// registrar; the initial literal is only ever observable before that runs, which is exactly
+  /// what `@State`'s own lazy-default thunk still is at this point.
+  func testTheDefaultSettingStartsWithTheToggleOff() throws {
+    let toggle = LoginItemToggle(registrar: RecordingLoginItemRegistrar(loginItemEnabled: false))
+
+    XCTAssertEqual(try defaultSetting(of: toggle), LoginItemSetting(isOn: false, message: nil))
+  }
+
+  // MARK: Private
+
+  private func toggleLayers(of toggle: LoginItemToggle) throws -> [Any] {
+    modifierLayers(of: try part(0, of: try tupleParts(of: toggle.body)))
+  }
+
+  private func onChangeAction(of toggle: LoginItemToggle) throws -> ((Bool, Bool) -> Void)? {
+    try child("action", of: try part(0, of: try toggleLayers(of: toggle))) as? (Bool, Bool) -> Void
+  }
+
+  private func onAppearAction(of toggle: LoginItemToggle) throws -> (() -> Void)? {
+    try child("appear", of: try part(2, of: try toggleLayers(of: toggle))) as? () -> Void
+  }
+
+  /// `@State`'s own uninstalled backing storage, read the same way regardless of whether anything
+  /// has run yet — reached by name because there is no public API for it. Both the backing
+  /// property's own name (`__setting` vs `_setting`) and `State`'s internal representation of an
+  /// unread default have varied across toolchains: some store it directly as `_value`, others
+  /// behind a lazy `_storage` thunk. Try both rather than pinning one toolchain's layout.
+  private func defaultSetting(of toggle: LoginItemToggle) throws -> LoginItemSetting {
+    let children = Mirror(reflecting: toggle).children
+    let lazyState = try XCTUnwrap(
+      children.first { $0.label?.lowercased().hasSuffix("setting") == true }?.value,
+      "no *setting property in \(shape(of: toggle)), which has \(children.compactMap(\.label))",
+    )
+    let stateChildren = Mirror(reflecting: lazyState).children
+    if let direct = stateChildren.first(where: { $0.label == "_value" })?.value as? LoginItemSetting {
+      return direct
+    }
+    let storage = try child("_storage", of: lazyState)
+    let thunk = try XCTUnwrap(try child("thunk", of: storage) as? () -> LoginItemSetting)
+    return thunk()
+  }
+
+}
+
+// MARK: - LoginItemToggleRenderingTests
+
+/// Whether the refusal reaches the screen. Hosted in a real window, so SwiftUI installs the
+/// toggle's `@State`, runs the view's own `onAppear` and the `onChange` that follows from it, and
+/// lays out whatever they leave behind — which is the only place the message is observable.
+@MainActor
+final class LoginItemToggleRenderingTests: XCTestCase {
+
+  // MARK: Internal
+
+  /// The refused message is a whole extra line under the switch, so a toggle carrying one fits
+  /// taller than one that does not. Both registrars report the login item on when the toggle
+  /// appears and off by the time it writes that back, so both are asked for the same change and
+  /// the refusal is the only difference between the two windows.
+  func testARefusedChangePutsItsMessageUnderTheSwitch() {
+    let refusing = RecordingLoginItemRegistrar(loginItemEnabled: true, thenEnabled: false, refusal: LoginItemRefused())
+    let accepting = RecordingLoginItemRegistrar(loginItemEnabled: true, thenEnabled: false)
+
+    let refused = hostInWindow(LoginItemToggle(registrar: refusing))
+    let accepted = hostInWindow(LoginItemToggle(registrar: accepting))
+    waitForTheExtraLine(in: refused.view, against: accepted.view)
+
+    XCTAssertEqual(refusing.setValues, [true], "the refused toggle never asked macOS for the change")
+    XCTAssertEqual(accepting.setValues, [true], "the accepted toggle never asked macOS for the change")
+    XCTAssertGreaterThan(
+      refused.view.fittingSize.height,
+      accepted.view.fittingSize.height,
+      "the refusal is not on screen: the refused toggle fits in the same height as the accepted one",
+    )
+  }
+
+  // MARK: Private
+
+  /// `onAppear` runs a runloop turn after the window lays the view out and the `onChange` it sets
+  /// off lands a turn after that, so the size is asked for repeatedly rather than once. Only a
+  /// genuine failure pays the full deadline.
+  private func waitForTheExtraLine(in refused: NSView, against accepted: NSView) {
+    let deadline = Date().addingTimeInterval(2)
+    while Date() < deadline, refused.fittingSize.height <= accepted.fittingSize.height {
+      RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+    }
+  }
+
 }
