@@ -9,6 +9,11 @@ This ADR covers the Swift side; ADR-014 covers Go.
 > than patched upstream, and the diff-scoped PR gate's revisit condition no
 > longer waits on upstream issue closure.
 
+> 2026-09-27: "full-scope" never defined a negative scope. ADR-018 does:
+> pass-through files are excluded by reviewed config, as ADR-014's
+> `exclude-files` does for Go, and the equivalents file gains no category
+> for them.
+
 ## Context
 
 The 2026-09-12 spikes (docs/spikes/go-swift-mutation-testing/result.md,
