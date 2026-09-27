@@ -2,7 +2,8 @@
 // for the weekly mutation run (ADR-016). swift-mutation-testing has no shard
 // flag, only --exclude, so for one shard this prints the exclude patterns for
 // every file the other shards own, one per line. Files are balanced across
-// shards by line count, a proxy for mutant count.
+// shards by line count, a proxy for mutant count. The -scope flag also
+// excludes the pass-through files sonar.coverage.exclusions names (ADR-018).
 package main
 
 import (
@@ -39,10 +40,20 @@ func run(args []string, stdout, stderr io.Writer) int {
 	sources := flags.String("sources", "", "target source directory, e.g. macos/Throwntom/Sources/ThrowntomUI")
 	shards := flags.Int("shards", 0, "number of shards")
 	index := flags.Int("index", 0, "1-based shard to print excludes for")
+	scope := flags.String("scope", "", "sonar-project.properties whose sonar.coverage.exclusions names the pass-through files left out of mutation scope (ADR-018)")
 	if err := flags.Parse(args); err != nil {
 		return exitError
 	}
-	patterns, err := excludes(*sources, *shards, *index)
+	var outOfScope map[string]bool
+	if *scope != "" {
+		var err error
+		outOfScope, err = scopeExcludes(*scope, *sources)
+		if err != nil {
+			_, _ = fmt.Fprintln(stderr, err)
+			return exitError
+		}
+	}
+	patterns, err := excludes(*sources, *shards, *index, outOfScope)
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, err)
 		return exitError
@@ -57,7 +68,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 // scope. The tool matches --exclude as a plain substring of each file's
 // absolute path, so a pattern is the path from the target directory on, with
 // a leading slash: "/ThrowntomUI/Mascot/Arm.swift" cannot match LeftArm.swift.
-func excludes(sources string, shards, index int) ([]string, error) {
+func excludes(sources string, shards, index int, outOfScope map[string]bool) ([]string, error) {
 	if shards < 1 || index < 1 || index > shards {
 		return nil, fmt.Errorf("shard %d of %d is out of range", index, shards)
 	}
@@ -65,12 +76,18 @@ func excludes(sources string, shards, index int) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	if shards > len(files) {
-		return nil, fmt.Errorf("%d shards for %d files would leave a shard empty", shards, len(files))
+	var inScope []sourceFile
+	for _, f := range files {
+		if !outOfScope[f.Path] {
+			inScope = append(inScope, f)
+		}
+	}
+	if shards > len(inScope) {
+		return nil, fmt.Errorf("%d shards for %d files would leave a shard empty", shards, len(inScope))
 	}
 	target := filepath.Base(sources)
 	var patterns []string
-	for i, shard := range assign(files, shards) {
+	for i, shard := range assign(inScope, shards) {
 		if i == index-1 {
 			continue
 		}
@@ -78,8 +95,73 @@ func excludes(sources string, shards, index int) ([]string, error) {
 			patterns = append(patterns, "/"+target+"/"+path)
 		}
 	}
+	for p := range outOfScope {
+		patterns = append(patterns, "/"+target+"/"+p)
+	}
 	sort.Strings(patterns)
 	return patterns, nil
+}
+
+// scopeExcludes returns the pass-through files sonar.coverage.exclusions
+// names under sources, as slash-separated paths relative to it. ADR-018 makes
+// that list the mutation scope too: a file a test process cannot cover holds
+// no mutant a test can kill. Every listed Swift file must exist, so a stale
+// entry fails the run instead of silently excluding nothing.
+func scopeExcludes(propertiesPath, sources string) (map[string]bool, error) {
+	entries, err := coverageExclusions(propertiesPath)
+	if err != nil {
+		return nil, err
+	}
+	root := filepath.Dir(propertiesPath)
+	absSources, err := filepath.Abs(sources)
+	if err != nil {
+		return nil, err
+	}
+	scoped := map[string]bool{}
+	for _, entry := range entries {
+		if !strings.HasSuffix(entry, ".swift") {
+			continue
+		}
+		full := filepath.Join(root, filepath.FromSlash(entry))
+		if _, err := os.Stat(full); err != nil {
+			return nil, fmt.Errorf("scope list names %s, which does not exist", entry)
+		}
+		abs, err := filepath.Abs(full)
+		if err != nil {
+			return nil, err
+		}
+		rel, err := filepath.Rel(absSources, abs)
+		if err != nil || strings.HasPrefix(rel, "..") {
+			continue
+		}
+		scoped[filepath.ToSlash(rel)] = true
+	}
+	return scoped, nil
+}
+
+// coverageExclusions reads the comma-separated value of
+// sonar.coverage.exclusions from a properties file. Comment lines start with
+// '#'; the value is one line.
+func coverageExclusions(path string) ([]string, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read scope list: %w", err)
+	}
+	const key = "sonar.coverage.exclusions="
+	for _, line := range strings.Split(string(raw), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, key) {
+			continue
+		}
+		var entries []string
+		for _, entry := range strings.Split(strings.TrimPrefix(line, key), ",") {
+			if entry = strings.TrimSpace(entry); entry != "" {
+				entries = append(entries, entry)
+			}
+		}
+		return entries, nil
+	}
+	return nil, fmt.Errorf("scope list %s has no sonar.coverage.exclusions", path)
 }
 
 // assign distributes files greedily, heaviest first, each to the lightest

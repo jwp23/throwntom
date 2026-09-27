@@ -89,7 +89,7 @@ func TestExcludesAreSlashAnchoredToTheTargetDirectory(t *testing.T) {
 	writeSwift(t, filepath.Join(sources, "Mascot", "LeftArm.swift"), 15)
 	writeSwift(t, filepath.Join(sources, "notes.txt"), 99)
 
-	got, err := excludes(sources, 2, 1)
+	got, err := excludes(sources, 2, 1, nil)
 	if err != nil {
 		t.Fatalf("excludes: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestExcludesAreSlashAnchoredToTheTargetDirectory(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("shard 1 of 2 excludes = %v, want %v", got, want)
 	}
-	got, err = excludes(sources, 2, 2)
+	got, err = excludes(sources, 2, 2, nil)
 	if err != nil {
 		t.Fatalf("excludes: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestExcludesAreSlashAnchoredToTheTargetDirectory(t *testing.T) {
 func TestExcludesSingleShardExcludesNothing(t *testing.T) {
 	sources := filepath.Join(t.TempDir(), "Sources", "ThrowntomClient")
 	writeSwift(t, filepath.Join(sources, "A.swift"), 3)
-	got, err := excludes(sources, 1, 1)
+	got, err := excludes(sources, 1, 1, nil)
 	if err != nil {
 		t.Fatalf("excludes: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestExcludesRejectsInvalidShardArguments(t *testing.T) {
 		{"index past count", 2, 3},
 		{"more shards than files", 3, 1},
 	} {
-		if _, err := excludes(sources, tc.shards, tc.index); err == nil {
+		if _, err := excludes(sources, tc.shards, tc.index, nil); err == nil {
 			t.Errorf("%s: expected an error for shards=%d index=%d", tc.name, tc.shards, tc.index)
 		}
 	}
@@ -157,5 +157,115 @@ func TestRunInvalidArgumentsExitTwo(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	if code := run([]string{"-sources", t.TempDir(), "-shards", "0", "-index", "1"}, &stdout, &stderr); code != 2 {
 		t.Fatalf("exit = %d, want 2", code)
+	}
+}
+
+func writeFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestScopeExcludesNamesThePassThroughsUnderTheTarget(t *testing.T) {
+	root := t.TempDir()
+	ui := filepath.Join(root, "macos", "Throwntom", "Sources", "ThrowntomUI")
+	client := filepath.Join(root, "macos", "Throwntom", "Sources", "ThrowntomClient")
+	writeSwift(t, filepath.Join(ui, "SystemReminderCenter.swift"), 5)
+	writeSwift(t, filepath.Join(ui, "ReminderBanner.swift"), 5)
+	writeSwift(t, filepath.Join(client, "BundledMainAppService.swift"), 5)
+	writeFile(t, filepath.Join(root, "macos", "mask-icon.swift"), "")
+	properties := filepath.Join(root, "sonar-project.properties")
+	writeFile(t, properties, "# reasons above the list\n"+
+		"sonar.coverage.exclusions=macos/Throwntom/Sources/ThrowntomUI/SystemReminderCenter.swift,"+
+		"macos/Throwntom/Sources/ThrowntomClient/BundledMainAppService.swift,macos/mask-icon.swift,macos/generate-icon.sh\n")
+
+	got, err := scopeExcludes(properties, ui)
+	if err != nil {
+		t.Fatalf("scopeExcludes: %v", err)
+	}
+	want := map[string]bool{"SystemReminderCenter.swift": true}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("scope = %v, want %v", got, want)
+	}
+}
+
+// A stale entry would silently exclude nothing; the run must refuse it instead.
+func TestScopeExcludesRejectsAListedFileThatDoesNotExist(t *testing.T) {
+	root := t.TempDir()
+	ui := filepath.Join(root, "macos", "Throwntom", "Sources", "ThrowntomUI")
+	writeSwift(t, filepath.Join(ui, "A.swift"), 1)
+	properties := filepath.Join(root, "sonar-project.properties")
+	writeFile(t, properties, "sonar.coverage.exclusions=macos/Throwntom/Sources/ThrowntomUI/Gone.swift\n")
+
+	_, err := scopeExcludes(properties, ui)
+	if err == nil || !strings.Contains(err.Error(), "Gone.swift") {
+		t.Fatalf("err = %v, want one naming Gone.swift", err)
+	}
+}
+
+func TestScopeExcludesRejectsAPropertiesFileWithoutTheKey(t *testing.T) {
+	properties := filepath.Join(t.TempDir(), "sonar-project.properties")
+	writeFile(t, properties, "sonar.sources=.\n")
+	if _, err := scopeExcludes(properties, t.TempDir()); err == nil {
+		t.Fatal("expected an error for a file with no sonar.coverage.exclusions")
+	}
+}
+
+// A scoped file is excluded from every shard and weighs nothing in the split.
+func TestExcludesLeavesScopedFilesOutOfEveryShard(t *testing.T) {
+	sources := filepath.Join(t.TempDir(), "Sources", "ThrowntomUI")
+	writeSwift(t, filepath.Join(sources, "A.swift"), 10)
+	writeSwift(t, filepath.Join(sources, "B.swift"), 10)
+	writeSwift(t, filepath.Join(sources, "Pass.swift"), 500)
+	scoped := map[string]bool{"Pass.swift": true}
+
+	shard1, err := excludes(sources, 2, 1, scoped)
+	if err != nil {
+		t.Fatalf("shard 1: %v", err)
+	}
+	shard2, err := excludes(sources, 2, 2, scoped)
+	if err != nil {
+		t.Fatalf("shard 2: %v", err)
+	}
+	if !reflect.DeepEqual(shard1, []string{"/ThrowntomUI/B.swift", "/ThrowntomUI/Pass.swift"}) {
+		t.Fatalf("shard 1 excludes = %v", shard1)
+	}
+	if !reflect.DeepEqual(shard2, []string{"/ThrowntomUI/A.swift", "/ThrowntomUI/Pass.swift"}) {
+		t.Fatalf("shard 2 excludes = %v", shard2)
+	}
+}
+
+// The repository's own list must name only files that exist, for both targets,
+// so a rename or deletion is caught on the PR that makes it rather than by a
+// weekly run that quietly mutates the file.
+func TestRepositoryScopeListNamesOnlyFilesThatExist(t *testing.T) {
+	root := repoRoot(t)
+	properties := filepath.Join(root, "sonar-project.properties")
+	for _, target := range []string{"ThrowntomClient", "ThrowntomUI"} {
+		if _, err := scopeExcludes(properties, filepath.Join(root, "macos", "Throwntom", "Sources", target)); err != nil {
+			t.Errorf("%s: %v", target, err)
+		}
+	}
+}
+
+func repoRoot(t *testing.T) string {
+	t.Helper()
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatal("no go.mod above the test directory")
+		}
+		dir = parent
 	}
 }
