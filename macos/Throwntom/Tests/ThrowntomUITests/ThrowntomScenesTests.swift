@@ -21,7 +21,7 @@ final class ThrowntomScenesTests: XCTestCase {
     XCTAssertEqual(
       shape(of: scene),
       "ModifiedContent<ModifiedContent<ModifiedContent<Window<MainWindow>, "
-        + "WindowStyleModifier<HiddenTitleBarWindowStyle>>, WindowDefaultsPropertyModifier>, "
+        + "WindowStyleModifier<HiddenTitleBarWindowStyle>>, TransformSceneListModifier>, "
         + "CommandsModifier<AppMenus>>",
     )
   }
