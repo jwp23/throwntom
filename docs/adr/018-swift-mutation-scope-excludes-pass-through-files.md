@@ -83,10 +83,11 @@ exists.
   SDK that a test process cannot reach or must not invoke, and no decision
   of its own — no branch a test could take the other way. The list is
   reviewed config with a reason per file, the shape `.gremlins.yaml`
-  already has. It is fed to the tool as `--exclude` patterns beside the
-  ones `tools/swiftmutantshard` prints for sharding
-  (`.github/workflows/swift-mutation-weekly.yml:203-212`), and the
-  equivalents gate keeps reading the same report it does today.
+  already has. It will be fed to the tool as `--exclude` patterns beside
+  the ones `tools/swiftmutantshard` prints for sharding
+  (`.github/workflows/swift-mutation-weekly.yml:203-212`); wiring that in
+  is throwntom-gz9z.10. The equivalents gate keeps reading the same report
+  it does today.
 - **Coverage measurement and mutation scope share one list.** The files
   excluded from mutation are the files excluded from coverage, for the
   same reason, and one config is the source of truth for both. A file
