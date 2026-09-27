@@ -43,6 +43,24 @@ final class PendingTaskTests: XCTestCase {
     wait(for: [handlerStarted, returned], timeout: 2)
   }
 
+  /// hold() must release its lock before returning: a cancel from another thread right afterwards
+  /// must not block behind it.
+  func testHoldReleasesItsLockBeforeReturning() {
+    let reader = PendingTask()
+    reader.hold(Task {
+      try? await Task.sleep(for: .seconds(30))
+    })
+    let returned = expectation(description: "the cancel to return")
+
+    // On a thread of its own: a cancel that does wait would otherwise take the test with it.
+    Thread.detachNewThread {
+      reader.cancel()
+      returned.fulfill()
+    }
+
+    wait(for: [returned], timeout: 2)
+  }
+
   /// The cancel can arrive before the task does — a consumer that drops the event stream the
   /// moment it has it. The task handed over afterwards is stopped rather than left reading a
   /// socket nobody is listening to.

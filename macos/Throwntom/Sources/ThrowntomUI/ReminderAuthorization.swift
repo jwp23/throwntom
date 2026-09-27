@@ -6,6 +6,10 @@ import UserNotifications
 /// The notification-centre answers the responder acts on, so what the app reports for each of
 /// them can be worked out without the user's real notification settings, which no test process
 /// may reach.
+///
+/// Main actor, like `ReminderPresenter`: the answer is read straight into what the window says
+/// about reminders, and the prompt it asks for is a panel on screen.
+@MainActor
 protocol NotificationAuthorizer {
   func authorizationStatus() async -> UNAuthorizationStatus
   func requestAuthorization() async throws -> Bool

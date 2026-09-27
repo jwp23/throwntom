@@ -31,6 +31,7 @@ enum WindowElevation {
   ///
   /// Setting the level re-orders the window with the window server, so an unchanged level is left
   /// alone: the window's view is rebuilt every second by the countdown, and this is asked each time.
+  @MainActor
   static func apply(_ floating: Bool, to window: NSWindow) {
     let level: NSWindow.Level = floating ? .floating : .normal
     guard window.level != level else { return }
@@ -82,7 +83,7 @@ final class ElevatedHostView: NSView {
 
 /// Applies `WindowElevation` to the window the view is in. SwiftUI's `Window` scene exposes no
 /// window level of its own, and the `NSWindow` behind it is reachable only from a hosted view.
-/// macOS 15 added a scene-level `windowLevel(_:)` that would replace this; the app targets 14.
+/// macOS 15 added a scene-level `windowLevel(_:)` that would replace this.
 struct WindowElevator: NSViewRepresentable {
   let floating: Bool
 

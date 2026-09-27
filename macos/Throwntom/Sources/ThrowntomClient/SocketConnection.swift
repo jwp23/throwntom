@@ -6,8 +6,9 @@ import Network
 /// One NWConnection to a Unix socket, exposed as async open/send/receive.
 /// Every call honours Task cancellation: the connection is closed and the caller resumes immediately.
 // NWConnection serialises its own callbacks on `queue`; every other member is immutable.
-// @unchecked because none of that is expressible to the compiler; correct today, but the
-// annotation could go once the deployment target reaches Mutex (macOS 15).
+// @unchecked because none of that is expressible to the compiler; correct today. The
+// deployment target is macOS 15 now, so `Mutex` could carry this instead and the annotation
+// could go with it.
 // swiftlint:disable:next no_unchecked_sendable
 final class SocketConnection: @unchecked Sendable {
 
@@ -93,7 +94,7 @@ final class SocketConnection: @unchecked Sendable {
   /// Runs one Network.framework operation as a cancellable async call. Cancellation resumes the
   /// caller with `CancellationError` before closing the connection, so the reported error is the
   /// cancellation rather than whichever socket error the close happens to produce.
-  private func perform<T>(_ operation: (ResumeOnce<T>) -> Void) async throws -> T {
+  private func perform<T: Sendable>(_ operation: (ResumeOnce<T>) -> Void) async throws -> T {
     let gate = ResumeOnce<T>()
     return try await withTaskCancellationHandler {
       try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<T, Error>) in
@@ -113,10 +114,11 @@ final class SocketConnection: @unchecked Sendable {
 /// Resumes a continuation exactly once, no matter how many terminal states NWConnection reports,
 /// and copes with cancellation arriving before the continuation has been installed.
 // Every mutable member is read and written under `lock`.
-// @unchecked because NSLock-guarded access isn't expressible to the compiler; correct today, but
-// the annotation could go once the deployment target reaches Mutex (macOS 15).
+// @unchecked because NSLock-guarded access isn't expressible to the compiler; correct today. The
+// deployment target is macOS 15 now, so `Mutex` could carry this instead and the annotation
+// could go with it.
 // swiftlint:disable:next no_unchecked_sendable
-private final class ResumeOnce<T>: @unchecked Sendable {
+private final class ResumeOnce<T: Sendable>: @unchecked Sendable {
 
   // MARK: Internal
 

@@ -95,7 +95,7 @@ final class BlockFlowLayoutTests: XCTestCase {
 
 /// Collects each measured block's frame in the layout's own coordinate space, keyed by index.
 private struct FramePreferenceKey: PreferenceKey {
-  static var defaultValue = [Int: CGRect]()
+  static let defaultValue = [Int: CGRect]()
 
   static func reduce(value: inout [Int: CGRect], nextValue: () -> [Int: CGRect]) {
     value.merge(nextValue()) { _, new in new }

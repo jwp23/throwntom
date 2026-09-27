@@ -1,6 +1,9 @@
+import Synchronization
 import XCTest
 
 @testable import ThrowntomClient
+
+// MARK: - LaunchdAgentServiceTests
 
 final class LaunchdAgentServiceTests: XCTestCase {
 
@@ -20,7 +23,7 @@ final class LaunchdAgentServiceTests: XCTestCase {
   func testRegisterBootsTheOldJobOutBeforeBootstrappingTheNewOne() throws {
     let service = makeService()
     try service.register()
-    XCTAssertEqual(calls.map(\.first), ["bootout", "bootstrap"])
+    XCTAssertEqual(calls.all.map(\.first), ["bootout", "bootstrap"])
   }
 
   func testRegisterReportsWhenLaunchdRefusesTheJob() throws {
@@ -76,7 +79,10 @@ final class LaunchdAgentServiceTests: XCTestCase {
     let service = LaunchdAgentService(
       bundleURL: home.appendingPathComponent("Absent.app"),
       home: home,
-      launchctl: { [self] in record($0) },
+      launchctl: { [calls] in
+        calls.record($0)
+        return 0
+      },
     )
     XCTAssertEqual(service.status, .notFound)
     XCTAssertThrowsError(try service.register())
@@ -105,7 +111,7 @@ final class LaunchdAgentServiceTests: XCTestCase {
 
   // MARK: Private
 
-  private var calls = [[String]]()
+  private let calls = LaunchctlCalls()
 
   private lazy var home: URL = {
     let url = URL(fileURLWithPath: NSTemporaryDirectory())
@@ -133,15 +139,32 @@ final class LaunchdAgentServiceTests: XCTestCase {
   private func makeService(_ exit: @escaping @Sendable ([String]) -> Int32 = { _ in 0 })
     -> LaunchdAgentService
   {
-    LaunchdAgentService(bundleURL: bundle, home: home, launchctl: { [self] arguments in
-      calls.append(arguments)
+    LaunchdAgentService(bundleURL: bundle, home: home, launchctl: { [calls] arguments in
+      calls.record(arguments)
       return exit(arguments)
     })
   }
 
-  private func record(_ arguments: [String]) -> Int32 {
-    calls.append(arguments)
-    return 0
+}
+
+// MARK: - LaunchctlCalls
+
+/// What each launchctl fake was asked to run. `LaunchdAgentService` takes a `@Sendable` closure,
+/// so the record it writes into cannot be the test case, which is not safe to reach from one.
+private final class LaunchctlCalls: Sendable {
+
+  // MARK: Internal
+
+  var all: [[String]] {
+    calls.withLock { $0 }
   }
+
+  func record(_ arguments: [String]) {
+    calls.withLock { $0.append(arguments) }
+  }
+
+  // MARK: Private
+
+  private let calls = Mutex<[[String]]>([])
 
 }

@@ -6,6 +6,10 @@ import UserNotifications
 
 /// The notification-centre operations a reminder needs, so what the app shows can be worked out
 /// without the user's real notification centre, which no test process may reach.
+///
+/// Main actor, because every one of these is a window, a Dock icon or a sound: the app's own
+/// presentation, which AppKit serves from the main thread and nowhere else.
+@MainActor
 protocol ReminderPresenter {
   /// Puts `delegate` in the one seat macOS delivers a reminder's answer to. Handed the delegate
   /// rather than reaching for it, so this one call into `UNUserNotificationCenter` goes through a

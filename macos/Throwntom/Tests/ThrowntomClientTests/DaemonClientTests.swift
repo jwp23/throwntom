@@ -46,13 +46,15 @@ final class DaemonClientTests: XCTestCase {
 
   // MARK: Internal
 
+  @MainActor
   override func setUp() async throws {
     daemon = try DaemonHarness()
     try await daemon.start()
     registrar = RecordingRegistrar()
   }
 
-  override func tearDown() {
+  @MainActor
+  override func tearDown() async throws {
     daemon.cleanup()
   }
 
@@ -95,7 +97,7 @@ final class DaemonClientTests: XCTestCase {
     daemon.stop()
     try await waitUntil("the connection to drop") { client.connection != .connected }
     try await daemon.start()
-    try await waitUntil("the client to reconnect", timeout: 10) { client.connection == .connected }
+    try await waitUntil("the client to reconnect", timeout: 5) { client.connection == .connected }
     XCTAssertEqual(client.state?.state, .idle)
   }
 
@@ -145,7 +147,7 @@ final class DaemonClientTests: XCTestCase {
     XCTAssertEqual(client.unresolvedError, client.lastError)
 
     try await daemon.start()
-    try await waitUntil("the reconnect to clear the error", timeout: 10) { client.unresolvedError == nil }
+    try await waitUntil("the reconnect to clear the error", timeout: 5) { client.unresolvedError == nil }
     XCTAssertNotNil(client.lastError, "the error is only hidden, not forgotten")
   }
 

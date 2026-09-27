@@ -8,10 +8,9 @@
 # root), mutates only that fixture while running the full test suite, and fails unless
 # `>` → `>=` is reported Survived and `>` → `<` Killed. The Killed half proves the tests ran.
 #
-# Never run this while another swift-mutation-testing run is in progress for the same macOS
-# user. At startup the tool deletes every sandbox in the per-user temp directory, live or not
-# (Foundation's temporaryDirectory ignores $TMPDIR, so there is no way to separate two runs), and
-# the run it wipes reports its mutants Unviable or dies without a report.
+# ADR-017 / fork PR #4 (fix/8jq-1-sandbox-sweep-ownership): the pinned tool's startup sweep
+# scopes sandbox removal to ownership, so a second concurrent invocation no longer wipes a
+# live run's sandbox. Concurrent invocations of this script no longer need to be serialized.
 #
 # Usage:
 #   macos/mutation-control.sh <path-to-swift-mutation-testing>
@@ -23,17 +22,8 @@ set -euo pipefail
 tool="${1:?usage: macos/mutation-control.sh <path-to-swift-mutation-testing>}"
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 
-# Guard against two mutation-control.sh invocations racing each other, and against racing
-# mutate-file.sh: the tool's startup sweep wipes every other live run's sandbox for this macOS
-# user (see header comment above), so a second invocation must refuse before it ever launches
-# the tool. See macos/mutation-lock.sh for the guard's atomicity guarantees.
-# shellcheck disable=SC1091 # dynamic path via $repo_root; file exists at macos/mutation-lock.sh
-source "$repo_root/macos/mutation-lock.sh"
-mutation_control_acquire_lock
-trap 'mutation_control_release_lock' EXIT
-
 scratch="$(mktemp -d)"
-trap 'rm -rf "$scratch"; mutation_control_release_lock' EXIT
+trap 'rm -rf "$scratch"' EXIT
 
 rsync -a --exclude .git --exclude .build --exclude .claude --exclude .beads \
   --exclude .swift-mutation-testing-cache "$repo_root/" "$scratch/repo/"

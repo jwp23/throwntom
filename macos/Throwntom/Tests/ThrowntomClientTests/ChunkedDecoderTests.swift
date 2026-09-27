@@ -19,8 +19,10 @@ final class ChunkedDecoderTests: XCTestCase {
     // shape that stalls the decoder if it fails to move past the body phase exactly
     // when the last body byte matches the announced remaining count.
     let decoded = expectation(description: "feed decodes an extension-tagged, uppercase-hex chunk")
-    var result = Result<Data, Error>.success(Data())
-    var isFinished = false
+    // `wait(for:)` below is what orders the thread's writes against the reads after it; the
+    // compiler cannot see an expectation as the join it is.
+    nonisolated(unsafe) var result = Result<Data, Error>.success(Data())
+    nonisolated(unsafe) var isFinished = false
     Thread.detachNewThread {
       var decoder = ChunkedDecoder()
       result = Result { try decoder.feed(Data("A;name=v\r\n0123456789\r\n0\r\n\r\n".utf8)) }
@@ -85,7 +87,8 @@ final class ChunkedDecoderTests: XCTestCase {
     // exact-body-match shape that can stall the decoder before it ever inspects
     // the terminator bytes.
     let rejected = expectation(description: "feed rejects a malformed terminator without hanging")
-    var thrown: Error?
+    // Ordered by `wait(for:)` below, as in the decode test above.
+    nonisolated(unsafe) var thrown: Error?
     Thread.detachNewThread {
       var decoder = ChunkedDecoder()
       do {

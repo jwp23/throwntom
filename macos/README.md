@@ -8,7 +8,7 @@ daemon; the app renders `DaemonState` and sends commands over the Unix socket at
 
 Building the app — whether to install it or to develop on it — needs:
 
-- macOS 14 or later to run it (built and tested on macOS 26).
+- macOS 15 or later to run it (built and tested on macOS 26).
 - Xcode 26 with its command-line tools: `build.sh` uses `swift build` and the
   macOS SDK from it, and CI runs the tests with `xcodebuild`. There is no
   prebuilt download.

@@ -33,12 +33,14 @@ final class ReminderNotificationAnswerTests: XCTestCase {
 
   // MARK: Internal
 
+  @MainActor
   override func setUp() async throws {
     daemon = try DaemonHarness()
     try await daemon.start()
   }
 
-  override func tearDown() {
+  @MainActor
+  override func tearDown() async throws {
     daemon.cleanup()
   }
 
