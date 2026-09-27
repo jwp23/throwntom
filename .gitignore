@@ -35,6 +35,7 @@
 # does not run pull_request workflows on a conflicted PR. CI was silently
 # skipped on most PRs as a result (throwntom-80k).
 .beads/interactions.jsonl
+.beads.gate.lock
 
 # brainstorming visual-companion mockups
 .claude/brainstorm/
