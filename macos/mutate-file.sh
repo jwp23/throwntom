@@ -8,9 +8,6 @@
 # on the absolute path, so every other file in the target is excluded with a slash-anchored
 # pattern (/ThrowntomUI/Mascot/Arm.swift cannot match LeftArm.swift).
 #
-# Never run two swift-mutation-testing processes for the same macOS user at once: the tool's
-# startup sweep deletes every other live run's sandbox.
-#
 # Usage:
 #   macos/mutate-file.sh <path-to-swift-mutation-testing> <keep-regex> <report.json>
 # Example:
@@ -24,15 +21,6 @@ keep="${2:?$usage}"
 report="${3:?$usage}"
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 package="$repo_root/macos/Throwntom"
-
-# Claim the concurrent-run guard for this whole invocation, not just for the mutation-control.sh
-# step below: the exported claim lets that step recognize it's running inside an invocation that
-# already holds the lock and skip re-claiming it, rather than deadlocking against its own parent.
-# See macos/mutation-lock.sh for the guard's atomicity guarantees.
-# shellcheck disable=SC1091 # dynamic path via $repo_root; file exists at macos/mutation-lock.sh
-source "$repo_root/macos/mutation-lock.sh"
-mutation_control_acquire_lock
-trap 'mutation_control_release_lock' EXIT
 
 "$repo_root/macos/mutation-control.sh" "$tool"
 
