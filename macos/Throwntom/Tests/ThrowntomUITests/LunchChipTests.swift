@@ -31,7 +31,10 @@ final class LunchChipTests: XCTestCase {
   func testAnOrdinaryLengthDispatchesToTheDaemonRatherThanOpeningTheField() async throws {
     let transport = try StubTransport(states: [makeState(phase: .idle)])
     let environment = AppEnvironment(transport: transport)
-    defer { environment.client.stop() }
+    defer {
+      environment.client.stop()
+      environment.ticker.stop()
+    }
     environment.start()
     try await waitUntil { environment.client.state != nil }
     let chip = LunchChip(
@@ -53,7 +56,10 @@ final class LunchChipTests: XCTestCase {
   func testAPlainClickSendsNoExplicitLength() async throws {
     let transport = try StubTransport(states: [makeState(phase: .idle)])
     let environment = AppEnvironment(transport: transport)
-    defer { environment.client.stop() }
+    defer {
+      environment.client.stop()
+      environment.ticker.stop()
+    }
     environment.start()
     try await waitUntil { environment.client.state != nil }
     let chip = LunchChip(
@@ -127,7 +133,10 @@ final class LunchChipTests: XCTestCase {
   func testPressingTheLabelRegionSendsNoExplicitLength() async throws {
     let transport = try StubTransport(states: [makeState(phase: .idle)])
     let environment = AppEnvironment(transport: transport)
-    defer { environment.client.stop() }
+    defer {
+      environment.client.stop()
+      environment.ticker.stop()
+    }
     environment.start()
     try await waitUntil { environment.client.state != nil }
     let chip = LunchChip(
@@ -159,7 +168,10 @@ final class LunchChipTests: XCTestCase {
   func testPressingAMenuItemsButtonRunsItsAction() async throws {
     let transport = try StubTransport(states: [makeState(phase: .idle)])
     let environment = AppEnvironment(transport: transport)
-    defer { environment.client.stop() }
+    defer {
+      environment.client.stop()
+      environment.ticker.stop()
+    }
     environment.start()
     try await waitUntil { environment.client.state != nil }
     let chip = LunchChip(

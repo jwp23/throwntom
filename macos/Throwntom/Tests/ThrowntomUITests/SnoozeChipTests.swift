@@ -48,7 +48,10 @@ final class SnoozeChipTests: XCTestCase {
   func testAnOrdinaryVerbDispatchesToTheDaemonRatherThanOpeningTheField() async throws {
     let transport = try StubTransport(states: [makeState(phase: .idle)])
     let environment = AppEnvironment(transport: transport)
-    defer { environment.client.stop() }
+    defer {
+      environment.client.stop()
+      environment.ticker.stop()
+    }
     environment.start()
     try await waitUntil { environment.client.state != nil }
     let content = MainWindowContent(
@@ -145,7 +148,10 @@ final class SnoozeChipTests: XCTestCase {
   func testPressingTheLabelRegionRunsThePrimaryAction() async throws {
     let transport = try StubTransport(states: [makeState(phase: .awaitingConfirm, snoozeUntil: Date().addingTimeInterval(600))])
     let environment = AppEnvironment(transport: transport)
-    defer { environment.client.stop() }
+    defer {
+      environment.client.stop()
+      environment.ticker.stop()
+    }
     environment.start()
     try await waitUntil { environment.client.state != nil }
     let content = MainWindowContent(
@@ -181,7 +187,10 @@ final class SnoozeChipTests: XCTestCase {
   func testPressingAMenuItemsButtonRunsItsAction() async throws {
     let transport = try StubTransport(states: [makeState(phase: .awaitingConfirm)])
     let environment = AppEnvironment(transport: transport)
-    defer { environment.client.stop() }
+    defer {
+      environment.client.stop()
+      environment.ticker.stop()
+    }
     environment.start()
     try await waitUntil { environment.client.state != nil }
     let content = MainWindowContent(

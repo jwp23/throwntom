@@ -468,13 +468,9 @@ func makeEnvironment(transport: DaemonTransport, agent: LaunchAgentService) -> A
 func shape(of value: Any) -> String {
   var text = String(reflecting: type(of: value))
   for module in ["SwiftUI.", "ThrowntomUI.", "ThrowntomClient.", "Swift."] {
-    text = text.replacingOccurrences(of: module, with: "")
+    text = text.replacing(module, with: "")
   }
-  return text.replacingOccurrences(
-    of: #"\(unknown context at \$[0-9a-f]+\)\."#,
-    with: "",
-    options: .regularExpression,
-  )
+  return text.replacing(/\(unknown context at \$[0-9a-f]+\)\./, with: "")
 }
 
 /// The name a shape starts with, without its generic parameters.

@@ -32,7 +32,10 @@ final class MeetingChipTests: XCTestCase {
   func testAnOrdinaryLengthDispatchesToTheDaemonRatherThanOpeningTheField() async throws {
     let transport = try StubTransport(states: [makeState(phase: .idle)])
     let environment = AppEnvironment(transport: transport)
-    defer { environment.client.stop() }
+    defer {
+      environment.client.stop()
+      environment.ticker.stop()
+    }
     environment.start()
     try await waitUntil { environment.client.state != nil }
     let chip = MeetingChip(
@@ -53,7 +56,10 @@ final class MeetingChipTests: XCTestCase {
   func testEndingAMeetingAsksForASkip() async throws {
     let transport = try StubTransport(states: [makeState(phase: .meeting)])
     let environment = AppEnvironment(transport: transport)
-    defer { environment.client.stop() }
+    defer {
+      environment.client.stop()
+      environment.ticker.stop()
+    }
     environment.start()
     try await waitUntil { environment.client.state != nil }
     let chip = MeetingChip(
@@ -133,7 +139,10 @@ final class MeetingChipTests: XCTestCase {
   func testPressingTheLabelRegionRunsThePrimaryAction() async throws {
     let transport = try StubTransport(states: [makeState(phase: .meeting)])
     let environment = AppEnvironment(transport: transport)
-    defer { environment.client.stop() }
+    defer {
+      environment.client.stop()
+      environment.ticker.stop()
+    }
     environment.start()
     try await waitUntil { environment.client.state != nil }
     let chip = MeetingChip(
@@ -164,7 +173,10 @@ final class MeetingChipTests: XCTestCase {
   func testPressingAMenuItemsButtonRunsItsAction() async throws {
     let transport = try StubTransport(states: [makeState(phase: .idle)])
     let environment = AppEnvironment(transport: transport)
-    defer { environment.client.stop() }
+    defer {
+      environment.client.stop()
+      environment.ticker.stop()
+    }
     environment.start()
     try await waitUntil { environment.client.state != nil }
     let chip = MeetingChip(
