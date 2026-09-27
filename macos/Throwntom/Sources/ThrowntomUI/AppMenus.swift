@@ -101,8 +101,8 @@ struct AppMenus: Commands {
     }
     Divider()
     LoginItemToggle(registrar: environment.registrar)
-    Button("Open Login Items Settings…") { openLoginItemsSettings() }
-    Button("Open Notification Settings…") { openNotificationSettings() }
+    Button("Open Login Items Settings…", action: openLoginItemsSettings)
+    Button("Open Notification Settings…", action: openNotificationSettings)
   }
 
   /// Whether there is a daemon for these menus to dispatch to. Every menu that sends a command
