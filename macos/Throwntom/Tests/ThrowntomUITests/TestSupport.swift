@@ -68,11 +68,31 @@ func press<Action: MenuAction>(_ action: Action, in groups: MenuGroupsLabels) th
     "no \(action) in this menu",
   )
   let view = try unwrapped(try XCTUnwrap(groups.builtLabel(for: item)))
-  let press = try XCTUnwrap(
-    try child("closure", of: try child("action", of: view)) as? @MainActor () -> Void,
-    "\(shape(of: view)) has no button action to press",
+  try buttonAction(of: view)()
+}
+
+/// A built `Button`'s stored action, ready to call.
+///
+/// The action's type is borrowed from `Button.init`'s own signature rather than spelled, because
+/// spelling it is what fails: this module compiles in Swift 6 mode, where `@MainActor () -> Void`
+/// means `@MainActor @Sendable () -> Void`, and SwiftUI stores the non-Sendable one, so an `as?`
+/// against the spelling never matches. The bit cast adds only that `@Sendable`; both sides are
+/// the same closure.
+@MainActor
+func buttonAction(of button: Any) throws -> @MainActor () -> Void {
+  let closure = try child("closure", of: try child("action", of: button))
+  let stored = try XCTUnwrap(
+    storedButtonAction(closure, declaredBy: Button<Text>.init(_:action:)),
+    "\(shape(of: button)) has no button action to press",
   )
-  press()
+  return unsafeBitCast(stored, to: (@MainActor () -> Void).self)
+}
+
+private func storedButtonAction<Action>(
+  _ closure: Any,
+  declaredBy _: (LocalizedStringKey, Action) -> Button<Text>,
+) -> Action? {
+  closure as? Action
 }
 
 /// Polls `condition` every 20 ms until it holds or `timeout` seconds pass.
@@ -561,11 +581,7 @@ func splitChip(of chip: some View) throws -> some View {
 @MainActor
 func splitChipPrimaryAction(_ chip: some View) throws -> @MainActor () -> Void {
   let parts = try tupleParts(of: try stackContent(of: try unwrapped(try splitChip(of: chip).body)))
-  let labelRegion = try unwrapped(try part(0, of: parts))
-  return try XCTUnwrap(
-    try child("closure", of: try child("action", of: labelRegion)) as? @MainActor () -> Void,
-    "\(shape(of: labelRegion)) has no button action to press",
-  )
+  return try buttonAction(of: try unwrapped(try part(0, of: parts)))
 }
 
 /// The chevron's own `MenuGroups`, ready to be asked what it built for an item — the same

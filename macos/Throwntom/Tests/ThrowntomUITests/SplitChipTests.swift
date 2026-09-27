@@ -33,9 +33,8 @@ final class SplitChipTests: XCTestCase {
     let item = try XCTUnwrap(groups.labelledItems.first)
     let action = try XCTUnwrap((item as? MenuItem<SnoozeAction>)?.action)
     let built = try unwrapped(try XCTUnwrap(groups.builtLabel(for: item)))
-    let press = try XCTUnwrap(try child("closure", of: try child("action", of: built)) as? @MainActor () -> Void)
 
-    press()
+    try buttonAction(of: built)()
 
     XCTAssertEqual(pressed, [action])
   }

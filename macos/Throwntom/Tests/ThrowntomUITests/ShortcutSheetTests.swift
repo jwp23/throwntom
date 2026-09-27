@@ -65,12 +65,8 @@ final class ShortcutSheetTests: XCTestCase {
     let hstack = try part(3, of: parts)
     let hstackParts = try tupleParts(of: try stackContent(of: hstack))
     let button = try unwrapped(try part(1, of: hstackParts))
-    let press = try XCTUnwrap(
-      try child("closure", of: try child("action", of: button)) as? @MainActor () -> Void,
-      "the Done button has no action to press",
-    )
 
-    press()
+    try buttonAction(of: button)()
 
     XCTAssertFalse(environment.windowModel.showsShortcuts, "pressing Done did not close the sheet")
   }

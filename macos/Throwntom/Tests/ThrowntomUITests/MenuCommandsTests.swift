@@ -266,12 +266,7 @@ final class MenuCommandsTests: XCTestCase {
 
   /// Runs a button's stored action, the way choosing it would.
   private func pressButton(_ view: Any) throws {
-    let button = try unwrapped(view)
-    let action = try XCTUnwrap(
-      try child("closure", of: try child("action", of: button)) as? @MainActor () -> Void,
-      "\(shape(of: button)) has no button action to press",
-    )
-    action()
+    try buttonAction(of: try unwrapped(view))()
   }
 
   /// The name a `CommandMenu` shows in the menu bar.
