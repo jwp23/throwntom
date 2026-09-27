@@ -76,9 +76,26 @@ final class CommandChipsTests: XCTestCase {
     )
     let built = closure(try item(chips, .tasks))
     XCTAssertEqual(shape(of: try content(of: built)), "Chip")
+    XCTAssertTrue(try isEnabled(under: built), "an enabled item's chip must stay enabled")
+
+    chips.environment.windowModel.showsShortcuts = true
+    let dead = closure(try item(chips, .shortcuts))
+    XCTAssertFalse(try isEnabled(under: dead), "a disabled item's chip must be disabled")
   }
 
   // MARK: Private
+
+  /// Whether `.disabled(_:)` left the chip enabled: the modifier is a transform over the
+  /// environment's `isEnabled`, so running it on `true` reads back the Bool it was built with.
+  private func isEnabled(under built: Any) throws -> Bool {
+    let transform = try XCTUnwrap(
+      try child("transform", of: try child("modifier", of: built)) as? (inout Bool) -> Void,
+      "\(shape(of: built)) has no environment transform to run",
+    )
+    var isEnabled = true
+    transform(&isEnabled)
+    return isEnabled
+  }
 
   private func makeChips() throws -> CommandChips {
     let environment = AppEnvironment(transport: try StubTransport(states: []))

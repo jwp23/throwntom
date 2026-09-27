@@ -80,7 +80,10 @@ final class LunchMenuGateTests: XCTestCase {
 
   private func makeMenus(phase: DaemonState.Phase) async throws -> AppMenus {
     let environment = AppEnvironment(transport: try StubTransport(states: [makeState(phase: phase)]))
-    addTeardownBlock { @MainActor in environment.client.stop() }
+    addTeardownBlock { @MainActor in
+      environment.client.stop()
+      environment.ticker.stop()
+    }
     environment.start()
     try await waitUntil { environment.client.state != nil }
     let menus = AppMenus(environment: environment)
