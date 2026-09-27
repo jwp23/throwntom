@@ -47,8 +47,17 @@ final class MainWindowBodyTests: XCTestCase {
   ///
   /// Named by SwiftUI's own types, which is what makes the list readable as the window it
   /// describes; if a macOS release renames one this fails loudly rather than stopping checking.
+  /// The sheet is the exception: macOS 27 adds a `PresentationConditionalProjection.Item`
+  /// parameter to its type that macOS 26 does not have, so that layer is named by its head alone
+  /// and what it presents is checked separately.
   func testTheWindowIsPaddedColouredAnimatedAndWired() throws {
-    XCTAssertEqual(try modifiers(of: try makeEnvironment()).map(shape), [
+    let layers = try modifiers(of: try makeEnvironment())
+    let names = layers.enumerated().map { index, layer in
+      index == Layer.sheet.rawValue ? head(layer) : shape(of: layer)
+    }
+
+    XCTAssertTrue(shape(of: try part(Layer.sheet.rawValue, of: layers)).contains("<ShortcutSheet, "))
+    XCTAssertEqual(names, [
       "_PaddingLayout",
       "_FlexFrameLayout",
       "_BackgroundStyleModifier<Color>",
@@ -57,7 +66,7 @@ final class MainWindowBodyTests: XCTestCase {
       "_AnimationModifier<PhaseScheme>",
       "_AnimationModifier<Optional<WindowPanel>>",
       "OnCommandModifier",
-      "SheetPresentationModifier<ShortcutSheet, NullSheetAnchor<SheetPreference.Key>>",
+      "SheetPresentationModifier",
       "_ValueActionModifier2<Bool>",
       "_AppearanceActionModifier",
       "_ValueActionModifier2<Bool>",
@@ -130,9 +139,10 @@ final class MainWindowBodyTests: XCTestCase {
   func testTheWindowPresentsTheCheatSheetForItsOwnApp() throws {
     let environment = try makeEnvironment()
     let sheet = try modifier(.sheet, of: environment)
+    let fields = Mirror(reflecting: sheet).children.map { "\($0.label ?? "-"): \(shape(of: $0.value))" }
     let build = try XCTUnwrap(
       try child("sheetContent", of: sheet) as? () -> ShortcutSheet,
-      "the window presents \(shape(of: sheet)), which is not a cheat sheet",
+      "the window presents \(shape(of: sheet)) holding \(fields), which is not a cheat sheet",
     )
 
     XCTAssertTrue(build().environment === environment, "the sheet reads the window's own app")
