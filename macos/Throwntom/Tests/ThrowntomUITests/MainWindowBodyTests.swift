@@ -56,7 +56,7 @@ final class MainWindowBodyTests: XCTestCase {
       index == Layer.sheet.rawValue ? head(layer) : shape(of: layer)
     }
 
-    XCTAssertTrue(shape(of: try part(Layer.sheet.rawValue, of: layers)).contains("<ShortcutSheet, "))
+    XCTAssertTrue(shape(of: try part(Layer.sheet.rawValue, of: layers)).contains("ShortcutSheet, NullSheetAnchor"))
     XCTAssertEqual(names, [
       "_PaddingLayout",
       "_FlexFrameLayout",
@@ -138,14 +138,10 @@ final class MainWindowBodyTests: XCTestCase {
 
   func testTheWindowPresentsTheCheatSheetForItsOwnApp() throws {
     let environment = try makeEnvironment()
+    environment.windowModel.showsShortcuts = true
     let sheet = try modifier(.sheet, of: environment)
-    let fields = Mirror(reflecting: sheet).children.map { "\($0.label ?? "-"): \(shape(of: $0.value))" }
-    let build = try XCTUnwrap(
-      try child("sheetContent", of: sheet) as? () -> ShortcutSheet,
-      "the window presents \(shape(of: sheet)) holding \(fields), which is not a cheat sheet",
-    )
 
-    XCTAssertTrue(build().environment === environment, "the sheet reads the window's own app")
+    XCTAssertTrue(try presentedSheet(of: sheet).environment === environment, "the sheet reads the window's own app")
   }
 
   func testAWithdrawnSnoozeChipClosesTheDurationFieldBehindIt() throws {
@@ -323,6 +319,28 @@ final class MainWindowBodyTests: XCTestCase {
   private func shutDown(_ environment: AppEnvironment) {
     environment.client.stop()
     environment.ticker.stop()
+  }
+
+  /// What the sheet modifier builds while it is presented. macOS 26 keeps the content as
+  /// `() -> ShortcutSheet`; macOS 27 routes `isPresented` through a projection and keeps
+  /// `(Item) -> ShortcutSheet`, with the item to hand it sitting behind the binding, so the item's
+  /// own type is opened to make the call rather than named.
+  private func presentedSheet(of sheet: Any) throws -> ShortcutSheet {
+    let content = try child("sheetContent", of: sheet)
+    if let build = content as? () -> ShortcutSheet {
+      return build()
+    }
+    let item = try XCTUnwrap(
+      Mirror(reflecting: try child("_value", of: try child("_item", of: sheet))).children.first?.value,
+      "the sheet is presented with nothing to build from",
+    )
+    func build<Item>(_ item: Item) -> ShortcutSheet? {
+      (content as? (Item) -> ShortcutSheet)?(item)
+    }
+    return try XCTUnwrap(
+      _openExistential(item, do: build),
+      "\(shape(of: sheet)) does not build a cheat sheet from its item",
+    )
   }
 
   private func sections(of environment: AppEnvironment) throws -> [Any] {
