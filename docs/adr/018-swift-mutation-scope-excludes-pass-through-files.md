@@ -105,7 +105,9 @@ exists.
   - *Unreachable by any test process:* relocate the line.
     `ReminderResponder.swift:47` moves behind the `ReminderPresenter`
     protocol, so that `start()` becomes callable from a test and lines
-    48-51 are killed rather than excused. The two
+    48-51 are killed rather than excused (PR #220, unmerged as this is
+    written, already carries that seam as `claimNotificationDelegate` and
+    drops the four entries). The two
     `UNUserNotificationCenterDelegate` methods move to an extension in a file of their own that
     forwards to `respond(to:then:)` and `presentationOptions`, which stay
     in scope. `SystemReminderPresenter.swift` splits: the
