@@ -192,6 +192,8 @@ jobs:
       # The excludes go to a file first: reading them through a process
       # substitution would hide a failing swiftmutantshard behind an empty
       # list, which would silently mutate the whole target in every shard.
+      # -scope also excludes the pass-through files sonar-project.properties'
+      # sonar.coverage.exclusions names, so the run never mutates them (ADR-018).
       - name: Run swift-mutation-testing
         working-directory: macos/Throwntom
         env:
@@ -201,7 +203,7 @@ jobs:
         run: |
           chmod +x "$RUNNER_TEMP/bin/swift-mutation-testing"
           (cd ../.. && go run ./tools/swiftmutantshard -sources "macos/Throwntom/Sources/$TARGET" \
-            -shards "$SHARDS" -index "$INDEX") > "$RUNNER_TEMP/excludes.txt"
+            -shards "$SHARDS" -index "$INDEX" -scope sonar-project.properties) > "$RUNNER_TEMP/excludes.txt"
           exclude_args=()
           while IFS= read -r pattern; do
             exclude_args+=(--exclude "$pattern")
