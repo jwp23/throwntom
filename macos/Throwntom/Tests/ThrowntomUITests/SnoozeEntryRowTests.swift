@@ -109,12 +109,17 @@ final class SnoozeEntryRowTests: XCTestCase {
   /// What the user types is content, not a footnote about it: the row reads at the window's body
   /// size, and only the rule under it is a caption. Measured by forcing the whole row to caption —
   /// a row that was already one would not get any smaller, and `rule` sets its own font either way.
+  /// Both measurements are traced so an intermittent equal-height failure (throwntom-repg) reports
+  /// the font AppKit sized the field at.
   func testTheRowItselfIsBodyTextAndOnlyTheRuleIsACaption() throws {
     let (row, _, _, _) = try makeRow()
+    let body = try TextFieldSizingTrace.record { try AppearanceRender.size(row.body).height }
+    let caption = try TextFieldSizingTrace.record { try AppearanceRender.size(row.body.font(.caption)).height }
 
     XCTAssertGreaterThan(
-      try AppearanceRender.size(row.body).height,
-      try AppearanceRender.size(row.body.font(.caption)).height,
+      body.value,
+      caption.value,
+      TextFieldSizingTrace.describe(["body": body.calls, "caption": caption.calls]),
     )
   }
 
